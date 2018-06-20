@@ -16,7 +16,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Module gopath provides way to import python modules by full path in a Go workspace.
+"""Module _gopath provides way to import python modules by full path in a Go workspace.
 
 For example
 
@@ -56,8 +56,8 @@ def _gimport(name):
     # reason: if we leave dots in place, python emits warning:
     #   RuntimeWarning: Parent module 'lab.nexedi' not found while handling absolute import
     #
-    # we put every imported module under `gopath.` namespace with '.' changed to '_'
-    modname = 'gopath.' + name.replace('.', '_')
+    # we put every imported module under `golang._gopath.` namespace with '.' changed to '_'
+    modname = 'golang._gopath.' + name.replace('.', '_')
 
     try:
         return sys.modules[modname]

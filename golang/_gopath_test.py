@@ -18,7 +18,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 import os, os.path
-from gopath import gimport
+from golang._gopath import gimport
 
 GOPATH_orig = None
 

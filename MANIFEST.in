@@ -1,1 +1,1 @@
-recursive-include testdata *.py
+recursive-include golang/testdata *.py

@@ -1,4 +1,4 @@
-# pygopath | pythonic package setup
+# pygolang | pythonic package setup
 from setuptools import setup, find_packages
 
 # read file content
@@ -7,20 +7,18 @@ def readfile(path):
         return f.read()
 
 setup(
-    name        = 'pygopath',
-    version     = '0.0.0.dev1',
-    description = 'Import python modules by full-path in Go workspace',
+    name        = 'pygolang',
+    version     = '0.0.0.dev2',
+    description = 'Go-like features for Python',
     long_description = readfile('README.rst'),
-    url         = 'https://lab.nexedi.com/kirr/pygopath',
+    url         = 'https://lab.nexedi.com/kirr/pygolang',
     license     = 'GPLv3+ with wide exception for Open-Source',
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
-    keywords    = 'go GOPATH python import',
+    keywords    = 'go channel goroutine GOPATH python import',
 
-    # XXX find_packages does not find top-level *.py
-    #packages    = find_packages(),
-    packages    = [''],
+    packages    = find_packages(),
 
     extras_require = {
                   'test': ['pytest'],
