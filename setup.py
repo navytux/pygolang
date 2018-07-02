@@ -20,6 +20,8 @@ setup(
 
     packages    = find_packages(),
 
+    install_requires = ['six'],
+
     extras_require = {
                   'test': ['pytest'],
     },
