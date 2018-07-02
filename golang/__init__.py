@@ -32,6 +32,9 @@ __all__ = ['method', 'go', 'chan', 'select', 'default', 'panic', 'gimport']
 from golang._gopath import gimport  # make gimport available from golang
 import threading, collections, random
 
+import six
+from golang._pycompat import im_class
+
 # TODO -> use gevent + fallback to !gevent implementation if gevent was not initialized.
 # The following should automatically prefer to use gevent as golang backend:
 #
@@ -369,6 +372,16 @@ class chan(object):
 # default represents default case for select.
 default  = object()
 
+# unbound chan.{send,recv,recv_}
+_chan_send  = chan.send
+_chan_recv  = chan.recv
+_chan_recv_ = chan.recv_
+if six.PY2:
+    # on py3 class.func gets the func; on py2 - unbound_method(func)
+    _chan_send  = _chan_send.__func__
+    _chan_recv  = _chan_recv.__func__
+    _chan_recv_ = _chan_recv_.__func__
+
 # select executes one ready send or receive channel case.
 #
 # if no case is ready and default case was provided, select chooses default.
@@ -418,12 +431,12 @@ def select(*casev):
         # send
         elif isinstance(case, tuple):
             send, tx = case
-            if send.im_class is not chan:
-                panic("select: send on non-chan: %r" % (send.im_class,))
-            if send.im_func is not chan.send.im_func:
+            if im_class(send) is not chan:
+                panic("select: send on non-chan: %r" % (im_class(send),))
+            if send.__func__ is not _chan_send:
                 panic("select: send expected: %r" % (send,))
 
-            ch = send.im_self
+            ch = send.__self__
             ch._mu.acquire()
             if 1:
                 ok = ch._trysend(tx)
@@ -436,16 +449,16 @@ def select(*casev):
         # recv
         else:
             recv = case
-            if recv.im_class is not chan:
-                panic("select: recv on non-chan: %r" % (ch.im_class,))
-            if recv.im_func is chan.recv.im_func:
+            if im_class(recv) is not chan:
+                panic("select: recv on non-chan: %r" % (im_class(recv),))
+            if recv.__func__ is _chan_recv:
                 commaok = False
-            elif recv.im_func is chan.recv_.im_func:
+            elif recv.__func__ is _chan_recv_:
                 commaok = True
             else:
                 panic("select: recv expected: %r" % (recv,))
 
-            ch = recv.im_self
+            ch = recv.__self__
             ch._mu.acquire()
             if 1:
                 rx_, ok = ch._tryrecv()
