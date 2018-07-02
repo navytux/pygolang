@@ -1,1 +1,2 @@
+include tox.ini
 recursive-include golang/testdata *.py

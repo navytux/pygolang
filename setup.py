@@ -28,6 +28,8 @@ setup(
 
     classifiers = [_.strip() for _ in """\
         Development Status :: 3 - Alpha
-        Intended Audience :: Developers\
+        Intended Audience :: Developers
+        Programming Language :: Python :: 2
+        Programming Language :: Python :: 3\
     """.splitlines()]
 )
