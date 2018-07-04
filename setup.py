@@ -27,6 +27,11 @@ setup(
                   'test': ['pytest'],
     },
 
+    entry_points= {'console_scripts': [
+                        'py.bench = golang.cmd.pybench:main',
+                      ]
+                  },
+
     classifiers = [_.strip() for _ in """\
         Development Status :: 3 - Alpha
         Intended Audience :: Developers
