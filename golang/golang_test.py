@@ -20,7 +20,8 @@
 
 from golang import go, chan, select, default, _PanicError
 from pytest import raises
-import time, threading
+from os.path import dirname
+import sys, time, threading, subprocess
 
 # tdelay delays a bit.
 #
@@ -28,6 +29,13 @@ import time, threading
 # have a way to wait properly for ordering event.
 def tdelay():
     time.sleep(1E-3)    # 1ms
+
+
+def test_go():
+    # leaked goroutine behaviour check: done in separate process because we need
+    # to test process termination exit there.
+    subprocess.check_call([sys.executable,
+        dirname(__file__) + "/golang_test_goleaked.py"])
 
 
 def test_chan():

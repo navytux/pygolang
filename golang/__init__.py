@@ -78,7 +78,9 @@ class _PanicError(Exception):
 # NOTE it spawns threading.Thread, but if gevent was activated via
 # `gevent.monkey.patch_all`, it will spawn greenlet, not full OS thread.
 def go(f, *argv, **kw):
-    threading.Thread(target=f, args=argv, kwargs=kw).start()
+    t = threading.Thread(target=f, args=argv, kwargs=kw)
+    t.daemon = True # leaked goroutines don't prevent program to exit
+    t.start()
 
 
 # ---- channels ----
