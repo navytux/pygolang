@@ -59,9 +59,9 @@ from golang._pycompat import im_class
 def method(cls):
     def deco(f):
         if isinstance(f, (staticmethod, classmethod)):
-            func_name = f.__func__.func_name
+            func_name = f.__func__.__name__
         else:
-            func_name = f.func_name
+            func_name = f.__name__
         setattr(cls, func_name, f)
     return deco
 

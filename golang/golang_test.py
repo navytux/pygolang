@@ -18,10 +18,10 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError
+from golang import go, chan, select, default, _PanicError, method
 from pytest import raises
 from os.path import dirname
-import sys, time, threading, subprocess
+import sys, time, threading, inspect, subprocess
 
 # tdelay delays a bit.
 #
@@ -324,3 +324,46 @@ def test_select():
         done.recv()
         assert len(ch1._sendq) == len(ch1._recvq) == 0
         assert len(ch2._sendq) == len(ch2._recvq) == 0
+
+
+def test_method():
+    # test how @method works
+
+    class MyClass:
+        def __init__(self, v):
+            self.v = v
+
+    @method(MyClass)
+    def zzz(self, v, x=2, **kkkkwww):
+        assert self.v == v
+        return v + 1
+
+    @method(MyClass)
+    @staticmethod
+    def mstatic(v):
+        assert v == 5
+        return v + 1
+
+    @method(MyClass)
+    @classmethod
+    def mcls(cls, v):
+        assert cls is MyClass
+        assert v == 7
+        return v + 1
+
+    obj = MyClass(4)
+    assert obj.zzz(4)       == 4 + 1
+    assert obj.mstatic(5)   == 5 + 1
+    assert obj.mcls(7)      == 7 + 1
+
+    # this tests that @method preserves decorated function signature
+    assert inspect.formatargspec(*inspect.getargspec(MyClass.zzz)) == '(self, v, x=2, **kkkkwww)'
+
+    assert MyClass.zzz.__module__       == __name__
+    assert MyClass.zzz.__name__         == 'zzz'
+
+    assert MyClass.mstatic.__module__   == __name__
+    assert MyClass.mstatic.__name__     == 'mstatic'
+
+    assert MyClass.mcls.__module__      == __name__
+    assert MyClass.mcls.__name__        == 'mcls'
