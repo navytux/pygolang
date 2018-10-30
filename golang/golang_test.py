@@ -18,7 +18,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError, method
+from golang import go, chan, select, default, _PanicError, func, method, panic, defer, recover
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
@@ -385,6 +385,7 @@ def test_select():
 
 def test_method():
     # test how @method works
+    # this also implicitly tests @func, since @method uses that.
 
     class MyClass:
         def __init__(self, v):
@@ -413,7 +414,7 @@ def test_method():
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
 
-    # this tests that @method preserves decorated function signature
+    # this tests that @func (used by @method) preserves decorated function signature
     assert inspect.formatargspec(*inspect.getargspec(MyClass.zzz)) == '(self, v, x=2, **kkkkwww)'
 
     assert MyClass.zzz.__module__       == __name__
@@ -424,3 +425,205 @@ def test_method():
 
     assert MyClass.mcls.__module__      == __name__
     assert MyClass.mcls.__name__        == 'mcls'
+
+
+
+def test_deferrecover():
+    # regular defer calls
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        defer(lambda: v.append(2))
+        defer(lambda: v.append(3))
+
+    _()
+    assert v == [3, 2, 1]
+
+    # defers called even if exception is raised
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        defer(lambda: v.append(2))
+        def _(): v.append('ran ok')
+        defer(_)
+        1/0
+
+    raises(ZeroDivisionError, "_()")
+    assert v == ['ran ok', 2, 1]
+
+    # defer without @func is caught and properly reported
+    v = []
+    def nofunc():
+        defer(lambda: v.append('xx'))
+
+    with raises(_PanicError) as exc:
+        nofunc()
+    assert exc.value.args == ("function nofunc uses defer, but not @func",)
+
+
+    # panic in deferred call - all defers are called
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        defer(lambda: v.append(2))
+        defer(lambda: panic(3))
+        defer(lambda: v.append(4))
+
+    raises(_PanicError, "_()")
+    assert v == [4, 2, 1]
+
+
+    # defer + recover
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        def _():
+            r = recover()
+            assert r == "aaa"
+            v.append('recovered ok')
+        defer(_)
+        defer(lambda: v.append(3))
+
+        panic("aaa")
+
+    _()
+    assert v == [3, 'recovered ok', 1]
+
+
+    # recover + panic in defer
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        defer(lambda: panic(2))
+        def _():
+            r = recover()
+            assert r == "bbb"
+            v.append('recovered 1')
+        defer(_)
+        defer(lambda: v.append(3))
+
+        panic("bbb")
+
+    raises(_PanicError, "_()")
+    assert v == [3, 'recovered 1', 1]
+
+
+    # recover + panic in defer + recover
+    v = []
+    @func
+    def _():
+        defer(lambda: v.append(1))
+        def _():
+            r = recover()
+            assert r == "ddd"
+            v.append('recovered 2')
+        defer(_)
+        defer(lambda: panic("ddd"))
+        def _():
+            r = recover()
+            assert r == "ccc"
+            v.append('recovered 1')
+        defer(_)
+        defer(lambda: v.append(3))
+
+        panic("ccc")
+
+    _()
+    assert v == [3, 'recovered 1', 'recovered 2', 1]
+
+
+    # ---- recover() -> None ----
+
+    # no exception / not under defer
+    assert recover() is None
+
+    # no exception/panic
+    @func
+    def _():
+        def _():
+            assert recover() is None
+        defer(_)
+
+    # not directly called by deferred func
+    v = []
+    @func
+    def _():
+        def f():
+            assert recover() is None
+            v.append('not recovered')
+        defer(lambda: f())
+
+        panic("zzz")
+
+    raises(_PanicError, "_()")
+    assert v == ['not recovered']
+
+
+    # ---- defer in @method(x) ----
+
+    # defer in @method
+    v = []
+
+    class MyClass:
+        pass
+
+    @method(MyClass)
+    def zzz(self):
+        defer(lambda: v.append(1))
+        defer(lambda: v.append(2))
+        defer(lambda: v.append(3))
+
+    obj = MyClass()
+    obj.zzz()
+    assert v == [3, 2, 1]
+
+
+    # defer in std method
+    v = []
+
+    class MyClass:
+        @func
+        def method(self):
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(2))
+            defer(lambda: v.append(4))
+
+    obj = MyClass()
+    obj.method()
+    assert v == [4, 2, 1]
+
+
+    # defer in std @staticmethod
+    v = []
+
+    class MyClass:
+        @func
+        @staticmethod
+        def mstatic():
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(2))
+            defer(lambda: v.append(5))
+
+    MyClass.mstatic()
+    assert v == [5, 2, 1]
+
+
+    # defer in std @classmethod
+    v = []
+
+    class MyClass:
+        @func
+        @classmethod
+        def mcls(cls):
+            assert cls is MyClass
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(2))
+            defer(lambda: v.append(7))
+
+    MyClass.mcls()
+    assert v == [7, 2, 1]

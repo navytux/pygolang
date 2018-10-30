@@ -21,7 +21,7 @@ setup(
 
     packages    = find_packages(),
 
-    install_requires = ['six'],
+    install_requires = ['six', 'decorator'],
 
     extras_require = {
                   'test': ['pytest'],

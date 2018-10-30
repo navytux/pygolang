@@ -7,6 +7,7 @@ Package golang provides Go-like features for Python:
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
 - `method` allows to define methods separate from class.
+- `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 
@@ -62,6 +63,40 @@ For example::
 
 will define `MyClass.my_method()`.
 
+
+Defer / recover / panic
+-----------------------
+
+`defer` allows to schedule a cleanup to be executed when current function
+returns. It is similar to `try`/`finally` but does not force the cleanup part
+to be far away in the end. For example::
+
+   wc = wcfs.join(zurl)    │     wc = wcfs.join(zurl)
+   defer(wc.close)         │     try:
+                           │        ...
+   ...                     │        ...
+   ...                     │        ...
+   ...                     │     finally:
+                           │        wc.close()
+
+For completeness there is `recover` and `panic` that allow to program with
+Go-style error handling, for example::
+
+   def _():
+      r = recover()
+      if r is not None:
+         print("recovered. error was: %s" % (r,))
+   defer(_)
+
+   ...
+
+   panic("aaa")
+
+But `recover` and `panic` are probably of less utility since they can be
+practically natively modelled with `try`/`except`.
+
+If `defer` is used, the function that uses it must be wrapped with `@func` or
+`@method` decorators.
 
 Import
 ------
