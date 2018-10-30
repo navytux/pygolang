@@ -137,6 +137,8 @@ def test_chan():
 
 
 def test_select():
+    N = 1000 # times to do repeated select/chan or select/select interactions
+
     # non-blocking try send: not ok
     ch = chan()
     _, _rx = select(
@@ -172,7 +174,7 @@ def test_select():
         done.close()
     go(_)
 
-    for i in range(10):
+    for i in range(N):
         tdelay()
         _, _rx = select(
                 (ch.send, i),
@@ -186,12 +188,12 @@ def test_select():
     ch = chan()
     done = chan()
     def _():
-        for i in range(10):
+        for i in range(N):
             ch.send(i)
         done.close()
     go(_)
 
-    for i in range(10):
+    for i in range(N):
         tdelay()
         if i % 2:
             _, _rx = select(
@@ -290,7 +292,7 @@ def test_select():
 
     # buffered ping-pong
     ch = chan(1)
-    for i in range(10):
+    for i in range(N):
         _, _rx = select(
             (ch.send, i),
             ch.recv,
@@ -300,7 +302,7 @@ def test_select():
 
 
     # select vs select
-    for i in range(10):
+    for i in range(N):
         ch1 = chan()
         ch2 = chan()
         done = chan()
