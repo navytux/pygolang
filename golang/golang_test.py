@@ -21,7 +21,7 @@
 from golang import go, chan, select, default, _PanicError, method
 from pytest import raises
 from os.path import dirname
-import sys, time, threading, inspect, subprocess
+import os, sys, time, threading, inspect, subprocess
 
 # tdelay delays a bit.
 #
@@ -34,8 +34,20 @@ def tdelay():
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
     # to test process termination exit there.
-    subprocess.check_call([sys.executable,
-        dirname(__file__) + "/golang_test_goleaked.py"])
+
+    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
+    # script will succeed on `import golang` when running in-tree.
+    dir_golang = dirname(__file__)  #     .../pygolang/golang
+    dir_top    = dir_golang + '/..' # ~>  .../pygolang
+    pathv = [dir_top]
+    env = os.environ.copy()
+    envpath = env.get('PYTHONPATH')
+    if envpath is not None:
+        pathv.append(envpath)
+    env['PYTHONPATH'] = ':'.join(pathv)
+
+    subprocess.check_call([sys.executable, dir_golang + "/golang_test_goleaked.py"],
+            env=env)
 
 
 def test_chan():
