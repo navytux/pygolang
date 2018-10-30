@@ -1,6 +1,33 @@
 Pygolang change history
 =======================
 
+0.0.0.dev5 (2018-10-30)
+-----------------------
+
+- Fix `select` bug that was causing several cases to be potentially executed
+  at the same time (`commit 1`__, 2__, 3__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f0b592b4
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b51b8d5d
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2fc6797c
+
+- Add `defer` and `recover` (commit__).
+  The implementation is partly inspired by work of Denis Kolodin (1__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5146eb0b
+  __ https://habr.com/post/191786
+  __ https://stackoverflow.com/a/43028386/9456786
+
+- Fix `@method` on Python3 (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ab69e0fa
+
+- A leaked goroutine no longer prevents whole program to exit (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/69cef96e
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ec929991
+
+
 0.0.0.dev4 (2018-07-04)
 -----------------------
 

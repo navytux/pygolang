@@ -8,7 +8,7 @@ def readfile(path):
 
 setup(
     name        = 'pygolang',
-    version     = '0.0.0.dev4',
+    version     = '0.0.0.dev5',
     description = 'Go-like features for Python',
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
