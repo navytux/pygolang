@@ -302,6 +302,7 @@ def test_select():
 
 
     # select vs select
+    # channels are recreated on every iteration.
     for i in range(N):
         ch1 = chan()
         ch2 = chan()
@@ -338,6 +339,48 @@ def test_select():
         done.recv()
         assert len(ch1._sendq) == len(ch1._recvq) == 0
         assert len(ch2._sendq) == len(ch2._recvq) == 0
+
+
+    # select vs select
+    # channels are shared for all iterations.
+    # (this tries to trigger parasitic effects from already performed select)
+    ch1 = chan()
+    ch2 = chan()
+    done = chan()
+    def _():
+        for i in range(N):
+            _, _rx = select(
+                (ch1.send, 'a%d' % i),
+                (ch2.send, 'xxx2'),
+            )
+            assert (_, _rx) == (0, None)
+
+            _, _rx = select(
+                (ch1.send, 'yyy2'),
+                ch2.recv,
+            )
+            assert (_, _rx) == (1, 'b%d' % i)
+
+        done.close()
+
+    go(_)
+
+    for i in range(N):
+        _, _rx = select(
+            ch1.recv,
+            (ch2.send, 'xxx1'),
+        )
+        assert (_, _rx) == (0, 'a%d' % i)
+
+        _, _rx = select(
+            (ch1.send, 'yyy1'),
+            (ch2.send, 'b%d' % i),
+        )
+        assert (_, _rx) == (1, None)
+
+    done.recv()
+    assert len(ch1._sendq) == len(ch1._recvq) == 0
+    assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
 def test_method():
