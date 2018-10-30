@@ -130,7 +130,7 @@ class _WaitGroup(object):
     # ._waitv   [] of _{Send|Recv}Waiting
     # ._sema    semaphore   used for wakeup
     #
-    # ._mu      lock
+    # ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
     #
     # on wakeup: sender|receiver -> group:
     #   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
@@ -148,7 +148,7 @@ class _WaitGroup(object):
     #
     # -> ok: true if won, false - if not.
     def try_to_win(self, waiter):
-        with self._mu:  # NOTE order is always:  waiter.chan._mu > ._mu
+        with self._mu:
             if self.which is not None:
                 return False
             else:
@@ -480,35 +480,9 @@ def select(*casev):
     # second pass: subscribe and wait on all rx/tx cases
     g = _WaitGroup()
 
-    try:
-        for n, ch, tx in sendv:
-            ch._mu.acquire()
-            if 1:
-                ok = ch._trysend(tx)
-                if ok:
-                    return n, None
-
-                w = _SendWaiting(g, ch, tx)
-                w.sel_n = n
-                ch._sendq.append(w)
-            ch._mu.release()
-
-        for n, ch, commaok in recvv:
-            ch._mu.acquire()
-            if 1:
-                rx_, ok = ch._tryrecv()
-                if ok:
-                    if not commaok:
-                        rx, ok = rx_
-                        rx_ = rx
-                    return n, rx_
-
-                w = _RecvWaiting(g, ch)
-                w.sel_n = n
-                w.sel_commaok = commaok
-                ch._recvq.append(w)
-            ch._mu.release()
-
+    # selected returns what was selected in g.
+    # the return signature is the one of select.
+    def selected():
         g.wait()
         sel = g.which
         if isinstance(sel, _SendWaiting):
@@ -523,8 +497,54 @@ def select(*casev):
                 rx_ = rx
             return sel.sel_n, rx_
 
-
         raise AssertionError("select: unreachable")
+
+    try:
+        for n, ch, tx in sendv:
+            ch._mu.acquire()
+            with g._mu:
+                # a case that we previously queued already won
+                if g.which is not None:
+                    ch._mu.release()
+                    return selected()
+
+                ok = ch._trysend(tx)
+                if ok:
+                    # don't let already queued cases win
+                    g.which = "tx prepoll won"  # !None
+
+                    return n, None
+
+                w = _SendWaiting(g, ch, tx)
+                w.sel_n = n
+                ch._sendq.append(w)
+            ch._mu.release()
+
+        for n, ch, commaok in recvv:
+            ch._mu.acquire()
+            with g._mu:
+                # a case that we previously queued already won
+                if g.which is not None:
+                    ch._mu.release()
+                    return selected()
+
+                rx_, ok = ch._tryrecv()
+                if ok:
+                    # don't let already queued cases win
+                    g.which = "rx prepoll won"  # !None
+
+                    if not commaok:
+                        rx, ok = rx_
+                        rx_ = rx
+                    return n, rx_
+
+                w = _RecvWaiting(g, ch)
+                w.sel_n = n
+                w.sel_commaok = commaok
+                ch._recvq.append(w)
+            ch._mu.release()
+
+        return selected()
 
     finally:
         # unsubscribe not-succeeded waiters
