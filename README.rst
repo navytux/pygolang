@@ -134,6 +134,9 @@ without escaping printable UTF-8 characters::
 `qq` accepts both `str` and `bytes` (`unicode` and `str` on Python2)
 and also any other type that can be converted to `str`.
 
+Package `golang.strconv` provides direct access to conversion routines, for
+example `strconv.quote`.
+
 
 Benchmarking and testing
 ------------------------
