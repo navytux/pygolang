@@ -135,7 +135,7 @@ without escaping printable UTF-8 characters::
 and also any other type that can be converted to `str`.
 
 Package `golang.strconv` provides direct access to conversion routines, for
-example `strconv.quote`.
+example `strconv.quote` and `strconv.unquote`.
 
 
 Benchmarking and testing

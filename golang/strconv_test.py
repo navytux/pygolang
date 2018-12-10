@@ -18,11 +18,12 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang.strconv import quote
+from golang.strconv import quote, unquote, unquote_next
 from golang.gcompat import qq
 
 from six import int2byte as bchr, PY3
 from six.moves import range as xrange
+from pytest import raises
 
 def byterange(start, stop):
     b = b""
@@ -62,10 +63,16 @@ def test_quote():
 
     for tin, tquoted in testv:
         # quote(in) == quoted
+        # in = unquote(quoted)
         q = b'"' if isinstance(tquoted, bytes) else '"'
+        tail = b'123' if isinstance(tquoted, bytes) else '123'
         tquoted = q + tquoted + q   # add lead/trail "
 
         assert quote(tin) == tquoted
+        assert unquote(tquoted) == tin
+        assert unquote_next(tquoted) == (tin, type(tin)())
+        assert unquote_next(tquoted + tail) == (tin, tail)
+        raises(ValueError, 'unquote(tquoted + tail)')
 
         # qq always gives str
         assert qq(tin) == asstr(tquoted)
@@ -78,12 +85,35 @@ def test_quote():
                 # some inputs are not valid UTF-8
                 continue
             tquoted = tquoted.decode('utf-8')
+            tail = tail.decode('utf-8')
         else:
             # tin was unicode
             tin = tin.encode('utf-8')
             tquoted = tquoted.encode('utf-8')
+            tail = tail.encode('utf-8')
 
         assert quote(tin) == tquoted
+        assert unquote(tquoted) == tin
+        assert unquote_next(tquoted) == (tin, type(tin)())
+        assert unquote_next(tquoted + tail) == (tin, tail)
+        raises(ValueError, 'unquote(tquoted + tail)')
 
         # qq always gives str
         assert qq(tin) == asstr(tquoted)
+
+
+def test_unquote_bad():
+    testv = (
+        # in            error
+        ('x"zzz"',      'no starting "'),
+        ('"zzz',        'no closing "'),
+        ('"\\',         'unexpected EOL after \\'),
+        ('"\\x',        'unexpected EOL after \\x'),
+        ('"\\x0',       'unexpected EOL after \\x'),
+        ('"\\z"',       'invalid escape \\z'),
+    )
+
+    for tin, err in testv:
+        with raises(ValueError) as exc:
+            unquote(tin)
+        assert exc.value.args == (err,)

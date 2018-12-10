@@ -102,6 +102,93 @@ def _quote(s):
     return b'"' + b''.join(outv) + b'"'
 
 
+# unquote decodes unicode|byte string that was produced by quote.
+#
+# ValueError is raised if there are quoting syntax errors.
+def unquote(s):
+    us, tail = unquote_next(s)
+    if len(tail) != 0:
+        raise ValueError('non-empty tail after closing "')
+    return us
+
+# unquote_next decodes next unicode|byte string that was produced by quote.
+#
+# it returns -> (unquoted(s), tail-after-")
+#
+# ValueError is raised if there are quoting syntax errors.
+def unquote_next(s):
+    s, wasunicode = _bstr(s)
+    us, tail = _unquote_next(s)
+    if wasunicode:
+        us = us.decode('UTF-8')
+        tail = tail.decode('UTF-8')
+    return us, tail
+
+def _unquote_next(s):
+    assert isinstance(s, bytes)
+
+    if len(s) == 0 or s[0:0+1] != b'"':
+        raise ValueError('no starting "')
+
+    outv = []
+    emit= outv.append
+
+    s = s[1:]
+    while 1:
+        r, width = _utf8_decode_rune(s)
+        if width == 0:
+            raise ValueError('no closing "')
+
+        if r == u'"':
+            s = s[1:]
+            break
+
+        # regular UTF-8 character
+        if r != u'\\':
+            emit(s[:width])
+            s = s[width:]
+            continue
+
+        if len(s) < 2:
+            raise ValueError('unexpected EOL after \\')
+
+        c = s[1:1+1]
+
+        # \<c> -> <c>   ; c = \ "
+        if c in b'\\"':
+            emit(c)
+            s = s[2:]
+            continue
+
+        if c == b't':
+            emit(b'\t')
+            s = s[2:]
+            continue
+
+        if c == b'n':
+            emit(b'\n')
+            s = s[2:]
+            continue
+
+        if c == b'r':
+            emit(b'\r')
+            s = s[2:]
+            continue
+
+        if c == b'x':   # hex   XXX also handle octals?
+            if len(s) < 2+2:
+                raise ValueError('unexpected EOL after \\x')
+
+            b = codecs.decode(s[2:2+2], 'hex')
+            emit(b)
+            s = s[2+2:]
+            continue
+
+        raise ValueError('invalid escape \\%s' % chr(ord(c[0:0+1])))
+
+    return b''.join(outv), s
+
+
 _printable_cat0 = frozenset(['L', 'N', 'P', 'S'])   # letters, numbers, punctuation, symbols
 
 _rune_error = u'\uFFFD' # unicode replacement character
