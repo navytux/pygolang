@@ -1,6 +1,18 @@
 Pygolang change history
 =======================
 
+0.0.0.dev6 (2018-12-13)
+-----------------------
+
+- Add `strconv` package with `quote` and `unquote` (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f09701b0
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ed6b7895
+
+- Support `PyPy` as well (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/c859940b
+
 0.0.0.dev5 (2018-10-30)
 -----------------------
 
