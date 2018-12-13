@@ -33,23 +33,6 @@ Pygolang change history
 
 - Add `py.bench` program and `golang.testing` package with corresponding bits (commit__).
 
-  `py.bench` allows to benchmark python code similarly to `go test -bench` and `py.test`.
-  For example, running py.bench on the following code::
-
-      def bench_add(b):
-          x, y = 1, 2
-          for i in xrange(b.N):
-              x + y
-
-  gives something like::
-
-      $ py.bench --count=3 x.py
-      ...
-      pymod: bench_add.py
-      Benchmarkadd    50000000        0.020 µs/op
-      Benchmarkadd    50000000        0.020 µs/op
-      Benchmarkadd    50000000        0.020 µs/op
-
   __ https://lab.nexedi.com/kirr/pygolang/commit/9bf03d9c
 
 0.0.0.dev3 (2018-07-02)
