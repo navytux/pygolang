@@ -1,2 +1,2 @@
-include CHANGELOG.rst tox.ini
+include COPYING README.rst CHANGELOG.rst tox.ini
 recursive-include golang/testdata *.py
