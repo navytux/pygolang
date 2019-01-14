@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -72,7 +72,7 @@ def test_quote():
         assert unquote(tquoted) == tin
         assert unquote_next(tquoted) == (tin, type(tin)())
         assert unquote_next(tquoted + tail) == (tin, tail)
-        raises(ValueError, 'unquote(tquoted + tail)')
+        with raises(ValueError): unquote(tquoted + tail)
 
         # qq always gives str
         assert qq(tin) == asstr(tquoted)
@@ -96,7 +96,7 @@ def test_quote():
         assert unquote(tquoted) == tin
         assert unquote_next(tquoted) == (tin, type(tin)())
         assert unquote_next(tquoted + tail) == (tin, tail)
-        raises(ValueError, 'unquote(tquoted + tail)')
+        with raises(ValueError): unquote(tquoted + tail)
 
         # qq always gives str
         assert qq(tin) == asstr(tquoted)

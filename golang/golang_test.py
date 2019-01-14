@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -57,8 +57,8 @@ def test_chan():
     assert ch.recv()    == None
     assert ch.recv_()   == (None, False)
     assert ch.recv_()   == (None, False)
-    raises(_PanicError, "ch.send(0)")
-    raises(_PanicError, "ch.close()")
+    with raises(_PanicError): ch.send(0)
+    with raises(_PanicError): ch.close()
 
     # sync: send vs recv
     ch = chan()
@@ -78,7 +78,7 @@ def test_chan():
         tdelay()
         ch.close()
     go(_)
-    raises(_PanicError, "ch.send(0)")
+    with raises(_PanicError): ch.send(0)
 
     # close vs recv
     ch = chan()
@@ -450,7 +450,7 @@ def test_deferrecover():
         defer(_)
         1/0
 
-    raises(ZeroDivisionError, "_()")
+    with raises(ZeroDivisionError): _()
     assert v == ['ran ok', 2, 1]
 
     # defer without @func is caught and properly reported
@@ -472,7 +472,7 @@ def test_deferrecover():
         defer(lambda: panic(3))
         defer(lambda: v.append(4))
 
-    raises(_PanicError, "_()")
+    with raises(_PanicError): _()
     assert v == [4, 2, 1]
 
 
@@ -509,7 +509,7 @@ def test_deferrecover():
 
         panic("bbb")
 
-    raises(_PanicError, "_()")
+    with raises(_PanicError): _()
     assert v == [3, 'recovered 1', 1]
 
 
@@ -560,7 +560,7 @@ def test_deferrecover():
 
         panic("zzz")
 
-    raises(_PanicError, "_()")
+    with raises(_PanicError): _()
     assert v == ['not recovered']
 
 
