@@ -28,6 +28,8 @@
 ...
 """
 
+__version__ = "0.0.0.dev6"
+
 __all__ = ['method', 'go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
