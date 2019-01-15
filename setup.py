@@ -36,6 +36,7 @@ setup(
     keywords    = 'go channel goroutine GOPATH python import',
 
     packages    = find_packages(),
+    include_package_data = True,
 
     install_requires = ['six', 'decorator'],
 
