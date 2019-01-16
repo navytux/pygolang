@@ -172,8 +172,12 @@ def defer(f):
 
 # go spawns lightweight thread.
 #
-# NOTE it spawns threading.Thread, but if gevent was activated via
-# `gevent.monkey.patch_all`, it will spawn greenlet, not full OS thread.
+# go spawns:
+#
+# - lightweight thread (with    gevent integration), or
+# - full OS thread     (without gevent integration).
+#
+# Use gpython to run Python with integrated gevent, or use gevent directly to do so.
 def go(f, *argv, **kw):
     t = threading.Thread(target=f, args=argv, kwargs=kw)
     t.daemon = True # leaked goroutines don't prevent program to exit

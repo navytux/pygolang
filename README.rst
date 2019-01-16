@@ -4,6 +4,7 @@
 
 Package `golang` provides Go-like features for Python:
 
+- `gpython` is Python interpreter with support for lightweight threads.
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
 - `method` allows to define methods separate from class.
@@ -16,10 +17,38 @@ between Python and Go environments.
 __ `String conversion`_
 __ `Benchmarking and testing`_
 
+
+GPython
+-------
+
+Command `gpython` provides Python interpreter that supports lightweight threads
+via tight integration with gevent__. The standard library of GPython is API
+compatible with Python standard library, but inplace of OS threads lightweight
+coroutines are provided, and IO is internally organized via
+libuv__/libev__-based IO scheduler. Consequently programs can spawn lots of
+coroutines cheaply, and modules like `time`, `socket`, `ssl`, `subprocess` etc
+all could be used from all coroutines simultaneously, in the same blocking way
+as if every coroutine was a full OS thread. This gives ability to scale servers
+without changing concurrency model and existing code.
+
+__ http://www.gevent.org/
+__ http://libuv.org/
+__ http://software.schmorp.de/pkg/libev.html
+
+
+Additionally GPython sets UTF-8 to be default encoding always, and puts `go`,
+`chan`, `select` etc into builtin namespace.
+
+.. note::
+
+   GPython is optional and the rest of Pygolang can be used from under standard Python too.
+   However without gevent integration `go` spawns full - not lightweight - OS thread.
+
+
 Goroutines and channels
 -----------------------
 
-`go` spawns a thread, or a coroutine if gevent was activated. It is possible to
+`go` spawns a coroutine, or thread if gevent was not activated. It is possible to
 exchange data in between either threads or coroutines via channels. `chan`
 creates a new channel with Go semantic - either synchronous or buffered. Use
 `chan.recv`, `chan.send` and `chan.close` for communication. `select` can be
