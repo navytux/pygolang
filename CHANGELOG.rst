@@ -1,6 +1,14 @@
 Pygolang change history
 =======================
 
+0.0.0.dev7 (2019-01-16)
+-----------------------
+
+- Provide `gpython` interpreter, that sets UTF-8 as default encoding, integrates
+  gevent and puts `go`, `chan`, `select` etc into builtin namespace (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/32a21d5b
+
 0.0.0.dev6 (2018-12-13)
 -----------------------
 
