@@ -43,15 +43,37 @@ from __future__ import print_function
 # argv is what comes via `...` without first [0] for python.
 def pymain(argv):
     import sys, code, runpy, six
+    from os.path import dirname
+    from six.moves import input as raw_input
 
     # interactive console
     if not argv:
-        code.interact()
+        sys.argv = ['']
+        sys.path.insert(0, '')  # cwd
+
+        # like code.interact() but with overridden console.raw_input _and_
+        # readline imported (code.interact mutually excludes those two).
+        try:
+            import readline # enable interactive editing
+        except ImportError:
+            pass
+
+        console = code.InteractiveConsole()
+        def _(prompt):
+            # python behaviour: don't print '>>>' if stdin is not a tty
+            # (builtin raw_input always prints prompt)
+            if not sys.stdin.isatty():
+                prompt=''
+            return raw_input(prompt)
+        console.raw_input = _
+
+        console.interact()
         return
 
     # -c command
     if argv[0] == '-c':
         sys.argv = argv[0:1] + argv[2:] # python leaves '-c' as argv[0]
+        sys.path.insert(0, '')          # cwd
 
         # exec with the same globals `python -c ...` does
         g = {'__name__':    '__main__',
@@ -63,7 +85,9 @@ def pymain(argv):
     elif argv[0] == '-m':
         # search sys.path for module and run corresponding .py file as script
         sys.argv = argv[1:]
-        runpy.run_module(sys.argv[0], init_globals={'__doc__': None}, run_name='__main__')
+        sys.path.insert(0, '')  # cwd
+        runpy.run_module(sys.argv[0], init_globals={'__doc__': None},
+                         run_name='__main__', alter_sys=True)
 
     elif argv[0].startswith('-'):
         print("unknown option: '%s'" % argv[0], file=sys.stderr)
@@ -73,6 +97,7 @@ def pymain(argv):
     else:
         sys.argv = argv
         filepath = argv[0]
+        sys.path.insert(0, dirname(filepath))
 
         # exec with same globals `python file.py` does
         # XXX use runpy.run_path() instead?
