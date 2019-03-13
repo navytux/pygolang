@@ -1,0 +1,23 @@
+- gimport to import go123 released to pypi
+- -> cython
+- gpython: pre-install pyximport
+- context
+? time.after & friends
+? b() -> bytes, u() -> unicode ?
+
+? sync.Once + ...
+
+? io/ioutil: readfile, writefile
+
+
+----
+
+"solved"
+
+? errctx (-> directly use go123; see gimport vs go123 on pypi)
+
+
+----
+
+? out-out of gevent/gpython ?	XXX what did this mean?
+

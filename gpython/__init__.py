@@ -139,6 +139,10 @@ def main():
     for k in golang.__all__:
         setattr(builtins, k, getattr(golang, k))
 
+    # activate pyximport
+    import pyximport
+    pyximport.install()
+
     # sys.executable & friends
     exe = sys.argv[0]
 
