@@ -44,12 +44,30 @@ from __future__ import print_function
 def pymain(argv):
     import sys, code, runpy, six
     from os.path import dirname
+    from six.moves import input as raw_input
 
     # interactive console
     if not argv:
         sys.argv = ['']
         sys.path.insert(0, '')  # cwd
-        code.interact()
+
+        # like code.interact() but with overridden console.raw_input _and_
+        # readline imported (code.interact mutually excludes those two).
+        try:
+            import readline # enable interactive editing
+        except ImportError:
+            pass
+
+        console = code.InteractiveConsole()
+        def _(prompt):
+            # python behaviour: don't print '>>>' if stdin is not a tty
+            # (builtin raw_input always prints prompt)
+            if not sys.stdin.isatty():
+                prompt=''
+            return raw_input(prompt)
+        console.raw_input = _
+
+        console.interact()
         return
 
     # -c command

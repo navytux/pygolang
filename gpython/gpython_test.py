@@ -24,8 +24,7 @@ from six.moves import builtins
 import pytest
 
 # @gpython_only is marker to run a test only under gpython
-isgpython    = 'GPython' in sys.version
-gpython_only = pytest.mark.skipif(not isgpython, reason="gpython-only test")
+gpython_only = pytest.mark.skipif('GPython' not in sys.version, reason="gpython-only test")
 
 
 @gpython_only
@@ -90,7 +89,7 @@ def pyrun(argv, stdin=None, **kw):
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, **kw)
     stdout, stderr = p.communicate(stdin)
     if p.returncode:
-        raise RuntimeError(' '.join(argv) + '\n' + (stderr and stderr or '(failed)'))
+        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
     return stdout
 
 @gpython_only
@@ -117,11 +116,7 @@ def test_pymain():
 
     # interactive
     _ = pyrun([], stdin=b'import hello\n', cwd=testdata)
-    if not isgpython:
-        assert _ == b"hello\nworld\n['']\n"
-    else:
-        # raw_input, used by code.interact, prints prompt to stdout, not stderr
-        assert _ == b">>> hello\nworld\n['']\n>>> "
+    assert _ == b"hello\nworld\n['']\n"
 
     # -c
     _ = pyrun(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
