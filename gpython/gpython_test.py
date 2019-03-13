@@ -24,7 +24,8 @@ from six.moves import builtins
 import pytest
 
 # @gpython_only is marker to run a test only under gpython
-gpython_only = pytest.mark.skipif('GPython' not in sys.version, reason="gpython-only test")
+isgpython    = 'GPython' in sys.version
+gpython_only = pytest.mark.skipif(not isgpython, reason="gpython-only test")
 
 
 @gpython_only
@@ -81,11 +82,57 @@ def test_gevent_activated():
     if sys.hexversion >= 0x03070000: # >= 3.7.0
         assert patched('queue')
 
+
+# pyrun runs `sys.executable argv... <stdin` and returns its output.
+def pyrun(argv, stdin=None, **kw):
+    from subprocess import Popen, PIPE
+    argv = [sys.executable] + argv
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, **kw)
+    stdout, stderr = p.communicate(stdin)
+    if p.returncode:
+        raise RuntimeError(' '.join(argv) + '\n' + (stderr and stderr or '(failed)'))
+    return stdout
+
 @gpython_only
 def test_executable():
     # sys.executable must point to gpython and we must be able to execute it.
     assert 'gpython' in sys.executable
-    out = subprocess.check_output([sys.executable, '-c', 'import sys; print(sys.version)'])
+    out = pyrun(['-c', 'import sys; print(sys.version)'])
     assert ('[GPython %s]' % golang.__version__) in str(out)
 
-# TODO test_pymain (it is not gpython_only)
+# b converts s to UTF-8 encoded bytes.
+def b(s):
+    from golang.strconv import _bstr
+    s, _ = _bstr(s)
+    return s
+
+# verify pymain.
+#
+# !gpython_only to make sure we get the same output when run via pymain (under
+# gpython) and plain python (!gpython).
+def test_pymain():
+    from os.path import join, dirname, realpath
+    here     = dirname(__file__)
+    testdata = join(dirname(__file__), 'testdata')
+
+    # interactive
+    _ = pyrun([], stdin=b'import hello\n', cwd=testdata)
+    if not isgpython:
+        assert _ == b"hello\nworld\n['']\n"
+    else:
+        # raw_input, used by code.interact, prints prompt to stdout, not stderr
+        assert _ == b">>> hello\nworld\n['']\n>>> "
+
+    # -c
+    _ = pyrun(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
+    assert _ == b"hello\nworld\n['-c', 'abc', 'def']\n"
+
+    # -m
+    _ = pyrun(['-m', 'hello', 'abc', 'def'], cwd=testdata)
+    # realpath rewrites e.g. `local/lib -> lib` if local/lib is symlink
+    hellopy = realpath(join(testdata, 'hello.py'))
+    assert _ == b"hello\nworld\n['%s', 'abc', 'def']\n" % b(hellopy)
+
+    # file
+    _ = pyrun(['testdata/hello.py', 'abc', 'def'], cwd=here)
+    assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
