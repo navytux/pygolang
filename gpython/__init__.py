@@ -46,6 +46,17 @@ def pymain(argv):
     from os.path import dirname
     from six.moves import input as raw_input
 
+    # XXX -O , -OO      optimize
+    # XXX -R            random salt for hash
+    # XXX -Q ?          division
+    # XXX -s/-S         no site
+    # XXX -u            unbuffered stdout/stderr
+    # XXX -v            trace import statements
+    # XXX -V            print version
+    # XXX -W            warning control
+    # XXX -x            skip non-unix shebang
+    # XXX -             program read from stdin
+
     # interactive console
     if not argv:
         sys.argv = ['']
@@ -68,6 +79,7 @@ def pymain(argv):
         console.raw_input = _
 
         console.interact()
+        # TODO: -i (inspect interactively)
         return
 
     # -c command
