@@ -17,6 +17,10 @@ between Python and Go environments.
 __ `String conversion`_
 __ `Benchmarking and testing`_
 
+See also appendix for `History of Python concurrency`__.
+
+__ `Appendix I. History of Python concurrency`_
+
 
 GPython
 -------
@@ -199,3 +203,131 @@ such benchmarking data in Python.
 
 __ https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 __ https://godoc.org/golang.org/x/perf/cmd/benchstat
+
+--------
+
+Appendix I. History of Python concurrency
+-----------------------------------------
+
+This appendix gives brief overview of how Python support for concurrency evolved.
+It shows 2 lines of development: based on asynchronous callbacks, and based on tasks.
+The tasks approach exposes to programmer high-level synchronous API while
+internally low-level asynchronous IO is used by tasks engine. On the other hand
+asynchronous approach exposes programmer to deal with asynchronous details.
+
+XXX tasks -> coroutines?
+XXX even though ...
+XXX incomplete ...
+
+- 1990 Python is created__ (Guido van Rossum).
+
+  __ https://github.com/python/cpython/commit/7f777ed95a
+
+- 1992 Python `adds support for threads`__; the GIL is born (Guido van Rossum).
+
+  __ https://github.com/python/cpython/commit/1984f1e1c6
+
+- 1996 First GIL removal patches (Greg Stein)
+
+  This, and the following GIL-removal attempts, were rejected on the basis that
+  performance of single-threaded programs was impacted.
+
+  See `GIL story overview`__ for details.
+
+  __ http://dabeaz.blogspot.com/2011/08/inside-look-at-gil-removal-patch-of.html
+
+- 1996(1999) asyncore/asynchat (https://github.com/python/cpython/commit/0039d7b4e6, Sam Rushing)
+- 1996 Medusa__ start (Sam Rushing)
+
+   XXX note on Medusa usage in Zope / first Google crawler.
+
+  __ http://www.nightmare.com/medusa/
+
+- 1998 Stackless Python start (Christian Tismer et al)
+
+XXX coroutines (in std python?)
+
+- 1999/2000 async (Medusa) -> coroutine (shrapnel__) shift (Sam Rushing).
+  Shrapnel was published in the open only in 2011.
+
+  __ https://github.com/ironport/shrapnel
+
+- 2001 Twisted starts__ (Glyph Lefkowitz et al)
+
+  __ https://github.com/twisted/twisted/commit/81dd97482d
+
+- XXX Tornado? ZeroMQ?
+
+
+- Stackless__ implements microthreads for CPython. However it has no builtin
+  support for IO and external event loop has to be used so that microthreads
+  could do networking IO in a blocking-style which internally is translated
+  into OS-level asynchronous IO calls.
+
+  CCP Games (the major company originally backing stackless development) had
+  something for this:
+
+  http://www.stackless.com/pipermail/stackless/2015-March/006433.html
+
+  That code was, however, not published and even today Stackless remains a
+  patch to CPython, even though its versions for CPython2 and CPython3 seem to
+  be maintained.
+
+  __ http://stackless.com/
+
+- However Stackless's microthreads switching functionality "has been
+  successfully packaged as a CPython extension called greenlet__" (wikipedia__).
+
+  __ https://github.com/python-greenlet/greenlet
+  __ https://en.wikipedia.org/wiki/Stackless_Python
+
+  This way microthreads can be available out of the box for CPython after
+  installing greenlet egg.
+
+  ( this still solves only microthreads, not IO problem )
+
+  XXX greenlet start: 2006.
+
+- XXX fibers
+- 2012 gruvi (https://github.com/geertj/gruvi)
+
+- A note goes that PyPy has builtin `support for greenlets`__.
+
+  this means that greenlets are not CPython-only and would not be a blocker
+  should we eventually try to switch ERP5 to PyPy.
+
+  __ http://doc.pypy.org/en/latest/stackless.html
+
+  XXX pypy stackless start: 2005 (very draft, 021d73d408dad569c5fa0b561c0145f31c8b11f5)
+
+- On top of greenlet there are several libraries that provide blocking-style IO
+  integration with microthreads:
+
+  - Concurrent__ (2__) XXX start  2009
+  - Eventlet__    XXX start 2008
+  - Gevent__      XXX start 2009
+
+  __ http://web.archive.org/web/20130507135412/opensource.hyves.org/concurrence/
+  __ https://github.com/concurrence/concurrence
+  __ http://eventlet.net/
+  __ http://www.gevent.org/
+
+  XXX gevent can adapt Python's stdlib to be coroutine-aware.
+
+- 2012 GvR starts to use yield-from coroutines for asyncio https://github.com/python/asyncio/commit/0b0da72d0d
+- 2012(2013) (?) Tulip (Guido van Rossum) -> asyncio, Stackless-based approach
+  is explicitly rejected on the basis that there are some "scary implementation
+  details". Instead the complexity is thrown onto progammer, with a bit of
+  `yield from` syntatic sugar which must be used throughout all function
+  invocations that have IO at leaf calls.
+
+  https://lwn.net/Articles/544522/
+  https://www.youtube.com/watch?v=sOQLVm0-8Yg   TODO link with Tbegin-Tend about gevent
+
+  There is now 2 high-level API worlds
+  - old (synchronous) and new (asynchronous). Much duplication and effort is
+  needed for both standard library and other packages in Python ecosystem.
+
+- 2015 async/await (https://www.python.org/dev/peps/pep-0492/)
+
+- XXX goless, offset, pychan
