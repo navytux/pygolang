@@ -384,25 +384,25 @@ def test_select():
 
 
 def test_method():
-    # test how @method works
-    # this also implicitly tests @func, since @method uses that.
+    # test how @func(cls) works
+    # this also implicitly tests just @func, since @func(cls) uses that.
 
     class MyClass:
         def __init__(self, v):
             self.v = v
 
-    @method(MyClass)
+    @method(MyClass)    # @method(cls) = @func(cls); deprecated and to be removed
     def zzz(self, v, x=2, **kkkkwww):
         assert self.v == v
         return v + 1
 
-    @method(MyClass)
+    @func(MyClass)
     @staticmethod
     def mstatic(v):
         assert v == 5
         return v + 1
 
-    @method(MyClass)
+    @func(MyClass)
     @classmethod
     def mcls(cls, v):
         assert cls is MyClass
@@ -414,7 +414,7 @@ def test_method():
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
 
-    # this tests that @func (used by @method) preserves decorated function signature
+    # this tests that @func (used by @func(cls)) preserves decorated function signature
     assert inspect.formatargspec(*inspect.getargspec(MyClass.zzz)) == '(self, v, x=2, **kkkkwww)'
 
     assert MyClass.zzz.__module__       == __name__
@@ -564,15 +564,15 @@ def test_deferrecover():
     assert v == ['not recovered']
 
 
-    # ---- defer in @method(x) ----
+    # ---- defer in @func(x) ----
 
-    # defer in @method
+    # defer in @func(cls)
     v = []
 
     class MyClass:
         pass
 
-    @method(MyClass)
+    @func(MyClass)
     def zzz(self):
         defer(lambda: v.append(1))
         defer(lambda: v.append(2))

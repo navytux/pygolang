@@ -21,7 +21,7 @@
 
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
-- `method` allows to define methods separate from class.
+- `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
@@ -53,26 +53,6 @@ from golang._pycompat import im_class
 # and puts everything from golang.__all__ to __builtins__.
 
 
-# method decorator allows to define methods separate from class.
-#
-# For example:
-#
-#   @method(MyClass)
-#   def my_method(self, ...):
-#       ...
-def method(cls):
-    def deco(f):
-        # wrap f with @func, so that e.g. defer works automatically.
-        f = func(f)
-
-        if isinstance(f, (staticmethod, classmethod)):
-            func_name = f.__func__.__name__
-        else:
-            func_name = f.__name__
-        setattr(cls, func_name, f)
-    return deco
-
-
 # panic stops normal execution of current goroutine.
 def panic(arg):
     raise _PanicError(arg)
@@ -81,10 +61,46 @@ class _PanicError(Exception):
     pass
 
 
+def method(cls):
+    from warnings import warn
+    warn("@method(cls) is deprecated in favour of @func(cls)", DeprecationWarning, stacklevel=2)
+    return func(cls)
+
+
 # @func is a necessary decorator for functions for selected golang features to work.
 #
-# It is needed for defer.
+# For example it is required by defer. Usage:
+#
+#   @func
+#   def my_function(...):
+#       ...
+#
+# @func can be also used to define methods separate from class, for example:
+#
+#   @func(MyClass)
+#   def my_method(self, ...):
+#       ...
 def func(f):
+    if inspect.isclass(f):
+        return _meth(f)
+    else:
+        return _func(f)
+
+# _meth serves @func(cls).
+def _meth(cls):
+    def deco(f):
+        # wrap f with @_func, so that e.g. defer works automatically.
+        f = _func(f)
+
+        if isinstance(f, (staticmethod, classmethod)):
+            func_name = f.__func__.__name__
+        else:
+            func_name = f.__name__
+        setattr(cls, func_name, f)
+    return deco
+
+# _func serves @func.
+def _func(f):
     # @staticmethod & friends require special care:
     # unpack f first to original func and then repack back after wrapping.
     fclass = None
