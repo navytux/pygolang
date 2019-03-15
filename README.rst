@@ -91,11 +91,11 @@ used to multiplex on several channels. For example::
 Methods
 -------
 
-`method` decorator allows to define methods separate from class.
+`meth` decorator allows to define methods separate from class.
 
 For example::
 
-  @method(MyClass)
+  @meth(MyClass)
   def my_method(self, ...):
       ...
 
@@ -134,7 +134,7 @@ But `recover` and `panic` are probably of less utility since they can be
 practically natively modelled with `try`/`except`.
 
 If `defer` is used, the function that uses it must be wrapped with `@func` or
-`@method` decorators.
+`@meth` decorators.
 
 Import
 ------

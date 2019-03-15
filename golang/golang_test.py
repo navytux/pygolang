@@ -18,7 +18,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError, func, method, panic, defer, recover
+from golang import go, chan, select, default, _PanicError, func, meth, panic, defer, recover
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
@@ -383,26 +383,26 @@ def test_select():
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
-def test_method():
-    # test how @method works
-    # this also implicitly tests @func, since @method uses that.
+def test_meth():
+    # test how @meth works
+    # this also implicitly tests @func, since @meth uses that.
 
     class MyClass:
         def __init__(self, v):
             self.v = v
 
-    @method(MyClass)
+    @meth(MyClass)
     def zzz(self, v, x=2, **kkkkwww):
         assert self.v == v
         return v + 1
 
-    @method(MyClass)
+    @meth(MyClass)
     @staticmethod
     def mstatic(v):
         assert v == 5
         return v + 1
 
-    @method(MyClass)
+    @meth(MyClass)
     @classmethod
     def mcls(cls, v):
         assert cls is MyClass
@@ -414,7 +414,7 @@ def test_method():
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
 
-    # this tests that @func (used by @method) preserves decorated function signature
+    # this tests that @func (used by @meth) preserves decorated function signature
     assert inspect.formatargspec(*inspect.getargspec(MyClass.zzz)) == '(self, v, x=2, **kkkkwww)'
 
     assert MyClass.zzz.__module__       == __name__
@@ -564,15 +564,15 @@ def test_deferrecover():
     assert v == ['not recovered']
 
 
-    # ---- defer in @method(x) ----
+    # ---- defer in @meth(x) ----
 
-    # defer in @method
+    # defer in @meth
     v = []
 
     class MyClass:
         pass
 
-    @method(MyClass)
+    @meth(MyClass)
     def zzz(self):
         defer(lambda: v.append(1))
         defer(lambda: v.append(2))

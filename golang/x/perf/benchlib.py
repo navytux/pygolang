@@ -173,7 +173,7 @@ def _parse_benchline(linev):
 #	"user-s/op"	-> "user-s/op",	1
 #
 # returns -> Unit, scale.
-@method(Unit)
+@meth(Unit)
 def normalize(self):
     # split unit string into prefix and just unit
     unit = self.unit
@@ -328,7 +328,7 @@ def xload_file(path):
 #
 # returns ordered {} labelkey -> Benchmark.
 # labelkey = () of (k,v) with k from label_list.
-@method(Benchmark)
+@meth(Benchmark)
 def bylabel(self, label_list):
     bylabel = OrderedDict() # labelkey -> Benchmark
 
@@ -351,7 +351,7 @@ def bylabel(self, label_list):
 # with the same name.
 #
 # returns ordered {} name -> Benchmark.
-@method(Benchmark)
+@meth(Benchmark)
 def byname(self):
     byname = OrderedDict() # name -> Benchmark
 
@@ -368,7 +368,7 @@ def byname(self):
 # the same measurements unit.
 #
 # returns ordered {} unit -> Benchmark.
-@method(Benchmark)
+@meth(Benchmark)
 def byunit(self):
     byunit = OrderedDict() # unit -> Benchmark
 
@@ -396,7 +396,7 @@ def byunit(self):
 # all original values must have units compatible with the conversion.
 #
 # returns -> new Benchmark with converted units.
-@method(Benchmark)
+@meth(Benchmark)
 def convert_unit(self, unit):
     B = Benchmark()
     U = Unit(unit)
@@ -420,7 +420,7 @@ def convert_unit(self, unit):
 #
 # all values must have the same units (use .byunit() to prepare).
 # returns Stats.
-@method(Benchmark)
+@meth(Benchmark)
 def stats(self):
     unit = None
     vv = []
@@ -439,24 +439,24 @@ def stats(self):
 
 # ----------------------------------------
 
-@method(BenchLine)
+@meth(BenchLine)
 def __repr__(self):
     # XXX +labels
     return 'BenchLine(%r, %d, %r)' % (self.name, self.niter, self.measurev)
 
-@method(Measure)
+@meth(Measure)
 def __repr__(self):
     return 'Measure(%r, %r)' % (self.value, self.unit)
 
-@method(Unit)
+@meth(Unit)
 def __repr__(self):
     return 'Unit(%r)' % (self.unit)
 
-@method(Unit)
+@meth(Unit)
 def __str__(self):
     return self.unit
 
-@method(Stats)
+@meth(Stats)
 def __str__(self):
     delta = max(self.max - self.avg, self.avg - self.min)
     return '%.2f ±%2.0f%%' % (self.avg, 100. * delta / self.avg)

@@ -21,7 +21,7 @@
 
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
-- `method` allows to define methods separate from class.
+- `meth` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
@@ -30,7 +30,7 @@
 
 __version__ = "0.0.0.dev7"
 
-__all__ = ['method', 'go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
+__all__ = ['meth', 'method', 'go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, threading, collections, random, sys
@@ -53,14 +53,14 @@ from golang._pycompat import im_class
 # and puts everything from golang.__all__ to __builtins__.
 
 
-# method decorator allows to define methods separate from class.
+# meth decorator allows to define methods separate from class.
 #
 # For example:
 #
-#   @method(MyClass)
+#   @meth(MyClass)
 #   def my_method(self, ...):
 #       ...
-def method(cls):
+def meth(cls):
     def deco(f):
         # wrap f with @func, so that e.g. defer works automatically.
         f = func(f)
@@ -71,6 +71,12 @@ def method(cls):
             func_name = f.__name__
         setattr(cls, func_name, f)
     return deco
+
+
+def method(cls):
+    from warnings import warn
+    warn("@method is deprecated in favour of @meth", DeprecationWarning, stacklevel=2)
+    return meth(cls)
 
 
 # panic stops normal execution of current goroutine.
