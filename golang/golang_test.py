@@ -18,7 +18,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError, func, panic, defer, recover
+from golang import go, chan, select, default, _PanicError, func, method, panic, defer, recover
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
@@ -391,7 +391,7 @@ def test_method():
         def __init__(self, v):
             self.v = v
 
-    @func(MyClass)
+    @method(MyClass)    # @method(cls) = @func(cls); deprecated and to be removed
     def zzz(self, v, x=2, **kkkkwww):
         assert self.v == v
         return v + 1
