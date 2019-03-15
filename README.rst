@@ -7,7 +7,7 @@ Package `golang` provides Go-like features for Python:
 - `gpython` is Python interpreter with support for lightweight threads.
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
-- `method` allows to define methods separate from class.
+- `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
@@ -91,15 +91,21 @@ used to multiplex on several channels. For example::
 Methods
 -------
 
-`meth` decorator allows to define methods separate from class.
+`func` decorator allows to define methods separate from class.
 
 For example::
 
-  @meth(MyClass)
+  @func(MyClass)
   def my_method(self, ...):
       ...
 
 will define `MyClass.my_method()`.
+
+`func` can be also used on just functions, for example::
+
+  @func
+  def my_function(...):
+      ...
 
 
 Defer / recover / panic
@@ -133,8 +139,8 @@ Go-style error handling, for example::
 But `recover` and `panic` are probably of less utility since they can be
 practically natively modelled with `try`/`except`.
 
-If `defer` is used, the function that uses it must be wrapped with `@func` or
-`@meth` decorators.
+If `defer` is used, the function that uses it must be wrapped with `@func`
+decorator.
 
 Import
 ------
