@@ -133,9 +133,13 @@ def main():
     #
     # (os and signal are imported by python startup itself)
     # (on py3 _thread is imported by the interpreter early to support fine-grained import lock)
+    avoid = ['pkg_resources', 'golang', 'socket', 'select', 'threading',
+             'thread', 'ssl', 'subprocess']
+    # pypy7 made time always pre-imported (https://bitbucket.org/pypy/pypy/commits/6759b768)
+    if 'PyPy' not in sys.version:
+        avoid.append('time')
     bad = []
-    for mod in ('pkg_resources', 'golang', 'socket', 'time', 'select',
-                'threading', 'thread', 'ssl', 'subprocess'):
+    for mod in avoid:
         if mod in sys.modules:
             bad.append(mod)
     if bad:
