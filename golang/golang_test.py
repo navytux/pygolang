@@ -23,16 +23,8 @@ from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
 
-"""
-# tdelay delays a bit.
-#
-# XXX needed in situations when we need to start with known ordering but do not
-# have a way to wait properly for ordering event.
-def tdelay():
-    #time.sleep(1E-3)    # 1ms
-    time.sleep(1E-6)    # 1μs
-"""
-
+from golang import _chan_recv, _chan_send
+from golang._pycompat import im_class
 
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
@@ -56,19 +48,18 @@ def test_go():
 # waitBlocked waits till a receive or send channel operation blocks waiting on channel.
 #
 # For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
-def waitBlocked(chop):
-    if im_class(chop) is not chan:
-        panic("wait locked: %r is method of a non-chan: %r" % (chop, im_class(chop)))
-    ch = im_self(chop)
+def waitBlocked(chanop):
+    if im_class(chanop) is not chan:
+        panic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
+    ch = chanop.__self__
     recv = send = False
-    if chop.__func__ is _chan_recv:
+    if chanop.__func__ is _chan_recv:
         recv = True
-    elif chop.__func__ is _chan_send:
+    elif chanop.__func__ is _chan_send:
         send = True
     else:
-        panic("wait locked: unexpected chan method: %r" % (chop,))
+        panic("wait blocked: unexpected chan method: %r" % (chanop,))
 
-    tdeadlock = 10  # treat waiting for for more than 10 seconds as deadlock
     t0 = time.time()
     while 1:
         with ch._mu:
@@ -77,37 +68,9 @@ def waitBlocked(chop):
             if send and len(ch._sendq) > 0:
                 return
         now = time.time()
-        if now-t0 > tdeadlock:
-            raise RuntimeError("deadlock")
-        time.sleep(0)
-
-"""
-# waitRecvBlocked waits till a reiver blocks waiting on ch.
-# XXX naming
-def waitRecvBlocked(ch):
-    t0 = time.time()
-    while 1:
-        with ch._mu:
-            if len(ch._recvq) > 0:
-                return
-        now = time.time()
-        if now-t0 > tdeadlock:
-            raise RuntimeError("deadlock")
-        time.sleep(0)
-
-# waitSendBlocked waits till a sender blocks waiting on ch.
-# XXX naming
-def waitSendBlocked(ch):
-    t0 = time.time()
-    while 1:
-        with ch._mu:
-            if len(ch._sendq) > 0:
-                return
-        now = time.time()
-        if now-t0 > tdeadlock:
-            raise RuntimeError("deadlock")
-        time.sleep(0)
-"""
+        if now-t0 > 10: # waited > 10 seconds - likely deadlock
+            panic("deadlock")
+        time.sleep(0)   # XXX -> yield
 
 
 def test_chan():
@@ -135,8 +98,6 @@ def test_chan():
     # sync: close vs send
     ch = chan()
     def _():
-        #tdelay()
-        #waitSendBlocked(ch)
         waitBlocked(ch.send)
         ch.close()
     go(_)
@@ -145,8 +106,6 @@ def test_chan():
     # close vs recv
     ch = chan()
     def _():
-        #tdelay()
-        #waitRecvBlocked(ch)
         waitBlocked(ch.recv)
         ch.close()
     go(_)
@@ -186,8 +145,6 @@ def test_chan():
         ch.send(i)
     assert len(ch) == 3
     def _():
-        #tdelay()
-        #waitSendBlocked(ch)
         waitBlocked(ch.send)
         assert ch.recv_() == (0, True)
         done.send('a')
@@ -241,8 +198,6 @@ def test_select():
     go(_)
 
     for i in range(N):
-        #tdelay()
-        #waitRecvBlocked(ch)
         waitBlocked(ch.recv)
         _, _rx = select(
                 (ch.send, i),
@@ -262,8 +217,6 @@ def test_select():
     go(_)
 
     for i in range(N):
-        #tdelay()
-        #waitSendBlocked(ch)
         waitBlocked(ch.send)
         if i % 2:
             _, _rx = select(
@@ -285,8 +238,6 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        #tdelay()
-        #waitSendBlocked(ch1)
         waitBlocked(ch1.send)
         assert ch1.recv() == 'a'
         done.close()
@@ -307,8 +258,6 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        #tdelay()
-        #waitRecvBlocked(ch1)
         waitBlocked(ch1.recv)
         ch1.send('a')
         done.close()
@@ -329,8 +278,6 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        #tdelay()
-        #waitSendBlocked(ch1)
         waitBlocked(ch1.send)
         assert ch1.recv() == 'a'
         done.close()
@@ -351,8 +298,6 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        #tdelay()
-        #waitRecvBlocked(ch1)
         waitBlocked(ch1.recv)
         ch1.send('a')
         done.close()
