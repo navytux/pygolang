@@ -45,7 +45,7 @@ def test_go():
             env=env)
 
 
-# waitBlocked waits till a receive or send channel operation blocks waiting on channel.
+# waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
 # For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
 def waitBlocked(chanop):
@@ -70,7 +70,7 @@ def waitBlocked(chanop):
         now = time.time()
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
             panic("deadlock")
-        time.sleep(0)   # XXX -> yield
+        time.sleep(0)   # yield to another thread / coroutine
 
 
 def test_chan():
