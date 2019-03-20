@@ -23,13 +23,8 @@ from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
 
-# tdelay delays a bit.
-#
-# XXX needed in situations when we need to start with known ordering but do not
-# have a way to wait properly for ordering event.
-def tdelay():
-    time.sleep(1E-3)    # 1ms
-
+from golang import _chan_recv, _chan_send
+from golang._pycompat import im_class
 
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
@@ -48,6 +43,34 @@ def test_go():
 
     subprocess.check_call([sys.executable, dir_golang + "/golang_test_goleaked.py"],
             env=env)
+
+
+# waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
+#
+# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
+def waitBlocked(chanop):
+    if im_class(chanop) is not chan:
+        panic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
+    ch = chanop.__self__
+    recv = send = False
+    if chanop.__func__ is _chan_recv:
+        recv = True
+    elif chanop.__func__ is _chan_send:
+        send = True
+    else:
+        panic("wait blocked: unexpected chan method: %r" % (chanop,))
+
+    t0 = time.time()
+    while 1:
+        with ch._mu:
+            if recv and len(ch._recvq) > 0:
+                return
+            if send and len(ch._sendq) > 0:
+                return
+        now = time.time()
+        if now-t0 > 10: # waited > 10 seconds - likely deadlock
+            panic("deadlock")
+        time.sleep(0)   # yield to another thread / coroutine
 
 
 def test_chan():
@@ -75,7 +98,7 @@ def test_chan():
     # sync: close vs send
     ch = chan()
     def _():
-        tdelay()
+        waitBlocked(ch.send)
         ch.close()
     go(_)
     with raises(_PanicError): ch.send(0)
@@ -83,7 +106,7 @@ def test_chan():
     # close vs recv
     ch = chan()
     def _():
-        tdelay()
+        waitBlocked(ch.recv)
         ch.close()
     go(_)
     assert ch.recv_() == (None, False)
@@ -122,7 +145,7 @@ def test_chan():
         ch.send(i)
     assert len(ch) == 3
     def _():
-        tdelay()
+        waitBlocked(ch.send)
         assert ch.recv_() == (0, True)
         done.send('a')
         for i in range(1,4):
@@ -175,7 +198,7 @@ def test_select():
     go(_)
 
     for i in range(N):
-        tdelay()
+        waitBlocked(ch.recv)
         _, _rx = select(
                 (ch.send, i),
                 default,
@@ -194,7 +217,7 @@ def test_select():
     go(_)
 
     for i in range(N):
-        tdelay()
+        waitBlocked(ch.send)
         if i % 2:
             _, _rx = select(
                     ch.recv,
@@ -215,7 +238,7 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        tdelay()
+        waitBlocked(ch1.send)
         assert ch1.recv() == 'a'
         done.close()
     go(_)
@@ -235,7 +258,7 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        tdelay()
+        waitBlocked(ch1.recv)
         ch1.send('a')
         done.close()
     go(_)
@@ -255,7 +278,7 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        tdelay()
+        waitBlocked(ch1.send)
         assert ch1.recv() == 'a'
         done.close()
     go(_)
@@ -275,7 +298,7 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        tdelay()
+        waitBlocked(ch1.recv)
         ch1.send('a')
         done.close()
     go(_)
