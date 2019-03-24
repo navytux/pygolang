@@ -136,7 +136,8 @@ def main():
     avoid = ['pkg_resources', 'golang', 'socket', 'select', 'threading',
              'thread', 'ssl', 'subprocess']
     # pypy7 made time always pre-imported (https://bitbucket.org/pypy/pypy/commits/6759b768)
-    if 'PyPy' not in sys.version:
+    pypy = ('PyPy' in sys.version)
+    if not pypy:
         avoid.append('time')
     bad = []
     for mod in avoid:
@@ -150,7 +151,14 @@ def main():
 
     # make gevent pre-available & stdlib patched
     from gevent import monkey
-    _ = monkey.patch_all()      # XXX sys=True ?
+    # XXX workaround for gevent vs pypy2 crash.
+    # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
+    patch_thread=True
+    if pypy and sys.version_info.major == 2:
+        _ = monkey.patch_thread(existing_locks=False)
+        assert _ in (True, None)
+        patch_thread=False
+    _ = monkey.patch_all(thread=patch_thread)      # XXX sys=True ?
     if _ not in (True, None):   # patched or nothing to do
         # XXX provide details
         raise RuntimeError('gevent monkey-patching failed')
