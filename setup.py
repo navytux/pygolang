@@ -149,7 +149,7 @@ setup(
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
-    keywords    = 'golang go channel goroutine GOPATH python import gpython gevent',
+    keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
     include_package_data = True,
