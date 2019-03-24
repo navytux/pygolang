@@ -30,7 +30,7 @@
 
 __version__ = "0.0.0.dev8"
 
-__all__ = ['method', 'go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
+__all__ = ['go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, threading, collections, random, sys
@@ -59,12 +59,6 @@ def panic(arg):
 
 class _PanicError(Exception):
     pass
-
-
-def method(cls):
-    from warnings import warn
-    warn("@method(cls) is deprecated in favour of @func(cls)", DeprecationWarning, stacklevel=2)
-    return func(cls)
 
 
 # @func is a necessary decorator for functions for selected golang features to work.
