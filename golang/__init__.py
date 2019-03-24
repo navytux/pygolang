@@ -28,7 +28,7 @@
 ...
 """
 
-__version__ = "0.0.0.dev7"
+__version__ = "0.0.0.dev8"
 
 __all__ = ['method', 'go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
 

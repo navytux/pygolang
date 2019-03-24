@@ -26,9 +26,9 @@ via tight integration with gevent__. The standard library of GPython is API
 compatible with Python standard library, but inplace of OS threads lightweight
 coroutines are provided, and IO is internally organized via
 libuv__/libev__-based IO scheduler. Consequently programs can spawn lots of
-coroutines cheaply, and modules like `time`, `socket`, `ssl`, `subprocess` etc
-all could be used from all coroutines simultaneously, in the same blocking way
-as if every coroutine was a full OS thread. This gives ability to scale servers
+coroutines cheaply, and modules like `time`, `socket`, `ssl`, `subprocess` etc -
+all could be used from all coroutines simultaneously, and in the same blocking way
+as if every coroutine was a full OS thread. This gives ability to scale programs
 without changing concurrency model and existing code.
 
 __ http://www.gevent.org/

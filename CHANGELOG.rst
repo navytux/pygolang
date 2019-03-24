@@ -1,6 +1,27 @@
 Pygolang change history
 =======================
 
+0.0.0.dev8 (2019-03-24)
+-----------------------
+
+- Fix `gpython` to properly initialize `sys.path` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/6b4990f6
+
+- Fix channel tests to pass irregardless of surround OS load (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/731f39e3
+
+- Deprecate `@method(cls)` in favour of `@func(cls)` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/942ee900
+
+- Support both `PyPy2` and `PyPy3` (`commit 1`__, 2__, 3__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/da68a8ae
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e847c550
+  __ https://lab.nexedi.com/kirr/pygolang/commit/704d99f0
+
 0.0.0.dev7 (2019-01-16)
 -----------------------
 
