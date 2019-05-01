@@ -24,6 +24,9 @@ XXX link to go
 
 from __future__ import print_function
 
+from golang import chan
+import threading
+
 # Context is XXX
 class Context(object):
     # done returns channel that is closed when the context is canceled.
@@ -40,12 +43,11 @@ class Context(object):
 
 
 # background returns empty context that is never canceled.
-_bg = _Background()
 def background():   # -> Context
-    return  _bg
+    return  _background
 
 # canceled is the error returned by Context.err when context is canceled.
-canceled = ...  # XXX
+canceled = RuntimeError("context canceled")  # XXX ok?
 
 
 # XXX
@@ -77,6 +79,7 @@ class _Background(object):
     def err(bg):
         return None
 
+_background = _Background()
 
 # _Context implements Context ... XXX
 class _Context(object):

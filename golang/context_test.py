@@ -20,6 +20,20 @@
 
 from golang import context
 
+# XXX stub
+nilchan = None
+
+# ready returns whether channel ch is ready.
+def ready(ch):
+    _, _rx = select(
+            ch.recv,    # 0
+            default,    # 1
+    )
+
+    if _ == 0:
+        return True
+    if _ == 1:
+        return False
 
 def test_context():
     bg = context.background()
