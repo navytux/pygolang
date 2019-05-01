@@ -30,7 +30,7 @@
 
 __version__ = "0.0.1"
 
-__all__ = ['go', 'chan', 'select', 'default', 'defer', 'panic', 'recover', 'func', 'gimport']
+__all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'recover', 'func', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, threading, collections, random, sys
@@ -332,6 +332,9 @@ class chan(object):
     #
     # .send(obj)
     def send(self, obj):
+        if self is nilchan:
+            _blockforever()
+
         self._mu.acquire()
         if 1:
             ok = self._trysend(obj)
@@ -356,6 +359,9 @@ class chan(object):
     #
     # .recv_() -> (rx, ok)
     def recv_(self):
+        if self is nilchan:
+            _blockforever()
+
         self._mu.acquire()
         if 1:
             rx_, ok = self._tryrecv()
@@ -449,6 +455,9 @@ class chan(object):
 
     # close closes sending side of the channel.
     def close(self):
+        if self is nilchan:
+            panic("close of nil channel")
+
         recvv = []
         sendv = []
 
@@ -480,6 +489,12 @@ class chan(object):
 
     def __len__(self):
         return len(self._dataq)
+
+
+# nilchan is the nil channel.
+#
+# On nil channel send/recv block forever and close panics.
+nilchan = chan(None)    # TODO -> <chan*>(NULL) after move to Cython
 
 
 # default represents default case for select.
@@ -523,9 +538,6 @@ if six.PY2:
 #       # default case
 #       ...
 def select(*casev):
-    # XXX select on nil chan?
-    # XXX select{} -> block forever
-
     # select promise: if multiple cases are ready - one will be selected randomly
     ncasev = list(enumerate(casev))
     random.shuffle(ncasev)
@@ -550,14 +562,15 @@ def select(*casev):
                 panic("select: send expected: %r" % (send,))
 
             ch = send.__self__
-            ch._mu.acquire()
-            if 1:
-                ok = ch._trysend(tx)
-                if ok:
-                    return n, None
-            ch._mu.release()
+            if ch is not nilchan:   # nil chan is never ready
+                ch._mu.acquire()
+                if 1:
+                    ok = ch._trysend(tx)
+                    if ok:
+                        return n, None
+                ch._mu.release()
 
-            sendv.append((n, ch, tx))
+                sendv.append((n, ch, tx))
 
         # recv
         else:
@@ -572,21 +585,26 @@ def select(*casev):
                 panic("select: recv expected: %r" % (recv,))
 
             ch = recv.__self__
-            ch._mu.acquire()
-            if 1:
-                rx_, ok = ch._tryrecv()
-                if ok:
-                    if not commaok:
-                        rx, ok = rx_
-                        rx_ = rx
-                    return n, rx_
-            ch._mu.release()
+            if ch is not nilchan:   # nil chan is never ready
+                ch._mu.acquire()
+                if 1:
+                    rx_, ok = ch._tryrecv()
+                    if ok:
+                        if not commaok:
+                            rx, ok = rx_
+                            rx_ = rx
+                        return n, rx_
+                ch._mu.release()
 
-            recvv.append((n, ch, commaok))
+                recvv.append((n, ch, commaok))
 
     # execute default if we have it
     if ndefault is not None:
         return ndefault, None
+
+    # select{} -> block forever
+    if len(recvv) + len(sendv) == 0:
+        _blockforever()
 
     # second pass: subscribe and wait on all rx/tx cases
     g = _WaitGroup()
@@ -660,3 +678,13 @@ def select(*casev):
     finally:
         # unsubscribe not-succeeded waiters
         g.dequeAll()
+
+
+# _blockforever blocks current goroutine forever.
+def _blockforever():
+    # take a lock twice. It will forever block on the second lock attempt.
+    # Under gevent, similarly to Go, this raises "LoopExit: This operation
+    # would block forever", if there are no other greenlets scheduled to be run.
+    dead = threading.Lock()
+    dead.acquire()
+    dead.acquire()

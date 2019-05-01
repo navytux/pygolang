@@ -24,7 +24,7 @@ XXX link to go
 
 from __future__ import print_function
 
-from golang import chan
+from golang import go, chan, select, nilchan
 import threading
 
 # Context is XXX
@@ -64,7 +64,7 @@ def merge(parent1, parent2):
 # _Background implements root context that is never canceled.
 class _Background(object):
     def done(bg):
-        return None # XXX -> nil chan
+        return nilchan
 
     def err(bg):
         return None

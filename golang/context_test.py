@@ -18,10 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from golang import select, default, nilchan
 from golang import context
-
-# XXX stub
-nilchan = None
 
 # ready returns whether channel ch is ready.
 def ready(ch):
