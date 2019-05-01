@@ -602,7 +602,7 @@ def select(*casev):
     if ndefault is not None:
         return ndefault, None
 
-    # select{} -> block forever
+    # select{} or with nil-channels only -> block forever
     if len(recvv) + len(sendv) == 0:
         _blockforever()
 
