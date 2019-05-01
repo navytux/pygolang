@@ -314,6 +314,50 @@ def test_select():
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
+    # blocking send + nil channel
+    z = nilchan
+    for i in range(N):
+        ch = chan()
+        done = chan()
+        def _():
+            waitBlocked(ch.send)
+            assert len(z._sendq) == len(z._recvq) == 0
+            assert ch.recv() == 'c'
+            done.close()
+        go(_)
+
+        _, _rx = select(
+                z.recv,
+                (z.send, 0),
+                (ch.send, 'c'),
+        )
+
+        assert (_, _rx) == (2, None)
+        done.recv()
+        assert len(ch._sendq) == len(ch._recvq) == 0
+
+    # blocking recv + nil channel
+    for i in range(N):
+        ch = chan()
+        done = chan()
+        def _():
+            waitBlocked(ch.recv)
+            assert len(z._sendq) == len(z._recvq) == 0
+            ch.send('d')
+            done.close()
+        go(_)
+
+        _, _rx = select(
+                z.recv,
+                (z.send, 0),
+                ch.recv,
+        )
+
+        assert (_, _rx) == (2, 'd')
+        done.recv()
+        assert len(ch._sendq) == len(ch._recvq) == 0
+
+
     # buffered ping-pong
     ch = chan(1)
     for i in range(N):
@@ -412,20 +456,27 @@ def test_select():
 class BlocksForever(Exception):
     pass
 
-def test_nilchan():
+def test_blockforever():
     B = golang._blockforever
     def _(): raise BlocksForever()
     golang._blockforever = _
     try:
-        _test_nilchan()
+        _test_blockforever()
     finally:
         golang._blockforever = B
 
-def _test_nilchan():
-    ch = nilchan
-    with raises(BlocksForever): ch.send(0)
-    with raises(BlocksForever): ch.recv()
-    with raises(_PanicError):   ch.close()
+def _test_blockforever():
+    z = nilchan
+    with raises(BlocksForever): z.send(0)
+    with raises(BlocksForever): z.recv()
+    with raises(_PanicError):   z.close()   # to fully cover nilchan ops
+
+    # select{} & nil-channel only
+    with raises(BlocksForever): select()
+    with raises(BlocksForever): select((z.send, 0))
+    with raises(BlocksForever): select(z.recv)
+    with raises(BlocksForever): select((z.send, 1), z.recv)
+
 
 def test_method():
     # test how @func(cls) works
