@@ -1,6 +1,9 @@
 Pygolang change history
 =======================
 
+- `nilchan`
+- `context`
+
 0.0.0.dev8 (2019-03-24)
 -----------------------
 

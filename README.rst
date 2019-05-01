@@ -88,6 +88,8 @@ used to multiplex on several channels. For example::
         # default case
         ...
 
+XXX `nilchan`
+
 Methods
 -------
 

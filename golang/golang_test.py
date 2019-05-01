@@ -18,11 +18,12 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError, func, panic, defer, recover
+from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
 
+import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
@@ -405,6 +406,26 @@ def test_select():
     assert len(ch1._sendq) == len(ch1._recvq) == 0
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
+
+# BlocksForever is used in "blocks forever" tests where golang._blockforever
+# is patched to raise instead of block.
+class BlocksForever(Exception):
+    pass
+
+def test_nilchan():
+    B = golang._blockforever
+    def _(): raise BlocksForever()
+    golang._blockforever = _
+    try:
+        _test_nilchan()
+    finally:
+        golang._blockforever = B
+
+def _test_nilchan():
+    ch = nilchan
+    with raises(BlocksForever): ch.send(0)
+    with raises(BlocksForever): ch.recv()
+    with raises(_PanicError):   ch.close()
 
 def test_method():
     # test how @func(cls) works
