@@ -116,7 +116,7 @@ class _Context(object):
 
 
 def _with_cancel(parent):   # -> ctx, cancel
-    ctx = _Context({parent})
+    ctx = _Context(parent)
     def cancel():
         ctx._cancel(None)
 
