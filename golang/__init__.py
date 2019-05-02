@@ -490,6 +490,12 @@ class chan(object):
     def __len__(self):
         return len(self._dataq)
 
+    def __repr__(self):
+        if self is nilchan:
+            return "nilchan"
+        else:
+            return super(chan, self).__repr__()
+
 
 # nilchan is the nil channel.
 #

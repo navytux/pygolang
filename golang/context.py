@@ -73,10 +73,10 @@ _background = _Background()
 
 # _Context implements Context ... XXX
 class _Context(object):
-    def __init__(ctx, parents):
-        # parents of this context - either _Context or generic Context
-        # don't change after setup
-        ctx._parents    = parents
+    def __init__(ctx, *parentv):
+        # parents of this context - either _Context or generic Context.
+        # does not change after setup
+        ctx._parentv    = parentv
 
         ctx._mu         = threading.Lock()
         ctx._children   = set() # children of this context - we propagate cancel there (all _Context)
@@ -102,7 +102,7 @@ class _Context(object):
         ctx._done.close()
 
         # no need to propagate cancel from parent after we are canceled
-        for parent in ctx._parents:
+        for parent in ctx._parentv:
             if parent is cancelFrom:
                 continue
             if isinstance(parent, _Context):
