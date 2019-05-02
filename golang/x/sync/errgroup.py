@@ -60,8 +60,8 @@ class Group(object):
             raise g._err    # XXX raise from
 
 
-def with_context(ctx):
+def with_context(ctx):  # -> group, ctx
     ctx, cancel = context.with_cancel(ctx)
     g = Group()
     g._cancel = cancel
-    return g
+    return g, ctx
