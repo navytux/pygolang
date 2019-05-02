@@ -11,11 +11,10 @@ Package `golang` provides Go-like features for Python:
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
-Additional packages and utilities are also provided__ (2__) to close other gaps
+Additional packages and utilities are also provided__ to close other gaps
 between Python and Go environments.
 
-__ `String conversion`_
-__ `Benchmarking and testing`_
+__ `Additional packages and utilities`_
 
 
 GPython
@@ -163,9 +162,19 @@ will import either
 
 located in `src/` under `$GOPATH`.
 
+--------
+
+Additional packages and utilities
+---------------------------------
+
+The following additional packages and utilities are also provided to close gaps
+between Python and Go environments:
+
+.. contents::
+   :local:
 
 String conversion
------------------
+~~~~~~~~~~~~~~~~~
 
 `qq` (import from `golang.gcompat`) provides `%q` functionality that quotes as
 Go would do. For example the following code will print name quoted in `"`
@@ -181,7 +190,7 @@ example `strconv.quote` and `strconv.unquote`.
 
 
 Benchmarking and testing
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 `py.bench` allows to benchmark python code similarly to `go test -bench` and `py.test`.
 For example, running `py.bench` on the following code::
