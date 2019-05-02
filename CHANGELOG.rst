@@ -1,7 +1,7 @@
 Pygolang change history
 =======================
 
-- `nilchan`
+- Add support for nil channels (`nilchan`).
 - `context`
 
 0.0.0.dev8 (2019-03-24)
