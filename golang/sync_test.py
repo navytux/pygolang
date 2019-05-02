@@ -18,7 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import sync
+from golang import sync, go, chan, _PanicError
+import time
 from pytest import raises
 
 def test_once():
@@ -47,3 +48,34 @@ def test_once():
     assert l == [2]
     once.do(_)  # no longer raises
     assert l == [2]
+
+
+def test_waitgroup():
+    wg = sync.WaitGroup()
+    wg.add(2)
+
+    ch = chan(3)
+    def _():
+        wg.wait()
+        ch.send('a')
+    for i in range(3):
+        go(_)
+
+    wg.done()
+    assert len(ch) == 0
+    time.sleep(0.1)
+    assert len(ch) == 0
+    wg.done()
+
+    for i in range(3):
+        assert ch.recv() == 'a'
+
+    wg.add(1)
+    go(_)
+    time.sleep(0.1)
+    assert len(ch) == 0
+    wg.done()
+    assert ch.recv() == 'a'
+
+    with raises(_PanicError):
+        wg.done()

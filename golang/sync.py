@@ -25,6 +25,7 @@ See the following link about Go sync package:
 """
 
 import threading
+from golang import panic
 
 # Once allows to execute an action only once.
 #
@@ -43,3 +44,34 @@ class Once(object):
             if not once._done:
                 once._done = True
                 f()
+
+
+# WaitGroup allows to wait for collection of tasks to finish.
+class WaitGroup(object):
+    def __init__(wg):
+        wg._mu      = threading.Lock()
+        wg._count   = 0
+
+        wg._event   = threading.Event()
+
+    def done(wg):
+        wg.add(-1)
+
+    def add(wg, delta):
+        wakeup = False
+        with wg._mu:
+            wg._count += delta
+            if wg._count < 0:
+                panic("sync: negative WaitGroup counter")
+            if wg._count == 0:
+                wakeup = True
+        if wakeup:
+            wg._event.set()
+        else:
+            wg._event.clear()
+
+    def wait(wg):
+        with wg._mu:
+            if wg._count == 0:
+                return
+        wg._event.wait()
