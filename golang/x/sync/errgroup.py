@@ -19,7 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package errgroup mirrors Go package errgroup
 
-See the following link for details:
+See the following link for errgroup documentation:
 
     https://godoc.org/golang.org/x/sync/errgroup
 """
@@ -27,7 +27,9 @@ See the following link for details:
 from golang import go, defer, func
 from golang import sync, context
 
-# XXX
+# Group is a group of goroutines working on a common task.
+#
+# XXX canceled.
 class Group(object):
     def __init__(g):
         g._wg     = sync.WaitGroup()
@@ -35,22 +37,30 @@ class Group(object):
         g._err    = None
         g._cancel = lambda:
 
-
     def go(g, f):
         g._wg.add(1)
 
         @func
         def _():
-            defer g._wg.done()
+            defer(g._wg.done)
 
             try:
                 f()
             except Exception e:
                 with g._mu:
                     if g._err is None:
-                        g._err = e      # XXX + traceback?
+                        g._err = e      # XXX + traceback
                         g._cancel()
-
         go(_)
 
-        XXX
+    def wait(g):
+        g._wg.wait()
+        if g._err is not None:
+            raise g._err    # XXX raise from
+
+
+def with_context(ctx):
+    ctx, cancel = context.with_cancel(ctx)
+    g = Group()
+    g._cancel = cancel
+    return g
