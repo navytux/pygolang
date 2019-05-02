@@ -493,7 +493,7 @@ class chan(object):
 
 # nilchan is the nil channel.
 #
-# On nil channel send/recv block forever while close panics.
+# On nil channel: send/recv block forever; close panics.
 nilchan = chan(None)    # TODO -> <chan*>(NULL) after move to Cython
 
 
