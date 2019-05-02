@@ -51,8 +51,9 @@ Goroutines and channels
 `go` spawns a coroutine, or thread if gevent was not activated. It is possible to
 exchange data in between either threads or coroutines via channels. `chan`
 creates a new channel with Go semantic - either synchronous or buffered. Use
-`chan.recv`, `chan.send` and `chan.close` for communication. `select` can be
-used to multiplex on several channels. For example::
+`chan.recv`, `chan.send` and `chan.close` for communication. `nilchan`
+stands for the nil channel. `select` can be used to multiplex on several
+channels. For example::
 
     ch1 = chan()    # synchronous channel
     ch2 = chan(3)   # channel with buffer of size 3
@@ -65,22 +66,28 @@ used to multiplex on several channels. For example::
     ch1.recv()      # will give 'a'
     ch2.recv_()     # will give ('b', True)
 
+    ch2 = nilchan   # rebind ch2 to nil channel
     _, _rx = select(
         ch1.recv,           # 0
-        ch2.recv_,          # 1
-        (ch2.send, obj2),   # 2
-        default,            # 3
+        ch1.recv_,          # 1
+        (ch1.send, obj),    # 2
+        ch2.recv,           # 3
+        default,            # 4
     )
     if _ == 0:
         # _rx is what was received from ch1
         ...
     if _ == 1:
-        # _rx is (rx, ok) of what was received from ch2
+        # _rx is (rx, ok) of what was received from ch1
         ...
     if _ == 2:
-        # we know obj2 was sent to ch2
+        # we know obj was sent to ch1
         ...
     if _ == 3:
+        # this case will be never selected because
+        # send/recv on nil channel block forever.
+        ...
+    if _ == 4:
         # default case
         ...
 

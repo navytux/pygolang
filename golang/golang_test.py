@@ -18,11 +18,12 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import go, chan, select, default, _PanicError, func, panic, defer, recover
+from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
 
+import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
@@ -313,6 +314,50 @@ def test_select():
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
+    # blocking send + nil channel
+    z = nilchan
+    for i in range(N):
+        ch = chan()
+        done = chan()
+        def _():
+            waitBlocked(ch.send)
+            assert len(z._sendq) == len(z._recvq) == 0
+            assert ch.recv() == 'c'
+            done.close()
+        go(_)
+
+        _, _rx = select(
+                z.recv,
+                (z.send, 0),
+                (ch.send, 'c'),
+        )
+
+        assert (_, _rx) == (2, None)
+        done.recv()
+        assert len(ch._sendq) == len(ch._recvq) == 0
+
+    # blocking recv + nil channel
+    for i in range(N):
+        ch = chan()
+        done = chan()
+        def _():
+            waitBlocked(ch.recv)
+            assert len(z._sendq) == len(z._recvq) == 0
+            ch.send('d')
+            done.close()
+        go(_)
+
+        _, _rx = select(
+                z.recv,
+                (z.send, 0),
+                ch.recv,
+        )
+
+        assert (_, _rx) == (2, 'd')
+        done.recv()
+        assert len(ch._sendq) == len(ch._recvq) == 0
+
+
     # buffered ping-pong
     ch = chan(1)
     for i in range(N):
@@ -404,6 +449,33 @@ def test_select():
     done.recv()
     assert len(ch1._sendq) == len(ch1._recvq) == 0
     assert len(ch2._sendq) == len(ch2._recvq) == 0
+
+
+# BlocksForever is used in "blocks forever" tests where golang._blockforever
+# is patched to raise instead of block.
+class BlocksForever(Exception):
+    pass
+
+def test_blockforever():
+    B = golang._blockforever
+    def _(): raise BlocksForever()
+    golang._blockforever = _
+    try:
+        _test_blockforever()
+    finally:
+        golang._blockforever = B
+
+def _test_blockforever():
+    z = nilchan
+    with raises(BlocksForever): z.send(0)
+    with raises(BlocksForever): z.recv()
+    with raises(_PanicError):   z.close()   # to fully cover nilchan ops
+
+    # select{} & nil-channel only
+    with raises(BlocksForever): select()
+    with raises(BlocksForever): select((z.send, 0))
+    with raises(BlocksForever): select(z.recv)
+    with raises(BlocksForever): select((z.send, 1), z.recv)
 
 
 def test_method():
