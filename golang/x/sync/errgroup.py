@@ -26,6 +26,7 @@ See the following link for errgroup documentation:
 
 from golang import go, defer, func
 from golang import sync, context
+import threading
 
 # Group is a group of goroutines working on a common task.
 #
@@ -35,7 +36,7 @@ class Group(object):
         g._wg     = sync.WaitGroup()
         g._mu     = threading.Lock()
         g._err    = None
-        g._cancel = lambda:
+        g._cancel = lambda: None
 
     def go(g, f):
         g._wg.add(1)
@@ -46,7 +47,7 @@ class Group(object):
 
             try:
                 f()
-            except Exception e:
+            except Exception as e:
                 with g._mu:
                     if g._err is None:
                         g._err = e      # XXX + traceback
