@@ -19,7 +19,10 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package context mirrors Go package context
 
-XXX link to go
+See the following links about Go contexts:
+
+    https://blog.golang.org/context
+    https://golang.org/pkg/context
 """
 
 from __future__ import print_function
@@ -27,7 +30,10 @@ from __future__ import print_function
 from golang import go, chan, select, default, nilchan
 import threading
 
-# Context is XXX
+# Context is the interface that every context must implement.
+#
+# A context carries cancellation signal and context-local immutable key ->
+# value dict.
 class Context(object):
     # done returns channel that is closed when the context is canceled.
     def done(ctx):  # -> chan
