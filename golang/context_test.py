@@ -18,19 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import select, default, nilchan
-from golang import context
-
-# ready returns whether channel ch is ready.
-def ready(ch):
-    _, _rx = select(
-            ch.recv,    # 0
-            default,    # 1
-    )
-    if _ == 0:
-        return True
-    if _ == 1:
-        return False
+from golang import context, nilchan
+from golang.context import _ready as ready
 
 def test_context():
     bg = context.background()

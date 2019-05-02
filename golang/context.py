@@ -24,7 +24,7 @@ XXX link to go
 
 from __future__ import print_function
 
-from golang import go, chan, select, nilchan
+from golang import go, chan, select, default, nilchan
 import threading
 
 # Context is XXX
@@ -50,10 +50,10 @@ def background():   # -> Context
     return  _background
 
 # canceled is the error returned by Context.err when context is canceled.
-canceled = RuntimeError("context canceled")  # XXX ok?
+canceled = RuntimeError("context canceled")
 
 # deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
-deadlineExceeded = RuntimeError("deadline exceeded")    # XXX ok?
+deadlineExceeded = RuntimeError("deadline exceeded")
 
 
 # with_cancel creates new context that can be canceled on its own.
@@ -82,7 +82,7 @@ def with_value(parent, key, value): # -> ctx
 # Canceling this context releases resources associated with it, so code should
 # call cancel as soon as the operations running in this Context complete.
 #
-# Note: on Go side merge is not part of stdlib context and is providede by
+# Note: on Go side merge is not part of stdlib context and is provided by
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
 def merge(parent1, parent2):    # -> ctx, cancel
     ctx = _CancelCtx(parent1, parent2)
@@ -132,7 +132,7 @@ class _BaseCtx(object):
             return ctx._err
 
     # value returns value for key from one of its parents.
-    # this behaviour is inherited by all conetexts except _ValueCtx who amends it.
+    # this behaviour is inherited by all contexts except _ValueCtx who amends it.
     def value(ctx, key):
         for parent in ctx._parentv:
             v = parent.value(key)
@@ -171,7 +171,7 @@ class _BaseCtx(object):
             child._cancelFrom(ctx)
 
 
-    # propageteCancel makes setup so that whenever a parent is canceled, ctx
+    # propagateCancel makes setup so that whenever a parent is canceled, ctx
     # and its children are canceled too.
     def _propagateCancel(ctx):
         pdonev = [] # !nilchan .done() for foreign contexts
@@ -231,3 +231,14 @@ class _ValueCtx(_BaseCtx):
         if v is not None:
             return v
         return super(_ValueCtx, ctx).value(key)
+
+# _ready returns whether channel ch is ready.
+def _ready(ch):
+    _, _rx = select(
+            ch.recv,    # 0
+            default,    # 1
+    )
+    if _ == 0:
+        return True
+    if _ == 1:
+        return False
