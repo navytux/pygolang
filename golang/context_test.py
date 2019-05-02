@@ -39,9 +39,9 @@ def test_context():
     assert not ready(bg.done())
     assert bg.value("hello") is None
 
-    # assertCtx asserts on state of _Context
+    # assertCtx asserts on state of _BaseCtx*
     def assertCtx(ctx, children, err=None, done=False):
-        assert isinstance(ctx, context._Context)
+        assert isinstance(ctx, context._BaseCtx)
         assert ctx.err() is err
         assert ready(ctx.done()) == done
         assert ctx._children == children

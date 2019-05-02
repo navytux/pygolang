@@ -125,7 +125,7 @@ class _BaseCtx(object):
     def done(ctx):
         if ctx._done is not None:
             return ctx._done
-        return ctx._parentv[0]
+        return ctx._parentv[0].done()
 
     def err(ctx):
         with ctx._mu:
@@ -202,7 +202,7 @@ class _BaseCtx(object):
         def _():
             _, _rx = select(
                 ctx._done.recv,             # 0
-                *[_.recv for _ in pdonev],  # 1 + ...
+                *[_.recv for _ in pdonev]   # 1 + ...
             )
             # 0. nothing - already canceled
             if _ > 0:
@@ -219,7 +219,7 @@ class _CancelCtx(_BaseCtx):
 # _ValueCtx is context that carries key -> value.
 class _ValueCtx(_BaseCtx):
     def __init__(ctx, kv, parent):
-        super(_CancelCtx, ctx).__init__(None, parent)
+        super(_ValueCtx, ctx).__init__(None, parent)
 
         # {} (key, value) specific to this context.
         # the rest of the keys are inherited from parents.
