@@ -105,7 +105,7 @@ def test_context():
     assertCtx(ctx121,   {ctx1211})
     assertCtx(ctx1211,  Z)
 
-    ctxM, cancelM = context.merge(ctx1111, ctx121)
+    ctxM, cancelM = context.merge(ctx1111, ctx1211)
     assert ctxM.value("hello")  == "alpha"
     assert ctxM.value("мир")    == "май"
     assert ctxM.value("beta")   == "gamma"
