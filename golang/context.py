@@ -37,9 +37,12 @@ class Context(object):
     def err(ctx):   # -> error
         raise NotImplementedError()
 
+    # value returns value associated with key, or None, if context has no key.
+    def value(ctx, key):    # -> value | None
+        raise NotImplementedError()
+
     # TODO:
     # .deadline()
-    # .value(key)
 
 
 # background returns empty context that is never canceled.
@@ -49,15 +52,39 @@ def background():   # -> Context
 # canceled is the error returned by Context.err when context is canceled.
 canceled = RuntimeError("context canceled")  # XXX ok?
 
+# deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
+deadlineExceeded = RuntimeError("deadline exceeded")    # XXX ok?
 
-# XXX
+
+# with_cancel creates new context that can be canceled on its own.
+#
+# Returned context inherits from parent and in particular is canceled when
+# parent is done.
 def with_cancel(parent): # -> ctx, cancel
     return _with_cancel(parent)
 
-# XXX ?
+# with_value creates new context with key=value.
+#
+# Returned context inherits from parent and in particular has all other
+# (key, value) pairs provided by parent.
+def with_value(parent, key, value): # -> ctx
+    return _with_value(parent, key, value)
+
+# merge merges 2 contexts into 1.
+#
+# The result context:
+#
+#   - is done when parent1 or parent2 is done, or cancel called, whichever happens first,
+#   - has deadline = min(parent1.Deadline, parent2.Deadline),
+#   - has associated values merged from parent1 and parent2, with parent1 taking precedence.
+#
+# Canceling this context releases resources associated with it, so code should
+# call cancel as soon as the operations running in this Context complete.
+#
+# Note: on Go side merge is not part of stdlib context and is providede by
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
-def merge(parent1, parent2):
-    1/0 # XXX
+def merge(parent1, parent2):    # -> ctx, cancel
+    return _merge(parent1, parent2)
 
 # --------
 
@@ -69,29 +96,55 @@ class _Background(object):
     def err(bg):
         return None
 
+    def value(bg, key):
+        return None
+
 _background = _Background()
 
-# _Context implements Context ... XXX
-class _Context(object):
-    def __init__(ctx, *parentv):
-        # parents of this context - either _Context or generic Context.
-        # does not change after setup
+# _BaseCtx is the common base for Context implementations in this package.
+class _BaseCtx(object):
+    def __init__(ctx, done, *parentv):
+        # parents of this context - either _BaseCtx* or generic Context.
+        # does not change after setup.
         ctx._parentv    = parentv
 
         ctx._mu         = threading.Lock()
-        ctx._children   = set() # children of this context - we propagate cancel there (all _Context)
+        ctx._children   = set() # children of this context - we propagate cancel there (all _BaseCtx)
         ctx._err        = None
 
-        ctx._done       = chan()
+        # chan: if context can be canceled on its own
+        # None: if context can not be canceled on its own
+        ctx._done       = done
+        if done is None:
+            assert len(parentv) == 1
+
+        ctx._propagateCancel()
 
     def done(ctx):
-        return ctx._done
+        if ctx._done is not None:
+            return ctx._done
+        return ctx._parentv[0]
 
     def err(ctx):
         with ctx._mu:
             return ctx._err
 
-    def _cancel(ctx, cancelFrom):
+    # value returns value for key from one of its parents.
+    # this behaviour is inherited by all conetexts except _ValueCtx who amends it.
+    def value(ctx, key):
+        for parent in ctx._parentv:
+            v = parent.value(key)
+            if v is not None:
+                return v
+        return None
+
+    # _cancel cancels ctx and its children.
+    def _cancel(ctx):
+        return ctx._cancelFrom(None)
+
+    # _cancelFrom cancels ctx and its children.
+    # if cancelFrom != None it indicates which ctx parent cancellation was the cause for ctx cancel.
+    def _cancelFrom(ctx, cancelFrom):
         with ctx._mu:
             if ctx._err is not None:
                 return  # already canceled
@@ -99,56 +152,95 @@ class _Context(object):
             ctx._err = canceled
             children = ctx._children;   ctx._children = set()
 
-        ctx._done.close()
+        if ctx._done is not None:
+            ctx._done.close()
 
         # no need to propagate cancel from parent after we are canceled
         for parent in ctx._parentv:
             if parent is cancelFrom:
                 continue
-            if isinstance(parent, _Context):
+            if isinstance(parent, _BaseCtx):
                 with parent._mu:
                     if ctx in parent._children:
                         parent._children.remove(ctx)
 
         # propagate cancel to children
         for child in children:
-            child._cancel(ctx)
+            child._cancelFrom(ctx)
+
+
+    # propageteCancel makes setup so that whenever a parent is canceled, ctx
+    # and its children are canceled too.
+    def _propagateCancel(ctx):
+        pdonev = [] # !nilchan .done() for foreign contexts
+        for parent in ctx._parentv:
+            # if parent can never be canceled (e.g. it is background) - we
+            # don't need to propagate cancel from it.
+            pdone = parent.done()
+            if pdone is nilchan:
+                continue
+
+            # parent is cancellable - glue to propagate cancel from it to us
+            if isinstance(parent, _BaseCtx):
+                with parent._mu:
+                    if parent._err is not None:
+                        ctx._cancel()
+                    else:
+                        parent._children.add(ctx)
+            else:
+                if _ready(pdone):
+                    ctx._cancel()
+                else:
+                    pdonev.append(pdone)
+
+        if len(pdonev) == 0:
+            return
+
+        # there are some foreign contexts to propagate cancel from
+        def _():
+            _, _rx = select(
+                ctx._done.recv,             # 0
+                *[_.recv for _ in pdonev],  # 1 + ...
+            )
+            # 0. nothing - already canceled
+            if _ > 0:
+                ctx._cancel()
+        go(_)
+
+
+# _CancelCtx is context that can be canceled.
+class _CancelCtx(_BaseCtx):
+    def __init__(ctx, *parentv):
+        super(_CancelCtx, ctx).__init__(chan(), *parentv)
+
+
+# _ValueCtx is context that carries key -> value.
+class _ValueCtx(_BaseCtx):
+    def __init__(ctx, kv, parent):
+        super(_CancelCtx, ctx).__init__(None, parent)
+
+        # {} (key, value) specific to this context.
+        # the rest of the keys are inherited from parents.
+        # does not change after setup.
+        ctx._kv         = kv
+
+    def value(ctx, key):
+        v = ctx._kv.get(key)
+        if v is not None:
+            return v
+        return super(_ValueCtx, ctx).value(key)
+
 
 
 def _with_cancel(parent):   # -> ctx, cancel
-    ctx = _Context(parent)
-    def cancel():
-        ctx._cancel(None)
+    ctx = _CancelCtx(parent)
+    return ctx._cancel
 
-    # if parent can never be canceled (e.g. it is background) - we don't need
-    # to propagate cancel.
-    pdone = parent.done()
-    if pdone is nilchan:
-        return ctx, cancel
-
-    # parent is cancellable - glue to propagate cancel from it to us
-    if isinstance(parent, _Context):
-        with parent._mu:
-            if parent._err is not None:
-                cancel()
-            else:
-                parent._children.add(ctx)
-    else:
-        if _ready(pdone):
-            cancel()
-        else:
-            def _():
-                _, _rx = select(
-                    pdone.recv,         # 0
-                    ctx._done.recv,     # 1
-                )
-                if _ == 0:
-                    cancel()
-                # 1. nothing - already canceled
-            go(_)
-
-    return ctx, cancel
+def _with_value(parent, key, value):    # -> ctx
+    ctx = _ValueCtx({key: value}, parent)
+    return ctx
 
 
 def _merge(parent1, parent2):    # -> ctx, cancel
-    1/0     # XXX todo
+    ctx = _CancelCtx(parent1, parent2)
+    return ctx, ctx._cancel

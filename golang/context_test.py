@@ -27,7 +27,6 @@ def ready(ch):
             ch.recv,    # 0
             default,    # 1
     )
-
     if _ == 0:
         return True
     if _ == 1:
@@ -37,6 +36,8 @@ def test_context():
     bg = context.background()
     assert bg.err()     is None
     assert bg.done()    is nilchan
+    assert not ready(bg.done())
+    assert bg.value("hello") is None
 
     # assertCtx asserts on state of _Context
     def assertCtx(ctx, children, err=None, done=False):
@@ -49,6 +50,8 @@ def test_context():
     C = context.canceled
     Y = True
 
+    # XXX with_value
+
     ctx1, cancel1 = context.with_cancel(bg)
     assert ctx1._parentv == (bg,)
     assertCtx(ctx1,   Z)
@@ -58,14 +61,18 @@ def test_context():
     assertCtx(ctx1,   {ctx11})
     assertCtx(ctx11,  Z)
 
-    ctx12, cancel12 = context.with_cancel(ctx1)
+    ctx12 = context.with_value(ctx1, "hello", "world")
     assert ctx12._parentv == (ctx1,)
+    assert ctx12.value("hello") == "world"
+    assert ctx12.value("abc") is None
     assertCtx(ctx1,   {ctx11, ctx12})
     assertCtx(ctx11,  Z)
     assertCtx(ctx12,  Z)
 
     ctx121, cancel121 = context.with_cancel(ctx12)
     assert ctx121._parentv == (ctx12,)
+    assert ctx121.value("hello") == "world"
+    assert ctx121.value("abc") is None
     assertCtx(ctx1,   {ctx11, ctx12})
     assertCtx(ctx11,  Z)
     assertCtx(ctx12,  {ctx121})
