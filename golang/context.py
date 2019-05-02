@@ -61,14 +61,15 @@ deadlineExceeded = RuntimeError("deadline exceeded")    # XXX ok?
 # Returned context inherits from parent and in particular is canceled when
 # parent is done.
 def with_cancel(parent): # -> ctx, cancel
-    return _with_cancel(parent)
+    ctx = _CancelCtx(parent)
+    return ctx, ctx._cancel
 
 # with_value creates new context with key=value.
 #
 # Returned context inherits from parent and in particular has all other
 # (key, value) pairs provided by parent.
 def with_value(parent, key, value): # -> ctx
-    return _with_value(parent, key, value)
+    return _ValueCtx({key: value}, parent)
 
 # merge merges 2 contexts into 1.
 #
@@ -84,7 +85,8 @@ def with_value(parent, key, value): # -> ctx
 # Note: on Go side merge is not part of stdlib context and is providede by
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
 def merge(parent1, parent2):    # -> ctx, cancel
-    return _merge(parent1, parent2)
+    ctx = _CancelCtx(parent1, parent2)
+    return ctx, ctx._cancel
 
 # --------
 
@@ -229,18 +231,3 @@ class _ValueCtx(_BaseCtx):
         if v is not None:
             return v
         return super(_ValueCtx, ctx).value(key)
-
-
-
-def _with_cancel(parent):   # -> ctx, cancel
-    ctx = _CancelCtx(parent)
-    return ctx._cancel
-
-def _with_value(parent, key, value):    # -> ctx
-    ctx = _ValueCtx({key: value}, parent)
-    return ctx
-
-
-def _merge(parent1, parent2):    # -> ctx, cancel
-    ctx = _CancelCtx(parent1, parent2)
-    return ctx, ctx._cancel
