@@ -48,46 +48,96 @@ def test_context():
 
     Z = set()   # empty set
     C = context.canceled
+    D = context.deadlineExceeded
     Y = True
 
-    # XXX with_value
-
     ctx1, cancel1 = context.with_cancel(bg)
-    assert ctx1._parentv == (bg,)
-    assertCtx(ctx1,   Z)
+    assertCtx(ctx1,     Z)
 
     ctx11, cancel11 = context.with_cancel(ctx1)
-    assert ctx11._parentv == (ctx1,)
-    assertCtx(ctx1,   {ctx11})
-    assertCtx(ctx11,  Z)
+    assertCtx(ctx1,     {ctx11})
+    assertCtx(ctx11,    Z)
+
+    ctx111  = context.with_value(ctx11,  "hello", "alpha")
+    assertCtx(ctx1,     {ctx11})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   Z)
+    assert ctx111.value("hello") == "alpha"
+    assert ctx111.value("abc")   is None
+
+    ctx1111 = context.with_value(ctx111, "beta",  "gamma")
+    assert ctx1111.value("hello") == "alpha"
+    assert ctx1111.value("beta")  == "gamma"
+    assert ctx1111.value("abc")   is None
+    assertCtx(ctx1,     {ctx11})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   {ctx1111})
+    assertCtx(ctx1111,  Z)
 
     ctx12 = context.with_value(ctx1, "hello", "world")
-    assert ctx12._parentv == (ctx1,)
     assert ctx12.value("hello") == "world"
-    assert ctx12.value("abc") is None
-    assertCtx(ctx1,   {ctx11, ctx12})
-    assertCtx(ctx11,  Z)
-    assertCtx(ctx12,  Z)
+    assert ctx12.value("abc")   is None
+    assertCtx(ctx1,     {ctx11, ctx12})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   {ctx1111})
+    assertCtx(ctx1111,  Z)
+    assertCtx(ctx12,    Z)
 
     ctx121, cancel121 = context.with_cancel(ctx12)
-    assert ctx121._parentv == (ctx12,)
     assert ctx121.value("hello") == "world"
-    assert ctx121.value("abc") is None
-    assertCtx(ctx1,   {ctx11, ctx12})
-    assertCtx(ctx11,  Z)
-    assertCtx(ctx12,  {ctx121})
-    assertCtx(ctx121, Z)
+    assert ctx121.value("abc")   is None
+    assertCtx(ctx1,     {ctx11, ctx12})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   {ctx1111})
+    assertCtx(ctx1111,  Z)
+    assertCtx(ctx12,    {ctx121})
+    assertCtx(ctx121,   Z)
+
+    ctx1211 = context.with_value(ctx121, "мир", "май")
+    assert ctx1211.value("hello") == "world"
+    assert ctx1211.value("мир")   == "май"
+    assert ctx1211.value("abc")   is None
+    assertCtx(ctx1,     {ctx11, ctx12})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   {ctx1111})
+    assertCtx(ctx1111,  Z)
+    assertCtx(ctx12,    {ctx121})
+    assertCtx(ctx121,   {ctx1211})
+    assertCtx(ctx1211,  Z)
+
+    ctxM, cancelM = context.merge(ctx1111, ctx121)
+    assert ctxM.value("hello")  == "alpha"
+    assert ctxM.value("мир")    == "май"
+    assert ctxM.value("beta")   == "gamma"
+    assert ctxM.value("abc")    is None
+    assertCtx(ctx1,     {ctx11, ctx12})
+    assertCtx(ctx11,    {ctx111})
+    assertCtx(ctx111,   {ctx1111})
+    assertCtx(ctx1111,  {ctxM})
+    assertCtx(ctx12,    {ctx121})
+    assertCtx(ctx121,   {ctx1211})
+    assertCtx(ctx1211,  {ctxM})
+    assertCtx(ctxM,     Z)
+
 
     for _ in range(2):
         cancel11()
-        assertCtx(ctx1,   {ctx12})
-        assertCtx(ctx11,  Z, err=C, done=Y)
-        assertCtx(ctx12,  {ctx121})
-        assertCtx(ctx121, Z)
+        assertCtx(ctx1,     {ctx12})
+        assertCtx(ctx11,    Z, err=C, done=Y)
+        assertCtx(ctx111,   Z, err=C, done=Y)
+        assertCtx(ctx1111,  Z, err=C, done=Y)
+        assertCtx(ctx12,    {ctx121})
+        assertCtx(ctx121,   {ctx1211})
+        assertCtx(ctx1211,  Z)
+        assertCtx(ctxM,     Z, err=C, done=Y)
 
     for _ in range(2):
         cancel1()
-        assertCtx(ctx1,   Z, err=C, done=Y)
-        assertCtx(ctx11,  Z, err=C, done=Y)
-        assertCtx(ctx12,  Z, err=C, done=Y)
-        assertCtx(ctx121, Z, err=C, done=Y)
+        assertCtx(ctx1,     Z, err=C, done=Y)
+        assertCtx(ctx11,    Z, err=C, done=Y)
+        assertCtx(ctx111,   Z, err=C, done=Y)
+        assertCtx(ctx1111,  Z, err=C, done=Y)
+        assertCtx(ctx12,    Z, err=C, done=Y)
+        assertCtx(ctx121,   Z, err=C, done=Y)
+        assertCtx(ctx1211,  Z, err=C, done=Y)
+        assertCtx(ctxM,     Z, err=C, done=Y)
