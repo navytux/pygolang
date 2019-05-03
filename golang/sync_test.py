@@ -18,8 +18,9 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang import sync, go, chan, _PanicError
-import time
+from golang import go, chan, _PanicError
+from golang import sync, context
+import time, threading
 from pytest import raises
 
 def test_once():
@@ -79,3 +80,38 @@ def test_waitgroup():
 
     with raises(_PanicError):
         wg.done()
+
+
+def test_workgroup():
+    ctx, cancel = context.with_cancel(context.background())
+    mu = threading.Lock()
+
+    # t1=ok, t2=ok
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+        wg.go(_, i)
+    wg.wait()
+    assert l == [1, 2]
+
+    # t1=fail, t2=ok, does not look at ctx
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+                if i == 0:
+                    raise RuntimeError('aaa')
+        wg.go(_, i)
+    with raises(RuntimeError):
+        wg.wait()
+    assert l == [1, 2]
+
+
+    # XXX error in spawned
+
+    # XXX cancel parent ctx
