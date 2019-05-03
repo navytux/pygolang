@@ -131,4 +131,16 @@ def test_workgroup():
 
     # XXX error in spawned
 
-    # XXX cancel parent ctx
+    # t1=ok,wait cancel  t2=ok,wait cancel
+    # cancel parent
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+                ctx.done().recv()
+        wg.go(_, i)
+    cancel()    # parent cancel - must be propagated into workgroup
+    wg.wait()
+    assert l == [1, 2]
