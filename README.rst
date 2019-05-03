@@ -194,17 +194,15 @@ and also any other type that can be converted to `str`.
 Package `golang.strconv` provides direct access to conversion routines, for
 example `strconv.quote` and `strconv.unquote`.
 
-context
-~~~~~~~
+Concurrency
+~~~~~~~~~~~
 
-TODO
+In addition to `go` and channels, the following packages are provided to help
+handle concurrency in structured ways.
 
-
-XXX sync
-~~~~~~~~
-
-XXX errgroup
-~~~~~~~~~~~~
+- `golang.sync`
+- `golang.context`
+- `golang.x.sync.errgroup`
 
 TODO
 

@@ -41,20 +41,24 @@ def test_context():
     Y = True
 
     ctx1, cancel1 = context.with_cancel(bg)
+    assert ctx1.done() is not bg.done()
     assertCtx(ctx1,     Z)
 
     ctx11, cancel11 = context.with_cancel(ctx1)
+    assert ctx11.done() is not ctx1.done()
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    Z)
 
     ctx111  = context.with_value(ctx11,  "hello", "alpha")
+    assert ctx111.done() is ctx11.done()
+    assert ctx111.value("hello") == "alpha"
+    assert ctx111.value("abc")   is None
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   Z)
-    assert ctx111.value("hello") == "alpha"
-    assert ctx111.value("abc")   is None
 
     ctx1111 = context.with_value(ctx111, "beta",  "gamma")
+    assert ctx1111.done() is ctx11.done()
     assert ctx1111.value("hello") == "alpha"
     assert ctx1111.value("beta")  == "gamma"
     assert ctx1111.value("abc")   is None
@@ -64,6 +68,7 @@ def test_context():
     assertCtx(ctx1111,  Z)
 
     ctx12 = context.with_value(ctx1, "hello", "world")
+    assert ctx12.done() is ctx1.done()
     assert ctx12.value("hello") == "world"
     assert ctx12.value("abc")   is None
     assertCtx(ctx1,     {ctx11, ctx12})
@@ -73,6 +78,7 @@ def test_context():
     assertCtx(ctx12,    Z)
 
     ctx121, cancel121 = context.with_cancel(ctx12)
+    assert ctx121.done() is not ctx12.done()
     assert ctx121.value("hello") == "world"
     assert ctx121.value("abc")   is None
     assertCtx(ctx1,     {ctx11, ctx12})
@@ -83,6 +89,7 @@ def test_context():
     assertCtx(ctx121,   Z)
 
     ctx1211 = context.with_value(ctx121, "мир", "май")
+    assert ctx1211.done() is ctx121.done()
     assert ctx1211.value("hello") == "world"
     assert ctx1211.value("мир")   == "май"
     assert ctx1211.value("abc")   is None
@@ -95,6 +102,8 @@ def test_context():
     assertCtx(ctx1211,  Z)
 
     ctxM, cancelM = context.merge(ctx1111, ctx1211)
+    assert ctxM.done() is not ctx1111.done()
+    assert ctxM.done() is not ctx1211.done()
     assert ctxM.value("hello")  == "alpha"
     assert ctxM.value("мир")    == "май"
     assert ctxM.value("beta")   == "gamma"

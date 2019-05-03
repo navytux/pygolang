@@ -32,8 +32,8 @@ import threading
 
 # Context is the interface that every context must implement.
 #
-# A context carries cancellation signal and context-local immutable key ->
-# value dict.
+# A context carries cancellation signal and immutable context-local
+# key -> value dict.
 class Context(object):
     # done returns channel that is closed when the context is canceled.
     def done(ctx):  # -> chan
@@ -109,7 +109,7 @@ class _Background(object):
 
 _background = _Background()
 
-# _BaseCtx is the common base for Context implementations in this package.
+# _BaseCtx is the common base for Contexts implemented in this package.
 class _BaseCtx(object):
     def __init__(ctx, done, *parentv):
         # parents of this context - either _BaseCtx* or generic Context.
@@ -163,7 +163,7 @@ class _BaseCtx(object):
         if ctx._done is not None:
             ctx._done.close()
 
-        # no need to propagate cancel from parent after we are canceled
+        # no longer need to propagate cancel from parent after we are canceled
         for parent in ctx._parentv:
             if parent is cancelFrom:
                 continue
