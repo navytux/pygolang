@@ -72,4 +72,4 @@ class WaitGroup(object):
             if wg._count == 0:
                 return
             event = wg._event
-        wg._event.wait()
+        event.wait()
