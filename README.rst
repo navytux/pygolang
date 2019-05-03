@@ -179,6 +179,24 @@ between Python and Go environments:
 .. contents::
    :local:
 
+Concurrency
+~~~~~~~~~~~
+
+In addition to `go` and channels, the following packages are provided to help
+handle concurrency in structured ways.
+
+- `golang.context` provides contexts to propagate cancellation and task-scoped
+  values among spawned goroutines.
+
+- `golang.x.sync.errgroup` provides ... TODO (`errgroup.Group` ?)
+
+- `golang.sync` provides low-level primitives - for example `sync.Once` and
+  `sync.WaitGroup` - that are sometimes useful.
+
+See `Go Concurrency Patterns: Context`__ for overview of contexts.
+
+  __ https://blog.golang.org/context
+
 String conversion
 ~~~~~~~~~~~~~~~~~
 
@@ -193,18 +211,6 @@ and also any other type that can be converted to `str`.
 
 Package `golang.strconv` provides direct access to conversion routines, for
 example `strconv.quote` and `strconv.unquote`.
-
-Concurrency
-~~~~~~~~~~~
-
-In addition to `go` and channels, the following packages are provided to help
-handle concurrency in structured ways.
-
-- `golang.sync`
-- `golang.context`
-- `golang.x.sync.errgroup`
-
-TODO
 
 Benchmarking and testing
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -350,8 +356,8 @@ XXX coroutines (in std python?)
 - 2012 GvR starts to use yield-from coroutines for asyncio https://github.com/python/asyncio/commit/0b0da72d0d
 - 2012(2013) (?) Tulip (Guido van Rossum) -> asyncio, Stackless-based approach
   is explicitly rejected on the basis that there are some "scary implementation
-  details". Instead the complexity is thrown onto progammer, with a bit of
-  `yield from` syntatic sugar which must be used throughout all function
+  details". Instead the complexity is thrown onto programmer, with a bit of
+  `yield from` syntactic sugar which must be used throughout all function
   invocations that have IO at leaf calls.
 
   https://lwn.net/Articles/544522/
