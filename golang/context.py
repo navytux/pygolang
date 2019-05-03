@@ -177,8 +177,8 @@ class _BaseCtx(object):
             child._cancelFrom(ctx)
 
 
-    # propagateCancel makes setup so that whenever a parent is canceled, ctx
-    # and its children are canceled too.
+    # propagateCancel establishes setup so that whenever a parent is canceled,
+    # ctx and its children are canceled too.
     def _propagateCancel(ctx):
         pdonev = [] # !nilchan .done() for foreign contexts
         for parent in ctx._parentv:
@@ -237,6 +237,7 @@ class _ValueCtx(_BaseCtx):
         if v is not None:
             return v
         return super(_ValueCtx, ctx).value(key)
+
 
 # _ready returns whether channel ch is ready.
 def _ready(ch):
