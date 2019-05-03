@@ -111,6 +111,23 @@ def test_workgroup():
         wg.wait()
     assert l == [1, 2]
 
+    # t1=fail, t2=wait cancel, fail
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+                if i == 0:
+                    raise RuntimeError('aaa')
+                if i == 1:
+                    ctx.done().recv()
+                    panic("zzz")
+        wg.go(_, i)
+    with raises(RuntimeError):
+        wg.wait()
+    assert l == [1, 2]
+
 
     # XXX error in spawned
 
