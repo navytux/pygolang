@@ -182,6 +182,9 @@ handle concurrency in structured ways.
 - `golang.context` provides contexts to propagate cancellation and task-scoped
   values among spawned goroutines.
 
+- `golang.sync` provides low-level primitives - for example
+  `sync.Once` and `sync.WaitGroup` - that are sometimes useful too.
+
 See `Go Concurrency Patterns: Context`__ for overview of contexts.
 
   __ https://blog.golang.org/context
