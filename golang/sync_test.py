@@ -122,7 +122,7 @@ def test_workgroup():
                     raise RuntimeError('aaa')
                 if i == 1:
                     ctx.done().recv()
-                    panic("zzz")
+                    raise ValueError('bbb') # != RuntimeError
         wg.go(_, i)
     with raises(RuntimeError):
         wg.wait()
