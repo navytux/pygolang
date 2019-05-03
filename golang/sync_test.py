@@ -102,16 +102,22 @@ def test_workgroup():
     l = [0, 0]
     for i in range(2):
         def _(ctx, i):
+            Iam__ = 0
             with mu:
                 l[i] = i+1
                 if i == 0:
                     raise RuntimeError('aaa')
-        wg.go(_, i)
+        def f(ctx, i):
+            Iam_f = 0
+            _(ctx, i)
+
+        wg.go(f, i)
     with raises(RuntimeError) as exc:
         wg.wait()
     assert exc.type       is RuntimeError
     assert exc.value.args == ('aaa',)
-    # XXX assert exc.tb
+    assert 'Iam__' in exc.traceback[-1].locals
+    assert 'Iam_f' in exc.traceback[-2].locals
     assert l == [1, 2]
 
     # t1=fail, t2=wait cancel, fail
@@ -119,6 +125,7 @@ def test_workgroup():
     l = [0, 0]
     for i in range(2):
         def _(ctx, i):
+            Iam__ = 0
             with mu:
                 l[i] = i+1
                 if i == 0:
@@ -126,12 +133,17 @@ def test_workgroup():
                 if i == 1:
                     ctx.done().recv()
                     raise ValueError('ccc') # != RuntimeError
-        wg.go(_, i)
+        def f(ctx, i):
+            Iam_f = 0
+            _(ctx, i)
+
+        wg.go(f, i)
     with raises(RuntimeError) as exc:
         wg.wait()
     assert exc.type       is RuntimeError
     assert exc.value.args == ('bbb',)
-    # XXX assert tb
+    assert 'Iam__' in exc.traceback[-1].locals
+    assert 'Iam_f' in exc.traceback[-2].locals
     assert l == [1, 2]
 
 

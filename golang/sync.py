@@ -24,9 +24,11 @@ See the following link about Go sync package:
     https://golang.org/pkg/sync
 """
 
-import threading
+import threading, sys
 from golang import go, defer, func, panic
 from golang import context
+
+import six
 
 # Once allows to execute an action only once.
 #
@@ -116,11 +118,14 @@ class WorkGroup(object):
 
             try:
                 f(g._ctx, *argv, **kw)
-            except Exception as e:
+            except Exception as exc:
                 with g._mu:
                     if g._err is None:
                         # this goroutine is the first failed task
-                        g._err = e      # XXX + traceback
+                        g._err = exc
+                        if six.PY2:
+                            # py3 has __traceback__ automatically
+                            exc.__traceback__ = sys.exc_info()[2]
                         g._cancel()
         go(_)
 
@@ -128,4 +133,8 @@ class WorkGroup(object):
         g._wg.wait()
         g._cancel()
         if g._err is not None:
-            raise g._err    # XXX raise from
+            # reraise the exception so that original traceback is there
+            if six.PY3:
+                raise g._err
+            else:
+                six.reraise(g._err, None, g._err.__traceback__)
