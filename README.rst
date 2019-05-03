@@ -197,6 +197,7 @@ See `Go Concurrency Patterns: Context`__ for overview of contexts.
 
   __ https://blog.golang.org/context
 
+
 String conversion
 ~~~~~~~~~~~~~~~~~
 
@@ -211,6 +212,7 @@ and also any other type that can be converted to `str`.
 
 Package `golang.strconv` provides direct access to conversion routines, for
 example `strconv.quote` and `strconv.unquote`.
+
 
 Benchmarking and testing
 ~~~~~~~~~~~~~~~~~~~~~~~~
