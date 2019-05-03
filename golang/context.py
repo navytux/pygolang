@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package context mirrors Go package context
+"""Package context mirrors Go package context.
 
 See the following links about Go contexts:
 

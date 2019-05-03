@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package sync mirrors Go package sync
+"""Package sync mirrors Go package sync.
 
 See the following link about Go sync package:
 
@@ -51,27 +51,25 @@ class WaitGroup(object):
     def __init__(wg):
         wg._mu      = threading.Lock()
         wg._count   = 0
-
         wg._event   = threading.Event()
 
     def done(wg):
         wg.add(-1)
 
     def add(wg, delta):
-        wakeup = False
+        if delta == 0:
+            return
         with wg._mu:
             wg._count += delta
             if wg._count < 0:
                 panic("sync: negative WaitGroup counter")
             if wg._count == 0:
-                wakeup = True
-        if wakeup:
-            wg._event.set()
-        else:
-            wg._event.clear()
+                wg._event.set()
+                wg._event = threading.Event()
 
     def wait(wg):
         with wg._mu:
             if wg._count == 0:
                 return
+            event = wg._event
         wg._event.wait()
