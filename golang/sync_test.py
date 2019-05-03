@@ -19,8 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 from golang import go, chan, _PanicError
-from golang import sync
-import time
+from golang import sync, context
+import time, threading
 from pytest import raises
 
 def test_once():
@@ -80,3 +80,83 @@ def test_waitgroup():
 
     with raises(_PanicError):
         wg.done()
+
+
+def test_workgroup():
+    ctx, cancel = context.with_cancel(context.background())
+    mu = threading.Lock()
+
+    # t1=ok, t2=ok
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+        wg.go(_, i)
+    wg.wait()
+    assert l == [1, 2]
+
+    # t1=fail, t2=ok, does not look at ctx
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            Iam__ = 0
+            with mu:
+                l[i] = i+1
+                if i == 0:
+                    raise RuntimeError('aaa')
+        def f(ctx, i):
+            Iam_f = 0
+            _(ctx, i)
+
+        wg.go(f, i)
+    with raises(RuntimeError) as exc:
+        wg.wait()
+    assert exc.type       is RuntimeError
+    assert exc.value.args == ('aaa',)
+    assert 'Iam__' in exc.traceback[-1].locals
+    assert 'Iam_f' in exc.traceback[-2].locals
+    assert l == [1, 2]
+
+    # t1=fail, t2=wait cancel, fail
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            Iam__ = 0
+            with mu:
+                l[i] = i+1
+                if i == 0:
+                    raise RuntimeError('bbb')
+                if i == 1:
+                    ctx.done().recv()
+                    raise ValueError('ccc') # != RuntimeError
+        def f(ctx, i):
+            Iam_f = 0
+            _(ctx, i)
+
+        wg.go(f, i)
+    with raises(RuntimeError) as exc:
+        wg.wait()
+    assert exc.type       is RuntimeError
+    assert exc.value.args == ('bbb',)
+    assert 'Iam__' in exc.traceback[-1].locals
+    assert 'Iam_f' in exc.traceback[-2].locals
+    assert l == [1, 2]
+
+
+    # t1=ok,wait cancel  t2=ok,wait cancel
+    # cancel parent
+    wg = sync.WorkGroup(ctx)
+    l = [0, 0]
+    for i in range(2):
+        def _(ctx, i):
+            with mu:
+                l[i] = i+1
+                ctx.done().recv()
+        wg.go(_, i)
+    cancel()    # parent cancel - must be propagated into workgroup
+    wg.wait()
+    assert l == [1, 2]

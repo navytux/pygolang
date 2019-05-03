@@ -24,8 +24,11 @@ See the following link about Go sync package:
     https://golang.org/pkg/sync
 """
 
-import threading
-from golang import panic
+import threading, sys
+from golang import go, defer, func, panic
+from golang import context
+
+import six
 
 # Once allows to execute an action only once.
 #
@@ -73,3 +76,65 @@ class WaitGroup(object):
                 return
             event = wg._event
         event.wait()
+
+
+# WorkGroup is a group of goroutines working on a common task.
+#
+# Use .go() to spawn goroutines, and .wait() to wait for all of them to
+# complete, for example:
+#
+#   wg = WorkGroup(ctx)
+#   wg.go(f1)
+#   wg.go(f2)
+#   wg.wait()
+#
+# Every spawned function accepts context related to the whole work and derived
+# from ctx used to initialize WorkGroup, for example:
+#
+#   def f1(ctx):
+#       ...
+#
+# Whenever a function returns error (raises exception), the work context is
+# canceled indicating to other spawned goroutines that they have to cancel their
+# work. .wait() waits for all spawned goroutines to complete and returns/raises
+# error, if any, from the first failed subtask.
+#
+# WorkGroup is modelled after https://godoc.org/golang.org/x/sync/errgroup but
+# is not equal to it.
+class WorkGroup(object):
+
+    def __init__(g, ctx):
+        g._ctx, g._cancel = context.with_cancel(ctx)
+        g._wg   = WaitGroup()
+        g._mu   = threading.Lock()
+        g._err  = None
+
+    def go(g, f, *argv, **kw):
+        g._wg.add(1)
+
+        @func
+        def _():
+            defer(g._wg.done)
+
+            try:
+                f(g._ctx, *argv, **kw)
+            except Exception as exc:
+                with g._mu:
+                    if g._err is None:
+                        # this goroutine is the first failed task
+                        g._err = exc
+                        if six.PY2:
+                            # py3 has __traceback__ automatically
+                            exc.__traceback__ = sys.exc_info()[2]
+                        g._cancel()
+        go(_)
+
+    def wait(g):
+        g._wg.wait()
+        g._cancel()
+        if g._err is not None:
+            # reraise the exception so that original traceback is there
+            if six.PY3:
+                raise g._err
+            else:
+                six.reraise(g._err, None, g._err.__traceback__)
