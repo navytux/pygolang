@@ -107,8 +107,11 @@ def test_workgroup():
                 if i == 0:
                     raise RuntimeError('aaa')
         wg.go(_, i)
-    with raises(RuntimeError):
+    with raises(RuntimeError) as exc:
         wg.wait()
+    assert exc.type       is RuntimeError
+    assert exc.value.args == ('aaa',)
+    # XXX assert exc.tb
     assert l == [1, 2]
 
     # t1=fail, t2=wait cancel, fail
@@ -119,17 +122,18 @@ def test_workgroup():
             with mu:
                 l[i] = i+1
                 if i == 0:
-                    raise RuntimeError('aaa')
+                    raise RuntimeError('bbb')
                 if i == 1:
                     ctx.done().recv()
-                    raise ValueError('bbb') # != RuntimeError
+                    raise ValueError('ccc') # != RuntimeError
         wg.go(_, i)
-    with raises(RuntimeError):
+    with raises(RuntimeError) as exc:
         wg.wait()
+    assert exc.type       is RuntimeError
+    assert exc.value.args == ('bbb',)
+    # XXX assert tb
     assert l == [1, 2]
 
-
-    # XXX error in spawned
 
     # t1=ok,wait cancel  t2=ok,wait cancel
     # cancel parent
