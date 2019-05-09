@@ -1,6 +1,29 @@
 Pygolang change history
 =======================
 
+0.0.1 (2019-05-09)
+------------------
+
+- Add support for nil channels (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2aad64bb
+
+- Add `context` package to propagate cancellation and task-scoped values among
+  spawned goroutines (commit__, `overview`__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e9567c7b
+  __ https://blog.golang.org/context
+
+- Add `sync` package with `sync.WorkGroup` to spawn group of goroutines working
+  on a common task (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e6bea2cf
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9ee7ba91
+
+- Kill deprecated `@method` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/262f8986
+
 0.0.0.dev8 (2019-03-24)
 -----------------------
 
