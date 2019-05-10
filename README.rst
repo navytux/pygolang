@@ -183,7 +183,7 @@ Concurrency
 ~~~~~~~~~~~
 
 In addition to `go` and channels, the following packages are provided to help
-handle concurrency in structured ways.
+handle concurrency in structured ways:
 
 - `golang.context` provides contexts to propagate cancellation and task-scoped
   values among spawned goroutines.
@@ -194,7 +194,7 @@ handle concurrency in structured ways.
 
 See `Go Concurrency Patterns: Context`__ for overview of contexts.
 
-  __ https://blog.golang.org/context
+__ https://blog.golang.org/context
 
 
 String conversion

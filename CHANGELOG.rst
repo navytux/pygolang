@@ -1,11 +1,31 @@
 Pygolang change history
-=======================
+-----------------------
 
-- Add support for nil channels (`nilchan`).
-- `context`
+0.0.1 (2019-05-09)
+~~~~~~~~~~~~~~~~~~
+
+- Add support for nil channels (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2aad64bb
+
+- Add `context` package to propagate cancellation and task-scoped values among
+  spawned goroutines (commit__, `overview`__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e9567c7b
+  __ https://blog.golang.org/context
+
+- Add `sync` package with `sync.WorkGroup` to spawn group of goroutines working
+  on a common task (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e6bea2cf
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9ee7ba91
+
+- Kill deprecated `@method` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/262f8986
 
 0.0.0.dev8 (2019-03-24)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Fix `gpython` to properly initialize `sys.path` (commit__).
 
@@ -26,7 +46,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/704d99f0
 
 0.0.0.dev7 (2019-01-16)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Provide `gpython` interpreter, that sets UTF-8 as default encoding, integrates
   gevent and puts `go`, `chan`, `select` etc into builtin namespace (commit__).
@@ -34,7 +54,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/32a21d5b
 
 0.0.0.dev6 (2018-12-13)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Add `strconv` package with `quote` and `unquote` (`commit 1`__, 2__).
 
@@ -46,7 +66,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/c859940b
 
 0.0.0.dev5 (2018-10-30)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Fix `select` bug that was causing several cases to be potentially executed
   at the same time (`commit 1`__, 2__, 3__).
@@ -73,14 +93,14 @@ Pygolang change history
 
 
 0.0.0.dev4 (2018-07-04)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Add `py.bench` program and `golang.testing` package with corresponding bits (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/9bf03d9c
 
 0.0.0.dev3 (2018-07-02)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Support both Python2 and Python3; `qq` now does not escape printable UTF-8
   characters. (`commit 1`__, 2__, 3__).
@@ -96,7 +116,7 @@ Pygolang change history
 
 
 0.0.0.dev2 (2018-06-20)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Turn into full pygolang: `go`, `chan`, `select`, `method` and `gcompat.qq`
   are provided in addition to `gimport` (commit__). The implementation is
@@ -107,7 +127,7 @@ Pygolang change history
 
 
 0.0.0.dev1 (2018-05-21)
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - Initial release; `gimport` functionality only (commit__).
 
