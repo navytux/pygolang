@@ -144,6 +144,7 @@ setup(
     description = 'Go-like features for Python',
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
+    long_description_content_type  = 'text/x-rst',
     url         = 'https://lab.nexedi.com/kirr/pygolang',
     license     = 'GPLv3+ with wide exception for Open-Source',
     author      = 'Kirill Smelkov',
