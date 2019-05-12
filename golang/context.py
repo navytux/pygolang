@@ -47,8 +47,9 @@ class Context(object):
     def value(ctx, key):    # -> value | None
         raise NotImplementedError()
 
-    # TODO:
-    # .deadline()
+    # deadline() XXX ...
+    def deadline(ctx):  # -> time | None    XXX | +inf ?
+        raise NotImplementedError()
 
 
 # background returns empty context that is never canceled.
@@ -76,6 +77,27 @@ def with_cancel(parent): # -> ctx, cancel
 # (key, value) pairs provided by parent.
 def with_value(parent, key, value): # -> ctx
     return _ValueCtx({key: value}, parent)
+
+# XXX ...
+def with_deadline(parent, deadline): # -> ctx, cancel
+    # parent's deadline is before deadline -> just use parent
+    pdead = parent.deadline()
+    if pdead is not None and pdead <= deadline:     # XXX pdead=inf -> no need to check
+        return with_cancel(parent)
+
+
+    # timeout <= 0   -> already canceled
+    timeout = deadline - time.now()
+    if timeout <= 0:
+        ctx, cancel = with_cancel(parent)
+        cancel()
+        return ctx, cancel
+
+    return _TimeoutCtx(timeout, parent)
+
+# XXX ...
+def with_timeout(parent, timeout): # -> ctx, cancel
+    return with_deadline(parent, time.now() + timeout)
 
 # merge merges 2 contexts into 1.
 #
@@ -145,6 +167,15 @@ class _BaseCtx(object):
             if v is not None:
                 return v
         return None
+
+    # deadline returns the earliest deadline of parents.    XXX
+    def deadline(ctx):
+        d = None
+        for parent in ctx._parentv:
+            pd = parent.deadline()
+            if pd < d:
+                d = pd
+        return d
 
     # _cancel cancels ctx and its children.
     def _cancel(ctx):
@@ -237,6 +268,15 @@ class _ValueCtx(_BaseCtx):
         if v is not None:
             return v
         return super(_ValueCtx, ctx).value(key)
+
+
+# _TimeoutCtx is context that is canceled on timeout.
+class _TimeoutCtx(_BaseCtx):    # XXX -> base=_CancelCtx?
+    def __init__(ctx, timeout, parent):
+        assert timeout > 0
+        # XXX
+
+        time.after_func(timeout, ctx.cancel(deadlineExceeded))
 
 
 # _ready returns whether channel ch is ready.
