@@ -44,7 +44,10 @@ def tick(dt):   # -> chan time
 def after(dt):  # -> chan time
     return Timer(dt).c
 
-# XXX after_func
+# after_func ... XXX
+def after_func(dt, f):  # -> Timer
+    t = Timer(dt, f=f)
+    return t
 
 
 # XXX doc
@@ -76,8 +79,9 @@ class Ticker(object):
 
 # XXX doc
 class Timer(object):
-    def __init__(self, dt):
-        self.c      = chan(1)
+    def __init__(self, dt, f=None):
+        self._f     = f
+        self.c      = chan(1) if f is None else nilchan
         self._mu    = threading.Lock()
         self._dt    = None  # None - stopped, float - armed
         self._ver   = 0     # current timer was armed by n'th reset
@@ -106,4 +110,8 @@ class Timer(object):
             if self._ver != ver:
                 return  # the timer was stopped/resetted - don't fire it
             self._dt = None
+
+        if self._f is None:
             self.c.send(now())
+        else:
+            self._f()
