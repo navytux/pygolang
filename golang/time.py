@@ -101,9 +101,9 @@ class Timer(object):
 
 
     def _fire(self, dt, ver):
-        time.sleep(dt)
+        sleep(dt)
         with self._mu:
             if self._ver != ver:
                 return  # the timer was stopped/resetted - don't fire it
             self._dt = None
-            self.c.send(time.now())
+            self.c.send(now())
