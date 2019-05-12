@@ -24,6 +24,8 @@ See the following link about Go sync package:
     https://golang.org/pkg/sync
 """
 
+from __future__ import print_function, absolute_import
+
 import threading, sys
 from golang import go, defer, func, panic
 from golang import context

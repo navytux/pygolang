@@ -35,7 +35,7 @@ differences:
 # work correctly with `pip install` (gpython script is installed, but gpython module is not).
 
 # NOTE don't import anything at global scope - we need gevent to be imported first.
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 
 # pymain mimics `python ...`

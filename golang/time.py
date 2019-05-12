@@ -24,7 +24,8 @@ See the following link about Go time package:
     https://golang.org/pkg/time
 """
 
-from __future__ import absolute_import
+from __future__ import print_function, absolute_import
+
 import time as _time
 from golang import go, chan, select, default, nilchan, panic
 import threading

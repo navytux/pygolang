@@ -23,7 +23,7 @@
 https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 """
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 import re, io, numpy as np
 from collections import OrderedDict

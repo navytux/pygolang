@@ -18,6 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from __future__ import print_function, absolute_import
+
 from golang.strconv import quote, unquote, unquote_next
 from golang.gcompat import qq
 

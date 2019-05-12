@@ -18,6 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from __future__ import print_function, absolute_import
+
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from pytest import raises
 from os.path import dirname
