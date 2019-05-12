@@ -47,6 +47,7 @@ def after(dt):  # -> chan time
 # XXX after_func
 
 
+# XXX doc
 class Ticker(object):
     def __init__(self, dt):
         if dt <= 0:
@@ -73,16 +74,36 @@ class Ticker(object):
             )
 
 
+# XXX doc
 class Timer(object):
     def __init__(self, dt):
         self.c      = chan(1)
-        self._dt    = dt
+        self._mu    = threading.Lock()
+        self._dt    = None  # None - stopped, float - armed
+        self._ver   = 0     # current timer was armed by n'th reset
         self.reset(dt)
 
-    def stop(self):
-        # XXX
-        1/0
+    def stop(self): # -> changed_to_stopped bool
+        with self._mu:
+            if self._dt is None:
+                return False
+            self._dt  = None
+            self._ver += 1
+            return True
 
     def reset(self, dt):
-        # XXX must be stopped or expired
-        1/0
+        with self._mu:
+            if self._dt is not None:
+                panic("Timer.reset: the timer is armed; must be stopped or expired")
+            self._dt  = dt
+            self._ver += 1
+            go(self._fire, dt, self._ver)
+
+
+    def _fire(self, dt, ver):
+        time.sleep(dt)
+        with self._mu:
+            if self._ver != ver:
+                return  # the timer was stopped/resetted - don't fire it
+            self._dt = None
+            self.c.send(time.now())
