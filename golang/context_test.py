@@ -20,17 +20,21 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import context, nilchan
+from golang import context, time, nilchan
 from golang.context import _ready as ready
 
 def test_context():
     bg = context.background()
-    assert bg.err()     is None
-    assert bg.done()    is nilchan
+    assert bg.err()         is None
+    assert bg.done()        is nilchan
+    assert bg.deadline()    is None
     assert not ready(bg.done())
     assert bg.value("hello") is None
 
+    t0 = time.now()
+
     # assertCtx asserts on state of _BaseCtx*
+    # XXX +deadline
     def assertCtx(ctx, children, err=None, done=False):
         assert isinstance(ctx, context._BaseCtx)
         assert ctx.err() is err

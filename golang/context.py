@@ -173,7 +173,7 @@ class _BaseCtx(object):
         d = None
         for parent in ctx._parentv:
             pd = parent.deadline()
-            if pd < d:
+            if pd is not None and pd < d:           # XXX None -> +inf ?
                 d = pd
         return d
 
