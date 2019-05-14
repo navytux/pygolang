@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2017-2018  Nexedi SA and Contributors.
+# Copyright (C) 2017-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -19,7 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package testing mirrors Go testing package for things missed in Python"""
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 from time import time
 from math import ceil, log10

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2014-2018  Nexedi SA and Contributors.
+# Copyright (C) 2014-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -40,7 +40,8 @@ gives something like::
     Benchmarkadd    50000000        0.020 µs/op
     Benchmarkadd    50000000        0.020 µs/op
 """
-from __future__ import print_function
+
+from __future__ import print_function, absolute_import
 
 import sys
 

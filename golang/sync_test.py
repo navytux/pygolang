@@ -18,6 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from __future__ import print_function, absolute_import
+
 from golang import go, chan, _PanicError
 from golang import sync, context
 import time, threading

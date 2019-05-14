@@ -25,7 +25,7 @@ See the following links about Go contexts:
     https://golang.org/pkg/context
 """
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan
 import threading

@@ -18,6 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from __future__ import print_function, absolute_import
+
 import sys, os, golang, subprocess
 from six import PY2, PY3
 from six.moves import builtins
