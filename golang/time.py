@@ -38,30 +38,37 @@ millisecond = 1E-3 * second
 minute      = 60   * second
 hour        = 60   * minute
 
-# XXX + other constants
-
 sleep   = _time.sleep
 now     = _time.time
 
 
-# tick ... XXX
+# tick returns channel connected to dt ticker.
+#
+# Note: there is no way to stop created ticker.
+# Note: for dt <= 0, contrary to Ticker, tick returns nilchan instead of panicking.
 def tick(dt):   # -> chan time
     if dt <= 0:
         return nilchan
     return Ticker(dt).c
 
 
-# after ... XXX
+# after returns channel connected to dt timer.
+#
+# Note: with after there is no way to stop/garbage-collect created timer until it fires.
 def after(dt):  # -> chan time
     return Timer(dt).c
 
-# after_func ... XXX
+# after_func arranges to call f after dt.
+#
+# Returned timer can be used to cancel the call.
 def after_func(dt, f):  # -> Timer
-    t = Timer(dt, f=f)
-    return t
+    return Timer(dt, f=f)
 
 
-# XXX doc
+# Ticker arranges for time events to be sent to .c channel on dt-interval basis.
+#
+# If the receiver is slow, Ticker does not queue events and skips them.
+# Ticking can be canceled via .stop() .
 class Ticker(object):
     def __init__(self, dt):
         if dt <= 0:
@@ -88,7 +95,12 @@ class Ticker(object):
             )
 
 
-# XXX doc
+# Timer arranges for time event to be sent to .c channel after dt time.
+#
+# If func f is provided - when the timer fires f is called instead of event
+# being sent to .c .
+#
+# The timer can be stopped (.stop), or reinitialized to another time (.reset).
 class Timer(object):
     def __init__(self, dt, f=None):
         self._f     = f

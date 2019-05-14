@@ -70,7 +70,7 @@ deadlineExceeded = RuntimeError("deadline exceeded")
 # parent is done.
 def with_cancel(parent): # -> ctx, cancel
     ctx = _CancelCtx(parent)
-    return ctx, ctx._cancel
+    return ctx, lambda: ctx._cancel(canceled)
 
 # with_value creates new context with key=value.
 #
@@ -94,7 +94,8 @@ def with_deadline(parent, deadline): # -> ctx, cancel
         cancel()
         return ctx, cancel
 
-    return _TimeoutCtx(timeout, parent)
+    ctx = _TimeoutCtx(timeout, parent)  # XXX + deadline
+    return ctx, lambda: ctx._cancel(canceled)
 
 # XXX ...
 def with_timeout(parent, timeout): # -> ctx, cancel
@@ -115,7 +116,7 @@ def with_timeout(parent, timeout): # -> ctx, cancel
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
 def merge(parent1, parent2):    # -> ctx, cancel
     ctx = _CancelCtx(parent1, parent2)
-    return ctx, ctx._cancel
+    return ctx, lambda: ctx._cancel(canceled)
 
 # --------
 
@@ -281,9 +282,8 @@ class _TimeoutCtx(_CancelCtx):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
-        # XXX
 
-        ctx._timer = time.after_func(timeout, ctx.cancel(deadlineExceeded))
+        ctx._timer = time.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
 
     def deadline(ctx):
         return ctx._deadline
