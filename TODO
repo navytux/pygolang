@@ -1,7 +1,6 @@
 - gimport to import go123 released to pypi
 - -> cython
 - gpython: pre-install pyximport
-? time.after & friends (context.with_timeout, ctx.deadline, ...)
 ? b() -> bytes, u() -> unicode ?
 
 ? io/ioutil: readfile, writefile

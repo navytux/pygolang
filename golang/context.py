@@ -183,17 +183,17 @@ class _BaseCtx(object):
         return d
 
     # _cancel cancels ctx and its children.
-    def _cancel(ctx):
-        return ctx._cancelFrom(None)
+    def _cancel(ctx, err):
+        return ctx._cancelFrom(None, err)
 
     # _cancelFrom cancels ctx and its children.
     # if cancelFrom != None it indicates which ctx parent cancellation was the cause for ctx cancel.
-    def _cancelFrom(ctx, cancelFrom):
+    def _cancelFrom(ctx, cancelFrom, err):
         with ctx._mu:
             if ctx._err is not None:
                 return  # already canceled
 
-            ctx._err = canceled
+            ctx._err = err
             children = ctx._children;   ctx._children = set()
 
         if ctx._done is not None:
@@ -210,13 +210,13 @@ class _BaseCtx(object):
 
         # propagate cancel to children
         for child in children:
-            child._cancelFrom(ctx)
+            child._cancelFrom(ctx, err)
 
 
     # propagateCancel establishes setup so that whenever a parent is canceled,
     # ctx and its children are canceled too.
     def _propagateCancel(ctx):
-        pdonev = [] # !nilchan .done() for foreign contexts
+        pforeignv = [] # parents with !nilchan .done() for foreign contexts
         for parent in ctx._parentv:
             # if parent can never be canceled (e.g. it is background) - we
             # don't need to propagate cancel from it.
@@ -228,27 +228,27 @@ class _BaseCtx(object):
             if isinstance(parent, _BaseCtx):
                 with parent._mu:
                     if parent._err is not None:
-                        ctx._cancel()
+                        ctx._cancel(parent._err)
                     else:
                         parent._children.add(ctx)
             else:
                 if _ready(pdone):
-                    ctx._cancel()
+                    ctx._cancel(parent.err())
                 else:
-                    pdonev.append(pdone)
+                    pforeignv.append(parent)
 
-        if len(pdonev) == 0:
+        if len(pforeignv) == 0:
             return
 
         # there are some foreign contexts to propagate cancel from
         def _():
             _, _rx = select(
-                ctx._done.recv,             # 0
-                *[_.recv for _ in pdonev]   # 1 + ...
+                ctx._done.recv,                         # 0
+                *[_.done().recv for _ in pforeignv]     # 1 + ...
             )
             # 0. nothing - already canceled
             if _ > 0:
-                ctx._cancel()
+                ctx._cancel(pforeignv[i-1].err())
         go(_)
 
 
@@ -276,16 +276,22 @@ class _ValueCtx(_BaseCtx):
 
 
 # _TimeoutCtx is context that is canceled on timeout.
-class _TimeoutCtx(_BaseCtx):    # XXX -> base=_CancelCtx?
+class _TimeoutCtx(_CancelCtx):
     def __init__(ctx, timeout, deadline, parent):
+        super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
         # XXX
 
-        time.after_func(timeout, ctx.cancel(deadlineExceeded))
+        ctx._timer = time.after_func(timeout, ctx.cancel(deadlineExceeded))
 
     def deadline(ctx):
         return ctx._deadline
+
+    # cancel -> stop timer
+    def _cancelFrom(ctx, cancelFrom, err):
+        super(_TimeoutCtx, ctx)._cancelFrom(cancelFrom, err)
+        ctx._timer.stop()
 
 
 
