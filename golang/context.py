@@ -28,6 +28,7 @@ See the following links about Go contexts:
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan
+from golang import time
 import threading
 
 # Context is the interface that every context must implement.
@@ -249,7 +250,7 @@ class _BaseCtx(object):
             )
             # 0. nothing - already canceled
             if _ > 0:
-                ctx._cancel(pforeignv[i-1].err())
+                ctx._cancel(pforeignv[_-1].err())
         go(_)
 
 
