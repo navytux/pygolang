@@ -31,10 +31,14 @@ from golang import go, chan, select, default, nilchan, panic
 import threading
 
 # golang/py - the same as std python - represents time as float
-nanosecond  = 1E-9
-microsecond = 1E-6
-millisecond = 1E-3
-second       = 1.0
+second      = 1.0
+nanosecond  = 1E-9 * second
+microsecond = 1E-6 * second
+millisecond = 1E-3 * second
+minute      = 60   * second
+hour        = 60   * minute
+
+# XXX + other constants
 
 sleep   = _time.sleep
 now     = _time.time

@@ -47,7 +47,8 @@ class Context(object):
     def value(ctx, key):    # -> value | None
         raise NotImplementedError()
 
-    # deadline() XXX ...
+    # deadline() returns context deadline or None, if there is no deadline.
+    # XXX text
     def deadline(ctx):  # -> time | None    XXX | +inf ?
         raise NotImplementedError()
 
@@ -129,6 +130,9 @@ class _Background(object):
     def value(bg, key):
         return None
 
+    def deadline(bg):
+        return None
+
 _background = _Background()
 
 # _BaseCtx is the common base for Contexts implemented in this package.
@@ -168,7 +172,8 @@ class _BaseCtx(object):
                 return v
         return None
 
-    # deadline returns the earliest deadline of parents.    XXX
+    # deadline returns the earliest deadline of parents.
+    # this behaviour is inherited by all contexts except _TimeoutCtx who overrides it.
     def deadline(ctx):
         d = None
         for parent in ctx._parentv:
@@ -272,11 +277,16 @@ class _ValueCtx(_BaseCtx):
 
 # _TimeoutCtx is context that is canceled on timeout.
 class _TimeoutCtx(_BaseCtx):    # XXX -> base=_CancelCtx?
-    def __init__(ctx, timeout, parent):
+    def __init__(ctx, timeout, deadline, parent):
         assert timeout > 0
+        ctx._deadline = deadline
         # XXX
 
         time.after_func(timeout, ctx.cancel(deadlineExceeded))
+
+    def deadline(ctx):
+        return ctx._deadline
+
 
 
 # _ready returns whether channel ch is ready.
