@@ -24,6 +24,7 @@ from golang import select
 from golang import time
 
 
+# test_timer verifies that Timer/Ticker fire as expected.
 def test_timer():
     # start timers at x5, x7 and x11 intervals an verify that the timers fire
     # in expected sequence. The times when the timers fire do not overlap in
@@ -70,10 +71,10 @@ def test_timer():
     # XXX reset while armed
 
 
-# test_stop verifies that .stop() cancels Timer or Ticker.
-def test_stop():
+# test_timer_stop verifies that .stop() cancels Timer or Ticker.
+def test_timer_stop():
     t10 = time.Timer (10*dt)
-    t2  = time.Timer ( 2*dt)
+    t2  = time.Timer ( 2*dt)    # will fire and cancel t3, tx5
     t3  = time.Timer ( 3*dt)    # will be canceled
     tx5 = time.Ticker( 5*dt)    # will be canceled
 
@@ -82,7 +83,7 @@ def test_stop():
             t10.c.recv,     # 0
             t2 .c.recv,     # 1
             t3 .c.recv,     # 2
-            tx1.c.recv,     # 3
+            tx5.c.recv,     # 3
         )
         if _ == 0:
             tv.append(10)
@@ -91,11 +92,13 @@ def test_stop():
             tv.append(2)
             t3.stop()
             tx5.stop()
+        if _ == 2:
+            tv.append(3)
+        if _ == 3:
+            tv.append(5)
 
-    assert tv == [        5,  7,     5, 11,       7, 5,             5, 7,11,23]
-    #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
-
-    # .stop
+    assert tv == [  2,              10]
+    #             1 2 3 4 5 6 7 8 9 10
 
     # tick
     # after
