@@ -33,7 +33,7 @@ import threading
 
 # Context is the interface that every context must implement.
 #
-# A context carries cancellation signal and immutable context-local
+# A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
 class Context(object):
     # done returns channel that is closed when the context is canceled.

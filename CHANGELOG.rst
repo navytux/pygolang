@@ -1,6 +1,14 @@
 Pygolang change history
 -----------------------
 
+0.0.2 (2019-??-??)
+~~~~~~~~~~~~~~~~~~
+
+- Add `time` package ... XXX
+
+- Add deadlines and timeouts to `context` ... XXX
+
+
 0.0.1 (2019-05-09)
 ~~~~~~~~~~~~~~~~~~
 
