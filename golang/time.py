@@ -58,7 +58,7 @@ def tick(dt):   # -> chan time
 def after(dt):  # -> chan time
     return Timer(dt).c
 
-# after_func arranges to call f after dt.
+# after_func arranges to call f after dt time.
 #
 # Returned timer can be used to cancel the call.
 def after_func(dt, f):  # -> Timer
@@ -92,7 +92,9 @@ class Ticker(object):
 
     def _tick(self):
         while 1:
+            # XXX adjust for accumulated error δ?
             sleep(self._dt)
+
             with self._mu:
                 if self._stop:
                     return
@@ -107,10 +109,10 @@ class Ticker(object):
 
 # Timer arranges for time event to be sent to .c channel after dt time.
 #
-# If func f is provided - when the timer fires f is called instead of event
-# being sent to .c .
-#
 # The timer can be stopped (.stop), or reinitialized to another time (.reset).
+#
+# If func f is provided - when the timer fires f is called instead of event
+# being sent to channel .c .
 class Timer(object):
     def __init__(self, dt, f=None):
         self._f     = f
@@ -122,8 +124,10 @@ class Timer(object):
 
     # stop cancels the timer.
     #
-    # False: the timer was already expired or stopped,
-    # True:  the timer was armed and canceled by this stop call.
+    # It returns:
+    #
+    #   False: the timer was already expired or stopped,
+    #   True:  the timer was armed and canceled by this stop call.
     #
     # Note: contrary to Go version, there is no need to drain timer channel
     # after stop call - it is guaranteed that after stop the channel is empty.
@@ -131,7 +135,6 @@ class Timer(object):
     # Note: similarly to Go, if Timer is used with function - it is not
     # guaranteed that after stop the function is not running - in such case
     # the caller must explicitly synchronize with that function to complete.
-    # XXX text ok?
     def stop(self): # -> canceled
         with self._mu:
             if self._dt is None:
