@@ -20,4 +20,50 @@
 
 from __future__ import print_function, absolute_import
 
-# TODO
+from golang import select
+from golang import time
+
+
+def test_timer():
+    dt = 10*time.millisecond
+
+    # XXX repeat everything N times?
+    Tstart = time.now()
+
+    tv = []
+
+    t23 = time.Timer (23*dt)
+    t5  = time.Timer ( 5*dt)
+
+    def _():
+        tv.append(7)
+        t7f.reset(7*dt)
+    t7f = time.Timer ( 7*dt, f=_)
+
+    tx11 = time.Ticker(11*dt)
+
+    while 1:
+        _, _rx = select(
+            t23.c.recv,     # 0
+            t5 .c.recv,     # 1
+            t7f.c.recv,     # 2
+            tx11.c.recv,    # 3
+        )
+        if _ == 0:
+            tv.append(23)
+            break
+        if _ == 1:
+            tv.append(5)
+            t5.reset(5*dt)
+        if _ == 2:
+            assert False, "t7f sent to channel; must only call func"
+        if _ == 3:
+            tv.append(11)
+
+    Tend = time.now()
+    assert (Tend - Tstart) >= 11*dt
+    assert tv == [      5,  7,     5, 11,       7, 5,             5, 7,11,23]
+    #             2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
+
+
+    # XXX reset while armed
