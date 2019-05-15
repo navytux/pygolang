@@ -67,5 +67,29 @@ def test_timer():
     assert tv == [        5,  7,     5, 11,       7, 5,             5, 7,11,23]
     #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
-
     # XXX reset while armed
+
+
+def test_stop():
+    tx1 = time.Ticker( 1*dt)
+    t2  = time.Timer ( 2*dt)
+    t3  = time.Timer ( 3*dt)
+    t10 = time.Timer (10*dt)
+
+    while:
+    _, _rx = select(
+        t10.c.recv,     # 0
+        tx1.c.recv,     # 1
+        t2 .c.recv,     # 2
+        t3 .c.recv,     # 3
+    )
+    if _ == 0:
+        tv.append(10)
+        break
+    if 
+
+    # .stop
+
+    # tick
+    # after
+    # after_func
