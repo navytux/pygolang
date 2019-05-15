@@ -20,9 +20,12 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import select
+from golang import select, _PanicError
 from golang import time
+from pytest import raises
 
+# all timer tests operate in dt units
+dt = 10*time.millisecond
 
 # test_timer verifies that Timer/Ticker fire as expected.
 def test_timer():
@@ -30,7 +33,6 @@ def test_timer():
     # in expected sequence. The times when the timers fire do not overlap in
     # checked range because intervals are prime and choosen so that they start
     # overlapping only after 35 (=5·7).
-    dt = 10*time.millisecond
     tv = [] # timer events
 
     Tstart = time.now()
@@ -68,11 +70,16 @@ def test_timer():
     assert tv == [        5,  7,     5, 11,       7, 5,             5, 7,11,23]
     #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
-    # XXX reset while armed
+    # reset while armed
+    t = time.Timer(10*dt)
+    with raises(_PanicError):
+        t.reset(5*dt)
 
 
 # test_timer_stop verifies that .stop() cancels Timer or Ticker.
 def test_timer_stop():
+    tv = []
+
     t10 = time.Timer (10*dt)
     t2  = time.Timer ( 2*dt)    # will fire and cancel t3, tx5
     t3  = time.Timer ( 3*dt)    # will be canceled
