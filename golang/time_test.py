@@ -25,12 +25,14 @@ from golang import time
 
 
 def test_timer():
+    # start timers at x5, x7 and x11 intervals an verify that the timers fire
+    # in expected sequence. The times when the timers fire do not overlap in
+    # checked range because intervals are prime and choosen so that they start
+    # overlapping only after 35 (=5·7).
     dt = 10*time.millisecond
+    tv = [] # timer events
 
-    # XXX repeat everything N times?
     Tstart = time.now()
-
-    tv = []
 
     t23 = time.Timer (23*dt)
     t5  = time.Timer ( 5*dt)
@@ -62,8 +64,8 @@ def test_timer():
 
     Tend = time.now()
     assert (Tend - Tstart) >= 11*dt
-    assert tv == [      5,  7,     5, 11,       7, 5,             5, 7,11,23]
-    #             2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
+    assert tv == [        5,  7,     5, 11,       7, 5,             5, 7,11,23]
+    #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
 
     # XXX reset while armed
