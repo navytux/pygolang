@@ -107,6 +107,23 @@ def test_timer_stop():
     assert tv == [  2,              10]
     #             1 2 3 4 5 6 7 8 9 10
 
+
+# test_stop_drain verifies that Timer/Ticker .stop() drains the channel.
+def test_stop_drain():
+    t  = time.Timer (1*dt)
+    tx = time.Ticker(1*dt)
+
+    time.sleep(2*dt)
+    assert len(t.c)  == 1
+    assert len(tx.c) == 1
+
+    assert t.stop() == False
+    assert len(t.c) == 0
+
+    tx.stop()
+    assert len(tx.c) == 0
+
+
     # tick
     # after
     # after_func

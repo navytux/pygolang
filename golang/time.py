@@ -79,9 +79,16 @@ class Ticker(object):
         self._stop  = False
         go(self._tick)
 
+    # stop cancels the ticker.
+    #
+    # It is guaraneed that ticker channel is empty after stop completes.
     def stop(self):
         with self._mu:
             self._stop = True
+
+            # drain what _tick could have been queued already
+            while len(self.c) > 0:
+                self.c.recv()
 
     def _tick(self):
         while 1:
@@ -89,10 +96,13 @@ class Ticker(object):
             with self._mu:
                 if self._stop:
                     return
-            select(
-                default,
-                (self.c.send, now()),
-            )
+
+                # send from under ._mu so that .stop can be sure there is no
+                # ongoing send while it drains the channel.
+                select(
+                    default,
+                    (self.c.send, now()),
+                )
 
 
 # Timer arranges for time event to be sent to .c channel after dt time.
@@ -110,14 +120,36 @@ class Timer(object):
         self._ver   = 0     # current timer was armed by n'th reset
         self.reset(dt)
 
-    def stop(self): # -> changed_to_stopped bool
+    # stop cancels the timer.
+    #
+    # False: the timer was already expired or stoped,
+    # True:  the timer was armed and canceled by this stop call.
+    #
+    # Note: contrary to Go version, there is no need to drain timer channel
+    # after stop call - it is guaranteed that after stop the channel is empty.
+    #
+    # Note: similarly to Go, if Timer is used with function - it is not
+    # guaranteed that after stop the function is not running - in such case
+    # the caller must explicitly synchronize with that function to complete.
+    # XXX text ok?
+    def stop(self): # -> canceled
         with self._mu:
             if self._dt is None:
-                return False
-            self._dt  = None
-            self._ver += 1
-            return True
+                canceled = False
+            else:
+                self._dt  = None
+                self._ver += 1
+                canceled = True
 
+            # drain what _fire could have been queued already
+            while len(self.c) > 0:
+                self.c.recv()
+
+            return canceled
+
+    # reset rearms the timer.
+    #
+    # the timer must be either already stopped or expired.
     def reset(self, dt):
         with self._mu:
             if self._dt is not None:
@@ -134,7 +166,11 @@ class Timer(object):
                 return  # the timer was stopped/resetted - don't fire it
             self._dt = None
 
-        if self._f is None:
-            self.c.send(now())
-        else:
-            self._f()
+            # send under ._mu so that .stop can be sure that if it sees
+            # ._dt = None, there is no ongoing .c send.
+            if self._f is None:
+                self.c.send(now())
+                return
+
+        # call ._f not from under ._mu not to deadlock e.g. if ._f wants to reset the timer.
+        self._f()
