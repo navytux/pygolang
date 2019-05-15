@@ -70,8 +70,8 @@ def test_timer():
     #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
 
-# test_timer_misc, similarly to test_timer, verifies misc time convenience functions.
-def test_timer_misc():
+# test_misc, similarly to test_timer, verifies misc time convenience functions.
+def test_misc():
     tv = []
     Tstart = time.now()
 
