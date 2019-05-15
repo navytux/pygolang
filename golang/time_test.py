@@ -31,19 +31,18 @@ dt = 10*time.millisecond
 def test_timer():
     # start timers at x5, x7 and x11 intervals an verify that the timers fire
     # in expected sequence. The times when the timers fire do not overlap in
-    # checked range because intervals are prime and choosen so that they start
+    # checked range because intervals are prime and chosen so that they start
     # overlapping only after 35 (=5·7).
     tv = [] # timer events
-
     Tstart = time.now()
 
-    t23 = time.Timer (23*dt)
-    t5  = time.Timer ( 5*dt)
+    t23 = time.Timer(23*dt)
+    t5  = time.Timer( 5*dt)
 
     def _():
         tv.append(7)
         t7f.reset(7*dt)
-    t7f = time.Timer ( 7*dt, f=_)
+    t7f = time.Timer( 7*dt, f=_)
 
     tx11 = time.Ticker(11*dt)
 
@@ -66,7 +65,7 @@ def test_timer():
             tv.append(11)
 
     Tend = time.now()
-    assert (Tend - Tstart) >= 11*dt
+    assert (Tend - Tstart) >= 23*dt
     assert tv == [        5,  7,     5, 11,       7, 5,             5, 7,11,23]
     #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
@@ -74,6 +73,46 @@ def test_timer():
     t = time.Timer(10*dt)
     with raises(_PanicError):
         t.reset(5*dt)
+
+
+# test_timer_misc, similarly to test_timer, verifies misc time convenience functions.
+def test_timer_misc():
+    tv = []
+    Tstart = time.now()
+
+    c23 = time.after(23*dt)
+    c5  = time.after( 5*dt)
+
+    def _():
+        tv.append(7)
+        t7f.reset(7*dt)
+    t7f = time.after_func(7*dt, _)
+
+    cx11 = time.tick(11*dt)
+
+    while 1:
+        _, _rx = select(
+            c23.recv,       # 0
+            c5 .recv,       # 1
+            t7f.c.recv,     # 2
+            cx11.recv,      # 3
+        )
+        if _ == 0:
+            tv.append(23)
+            break
+        if _ == 1:
+            tv.append(5)
+            # NOTE 5 does not rearm in this test because there is no way to
+            # rearm timer create by time.after().
+        if _ == 2:
+            assert False, "t7f sent to channel; must only call func"
+        if _ == 3:
+            tv.append(11)
+
+    Tend = time.now()
+    assert (Tend - Tstart) >= 23*dt
+    assert tv == [        5,  7,        11,       7,                   7,11,23]
+    #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
 
 # test_timer_stop verifies that .stop() cancels Timer or Ticker.
@@ -122,8 +161,3 @@ def test_stop_drain():
 
     tx.stop()
     assert len(tx.c) == 0
-
-
-    # tick
-    # after
-    # after_func

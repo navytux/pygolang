@@ -81,7 +81,7 @@ class Ticker(object):
 
     # stop cancels the ticker.
     #
-    # It is guaraneed that ticker channel is empty after stop completes.
+    # It is guaranteed that ticker channel is empty after stop completes.
     def stop(self):
         with self._mu:
             self._stop = True
@@ -122,7 +122,7 @@ class Timer(object):
 
     # stop cancels the timer.
     #
-    # False: the timer was already expired or stoped,
+    # False: the timer was already expired or stopped,
     # True:  the timer was armed and canceled by this stop call.
     #
     # Note: contrary to Go version, there is no need to drain timer channel
