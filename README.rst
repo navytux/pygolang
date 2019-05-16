@@ -192,7 +192,7 @@ handle concurrency in structured ways:
   on a common task. It also provides low-level primitives - for example
   `sync.Once` and `sync.WaitGroup` - that are sometimes useful too.
 
-- `golang.time` provides timers that are integrated with channels.
+- `golang.time` provides timers integrated with channels.
 
 .. [*] See `Go Concurrency Patterns: Context`__ for overview of contexts.
 
