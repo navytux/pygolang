@@ -194,7 +194,7 @@ handle concurrency in structured ways:
 
 - `golang.time` provides timers integrated with channels.
 
-.. [*] See `Go Concurrency Patterns: Context`__ for overview of contexts.
+.. [*] See `Go Concurrency Patterns: Context`__ for overview.
 
 __ https://blog.golang.org/context
 
