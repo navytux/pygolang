@@ -96,7 +96,6 @@ def with_deadline(parent, deadline): # -> ctx, cancel
     if pdead is not None and pdead <= deadline:
         return with_cancel(parent)
 
-
     # timeout <= 0   -> already canceled
     timeout = deadline - time.now()
     if timeout <= 0:
@@ -104,7 +103,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
         cancel()
         return ctx, cancel
 
-    ctx = _TimeoutCtx(timeout, parent)  # XXX + deadline
+    ctx = _TimeoutCtx(timeout, deadline, parent)
     return ctx, lambda: ctx._cancel(canceled)
 
 # with_timeout creates new context with timeout.
@@ -191,7 +190,7 @@ class _BaseCtx(object):
         d = None
         for parent in ctx._parentv:
             pd = parent.deadline()
-            if pd is not None and pd < d:
+            if d is None or (pd is not None and pd < d):
                 d = pd
         return d
 
@@ -294,8 +293,7 @@ class _TimeoutCtx(_CancelCtx):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
-
-        ctx._timer = time.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
+        ctx._timer    = time.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
 
     def deadline(ctx):
         return ctx._deadline

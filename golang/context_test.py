@@ -32,8 +32,6 @@ def test_context():
     assert not ready(bg.done())
     assert bg.value("hello") is None
 
-    t0 = time.now()
-
     # assertCtx asserts on state of _BaseCtx*
     def assertCtx(ctx, children, deadline=None, err=None, done=False):
         assert isinstance(ctx, context._BaseCtx)
@@ -146,3 +144,29 @@ def test_context():
         assertCtx(ctx121,   Z, err=C, done=Y)
         assertCtx(ctx1211,  Z, err=C, done=Y)
         assertCtx(ctxM,     Z, err=C, done=Y)
+
+
+    # deadlines
+    t0  = time.now()
+    dh1 = t0 + 1*time.hour
+    dh2 = t0 + 2*time.hour
+
+    ctx1, cancel1 = context.with_deadline(bg, dh1)
+    assert ctx1.done() is not bg.done()
+    assertCtx(ctx1, Z, deadline=dh1)
+
+    ctx11, cancel11 = context.with_cancel(ctx1)
+    assert ctx11.done() is not ctx1.done
+    assertCtx(ctx1,     {ctx11},    deadline=dh1)
+    assertCtx(ctx11,    Z,          deadline=dh1)
+
+    return
+
+    # XXX 11 -> 111
+    ctx11, cancel11 = context.with_deadline(ctx1, dh2)
+    assert ctx11.done() is not ctx1.done()
+    assertCtx(ctx1,     {ctx11}, deadline=dh1)
+    assertCtx(ctx11,    Z,       deadline=dh1)  # NOTE not dh2
+
+
+    # XXX with_value / with_cancel from under deadline - deadline is preserved
