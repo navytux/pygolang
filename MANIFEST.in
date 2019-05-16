@@ -1,3 +1,4 @@
 include COPYING README.rst CHANGELOG.rst tox.ini
 recursive-include golang/testdata *.py
+recursive-include golang/testprog *.py
 recursive-include gpython/testdata *.py

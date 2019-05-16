@@ -44,7 +44,7 @@ def test_go():
         pathv.append(envpath)
     env['PYTHONPATH'] = ':'.join(pathv)
 
-    subprocess.check_call([sys.executable, dir_golang + "/golang_test_goleaked.py"],
+    subprocess.check_call([sys.executable, dir_golang + "/testprog/golang_test_goleaked.py"],
             env=env)
 
 
