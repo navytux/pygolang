@@ -68,6 +68,9 @@ deadlineExceeded = RuntimeError("deadline exceeded")
 #
 # Returned context inherits from parent and in particular is canceled when
 # parent is done.
+#
+# The caller should explicitly call cancel to release context resources as soon
+# the context is no longer needed.
 def with_cancel(parent): # -> ctx, cancel
     ctx = _CancelCtx(parent)
     return ctx, lambda: ctx._cancel(canceled)
@@ -79,7 +82,14 @@ def with_cancel(parent): # -> ctx, cancel
 def with_value(parent, key, value): # -> ctx
     return _ValueCtx({key: value}, parent)
 
-# XXX ...
+# with_deadline creates new context with deadline.
+#
+# The deadline of created context is the earliest of provided deadline or
+# deadline of parent. Created context will be canceled when time goes past
+# context deadline or cancel called, whichever happens first.
+#
+# The caller should explicitly call cancel to release context resources as soon
+# the context is no longer needed.
 def with_deadline(parent, deadline): # -> ctx, cancel
     # parent's deadline is before deadline -> just use parent
     pdead = parent.deadline()
