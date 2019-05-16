@@ -8,7 +8,7 @@ Pygolang change history
 
   __ XXX
 
-- Add deadlines and timeouts to `context` ... XXX (commit__).
+- Add support for deadlines and timeouts to `context` package (commit__).
 
   __ XXX
 
