@@ -23,24 +23,25 @@ from __future__ import print_function, absolute_import
 from golang import context, nilchan
 from golang.context import _ready as ready
 
+# assertCtx asserts on state of _BaseCtx*
+def assertCtx(ctx, children, err=None, done=False):
+    assert isinstance(ctx, context._BaseCtx)
+    assert ctx.err() is err
+    assert ready(ctx.done()) == done
+    assert ctx._children == children
+
+Z = set()   # empty set
+C = context.canceled
+D = context.deadlineExceeded
+Y = True
+
+bg = context.background()
+
 def test_context():
-    bg = context.background()
     assert bg.err()     is None
     assert bg.done()    is nilchan
     assert not ready(bg.done())
     assert bg.value("hello") is None
-
-    # assertCtx asserts on state of _BaseCtx*
-    def assertCtx(ctx, children, err=None, done=False):
-        assert isinstance(ctx, context._BaseCtx)
-        assert ctx.err() is err
-        assert ready(ctx.done()) == done
-        assert ctx._children == children
-
-    Z = set()   # empty set
-    C = context.canceled
-    D = context.deadlineExceeded
-    Y = True
 
     ctx1, cancel1 = context.with_cancel(bg)
     assert ctx1.done() is not bg.done()
@@ -68,6 +69,7 @@ def test_context():
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
     assertCtx(ctx1111,  Z)
+
 
     ctx12 = context.with_value(ctx1, "hello", "world")
     assert ctx12.done() is ctx1.done()
