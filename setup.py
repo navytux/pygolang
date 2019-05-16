@@ -144,6 +144,7 @@ setup(
     description = 'Go-like features for Python',
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
+    long_description_content_type  = 'text/x-rst',
     url         = 'https://lab.nexedi.com/kirr/pygolang',
     license     = 'GPLv3+ with wide exception for Open-Source',
     author      = 'Kirill Smelkov',
@@ -177,6 +178,14 @@ setup(
         Development Status :: 3 - Alpha
         Intended Audience :: Developers
         Programming Language :: Python :: 2
-        Programming Language :: Python :: 3\
+        Programming Language :: Python :: 2.7
+        Programming Language :: Python :: 3
+        Programming Language :: Python :: 3.5
+        Programming Language :: Python :: 3.6
+        Programming Language :: Python :: 3.7
+        Programming Language :: Python :: Implementation :: CPython
+        Programming Language :: Python :: Implementation :: PyPy
+        Topic :: Software Development :: Interpreters
+        Topic :: Software Development :: Libraries :: Python Modules\
     """.splitlines()]
 )

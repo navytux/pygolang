@@ -180,7 +180,7 @@ In addition to `go` and channels, the following packages are provided to help
 handle concurrency in structured ways:
 
 - `golang.context` provides contexts to propagate deadlines, cancellation and
-  task-scoped values among spawned goroutines.
+  task-scoped values among spawned goroutines [*]_.
 
 - `golang.sync` provides `sync.WorkGroup` to spawn group of goroutines working
   on a common task. It also provides low-level primitives - for example
@@ -188,7 +188,7 @@ handle concurrency in structured ways:
 
 - `golang.time` provides timers integrated with channels.
 
-See `Go Concurrency Patterns: Context`__ for overview of contexts.
+.. [*] See `Go Concurrency Patterns: Context`__ for overview of contexts.
 
 __ https://blog.golang.org/context
 

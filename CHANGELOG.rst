@@ -1,6 +1,22 @@
 Pygolang change history
 -----------------------
 
+0.0.2 (2019-05-16)
+~~~~~~~~~~~~~~~~~~
+
+- Add `time` package with `time.Timer` and `time.Ticker` (`commit 1`__, 2__, 3__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/81dfefa0
+  __ https://lab.nexedi.com/kirr/pygolang/commit/6e3b3ff4
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9c260fde
+
+- Add support for deadlines and timeouts to `context` package (`commit 1`__, 2__, 3__, 4__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/58ba1765
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e5687f2f
+  __ https://lab.nexedi.com/kirr/pygolang/commit/27f91b78
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b2450310
+
 0.0.1 (2019-05-09)
 ~~~~~~~~~~~~~~~~~~
 
@@ -20,7 +36,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/e6bea2cf
   __ https://lab.nexedi.com/kirr/pygolang/commit/9ee7ba91
 
-- Kill deprecated `@method` (commit__).
+- Remove deprecated `@method` (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/262f8986
 
