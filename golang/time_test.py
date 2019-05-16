@@ -70,8 +70,8 @@ def test_timer():
     #             1 2 3 4 5 6 7 8 9 10  11 12 13 14 15 16 17 18 19 20 21 22 23
 
 
-# test_misc, similarly to test_timer, verifies misc time convenience functions.
-def test_misc():
+# test_timer_misc, similarly to test_timer, verifies misc timer convenience functions.
+def test_timer_misc():
     tv = []
     Tstart = time.now()
 
@@ -142,8 +142,8 @@ def test_timer_stop():
     #             1 2 3 4 5 6 7 8 9 10
 
 
-# test_stop_drain verifies that Timer/Ticker .stop() drains the channel.
-def test_stop_drain():
+# test_timer_stop_drain verifies that Timer/Ticker .stop() drains the channel.
+def test_timer_stop_drain():
     t  = time.Timer (1*dt)
     tx = time.Ticker(1*dt)
 
@@ -158,8 +158,8 @@ def test_stop_drain():
     assert len(tx.c) == 0
 
 
-# test_reset_armed verifies that .reset() panics if called on armed timer.
-def test_reset_armed():
+# test_timer_reset_armed verifies that .reset() panics if called on armed timer.
+def test_timer_reset_armed():
     # reset while armed
     t = time.Timer(10*dt)
     with raises(_PanicError):

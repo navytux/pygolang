@@ -42,6 +42,9 @@ sleep   = _time.sleep
 now     = _time.time
 
 
+# ---- timers ----
+# FIXME timers are implemented very inefficiently - each timer currently consumes a goroutine.
+
 # tick returns channel connected to dt ticker.
 #
 # Note: there is no way to stop created ticker.
@@ -50,7 +53,6 @@ def tick(dt):   # -> chan time
     if dt <= 0:
         return nilchan
     return Ticker(dt).c
-
 
 # after returns channel connected to dt timer.
 #
