@@ -171,14 +171,11 @@ def test_deadline():
     assertCtx(ctx11,    {ctx111},   deadline=dh1)
     assertCtx(ctx111,   Z,          deadline=dh1)
 
-
-    return
-
-    # XXX 11 -> 1111
-    ctx11, cancel11 = context.with_deadline(ctx1, dh2)
-    assert ctx11.done() is not ctx1.done()
-    assertCtx(ctx1,     {ctx11}, deadline=dh1)
-    assertCtx(ctx11,    Z,       deadline=dh1)  # NOTE not dh2
+    ctx1111, cancel1111 = context.with_deadline(ctx111, dh2)
+    assert ctx1111.done() is not ctx111.done()
+    assertCtx(ctx1,     {ctx11},    deadline=dh1)
+    assertCtx(ctx11,    {ctx111},   deadline=dh1)
+    assertCtx(ctx111,   {ctx1111},  deadline=dh1)
+    assertCtx(ctx1111,  Z,          deadline=dh1)  # NOTE not dh2
 
 
-    # XXX with_value / with_cancel from under deadline - deadline is preserved
