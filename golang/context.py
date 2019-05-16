@@ -107,7 +107,9 @@ def with_deadline(parent, deadline): # -> ctx, cancel
     ctx = _TimeoutCtx(timeout, parent)  # XXX + deadline
     return ctx, lambda: ctx._cancel(canceled)
 
-# XXX ...
+# with_timeout creates new context with timeout.
+#
+# it is shorthand for with_deadline(parent, now+timeout).
 def with_timeout(parent, timeout): # -> ctx, cancel
     return with_deadline(parent, time.now() + timeout)
 
