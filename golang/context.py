@@ -36,6 +36,10 @@ import threading
 # A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
 class Context(object):
+    # deadline() returns context deadline or None, if there is no deadline.
+    def deadline(ctx):  # -> time | None
+        raise NotImplementedError()
+
     # done returns channel that is closed when the context is canceled.
     def done(ctx):  # -> chan
         raise NotImplementedError()
@@ -46,10 +50,6 @@ class Context(object):
 
     # value returns value associated with key, or None, if context has no key.
     def value(ctx, key):    # -> value | None
-        raise NotImplementedError()
-
-    # deadline() returns context deadline or None, if there is no deadline.
-    def deadline(ctx):  # -> time | None
         raise NotImplementedError()
 
 
