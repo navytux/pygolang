@@ -49,8 +49,7 @@ class Context(object):
         raise NotImplementedError()
 
     # deadline() returns context deadline or None, if there is no deadline.
-    # XXX text
-    def deadline(ctx):  # -> time | None    XXX | +inf ?
+    def deadline(ctx):  # -> time | None
         raise NotImplementedError()
 
 
@@ -84,7 +83,7 @@ def with_value(parent, key, value): # -> ctx
 def with_deadline(parent, deadline): # -> ctx, cancel
     # parent's deadline is before deadline -> just use parent
     pdead = parent.deadline()
-    if pdead is not None and pdead <= deadline:     # XXX pdead=inf -> no need to check
+    if pdead is not None and pdead <= deadline:
         return with_cancel(parent)
 
 
@@ -180,7 +179,7 @@ class _BaseCtx(object):
         d = None
         for parent in ctx._parentv:
             pd = parent.deadline()
-            if pd is not None and pd < d:           # XXX None -> +inf ?
+            if pd is not None and pd < d:
                 d = pd
         return d
 
