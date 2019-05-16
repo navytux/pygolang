@@ -71,7 +71,7 @@ deadlineExceeded = RuntimeError("deadline exceeded")
 # the context is no longer needed.
 def with_cancel(parent): # -> ctx, cancel
     ctx = _CancelCtx(parent)
-    return ctx, ctx._cancel
+    return ctx, lambda: ctx._cancel(canceled)
 
 # with_value creates new context with key=value.
 #
@@ -95,7 +95,7 @@ def with_value(parent, key, value): # -> ctx
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
 def merge(parent1, parent2):    # -> ctx, cancel
     ctx = _CancelCtx(parent1, parent2)
-    return ctx, ctx._cancel
+    return ctx, lambda: ctx._cancel(canceled)
 
 # --------
 
@@ -150,17 +150,17 @@ class _BaseCtx(object):
         return None
 
     # _cancel cancels ctx and its children.
-    def _cancel(ctx):
-        return ctx._cancelFrom(None)
+    def _cancel(ctx, err):
+        return ctx._cancelFrom(None, err)
 
     # _cancelFrom cancels ctx and its children.
     # if cancelFrom != None it indicates which ctx parent cancellation was the cause for ctx cancel.
-    def _cancelFrom(ctx, cancelFrom):
+    def _cancelFrom(ctx, cancelFrom, err):
         with ctx._mu:
             if ctx._err is not None:
                 return  # already canceled
 
-            ctx._err = canceled
+            ctx._err = err
             children = ctx._children;   ctx._children = set()
 
         if ctx._done is not None:
@@ -177,13 +177,13 @@ class _BaseCtx(object):
 
         # propagate cancel to children
         for child in children:
-            child._cancelFrom(ctx)
+            child._cancelFrom(ctx, err)
 
 
     # propagateCancel establishes setup so that whenever a parent is canceled,
     # ctx and its children are canceled too.
     def _propagateCancel(ctx):
-        pdonev = [] # !nilchan .done() for foreign contexts
+        pforeignv = [] # parents with !nilchan .done() for foreign contexts
         for parent in ctx._parentv:
             # if parent can never be canceled (e.g. it is background) - we
             # don't need to propagate cancel from it.
@@ -195,27 +195,27 @@ class _BaseCtx(object):
             if isinstance(parent, _BaseCtx):
                 with parent._mu:
                     if parent._err is not None:
-                        ctx._cancel()
+                        ctx._cancel(parent._err)
                     else:
                         parent._children.add(ctx)
             else:
                 if _ready(pdone):
-                    ctx._cancel()
+                    ctx._cancel(parent.err())
                 else:
-                    pdonev.append(pdone)
+                    pforeignv.append(parent)
 
-        if len(pdonev) == 0:
+        if len(pforeignv) == 0:
             return
 
         # there are some foreign contexts to propagate cancel from
         def _():
             _, _rx = select(
-                ctx._done.recv,             # 0
-                *[_.recv for _ in pdonev]   # 1 + ...
+                ctx._done.recv,                         # 0
+                *[_.done().recv for _ in pforeignv]     # 1 + ...
             )
             # 0. nothing - already canceled
             if _ > 0:
-                ctx._cancel()
+                ctx._cancel(pforeignv[_-1].err())
         go(_)
 
 
