@@ -60,6 +60,7 @@ def after(dt):  # -> chan time
 
 # after_func arranges to call f after dt time.
 #
+# The function will be called in its own goroutine.
 # Returned timer can be used to cancel the call.
 def after_func(dt, f):  # -> Timer
     return Timer(dt, f=f)
@@ -111,8 +112,8 @@ class Ticker(object):
 #
 # The timer can be stopped (.stop), or reinitialized to another time (.reset).
 #
-# If func f is provided - when the timer fires f is called instead of event
-# being sent to channel .c .
+# If func f is provided - when the timer fires f is called in its own goroutine
+# instead of event being sent to channel .c .
 class Timer(object):
     def __init__(self, dt, f=None):
         self._f     = f
