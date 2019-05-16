@@ -142,7 +142,7 @@ def test_timer_stop():
     #             1 2 3 4 5 6 7 8 9 10
 
 
-# test_timer_stop_drain verifies that Timer/Ticker .stop() drains the channel.
+# test_timer_stop_drain verifies that Timer/Ticker .stop() drains timer channel.
 def test_timer_stop_drain():
     t  = time.Timer (1*dt)
     tx = time.Ticker(1*dt)
