@@ -22,6 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import context, time, nilchan
 from golang.context import _ready as ready
+from golang.time_test import dt
 
 def test_context():
     bg = context.background()
@@ -34,9 +35,9 @@ def test_context():
     t0 = time.now()
 
     # assertCtx asserts on state of _BaseCtx*
-    # XXX +deadline
-    def assertCtx(ctx, children, err=None, done=False):
+    def assertCtx(ctx, children, deadline=None, err=None, done=False):
         assert isinstance(ctx, context._BaseCtx)
+        assert ctx.deadline() == deadline
         assert ctx.err() is err
         assert ready(ctx.done()) == done
         assert ctx._children == children
