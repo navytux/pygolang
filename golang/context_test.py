@@ -39,7 +39,7 @@ Y = True
 
 bg = context.background()
 
-# test_context excersizes with_cancel / with_value and merge.
+# test_context exercises with_cancel / with_value and merge.
 # deadlines are tested in test_deadline.
 def test_context():
     assert bg.err()         is None
@@ -150,7 +150,7 @@ def test_context():
         assertCtx(ctxM,     Z, err=C, done=Y)
 
 
-# test_deadline excersizes deadline-related context functionality.
+# test_deadline exercises deadline-related context functionality.
 def test_deadline():
     t0 = time.now()
     d1 = t0 + 10*dt
