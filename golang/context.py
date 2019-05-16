@@ -66,6 +66,9 @@ deadlineExceeded = RuntimeError("deadline exceeded")
 #
 # Returned context inherits from parent and in particular is canceled when
 # parent is done.
+#
+# The caller should explicitly call cancel to release context resources as soon
+# the context is no longer needed.
 def with_cancel(parent): # -> ctx, cancel
     ctx = _CancelCtx(parent)
     return ctx, ctx._cancel
