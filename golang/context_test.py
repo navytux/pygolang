@@ -75,6 +75,7 @@ def test_context():
     assertCtx(ctx111,   {ctx1111})
     assertCtx(ctx1111,  Z)
 
+
     ctx12 = context.with_value(ctx1, "hello", "world")
     assert ctx12.done() is ctx1.done()
     assert ctx12.value("hello") == "world"
@@ -154,28 +155,37 @@ def test_deadline():
     t0  = time.now()
     dh1 = t0 + 1*time.hour
     dh2 = t0 + 2*time.hour
+    dh3 = t0 + 3*time.hour
 
-    ctx1, cancel1 = context.with_deadline(bg, dh1)
+    ctx1, cancel1 = context.with_deadline(bg, dh2)
     assert ctx1.done() is not bg.done()
-    assertCtx(ctx1, Z, deadline=dh1)
+    assertCtx(ctx1, Z, deadline=dh2)
 
     ctx11 = context.with_value(ctx1, "a", "b")
     assert ctx11.done() is ctx1.done()
     assert ctx11.value("a") == "b"
-    assertCtx(ctx1,     {ctx11},    deadline=dh1)
-    assertCtx(ctx11,    Z,          deadline=dh1)
+    assertCtx(ctx1,     {ctx11},        deadline=dh2)
+    assertCtx(ctx11,    Z,              deadline=dh2)
 
     ctx111, cancel111 = context.with_cancel(ctx11)
     assert ctx111.done() is not ctx11.done
-    assertCtx(ctx1,     {ctx11},    deadline=dh1)
-    assertCtx(ctx11,    {ctx111},   deadline=dh1)
-    assertCtx(ctx111,   Z,          deadline=dh1)
+    assertCtx(ctx1,     {ctx11},        deadline=dh2)
+    assertCtx(ctx11,    {ctx111},       deadline=dh2)
+    assertCtx(ctx111,   Z,              deadline=dh2)
 
-    ctx1111, cancel1111 = context.with_deadline(ctx111, dh2)
+    ctx1111, cancel1111 = context.with_deadline(ctx111, dh3)    # NOTE deadline > parent
     assert ctx1111.done() is not ctx111.done()
-    assertCtx(ctx1,     {ctx11},    deadline=dh1)
-    assertCtx(ctx11,    {ctx111},   deadline=dh1)
-    assertCtx(ctx111,   {ctx1111},  deadline=dh1)
-    assertCtx(ctx1111,  Z,          deadline=dh1)  # NOTE not dh2
+    assertCtx(ctx1,     {ctx11},        deadline=dh2)
+    assertCtx(ctx11,    {ctx111},       deadline=dh2)
+    assertCtx(ctx111,   {ctx1111},      deadline=dh2)
+    assertCtx(ctx1111,  Z,              deadline=dh2)  # NOTE not dh3
+
+    ctx12, cancel12 = context.with_deadline(ctx1, dh1)
+    assert ctx12.done() is not ctx1.done()
+    assertCtx(ctx1,     {ctx11, ctx12}, deadline=dh2)
+    assertCtx(ctx11,    {ctx111},       deadline=dh2)
+    assertCtx(ctx111,   {ctx1111},      deadline=dh2)
+    assertCtx(ctx1111,  Z,              deadline=dh2)
+    assertCtx(ctx12,    Z,              deadline=dh1)
 
 
