@@ -30,7 +30,7 @@
 
 from __future__ import print_function, absolute_import
 
-__version__ = "0.0.1.post1"
+__version__ = "0.0.2"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'recover', 'func', 'gimport']
 
