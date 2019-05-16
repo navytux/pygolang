@@ -28,13 +28,18 @@ See the following links about Go contexts:
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan
+from golang import time
 import threading
 
 # Context is the interface that every context must implement.
 #
-# A context carries cancellation signal and immutable context-local
+# A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
 class Context(object):
+    # deadline() returns context deadline or None, if there is no deadline.
+    def deadline(ctx):  # -> time | None
+        raise NotImplementedError()
+
     # done returns channel that is closed when the context is canceled.
     def done(ctx):  # -> chan
         raise NotImplementedError()
@@ -46,9 +51,6 @@ class Context(object):
     # value returns value associated with key, or None, if context has no key.
     def value(ctx, key):    # -> value | None
         raise NotImplementedError()
-
-    # TODO:
-    # .deadline()
 
 
 # background returns empty context that is never canceled.
@@ -80,6 +82,36 @@ def with_cancel(parent): # -> ctx, cancel
 def with_value(parent, key, value): # -> ctx
     return _ValueCtx({key: value}, parent)
 
+# with_deadline creates new context with deadline.
+#
+# The deadline of created context is the earliest of provided deadline or
+# deadline of parent. Created context will be canceled when time goes past
+# context deadline or cancel called, whichever happens first.
+#
+# The caller should explicitly call cancel to release context resources as soon
+# the context is no longer needed.
+def with_deadline(parent, deadline): # -> ctx, cancel
+    # parent's deadline is before deadline -> just use parent
+    pdead = parent.deadline()
+    if pdead is not None and pdead <= deadline:
+        return with_cancel(parent)
+
+    # timeout <= 0   -> already canceled
+    timeout = deadline - time.now()
+    if timeout <= 0:
+        ctx, cancel = with_cancel(parent)
+        cancel()
+        return ctx, cancel
+
+    ctx = _TimeoutCtx(timeout, deadline, parent)
+    return ctx, lambda: ctx._cancel(canceled)
+
+# with_timeout creates new context with timeout.
+#
+# it is shorthand for with_deadline(parent, now+timeout).
+def with_timeout(parent, timeout): # -> ctx, cancel
+    return with_deadline(parent, time.now() + timeout)
+
 # merge merges 2 contexts into 1.
 #
 # The result context:
@@ -108,6 +140,9 @@ class _Background(object):
         return None
 
     def value(bg, key):
+        return None
+
+    def deadline(bg):
         return None
 
 _background = _Background()
@@ -148,6 +183,16 @@ class _BaseCtx(object):
             if v is not None:
                 return v
         return None
+
+    # deadline returns the earliest deadline of parents.
+    # this behaviour is inherited by all contexts except _TimeoutCtx who overrides it.
+    def deadline(ctx):
+        d = None
+        for parent in ctx._parentv:
+            pd = parent.deadline()
+            if d is None or (pd is not None and pd < d):
+                d = pd
+        return d
 
     # _cancel cancels ctx and its children.
     def _cancel(ctx, err):
@@ -240,6 +285,24 @@ class _ValueCtx(_BaseCtx):
         if v is not None:
             return v
         return super(_ValueCtx, ctx).value(key)
+
+
+# _TimeoutCtx is context that is canceled on timeout.
+class _TimeoutCtx(_CancelCtx):
+    def __init__(ctx, timeout, deadline, parent):
+        super(_TimeoutCtx, ctx).__init__(parent)
+        assert timeout > 0
+        ctx._deadline = deadline
+        ctx._timer    = time.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
+
+    def deadline(ctx):
+        return ctx._deadline
+
+    # cancel -> stop timer
+    def _cancelFrom(ctx, cancelFrom, err):
+        super(_TimeoutCtx, ctx)._cancelFrom(cancelFrom, err)
+        ctx._timer.stop()
+
 
 
 # _ready returns whether channel ch is ready.

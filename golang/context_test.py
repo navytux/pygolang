@@ -20,12 +20,14 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import context, nilchan
+from golang import context, time, nilchan
 from golang.context import _ready as ready
+from golang.time_test import dt
 
 # assertCtx asserts on state of _BaseCtx*
-def assertCtx(ctx, children, err=None, done=False):
+def assertCtx(ctx, children, deadline=None, err=None, done=False):
     assert isinstance(ctx, context._BaseCtx)
+    assert ctx.deadline() == deadline
     assert ctx.err() is err
     assert ready(ctx.done()) == done
     assert ctx._children == children
@@ -37,9 +39,12 @@ Y = True
 
 bg = context.background()
 
+# test_context exercises with_cancel / with_value and merge.
+# deadlines are tested in test_deadline.
 def test_context():
-    assert bg.err()     is None
-    assert bg.done()    is nilchan
+    assert bg.err()         is None
+    assert bg.done()        is nilchan
+    assert bg.deadline()    is None
     assert not ready(bg.done())
     assert bg.value("hello") is None
 
@@ -143,3 +148,83 @@ def test_context():
         assertCtx(ctx121,   Z, err=C, done=Y)
         assertCtx(ctx1211,  Z, err=C, done=Y)
         assertCtx(ctxM,     Z, err=C, done=Y)
+
+
+# test_deadline exercises deadline-related context functionality.
+def test_deadline():
+    t0 = time.now()
+    d1 = t0 + 10*dt
+    d2 = t0 + 20*dt
+    d3 = t0 + 30*dt
+
+    ctx1, cancel1 = context.with_deadline(bg, d2)
+    assert ctx1.done() is not bg.done()
+    assertCtx(ctx1, Z, deadline=d2)
+
+    ctx11 = context.with_value(ctx1, "a", "b")
+    assert ctx11.done() is ctx1.done()
+    assert ctx11.value("a") == "b"
+    assertCtx(ctx1,     {ctx11},        deadline=d2)
+    assertCtx(ctx11,    Z,              deadline=d2)
+
+    ctx111, cancel111 = context.with_cancel(ctx11)
+    assert ctx111.done() is not ctx11.done
+    assertCtx(ctx1,     {ctx11},        deadline=d2)
+    assertCtx(ctx11,    {ctx111},       deadline=d2)
+    assertCtx(ctx111,   Z,              deadline=d2)
+
+    ctx1111, cancel1111 = context.with_deadline(ctx111, d3) # NOTE deadline > parent
+    assert ctx1111.done() is not ctx111.done()
+    assertCtx(ctx1,     {ctx11},        deadline=d2)
+    assertCtx(ctx11,    {ctx111},       deadline=d2)
+    assertCtx(ctx111,   {ctx1111},      deadline=d2)
+    assertCtx(ctx1111,  Z,              deadline=d2)    # NOTE not d3
+
+    ctx12, cancel12 = context.with_deadline(ctx1, d1)
+    assert ctx12.done() is not ctx1.done()
+    assertCtx(ctx1,     {ctx11, ctx12}, deadline=d2)
+    assertCtx(ctx11,    {ctx111},       deadline=d2)
+    assertCtx(ctx111,   {ctx1111},      deadline=d2)
+    assertCtx(ctx1111,  Z,              deadline=d2)
+    assertCtx(ctx12,    Z,              deadline=d1)
+
+    ctxM, cancelM = context.merge(ctx1111, ctx12)
+    assert ctxM.done() is not ctx1111.done()
+    assert ctxM.done() is not ctx12.done()
+    assert ctxM.value("a") == "b"
+    assertCtx(ctx1,     {ctx11, ctx12}, deadline=d2)
+    assertCtx(ctx11,    {ctx111},       deadline=d2)
+    assertCtx(ctx111,   {ctx1111},      deadline=d2)
+    assertCtx(ctx1111,  {ctxM},         deadline=d2)
+    assertCtx(ctx12,    {ctxM},         deadline=d1)
+    assertCtx(ctxM,     Z,              deadline=d1)
+
+    time.sleep(11*dt)
+
+    assertCtx(ctx1,     {ctx11},        deadline=d2)
+    assertCtx(ctx11,    {ctx111},       deadline=d2)
+    assertCtx(ctx111,   {ctx1111},      deadline=d2)
+    assertCtx(ctx1111,  Z,              deadline=d2)
+    assertCtx(ctx12,    Z,              deadline=d1, err=D, done=Y)
+    assertCtx(ctxM,     Z,              deadline=d1, err=D, done=Y)
+
+    # explicit cancel first -> err=canceled instead of deadlineExceeded
+    for i in range(2):
+        cancel1()
+        assertCtx(ctx1,     Z,          deadline=d2, err=C, done=Y)
+        assertCtx(ctx11,    Z,          deadline=d2, err=C, done=Y)
+        assertCtx(ctx111,   Z,          deadline=d2, err=C, done=Y)
+        assertCtx(ctx1111,  Z,          deadline=d2, err=C, done=Y)
+        assertCtx(ctx12,    Z,          deadline=d1, err=D, done=Y)
+        assertCtx(ctxM,     Z,          deadline=d1, err=D, done=Y)
+
+
+    # with_timeout
+    ctx, cancel = context.with_timeout(bg, 10*dt)
+    assert ctx.done() is not bg.done()
+    d = ctx.deadline()
+    assert abs(d - (time.now() + 10*dt)) < 1*dt
+    assertCtx(ctx,  Z,  deadline=d)
+
+    time.sleep(11*dt)
+    assertCtx(ctx,  Z,  deadline=d, err=D, done=Y)
