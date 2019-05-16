@@ -216,3 +216,24 @@ def test_deadline():
     assertCtx(ctx1111,  Z,              deadline=d2, err=D, done=Y)
     assertCtx(ctx12,    Z,              deadline=d1, err=D, done=Y)
     assertCtx(ctxM,     Z,              deadline=d1, err=D, done=Y)
+
+    for i in range(2):
+        cancel1()
+        assertCtx(ctx1,     Z,          deadline=d2, err=D, done=Y)
+        assertCtx(ctx11,    Z,          deadline=d2, err=D, done=Y)
+        assertCtx(ctx111,   Z,          deadline=d2, err=D, done=Y)
+        assertCtx(ctx1111,  Z,          deadline=d2, err=D, done=Y)
+        assertCtx(ctx12,    Z,          deadline=d1, err=D, done=Y)
+        assertCtx(ctxM,     Z,          deadline=d1, err=D, done=Y)
+
+
+    # explicit cancel first -> err=canceled instead of deadlineExceeded
+    ctx, cancel = context.with_timeout(bg, 1*time.hour)
+    assert ctx.done() is not bg.done()
+    d = ctx.deadline()
+    assert abs(d - (time.now() + 1*time.hour)) < dt
+    assertCtx(ctx,  Z,  deadline=d)
+
+    for i in range(2):
+        cancel()
+        assertCtx(ctx,  Z,  deadline=d, err=C, done=Y)
