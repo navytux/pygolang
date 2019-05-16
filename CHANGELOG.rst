@@ -28,7 +28,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/e6bea2cf
   __ https://lab.nexedi.com/kirr/pygolang/commit/9ee7ba91
 
-- Kill deprecated `@method` (commit__).
+- Remove deprecated `@method` (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/262f8986
 
