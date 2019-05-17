@@ -146,13 +146,16 @@ setup(
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
     url         = 'https://lab.nexedi.com/kirr/pygolang',
+    project_urls= {},   # XXX
     license     = 'GPLv3+ with wide exception for Open-Source',
+    license_file= 'COPYING',
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
+    platforms   = 'any',
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator'],
@@ -178,11 +181,13 @@ setup(
         Development Status :: 3 - Alpha
         Intended Audience :: Developers
 
+        XXX License
         Operating System :: OS Independent
         Operating System :: POSIX
         Operating System :: Unix
         Operating System :: Microsoft :: Windows
 
+        Programming Language :: Python
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3
