@@ -1,10 +1,21 @@
 - gimport to import go123 released to pypi
 - -> cython
-- gpython: pre-install pyximport
+
+- greenlet: study, esp. greenlet to migrate between threads
+- gevent scheduler: study
+
 ? b() -> bytes, u() -> unicode ?
 
-? io/ioutil: readfile, writefile
+- gpython: pre-install pyximport
 
+  done@t; problem is: if pyximport is installed, it tries to compile modules
+  that are already compiled by `setup.py build`.	XXX recheck
+
+
+? signal -> channel
+? sync/atomic
+? io/ioutil: readfile, writefile
+? io.Pipe
 
 ----
 
