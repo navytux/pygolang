@@ -152,6 +152,7 @@ setup(
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
+    # XXX + stackless
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
@@ -177,6 +178,7 @@ setup(
         'develop':          develop,
     },
 
+    # XXX + stackless
     classifiers = [_.strip() for _ in """\
         Development Status :: 3 - Alpha
         Intended Audience :: Developers
