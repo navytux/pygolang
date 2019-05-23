@@ -1,6 +1,9 @@
 - gimport to import go123 released to pypi
 - -> cython
 
+? `for x in chan`	~ `for x := range chan`
+
+
 - greenlet: study, esp. greenlet to migrate between threads
 - gevent scheduler: study
 
