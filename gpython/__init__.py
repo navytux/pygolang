@@ -136,7 +136,7 @@ def main():
     # imported first, e.g. to support sys.modules.
     import sys
     if sys.getdefaultencoding() != 'utf-8':
-        reload(sys)
+        reload(sys) # XXX -> importlib.reload py34+  (six.reload_module)
         sys.setdefaultencoding('utf-8')
         delattr(sys, 'setdefaultencoding')
 
