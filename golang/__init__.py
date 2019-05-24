@@ -714,6 +714,8 @@ class str(bytes):
 
     # str -> unicode
     def _decode(self):
+        # XXX errors = strict? (not to corrupt data, and those who need to
+        # process invalid utf-8 can do so via decode_rune_in_string) ?
         return self.decode('UTF-8')     # XXX errors    XXX wrap into unicode ?
     if six.PY2:
         __unicode__ = _decode
@@ -726,9 +728,18 @@ class str(bytes):
         if isinstance(arg, cls):
             return arg
 
+        # arg is neither bytes nor unicode; try to convert to them.
         if not isinstance(arg, (bytes, six.text_type)):
-            # XXX try convert bytes
-            # XXX try convert text_type
+            # try convert convert to bytes directly, but do not accept
+            # non-string bytes ctors - e.g. iterable_of_ints.
+            #
+            # XXX test iterable_of_ints
+            # int
+            try:
+                arg = memoryview(arg)
+            except TypeError:
+                # bytes conversion cannot be done directly. Try to go via text
+                arg = six.text_type(arg)
 
         # arg is now unicode|bytes -> convert to bytes and wrap with str
         if isinstace(arg, six.text_type):
