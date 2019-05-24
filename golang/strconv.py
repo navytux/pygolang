@@ -115,6 +115,7 @@ def _quote(s):
 
             i = isize
 
+    # XXX -> str
     return b'"' + b''.join(outv) + b'"'
 
 

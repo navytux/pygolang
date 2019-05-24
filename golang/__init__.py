@@ -702,22 +702,56 @@ def _blockforever():
 
 # ---- strings ----
 
-# str is like bytes but can be automatically converted to Python string via
-# UTF-8 decoding.
+# str is like bytes but can be automatically converted to Python unicode string
+# via UTF-8 decoding.
+#
+# Similarly to Go, in Pygolang str is the preferred default type to work with
+# text strings. XXX https://blog.golang.org/strings
 #
 # XXX decode error rules
 class str(bytes):
     __slots__ = []
-    def __str__(self):
-        return self.decode('UTF-8')     # XXX errors
+
+    # str -> unicode
+    def _decode(self):
+        return self.decode('UTF-8')     # XXX errors    XXX wrap into unicode ?
+    if six.PY2:
+        __unicode__ = _decode
+    else:
+        __str__     = _decode
+
+    # * -> str
+    def __new__(cls, arg=b''):
+        # already str - nothing to do
+        if isinstance(arg, cls):
+            return arg
+
+        if not isinstance(arg, (bytes, six.text_type)):
+            # XXX try convert bytes
+            # XXX try convert text_type
+
+        # arg is now unicode|bytes -> convert to bytes and wrap with str
+        if isinstace(arg, six.text_type):
+            arg = arg.encode('UTF-8')
+        return super(cls).__new__(arg)
+
+
 
 
 # unicode is like unicode(py2)|str(py3) but can be automatically converted to
 # bytes via UTF-8 encoding.
 class unicode(six.text_type):
     __slots__ = []
-    def __bytes__(self):
-        return self.encode('UTF-8')
+
+    # XXX __new__ ?
+
+    def _encode(self):
+        return self.encode('UTF-8')     # XXX wrap into str?
+
+    if six.PY2:
+        __str__     = _encode
+    else:
+        __bytes__   = _encode
 
 
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.
