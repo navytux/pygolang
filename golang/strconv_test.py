@@ -64,6 +64,8 @@ def test_quote():
     )
 
     for tin, tquoted in testv:
+        print('\n\n')
+        print('tin: %r' % tin)
         # quote(in) == quoted
         # in = unquote(quoted)
         q = b'"' if isinstance(tquoted, bytes) else '"'
@@ -71,10 +73,8 @@ def test_quote():
         tquoted = q + tquoted + q   # add lead/trail "
 
         z = quote(tin)
-        print('\n\n')
-        print('%r' % tin)
-        print(type(z))
-        print(repr(z))
+        print('quote(tin): %s   %s  %r' % (type(z), z, z))
+        print()
 
         assert quote(tin) == tquoted
         assert unquote(tquoted) == tin

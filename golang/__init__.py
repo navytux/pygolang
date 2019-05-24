@@ -728,6 +728,8 @@ class str(bytes):
         if isinstance(arg, cls):
             return arg
 
+        print('xstr.__new__ %r' % arg)
+
         # arg is neither bytes nor unicode; try to convert to them.
         if not isinstance(arg, (bytes, six.text_type)):
             # try convert convert to bytes directly, but do not accept
@@ -743,16 +745,23 @@ class str(bytes):
         # arg is now unicode|bytes -> convert to bytes and wrap with str
         if isinstance(arg, six.text_type):
             arg = arg.encode('UTF-8')
-        return super().__new__(cls, arg)    # XXX fix for py2
+        #return super().__new__(cls, arg)    # XXX fix for py2
+        _ = super().__new__(cls, arg)    # XXX fix for py2
+        print('  -> %s' % _)
+        return _
 
 
     # XXX
     def __repr__(self):
         from golang.gcompat import qq   # XXX
         _ = qq(self)
+        print('self:', bytes(self))
         print('_:', type(_), _)
+        print()
         return  unicode(b'b(' + qq(self) + b')')  # XXX don't unicode on py2 XXX or never?
 
+
+    # override methods so that result is str instead of plain bytes
 
     def __add__(a, b):  # a + b
         if not isinstance(b, bytes):
