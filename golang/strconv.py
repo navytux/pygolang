@@ -21,6 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
+from golang import str, unicode
 import six, unicodedata, codecs
 from six.moves import range as xrange
 
@@ -57,12 +58,19 @@ def _ustr(s):   # -> sunicode, wasbytes
 
 
 # quote quotes unicode|bytes string into valid "..." unicode|bytes string always quoted with ".
+# XXX | other objects?
 def quote(s):
+    s = str(s)
+    qs = _quote(s)
+    return str(qs)
+
+    """
     s, wasunicode = _bstr(s)
     qs = _quote(s)
     if wasunicode:
         qs = qs.decode('UTF-8')
     return qs
+    """
 
 def _quote(s):
     assert isinstance(s, bytes)
@@ -115,7 +123,6 @@ def _quote(s):
 
             i = isize
 
-    # XXX -> str
     return b'"' + b''.join(outv) + b'"'
 
 

@@ -36,7 +36,7 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
         'recover', 'func', 'gimport', 'b', 'u']
 
 from golang._gopath import gimport  # make gimport available from golang
-from golang import strconv          # for b, u
+#from golang import strconv          # for b, u
 import inspect, threading, collections, random, sys
 import decorator
 
@@ -733,8 +733,7 @@ class str(bytes):
             # try convert convert to bytes directly, but do not accept
             # non-string bytes ctors - e.g. iterable_of_ints.
             #
-            # XXX test iterable_of_ints
-            # int
+            # XXX test iterable_of_ints, int
             try:
                 arg = memoryview(arg)
             except TypeError:
@@ -742,7 +741,7 @@ class str(bytes):
                 arg = six.text_type(arg)
 
         # arg is now unicode|bytes -> convert to bytes and wrap with str
-        if isinstace(arg, six.text_type):
+        if isinstance(arg, six.text_type):
             arg = arg.encode('UTF-8')
         return super(cls).__new__(arg)
 
@@ -765,6 +764,12 @@ class unicode(six.text_type):
         __bytes__   = _encode
 
 
+# b & u are aliases for str and unicode
+# XXX describe more
+b = str
+u = unicode
+
+"""
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.
 #
 # TypeError is raised if type(s) is not one of the above.
@@ -784,3 +789,4 @@ def u(s): # -> unicode
     s, _ = strconv._ustr(s)
     #return s
     return unicode(s)  # XXX move conversion into _ustr?
+"""

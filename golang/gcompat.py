@@ -30,6 +30,11 @@ import six
 #
 # like %s, %q automatically converts its argument to string.
 def qq(obj):    # -> str
+    # convert to str and quote
+    obj = str(obj)
+    return strconv.quote(obj)
+
+    """
     # make sure obj is text | bytes
     # py2: unicode | str
     # py3: str     | bytes
@@ -39,11 +44,10 @@ def qq(obj):    # -> str
     qobj = strconv.quote(obj)
 
     # XXX no need as golang.str can automatically convert to unicode
-    """
     # `printf('%s', qq(obj))` should work. For this make sure qobj is always a
     # str - not bytes under py3 (if it was bytes it will print e.g. as b'...')
     if six.PY3 and isinstance(qobj, bytes):
         qobj = qobj.decode('UTF-8')
-    """
 
     return qobj
+    """
