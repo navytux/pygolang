@@ -702,19 +702,40 @@ def _blockforever():
 
 # ---- strings ----
 
+# str is like bytes but can be automatically converted to Python string via
+# UTF-8 decoding.
+#
+# XXX decode error rules
+class str(bytes):
+    __slots__ = []
+    def __str__(self):
+        return self.decode('UTF-8')     # XXX errors
+
+
+# unicode is like unicode(py2)|str(py3) but can be automatically converted to
+# bytes via UTF-8 encoding.
+class unicode(six.text_type):
+    __slots__ = []
+    def __bytes__(self):
+        return self.encode('UTF-8')
+
+
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.
 #
 # TypeError is raised if type(s) is not one of the above.
 def b(s): # -> bytes
     s, _ = strconv._bstr(s)
-    return s
+    #return s
+    #return xbytes(s)    # XXX move conversion into _bstr?
+    return str(s)    # XXX move conversion into _bstr?
 
 
-# _ustr converts str/unicode/bytes s to unicode string.
+# u converts str/unicode/bytes s to unicode string.
 #
 # XXX decode errors
 #
 # TypeError is raised if type(s) is not one of the above.
 def u(s): # -> unicode
     s, _ = strconv._ustr(s)
-    return s
+    #return s
+    return unicode(s)  # XXX move conversion into _ustr?
