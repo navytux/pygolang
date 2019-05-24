@@ -33,7 +33,7 @@ from __future__ import print_function, absolute_import
 __version__ = "0.0.2"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-        'recover', 'func', 'gimport', 'b', 'u']
+        'recover', 'func', 'gimport', 'str']   # 'str', 'unicode', 'b', 'u']
 
 from golang._gopath import gimport  # make gimport available from golang
 #from golang import strconv          # for b, u
@@ -763,6 +763,17 @@ class str(bytes):
 
     # override methods so that result is str instead of plain bytes
 
+    def __hash__(self):     1/0     # XXX do we need to override?
+
+    def __eq__(a, b):       1/0
+    def __ne__(a, b):       1/0
+
+    def __ge__(a, b):       1/0
+    def __gt__(a, b):       1/0
+    def __le__(a, b):       1/0
+    def __lt__(a, b):       1/0
+
+
     def __add__(a, b):  # a + b
         if not isinstance(b, bytes):
             raise TypeError('XXX')  # XXX
@@ -774,6 +785,11 @@ class str(bytes):
         return str(bytes(a) + bytes(b))
 
     # XXX + other methods to give str as the result
+
+    def __mul__(a, b):      1/0
+    def __rmul__(a, b):     1/0
+    def __mod__(a, b):      1/0
+    def __rmod__(a, b):     1/0
 
 
 

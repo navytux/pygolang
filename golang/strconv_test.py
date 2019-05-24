@@ -20,6 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
+import golang
 from golang.strconv import quote, unquote, unquote_next
 from golang.gcompat import qq
 
@@ -75,6 +76,10 @@ def test_quote():
         z = quote(tin)
         print('quote(tin): %s   %s  %r' % (type(z), z, z))
         print()
+
+        tq = quote(tin)
+        assert type(tq)  is golang.str
+        assert bytes(tq) == tquoted
 
         assert quote(tin) == tquoted
         assert unquote(tquoted) == tin
