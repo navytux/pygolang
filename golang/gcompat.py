@@ -31,7 +31,7 @@ import six
 # like %s, %q automatically converts its argument to string.
 def qq(obj):    # -> str
     # convert to str and quote
-    obj = str(obj)
+    obj = str(obj)  # XXX needed? (strconv.quote does it itself)
     return strconv.quote(obj)
 
     """

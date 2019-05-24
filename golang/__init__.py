@@ -743,7 +743,28 @@ class str(bytes):
         # arg is now unicode|bytes -> convert to bytes and wrap with str
         if isinstance(arg, six.text_type):
             arg = arg.encode('UTF-8')
-        return super(cls).__new__(arg)
+        return super().__new__(cls, arg)    # XXX fix for py2
+
+
+    # XXX
+    def __repr__(self):
+        from golang.gcompat import qq   # XXX
+        _ = qq(self)
+        print('_:', type(_), _)
+        return  unicode(b'b(' + qq(self) + b')')  # XXX don't unicode on py2 XXX or never?
+
+
+    def __add__(a, b):  # a + b
+        if not isinstance(b, bytes):
+            raise TypeError('XXX')  # XXX
+        return str(bytes(a) + bytes(b))
+
+    def __radd__(b, a): # a + b
+        if not isinstance(a, bytes):
+            raise TypeError('XXX')  # XXX
+        return str(bytes(a) + bytes(b))
+
+    # XXX + other methods to give str as the result
 
 
 

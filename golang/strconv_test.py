@@ -70,6 +70,12 @@ def test_quote():
         tail = b'123' if isinstance(tquoted, bytes) else '123'
         tquoted = q + tquoted + q   # add lead/trail "
 
+        z = quote(tin)
+        print('\n\n')
+        print('%r' % tin)
+        print(type(z))
+        print(repr(z))
+
         assert quote(tin) == tquoted
         assert unquote(tquoted) == tin
         assert unquote_next(tquoted) == (tin, type(tin)())
