@@ -32,9 +32,11 @@ from __future__ import print_function, absolute_import
 
 __version__ = "0.0.2"
 
-__all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'recover', 'func', 'gimport']
+__all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
+        'recover', 'func', 'gimport', 'b', 'u']
 
 from golang._gopath import gimport  # make gimport available from golang
+from golang import strconv          # for b, u
 import inspect, threading, collections, random, sys
 import decorator
 
@@ -696,3 +698,23 @@ def _blockforever():
     dead = threading.Lock()
     dead.acquire()
     dead.acquire()
+
+
+# ---- strings ----
+
+# b converts str/unicode/bytes s to UTF-8 encoded bytestring.
+#
+# TypeError is raised if type(s) is not one of the above.
+def b(s): # -> bytes
+    s, _ = strconv._bstr(s)
+    return s
+
+
+# _ustr converts str/unicode/bytes s to unicode string.
+#
+# XXX decode errors
+#
+# TypeError is raised if type(s) is not one of the above.
+def u(s): # -> unicode
+    s, _ = strconv._ustr(s)
+    return s

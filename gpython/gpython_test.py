@@ -21,6 +21,7 @@
 from __future__ import print_function, absolute_import
 
 import sys, os, golang, subprocess
+from golang import b
 from six import PY2, PY3
 from six.moves import builtins
 import pytest
@@ -39,6 +40,8 @@ def test_golang_builtins():
     assert go     is golang.go
     assert chan   is golang.chan
     assert select is golang.select
+    assert b      is golang.b
+    assert u      is golang.u
 
     # indirectly verify golang.__all__
     for k in golang.__all__:
@@ -100,12 +103,6 @@ def test_executable():
     assert 'gpython' in sys.executable
     out = pyrun(['-c', 'import sys; print(sys.version)'])
     assert ('[GPython %s]' % golang.__version__) in str(out)
-
-# b converts s to UTF-8 encoded bytes.
-def b(s):
-    from golang.strconv import _bstr
-    s, _ = _bstr(s)
-    return s
 
 # verify pymain.
 #

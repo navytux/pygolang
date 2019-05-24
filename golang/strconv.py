@@ -25,9 +25,7 @@ import six, unicodedata, codecs
 from six.moves import range as xrange
 
 
-# _bstr converts str/unicode/bytes s to UTF-8 encoded bytestring.
-#
-# TypeError is raised if type(s) is not one of the above.
+# _bstr is like b but also returns whether input was unicode.
 def _bstr(s):   # -> sbytes, wasunicode
     wasunicode = False
     if isinstance(s, bytes):                    # py2: str      py3: bytes
@@ -35,12 +33,28 @@ def _bstr(s):   # -> sbytes, wasunicode
     elif isinstance(s, six.text_type):          # py2: unicode  py3: str
         wasunicode = True
     else:
-        raise TypeError("_bstr: invalid type %s", type(s))
+        raise TypeError("_bstr: invalid type %s" % type(s))
 
     if wasunicode:                              # py2: unicode  py3: str    -> bytes
         s = s.encode('UTF-8')
 
     return s, wasunicode
+
+# _ustr is like u but also returns whether input was bytes.
+def _ustr(s):   # -> sunicode, wasbytes
+    wasbytes = True
+    if isinstance(s, bytes):                    # py2: str      py3: bytes
+        pass
+    elif isinstance(s, six.text_type):          # py2: unicode  py3: str
+        wasbytes = False
+    else:
+        raise TypeError("_ustr: invalid type %s" % type(s))
+
+    if wasbytes:
+        s = s.decode('UTF-8')   # XXX decode errors -> X
+
+    return s, wasbytes
+
 
 # quote quotes unicode|bytes string into valid "..." unicode|bytes string always quoted with ".
 def quote(s):
