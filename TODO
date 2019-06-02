@@ -1,6 +1,7 @@
 - gpython: main in C + AST rewrite hook + changed pyc magic
   -> drop pypy support?
-  -> CFFI universally for cpython/pypy? (https://cffi.readthedocs.io/en/latest/embedding.html)
+  -> CFFI universally for cpython/pypy?
+     (https://cffi.readthedocs.io/en/latest/embedding.html, http://doc.pypy.org/en/latest/embedding.html)
 - gpython/golang: str/unicode + b/u
 - gimport to import go123 released to pypi
 - -> cython
