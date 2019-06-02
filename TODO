@@ -1,3 +1,7 @@
+- gpython: main in C + AST rewrite hook + changed pyc magic
+  -> drop pypy support?
+  -> CFFI universally for cpython/pypy? (https://cffi.readthedocs.io/en/latest/embedding.html)
+- gpython/golang: str/unicode + b/u
 - gimport to import go123 released to pypi
 - -> cython
 
@@ -5,9 +9,10 @@
 
 
 - greenlet: study, esp. greenlet to migrate between threads
-- gevent scheduler: study
+  -> they can't as long as greenlets share the same C stack -> solution =
+  different C stack for different greenlets (either hardcoded size or with -fstack-split)
 
-? b() -> bytes, u() -> unicode ?
+- gevent scheduler: study
 
 - gpython: pre-install pyximport
 
@@ -25,8 +30,11 @@
 "solved"
 
 ? errctx (-> directly use go123; see gimport vs go123 on pypi)
+  -> better make raise always behave like raise_ in pypi.org/project/pep3134 (exception cause is preserved)
 
 
 ----
 
-? out-out of gevent/gpython ?	XXX what did this mean?
+? out-out of gevent/gpython ?	XXX what did this mean? -> finer grained
+  control when to use/not use gevent (i.e. disable gevent under gpython, use
+  gevent under std python, ...)?

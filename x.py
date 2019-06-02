@@ -29,7 +29,7 @@ class Foo(bytes, metaclass=FooMeta):
         if type(arg) is strorig:
             #assert encoding is _empty
             arg = arg.encode('UTF-8')
-            
+
         return super().__new__(cls, arg)
 
     def __str__(self):
