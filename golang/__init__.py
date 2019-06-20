@@ -140,7 +140,7 @@ def _meth(cls, fcall):
         #   @func(cls)
         #   def ...
         if b == opcode.opmap['CALL_FUNCTION']:
-            panic("@func(cls) must be the outermost decorator")
+            raise SyntaxError("@func(cls) must be the outermost decorator")
 
         if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
             bad('expected STORE_NAME|STORE_FAST|STORE_GLOBAL')

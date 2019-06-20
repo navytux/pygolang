@@ -525,7 +525,7 @@ def test_method():
     def deco(f):
         return f
 
-    with raises(_PanicError) as exc:
+    with raises(SyntaxError) as exc:
         @deco
         @func(MyClass)
         def qqq(): pass
