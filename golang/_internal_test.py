@@ -24,4 +24,4 @@ def test_bytepatch():
     b = b'\x00\x01\x02\x03'
     assert b[1:2] == b'\x01'
     bytepatch(b, 1, 0x23)
-    assert b[1:2] == b'\x01'    # XXX -> 0x23
+    assert b[1:2] == b'\x23'
