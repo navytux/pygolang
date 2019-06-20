@@ -40,8 +40,8 @@ def test_golang_builtins():
     assert go     is golang.go
     assert chan   is golang.chan
     assert select is golang.select
-    assert b      is golang.b
-    assert u      is golang.u
+#   assert b      is golang.b
+#   assert u      is golang.u
 
     # indirectly verify golang.__all__
     for k in golang.__all__:
