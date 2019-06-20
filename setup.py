@@ -18,6 +18,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 from setuptools import setup, find_packages
+from setuptools.extension import Extension
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
 from os.path import dirname, join
@@ -156,6 +157,7 @@ setup(
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
+    ext_modules = [Extension('golang._internal', ['golang/_internal.pyx'])],
     platforms   = 'any',
     include_package_data = True,
 

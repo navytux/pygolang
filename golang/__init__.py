@@ -43,6 +43,9 @@ import decorator
 import six
 from golang._pycompat import im_class
 
+from golang._internal import bytepatch
+import opcode
+
 # TODO -> use gevent + fallback to !gevent implementation if gevent was not initialized.
 # The following should automatically prefer to use gevent as golang backend:
 #
@@ -97,6 +100,7 @@ def _meth(cls, fcall):
             func_name = f.__name__
         setattr(cls, func_name, f)
 
+        """
         # if `@func(cls) def name` caller already has `name` set, don't override it
         missing = object()
         already = fcall.f_locals.get(func_name, missing)
@@ -105,6 +109,26 @@ def _meth(cls, fcall):
 
         # FIXME try to arrange so that python does not set anything on caller's
         # namespace[func_name]  (currently it sets that to implicitly returned None)
+        """
+
+        # patch caller's bytecode not to do `name = ...` assignment
+        bcode = fcall.f_code.co_code
+        i = fcall.f_lasti
+
+        b = ord(bcode[i])
+        assert b == opcode.opmap['CALL_FUNCTION'], (opcode.opname[b], i)
+        i += 3  # CALL_FUNCTION arg1 arg2
+
+        b = ord(bcode[i])
+        assert b == opcode.opmap['STORE_NAME'], (opcode.opname[b], i)
+        # STORE_NAME arg1 arg2  -> POP_TOP NOP NOP
+        bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
+        bytepatch(bcode, i+1, opcode.opmap['NOP'])
+        bytepatch(bcode, i+2, opcode.opmap['NOP'])
+
+        # now it is ok to return - returned None will be popped
+        return  # returns None
+
 
     return deco
 
