@@ -522,6 +522,15 @@ def test_method():
     with raises(UnboundLocalError): rrr
     # TODO same in global context
 
+    def deco(f):
+        return f
+
+    with raises(_PanicError) as exc:
+        @deco
+        @func(MyClass)
+        def qqq(): pass
+    assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
+
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
     assert obj.mstatic(5)   == 5 + 1

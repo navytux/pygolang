@@ -133,6 +133,15 @@ def _meth(cls, fcall):
         i += 3 if six.PY2 else 2
 
         b = six.byte2int(bcode[i:])
+
+        # detect and forbid
+        #
+        #   @deco
+        #   @func(cls)
+        #   def ...
+        if b == opcode.opmap['CALL_FUNCTION']:
+            panic("@func(cls) must be the outermost decorator")
+
         if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
             bad('expected STORE_NAME|STORE_FAST|STORE_GLOBAL')
         # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
