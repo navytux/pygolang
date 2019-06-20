@@ -21,7 +21,13 @@ from golang._internal import bytepatch
 
 
 def test_bytepatch():
-    b = b'\x00\x01\x02\x03'
+    #b = b'\x00\x01\x02\x03'
+    b = bytearray(b'\x00\x01\x02\x03')
     assert b[1:2] == b'\x01'
     bytepatch(b, 1, 0x23)
-    assert b[1:2] == b'\x23'
+    bytepatch(b, 1, 0x23)
+    bb = bytes(b)
+    bytepatch(bb, 2, 0x32)
+    print(bb)
+    assert bb[1:2] == b'\x23'
+    assert bb[2:3] == b'\x32'   # XXX breaks on pypy3 (but works on pypy2 and cpython2 & 3)
