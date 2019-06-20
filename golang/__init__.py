@@ -836,9 +836,9 @@ u = unicode
 # TypeError is raised if type(s) is not one of the above.
 def b(s): # -> bytes
     s, _ = strconv._bstr(s)
-    #return s
+    return s
     #return xbytes(s)    # XXX move conversion into _bstr?
-    return str(s)    # XXX move conversion into _bstr?
+    #return str(s)    # XXX move conversion into _bstr?
 
 
 # u converts str/unicode/bytes s to unicode string.
