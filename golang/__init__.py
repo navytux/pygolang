@@ -116,6 +116,10 @@ def _meth(cls, fcall):
         bcode = fcall.f_code.co_code
         i = fcall.f_lasti
 
+        print('\nbefore transform:')
+        print('@i%d' % i)
+        dis(fcall.f_code)
+
         def bad(msg):
             msg = 'XXX BAD: @i%d: %s' % (i, msg)
             print('\n'+msg)
@@ -148,19 +152,27 @@ def _meth(cls, fcall):
 
         if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
             bad('expected STORE_NAME|STORE_FAST|STORE_GLOBAL')
-        # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
-        # STORE_FAST   arg1 arg2  -> ----//----
-        # STORE_GLOBAL arg1 arg2  -> ----//----
         if iwidth == 3:
+            # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
+            # STORE_FAST   arg1 arg2  -> ----//----
+            # STORE_GLOBAL arg1 arg2  -> ----//----
             bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
             bytepatch(bcode, i+1, opcode.opmap['NOP'])
             bytepatch(bcode, i+2, opcode.opmap['NOP'])
         else:
+            # STORE_NAME   arg        -> POP_TOP
+            # ----//----
             bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
             bytepatch(bcode, i+1, 0)
 
+        print('\nafter transform 1:')
+        dis(bcode)
+        print('\nafter transform 2:')
+        dis(fcall.f_code)
+
+
         # now it is ok to return - returned None will be popped
-        return  # returns None
+        return  'aaa' # returns None
 
 
     return deco
