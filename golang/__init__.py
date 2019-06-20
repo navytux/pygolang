@@ -80,12 +80,13 @@ class _PanicError(Exception):
 #       ...
 def func(f):
     if inspect.isclass(f):
-        return _meth(f)
+        fcall = inspect.currentframe().f_back   # caller's frame (where @func is used)
+        return _meth(f, fcall)
     else:
         return _func(f)
 
 # _meth serves @func(cls).
-def _meth(cls):
+def _meth(cls, fcall):
     def deco(f):
         # wrap f with @_func, so that e.g. defer works automatically.
         f = _func(f)
@@ -95,6 +96,16 @@ def _meth(cls):
         else:
             func_name = f.__name__
         setattr(cls, func_name, f)
+
+        # if `@func(cls) def name` caller already has `name` set, don't override it
+        missing = object()
+        already = fcall.f_locals.get(func_name, missing)
+        if already is not missing:
+            return already
+
+        # FIXME try to arrange so that python does not set anything on caller's
+        # namespace[func_name]  (currently it sets that to implicitly returned None)
+
     return deco
 
 # _func serves @func.
