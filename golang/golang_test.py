@@ -515,7 +515,11 @@ def test_method():
     assert mcls is mcls_orig
     assert mcls == 'mcls'
 
-    # FIXME undefined var after `@func(cls) def var` should be not set
+    # undefined var after `@func(cls) def var` should be not set
+    @func(MyClass)
+    def rrr(): pass
+    assert 'rrr' not in locals()
+    with raises(UnboundLocalError): rrr
 
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
