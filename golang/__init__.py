@@ -122,12 +122,12 @@ def _meth(cls, fcall):
             dis(fcall.f_code)
             panic(msg)
 
-        b = ord(bcode[i])
+        b = six.byte2int(bcode[i:])
         if b != opcode.opmap['CALL_FUNCTION']:
             bad('expected CALL_FUNCTION')
         i += 3  # CALL_FUNCTION arg1 arg2
 
-        b = ord(bcode[i])
+        b = six.byte2int(bcode[i:])
         if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
             bad('expected STORE_NAME|STORE_FAST|STORE_GLOBAL')
         # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
