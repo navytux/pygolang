@@ -45,6 +45,7 @@ from golang._pycompat import im_class
 
 from golang._internal import bytepatch
 import opcode
+from dis import dis
 
 # TODO -> use gevent + fallback to !gevent implementation if gevent was not initialized.
 # The following should automatically prefer to use gevent as golang backend:
@@ -115,13 +116,23 @@ def _meth(cls, fcall):
         bcode = fcall.f_code.co_code
         i = fcall.f_lasti
 
+        def bad(msg):
+            msg = 'XXX BAD: @i%d: %s' % (i, msg)
+            print('\n'+msg)
+            dis(fcall.f_code)
+            panic(msg)
+
         b = ord(bcode[i])
-        assert b == opcode.opmap['CALL_FUNCTION'], (opcode.opname[b], i)
+        if b != opcode.opmap['CALL_FUNCTION']:
+            bad('expected CALL_FUNCTION')
         i += 3  # CALL_FUNCTION arg1 arg2
 
         b = ord(bcode[i])
-        assert b == opcode.opmap['STORE_NAME'], (opcode.opname[b], i)
-        # STORE_NAME arg1 arg2  -> POP_TOP NOP NOP
+        if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
+            bad('expected STORE_NAME|STORE_FAST|STORE_GLOBAL')
+        # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
+        # STORE_FAST   arg1 arg2  -> ----//----
+        # STORE_GLOBAL arg1 arg2  -> ----//----
         bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
         bytepatch(bcode, i+1, opcode.opmap['NOP'])
         bytepatch(bcode, i+2, opcode.opmap['NOP'])
