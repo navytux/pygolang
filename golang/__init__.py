@@ -829,10 +829,6 @@ b = str
 u = unicode
 """
 
-# XXX hack
-str = str
-unicode = unicode
-
 # XXX disable in favour of ^^^  b, u
 #"""
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.

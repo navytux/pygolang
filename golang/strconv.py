@@ -21,7 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import str, unicode
+#from golang import str, unicode
 import six, unicodedata, codecs
 from six.moves import range as xrange
 

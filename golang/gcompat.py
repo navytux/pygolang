@@ -21,7 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import str, strconv
+from golang import strconv  # XXX +str
 import six
 
 # qq is substitute for %q, which is missing in python.
