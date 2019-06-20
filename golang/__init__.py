@@ -33,7 +33,7 @@ from __future__ import print_function, absolute_import
 __version__ = "0.0.2"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-        'recover', 'func', 'gimport', 'str']   # 'str', 'unicode', 'b', 'u']
+        'recover', 'func', 'gimport']   # 'str', 'unicode', 'b', 'u']
 
 from golang._gopath import gimport  # make gimport available from golang
 #from golang import strconv          # for b, u
