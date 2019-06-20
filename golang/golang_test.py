@@ -488,23 +488,34 @@ def test_method():
         def __init__(self, v):
             self.v = v
 
+    zzz = zzz_orig = 'z'    # `@func(MyClass) def zzz` must not override zzz
     @func(MyClass)
     def zzz(self, v, x=2, **kkkkwww):
         assert self.v == v
         return v + 1
+    assert zzz is zzz_orig
+    assert zzz == 'z'
 
+    mstatic = mstatic_orig = 'mstatic'
     @func(MyClass)
     @staticmethod
     def mstatic(v):
         assert v == 5
         return v + 1
+    assert mstatic is mstatic_orig
+    assert mstatic == 'mstatic'
 
+    mcls = mcls_orig = 'mcls'
     @func(MyClass)
     @classmethod
     def mcls(cls, v):
         assert cls is MyClass
         assert v == 7
         return v + 1
+    assert mcls is mcls_orig
+    assert mcls == 'mcls'
+
+    # FIXME undefined var after `@func(cls) def var` should be not set
 
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
