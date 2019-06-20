@@ -161,7 +161,7 @@ setup(
     platforms   = 'any',
     include_package_data = True,
 
-    install_requires = ['gevent', 'six', 'decorator'],
+    install_requires = ['gevent', 'six', 'decorator', 'cython'],
 
     extras_require = {
                   'test': ['pytest'],
