@@ -823,14 +823,18 @@ class _unicode(six.text_type):      # XXX -> unicode (no _; gpython currently br
 
 # b & u are aliases for str and unicode
 # XXX describe more
+# XXX restore
+"""
 b = str
 u = unicode
+"""
 
 # XXX hack
 str = str
 unicode = unicode
 
-"""
+# XXX disable in favour of ^^^  b, u
+#"""
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.
 #
 # TypeError is raised if type(s) is not one of the above.
@@ -850,4 +854,4 @@ def u(s): # -> unicode
     s, _ = strconv._ustr(s)
     #return s
     return unicode(s)  # XXX move conversion into _ustr?
-"""
+#"""
