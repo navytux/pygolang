@@ -6,6 +6,7 @@ build/
 
 *.o
 *.so
+golang/_internal.c
 
 /dist/
 *.egg-info
