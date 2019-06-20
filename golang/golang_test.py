@@ -520,6 +520,7 @@ def test_method():
     def rrr(): pass
     assert 'rrr' not in locals()
     with raises(UnboundLocalError): rrr
+    # TODO same in global context
 
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
