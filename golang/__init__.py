@@ -122,10 +122,15 @@ def _meth(cls, fcall):
             dis(fcall.f_code)
             panic(msg)
 
+        # starting from cpython 3.6 instructions (CALL_FUNCTION, STORE_*, POP_TOP) use 2 bytes instead of 3
+        # https://github.com/python/cpython/commit/b0f80b0312a9
+
         b = six.byte2int(bcode[i:])
         if b != opcode.opmap['CALL_FUNCTION']:
             bad('expected CALL_FUNCTION')
-        i += 3  # CALL_FUNCTION arg1 arg2
+        # py2: CALL_FUNCTION arg1 arg2  XXX recheck
+        # py3: CALL_FUNCTION #args
+        i += 3 if six.PY2 else 2
 
         b = six.byte2int(bcode[i:])
         if b not in {opcode.opmap['STORE_NAME'], opcode.opmap['STORE_FAST'], opcode.opmap['STORE_GLOBAL']}:
@@ -133,9 +138,13 @@ def _meth(cls, fcall):
         # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
         # STORE_FAST   arg1 arg2  -> ----//----
         # STORE_GLOBAL arg1 arg2  -> ----//----
-        bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
-        bytepatch(bcode, i+1, opcode.opmap['NOP'])
-        bytepatch(bcode, i+2, opcode.opmap['NOP'])
+        if six.PY2:
+            bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
+            bytepatch(bcode, i+1, opcode.opmap['NOP'])
+            bytepatch(bcode, i+2, opcode.opmap['NOP'])
+        else:
+            bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
+            bytepatch(bcode, i+1, 0)
 
         # now it is ok to return - returned None will be popped
         return  # returns None
