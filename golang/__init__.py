@@ -124,13 +124,17 @@ def _meth(cls, fcall):
 
         # starting from cpython 3.6 instructions (CALL_FUNCTION, STORE_*, POP_TOP) use 2 bytes instead of 3
         # https://github.com/python/cpython/commit/b0f80b0312a9
+        # pypy follows the same scheme
+        iwidth = 3
+        if sys.version_info >= (3, 6):
+            iwidth = 2
 
         b = six.byte2int(bcode[i:])
         if b != opcode.opmap['CALL_FUNCTION']:
             bad('expected CALL_FUNCTION')
         # py2: CALL_FUNCTION arg1 arg2  XXX recheck
         # py3: CALL_FUNCTION #args
-        i += 3 if six.PY2 else 2
+        i += iwidth
 
         b = six.byte2int(bcode[i:])
 
@@ -147,7 +151,7 @@ def _meth(cls, fcall):
         # STORE_NAME   arg1 arg2  -> POP_TOP NOP NOP
         # STORE_FAST   arg1 arg2  -> ----//----
         # STORE_GLOBAL arg1 arg2  -> ----//----
-        if six.PY2:
+        if iwidth == 3:
             bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
             bytepatch(bcode, i+1, opcode.opmap['NOP'])
             bytepatch(bcode, i+2, opcode.opmap['NOP'])
