@@ -515,22 +515,6 @@ def test_method():
     assert mcls is mcls_orig
     assert mcls == 'mcls'
 
-    # undefined var after `@func(cls) def var` should be not set
-    @func(MyClass)
-    def rrr(): pass
-    assert 'rrr' not in locals()
-    with raises(UnboundLocalError): rrr
-    # TODO same in global context
-
-    def deco(f):
-        return f
-
-    with raises(SyntaxError) as exc:
-        @deco
-        @func(MyClass)
-        def qqq(): pass
-    assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
-
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
     assert obj.mstatic(5)   == 5 + 1
@@ -547,6 +531,24 @@ def test_method():
 
     assert MyClass.mcls.__module__      == __name__
     assert MyClass.mcls.__name__        == 'mcls'
+
+    # undefined var after `@func(cls) def var` should be not set
+    @func(MyClass)
+    def rrr(): pass
+    assert 'rrr' not in locals()
+    with raises(UnboundLocalError): rrr
+    # TODO same in global context
+
+    # XXX @func(cls) called twice on the same code ?
+
+    # @func(cls) must be outermost
+    def deco(f):
+        return f
+    with raises(SyntaxError) as exc:
+        @deco
+        @func(MyClass)
+        def qqq(): pass
+    assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
 
 
 
