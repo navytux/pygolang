@@ -709,7 +709,7 @@ def _blockforever():
 # text strings. XXX https://blog.golang.org/strings
 #
 # XXX decode error rules
-class str(bytes):
+class _str(bytes):  # XXX -> str (no _; gpython currently breaks)
     __slots__ = []
 
     # str -> unicode
@@ -796,7 +796,7 @@ class str(bytes):
 
 # unicode is like unicode(py2)|str(py3) but can be automatically converted to
 # bytes via UTF-8 encoding.
-class unicode(six.text_type):
+class _unicode(six.text_type):      # XXX -> unicode (no _; gpython currently breaks)
     __slots__ = []
 
     # XXX __new__ ?
@@ -814,6 +814,10 @@ class unicode(six.text_type):
 # XXX describe more
 b = str
 u = unicode
+
+# XXX hack
+str = str
+unicode = unicode
 
 """
 # b converts str/unicode/bytes s to UTF-8 encoded bytestring.
