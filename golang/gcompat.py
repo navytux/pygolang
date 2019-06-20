@@ -30,11 +30,13 @@ import six
 #
 # like %s, %q automatically converts its argument to string.
 def qq(obj):    # -> str
+    """
     # convert to str and quote
     obj = str(obj)  # XXX needed? (strconv.quote does it itself)
     return strconv.quote(obj)
-
     """
+
+#   """
     # make sure obj is text | bytes
     # py2: unicode | str
     # py3: str     | bytes
@@ -50,4 +52,4 @@ def qq(obj):    # -> str
         qobj = qobj.decode('UTF-8')
 
     return qobj
-    """
+#   """

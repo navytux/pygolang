@@ -73,6 +73,7 @@ def test_quote():
         tail = b'123' if isinstance(tquoted, bytes) else '123'
         tquoted = q + tquoted + q   # add lead/trail "
 
+        """
         z = quote(tin)
         print('quote(tin): %s   %s  %r' % (type(z), z, z))
         print()
@@ -80,6 +81,7 @@ def test_quote():
         tq = quote(tin)
         assert type(tq)  is golang.str
         assert bytes(tq) == tquoted
+        """
 
         assert quote(tin) == tquoted
         assert unquote(tquoted) == tin
