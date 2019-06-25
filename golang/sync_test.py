@@ -162,3 +162,56 @@ def test_workgroup():
     cancel()    # parent cancel - must be propagated into workgroup
     wg.wait()
     assert l == [1, 2]
+
+
+def AAA(ctx):
+    return
+
+# create/wait workgroup with 1 empty worker.
+def bench_workgroup_empty(b):
+    bg = context.background()
+
+    for i in xrange(b.N):
+        wg = sync.WorkGroup(bg)
+        wg.go(AAA)
+        wg.wait()
+
+def BBB(ctx):
+    raise RuntimeError('aaa')
+
+# create/wait workgroup with 1 worker that raises.
+def bench_workgroup_raise(b):
+    bg = context.background()
+
+    for i in xrange(b.N):
+        wg = sync.WorkGroup(bg)
+        wg.go(BBB)
+        try:
+            wg.wait()
+        except RuntimeError:
+            pass
+        else:
+            # NOTE not using `with raises` since it visibly adds more overhead
+            #assert False, "did not raise"
+            pass
+
+
+import sys
+
+def QQQ():
+    exc = RuntimeError('aaa')
+    try:
+        raise exc
+    finally:
+        exc = None
+
+def zzz(f):
+    try:
+        f()
+    except Exception as exc:
+        exc.__traceback__ = sys.exc_info()[2]
+
+
+def bench_xxx(b):
+    for i in xrange(b.N):
+        zzz(QQQ)

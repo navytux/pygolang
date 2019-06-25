@@ -757,3 +757,27 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
+
+
+
+# measure how much overhead is added by @func at def time.
+def bench_def(b):
+    for i  in xrange(b.N):
+        def _(): pass
+
+def bench_func_def(b):
+    for i in xrange(b.N):
+        @func
+        def _(): pass
+
+# measure how much overhead is added by @func at call time.
+def bench_call(b):
+    def _(): pass
+    for i in xrange(b.N):
+        _()
+
+def bench_func_call(b):
+    @func
+    def _(): pass
+    for i in xrange(b.N):
+        _()

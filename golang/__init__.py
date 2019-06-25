@@ -194,6 +194,9 @@ def _func(f):
 
     # keep all f attributes, like __name__, __doc__, etc on _
     _ = decorator.decorate(f, _)
+#   def xx(*argv, **kw):
+#       return _(f, *argv, **kw)
+#   return xx
 
     # repack _ into e.g. @staticmethod if that was used on f.
     if fclass is not None:
