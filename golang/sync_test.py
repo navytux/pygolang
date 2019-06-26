@@ -196,7 +196,7 @@ def bench_workgroup_raise(b):
 
 import sys
 
-def QQQ():
+def raise_nocycle():
     exc = RuntimeError('aaa')
     try:
         raise exc
@@ -210,6 +210,6 @@ def zzz(f):
         exc.__traceback__ = sys.exc_info()[2]
 
 
-def bench_xxx(b):
+def bench_raise_nocycle(b):
     for i in xrange(b.N):
-        zzz(QQQ)
+        zzz(raise_nocycle)
