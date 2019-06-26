@@ -24,6 +24,7 @@ from golang import go, chan, _PanicError
 from golang import sync, context
 import time, threading
 from pytest import raises
+from six.moves import range as xrange
 
 def test_once():
     once = sync.Once()
@@ -162,3 +163,32 @@ def test_workgroup():
     cancel()    # parent cancel - must be propagated into workgroup
     wg.wait()
     assert l == [1, 2]
+
+
+# create/wait workgroup with 1 empty worker.
+def bench_workgroup_empty(b):
+    bg = context.background()
+    def _(ctx):
+        return
+
+    for i in xrange(b.N):
+        wg = sync.WorkGroup(bg)
+        wg.go(_)
+        wg.wait()
+
+# create/wait workgroup with 1 worker that raises.
+def bench_workgroup_raise(b):
+    bg = context.background()
+    def _(ctx):
+        raise RuntimeError('aaa')
+
+    for i in xrange(b.N):
+        wg = sync.WorkGroup(bg)
+        wg.go(_)
+        try:
+            wg.wait()
+        except RuntimeError:
+            pass
+        else:
+            # NOTE not using `with raises` since it affects benchmark timing
+            assert False, "did not raise"
