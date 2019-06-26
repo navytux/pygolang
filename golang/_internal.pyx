@@ -27,14 +27,14 @@ def _bytepatch(const unsigned char[::1] mem not None, int i, unsigned char b):
     # we don't care if its readonly or writeable buffer - we change it anyway
     cdef unsigned char *xmem = <unsigned char *>&mem[0]
     assert 0 <= i < len(mem)
-    printf(" mem: <- %i %i %i %i\n",  mem[0],  mem[1],  mem[2],  mem[3])
-    printf("xmem: <- %i %i %i %i\n", xmem[0], xmem[1], xmem[2], xmem[3])
+    #printf(" mem: <- %i %i %i %i\n",  mem[0],  mem[1],  mem[2],  mem[3])
+    #printf("xmem: <- %i %i %i %i\n", xmem[0], xmem[1], xmem[2], xmem[3])
     xmem[i] = b
-    printf("xmem: -> %i %i %i %i\n", xmem[0], xmem[1], xmem[2], xmem[3])
-    printf(" mem: -> %i %i %i %i\n",  mem[0],  mem[1],  mem[2],  mem[3])
+    #printf("xmem: -> %i %i %i %i\n", xmem[0], xmem[1], xmem[2], xmem[3])
+    #printf(" mem: -> %i %i %i %i\n",  mem[0],  mem[1],  mem[2],  mem[3])
 
 def bytepatch(mem, i, b):
-    print()
-    print('bytepatch <- %r  @%d = %r' % (mem, i, b))
+    #print()
+    #print('bytepatch <- %r  @%d = %r' % (mem, i, b))
     _bytepatch(mem, i, b)
-    print('bytepatch -> %r' % (mem,))
+    #print('bytepatch -> %r' % (mem,))

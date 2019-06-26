@@ -116,9 +116,9 @@ def _meth(cls, fcall):
         bcode = fcall.f_code.co_code
         i = fcall.f_lasti
 
-        print('\nbefore transform:')
-        print('@i%d' % i)
-        dis(fcall.f_code)
+        #print('\nbefore transform:')
+        #print('@i%d' % i)
+        #dis(fcall.f_code)
 
         def bad(msg):
             msg = 'XXX BAD: @i%d: %s' % (i, msg)
@@ -165,10 +165,10 @@ def _meth(cls, fcall):
             bytepatch(bcode, i+0, opcode.opmap['POP_TOP'])
             bytepatch(bcode, i+1, 0)
 
-        print('\nafter transform 1:')
-        dis(bcode)
-        print('\nafter transform 2:')
-        dis(fcall.f_code)
+        #print('\nafter transform 1:')
+        #dis(bcode)
+        #print('\nafter transform 2:')
+        #dis(fcall.f_code)
 
 
         # now it is ok to return - returned None will be popped

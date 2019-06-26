@@ -9,6 +9,11 @@
 ? `for x in chan`	~ `for x := range chan`
 
 
+
+- py.bench tests
+- benchlib tests (input -> benchstat)
+
+
 - greenlet: study, esp. greenlet to migrate between threads
   -> they can't as long as greenlets share the same C stack -> solution =
   different C stack for different greenlets (either hardcoded size or with -fstack-split)
