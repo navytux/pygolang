@@ -19,6 +19,7 @@
 """Package _internal provides unsafe bits that are internally used by package golang"""
 
 # cython: language_level=2
+
 from libc.stdio cimport printf
 
 # bytepatch does `mem[i]=b` even for read-only mem object such as bytes.
@@ -33,7 +34,7 @@ def _bytepatch(const unsigned char[::1] mem not None, int i, unsigned char b):
     printf(" mem: -> %i %i %i %i\n",  mem[0],  mem[1],  mem[2],  mem[3])
 
 def bytepatch(mem, i, b):
-    print
-    print 'bytepatch <- %r  @%d = %r' % (mem, i, b)
+    print()
+    print('bytepatch <- %r  @%d = %r' % (mem, i, b))
     _bytepatch(mem, i, b)
-    print 'bytepatch -> %r' % (mem,)
+    print('bytepatch -> %r' % (mem,))

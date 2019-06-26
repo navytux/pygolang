@@ -759,6 +759,8 @@ def test_deferrecover():
     assert v == [7, 2, 1]
 
 
+# -------- benchmarks --------
+
 
 # measure how much overhead is added by @func at def time.
 def bench_def(b):
