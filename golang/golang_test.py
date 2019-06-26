@@ -24,12 +24,11 @@ from golang import go, chan, select, default, nilchan, _PanicError, func, panic,
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
+from six.moves import range as xrange
 
 import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
-
-from six.moves import range as xrange
 
 
 def test_go():
