@@ -1,0 +1,8 @@
+name                            µs/op
+
+def                                       0.06 ± 0%
+func_def                                 44.66 ± 1%
+call                                      0.07 ± 1%
+func_call                                 1.07 ± 0%     (4/5)
+try_finally                               0.14 ± 0%
+defer                                     2.37 ± 0%
