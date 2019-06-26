@@ -29,6 +29,9 @@ import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
+from six.moves import range as xrange
+
+
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
     # to test process termination exit there.
@@ -557,7 +560,7 @@ def abdefgh():  # XXX kill def
     assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
 
 
-# measure how much overhead is added by @func at def time.
+# measure how much overhead @func adds at def time.
 def bench_def(b):
     for i  in xrange(b.N):
         def _(): pass
@@ -567,7 +570,7 @@ def bench_func_def(b):
         @func
         def _(): pass
 
-# measure how much overhead is added by @func at call time.
+# measure how much overhead @func adds at call time.
 def bench_call(b):
     def _(): pass
     for i in xrange(b.N):
@@ -779,3 +782,25 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
+
+
+# measure how much overhead defer adds.
+def bench_try_finally(b):
+    def fin(): pass
+    def _():
+        try:
+            pass
+        finally:
+            fin()
+
+    for i in xrange(b.N):
+        _()
+
+def bench_defer(b):
+    def fin(): pass
+    @func
+    def _():
+        defer(fin)
+
+    for i in xrange(b.N):
+        _()
