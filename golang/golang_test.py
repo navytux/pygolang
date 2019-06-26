@@ -560,7 +560,7 @@ def abdefgh():  # XXX kill def
     assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
 
 
-# measure how much overhead @func adds at def time.
+# @func overhead at def time.
 def bench_def(b):
     for i  in xrange(b.N):
         def _(): pass
@@ -570,7 +570,7 @@ def bench_func_def(b):
         @func
         def _(): pass
 
-# measure how much overhead @func adds at call time.
+# @func overhead at call time.
 def bench_call(b):
     def _(): pass
     for i in xrange(b.N):
@@ -784,7 +784,7 @@ def test_deferrecover():
     assert v == [7, 2, 1]
 
 
-# measure how much overhead defer adds.
+# defer overhead.
 def bench_try_finally(b):
     def fin(): pass
     def _():
