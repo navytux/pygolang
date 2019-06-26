@@ -480,7 +480,7 @@ def _test_blockforever():
     with raises(BlocksForever): select((z.send, 1), z.recv)
 
 
-def test_method():
+def test_func():
     # test how @func(cls) works
     # this also implicitly tests just @func, since @func(cls) uses that.
 
