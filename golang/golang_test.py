@@ -24,6 +24,7 @@ from golang import go, chan, select, default, nilchan, _PanicError, func, panic,
 from pytest import raises
 from os.path import dirname
 import os, sys, time, threading, inspect, subprocess
+from six.moves import range as xrange
 
 import golang
 from golang import _chan_recv, _chan_send
@@ -46,6 +47,16 @@ def test_go():
 
     subprocess.check_call([sys.executable, dir_golang + "/testprog/golang_test_goleaked.py"],
             env=env)
+
+# benchmark go+join a thread/coroutine.
+def bench_go(b):
+    done = chan()
+    def _():
+        done.send(1)
+
+    for i in xrange(b.N):
+        go(_)
+        done.recv()
 
 
 # waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
@@ -160,6 +171,24 @@ def test_chan():
     assert done.recv() == 'a'
     ch.close()
     assert done.recv() == 'b'
+
+
+# benchmark sync chan send/recv.
+def bench_chan(b):
+    ch   = chan()
+    done = chan()
+    def _():
+        while 1:
+            _, ok = ch.recv_()
+            if not ok:
+                done.close()
+                return
+    go(_)
+
+    for i in xrange(b.N):
+        ch.send(1)
+    ch.close()
+    done.recv()
 
 
 def test_select():
@@ -453,6 +482,33 @@ def test_select():
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
+# benchmark sync chan send vs recv on select side.
+def bench_select(b):
+    ch1  = chan()
+    ch2  = chan()
+    done = chan()
+    def _():
+        while 1:
+            _, _rx = select(
+                ch1.recv_,   # 0
+                ch2.recv_,   # 1
+            )
+            if _ == 0:
+                _, ok = _rx
+                if not ok:
+                    done.close()
+                    return
+    go(_)
+
+    _ = (ch1, ch2)
+    for i in xrange(b.N):
+        ch = _[i%2]
+        ch.send(1)
+
+    ch1.close()
+    done.recv()
+
+
 # BlocksForever is used in "blocks forever" tests where golang._blockforever
 # is patched to raise instead of block.
 class BlocksForever(Exception):
@@ -534,6 +590,28 @@ def test_func():
     assert MyClass.mcls.__module__      == __name__
     assert MyClass.mcls.__name__        == 'mcls'
 
+
+# @func overhead at def time.
+def bench_def(b):
+    for i  in xrange(b.N):
+        def _(): pass
+
+def bench_func_def(b):
+    for i in xrange(b.N):
+        @func
+        def _(): pass
+
+# @func overhead at call time.
+def bench_call(b):
+    def _(): pass
+    for i in xrange(b.N):
+        _()
+
+def bench_func_call(b):
+    @func
+    def _(): pass
+    for i in xrange(b.N):
+        _()
 
 
 def test_deferrecover():
@@ -735,3 +813,25 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
+
+
+# defer overhead.
+def bench_try_finally(b):
+    def fin(): pass
+    def _():
+        try:
+            pass
+        finally:
+            fin()
+
+    for i in xrange(b.N):
+        _()
+
+def bench_defer(b):
+    def fin(): pass
+    @func
+    def _():
+        defer(fin)
+
+    for i in xrange(b.N):
+        _()
