@@ -480,7 +480,7 @@ def _test_blockforever():
     with raises(BlocksForever): select((z.send, 1), z.recv)
 
 
-def test_method():
+def test_func():
     # test how @func(cls) works
     # this also implicitly tests just @func, since @func(cls) uses that.
 
@@ -556,6 +556,28 @@ def abdefgh():  # XXX kill def
         def qqq(): pass
     assert exc.value.args   == ("@func(cls) must be the outermost decorator",)
 
+
+# measure how much overhead is added by @func at def time.
+def bench_def(b):
+    for i  in xrange(b.N):
+        def _(): pass
+
+def bench_func_def(b):
+    for i in xrange(b.N):
+        @func
+        def _(): pass
+
+# measure how much overhead is added by @func at call time.
+def bench_call(b):
+    def _(): pass
+    for i in xrange(b.N):
+        _()
+
+def bench_func_call(b):
+    @func
+    def _(): pass
+    for i in xrange(b.N):
+        _()
 
 
 def test_deferrecover():
@@ -757,29 +779,3 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
-
-
-# -------- benchmarks --------
-
-
-# measure how much overhead is added by @func at def time.
-def bench_def(b):
-    for i  in xrange(b.N):
-        def _(): pass
-
-def bench_func_def(b):
-    for i in xrange(b.N):
-        @func
-        def _(): pass
-
-# measure how much overhead is added by @func at call time.
-def bench_call(b):
-    def _(): pass
-    for i in xrange(b.N):
-        _()
-
-def bench_func_call(b):
-    @func
-    def _(): pass
-    for i in xrange(b.N):
-        _()
