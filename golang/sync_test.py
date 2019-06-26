@@ -190,7 +190,7 @@ def bench_workgroup_raise(b):
         except RuntimeError:
             pass
         else:
-            # NOTE not using `with raises` since it visibly adds more overhead
+            # NOTE not using `with raises` since it affects benchmark timing
             assert False, "did not raise"
 
 
