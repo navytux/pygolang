@@ -48,6 +48,16 @@ def test_go():
     subprocess.check_call([sys.executable, dir_golang + "/testprog/golang_test_goleaked.py"],
             env=env)
 
+# benchmark go+join a thread/coroutine.
+def bench_go(b):
+    done = chan()
+    def _():
+        done.send(1)
+
+    for i in xrange(b.N):
+        go(_)
+        done.recv()
+
 
 # waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
@@ -161,6 +171,24 @@ def test_chan():
     assert done.recv() == 'a'
     ch.close()
     assert done.recv() == 'b'
+
+
+# benchmark sync chan send/recv.
+def bench_chan(b):
+    ch   = chan()
+    done = chan()
+    def _():
+        while 1:
+            _, ok = ch.recv_()
+            if not ok:
+                done.close()
+                return
+    go(_)
+
+    for i in xrange(b.N):
+        ch.send(1)
+    ch.close()
+    done.recv()
 
 
 def test_select():
@@ -452,6 +480,33 @@ def test_select():
     done.recv()
     assert len(ch1._sendq) == len(ch1._recvq) == 0
     assert len(ch2._sendq) == len(ch2._recvq) == 0
+
+
+# benchmark sync chan send vs recv on select side.
+def bench_select(b):
+    ch1  = chan()
+    ch2  = chan()
+    done = chan()
+    def _():
+        while 1:
+            _, _rx = select(
+                ch1.recv_,   # 0
+                ch2.recv_,   # 1
+            )
+            if _ == 0:
+                _, ok = _rx
+                if not ok:
+                    done.close()
+                    return
+    go(_)
+
+    _ = (ch1, ch2)
+    for i in xrange(b.N):
+        ch = _[i%2]
+        ch.send(1)
+
+    ch1.close()
+    done.recv()
 
 
 # BlocksForever is used in "blocks forever" tests where golang._blockforever
