@@ -111,7 +111,6 @@ class WorkGroup(object):
         g._mu   = threading.Lock()
         g._err  = None
 
-#   """
     def go(g, f, *argv, **kw):
         g._wg.add(1)
         go(lambda: g._run(f, *argv, **kw))
@@ -131,30 +130,7 @@ class WorkGroup(object):
                         # py3 has __traceback__ automatically
                         exc.__traceback__ = sys.exc_info()[2]
                     g._cancel()
-#   """
 
-    """
-    def go(g, f, *argv, **kw):
-        g._wg.add(1)
-
-        @func
-        def _():
-            defer(g._wg.done)
-
-            try:
-                f(g._ctx, *argv, **kw)
-            except Exception as exc:
-                with g._mu:
-                    if g._err is None:
-                        # this goroutine is the first failed task
-                        g._err = exc
-                        if six.PY2:
-                            # py3 has __traceback__ automatically
-                            exc.__traceback__ = sys.exc_info()[2]
-                        g._cancel()
-                exc = None
-        go(_)
-    """
 
     def wait(g):
         g._wg.wait()
