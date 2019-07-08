@@ -11,6 +11,8 @@
 
 
 - py.bench tests
+- py.bench: don't install --count if pytest-repeat is installed?
+	    or just require pytest-repeat?
 - benchlib tests (input -> benchstat)
 
 
