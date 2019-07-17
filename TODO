@@ -8,6 +8,7 @@
 
 ? `for x in chan`	~ `for x := range chan`
 
+- sync/atomic
 
 
 - py.bench tests
@@ -29,7 +30,6 @@
 
 
 ? signal -> channel
-? sync/atomic
 ? io/ioutil: readfile, writefile
 ? io.Pipe
 
