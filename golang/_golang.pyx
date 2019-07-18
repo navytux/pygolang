@@ -35,14 +35,38 @@ cdef struct _RecvWaiting:
     void        *rx
     bint         ok
 
-    #def __init__(self, group, ch):
-    #    self.group = group
-    #    self.chan  = ch
-    #    group.register(self)
+IF 0:
+    def __init__(self, group, ch):
+        self.group = group
+        self.chan  = ch
+        group.register(self)
 
-    ## wakeup notifies waiting receiver that recv_ completed.
-    #cdef wakeup(self, rx, ok):
-    #    self.rx_ = (rx, ok)
-    #    self.group.wakeup()
+    # wakeup notifies waiting receiver that recv_ completed.
+    cdef wakeup(self, rx, ok):
+        self.rx_ = (rx, ok)
+        self.group.wakeup()
+####
 
 
+# _SendWaiting represents a sender waiting on a chan.
+cdef struct _SendWaiting:
+    _WaitGroup  *group  # group of waiters this sender is part of
+    chan        *chan   # channel sender is waiting on
+
+    void        *tx     # data that was passed to send      XXX was `obj`
+
+    # on wakeup: receiver|closer -> sender:
+    bint        ok      # whether send succeeded (it will not on close)
+
+IF 0:
+    def __init__(self, group, ch, obj):
+        self.group = group
+        self.chan  = ch
+        self.obj   = obj
+        group.register(self)
+
+    # wakeup notifies waiting sender that send completed.
+    def wakeup(self, ok):
+        self.ok = ok
+        self.group.wakeup()
+####
