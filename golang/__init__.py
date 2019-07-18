@@ -283,6 +283,8 @@ def go(f, *argv, **kw):
 
 # ---- channels ----
 
+from . import _golang
+
 # _RecvWaiting represents a receiver waiting on a chan.
 class _RecvWaiting(object):
     # .group    _WaitGroup      group of waiters this receiver is part of

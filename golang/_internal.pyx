@@ -1,3 +1,4 @@
+# cython: language_level=2
 # Copyright (C) 2019  Nexedi SA and Contributors.
 #                     Kirill Smelkov <kirr@nexedi.com>
 #
@@ -17,8 +18,6 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package _internal provides unsafe bits that are internally used by package golang"""
-
-# cython: language_level=2
 
 from libc.stdio cimport printf
 
