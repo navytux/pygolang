@@ -121,15 +121,18 @@ class WorkGroup(object):
 
         try:
             f(g._ctx, *argv, **kw)
-        except Exception as exc:
+        except:
+            _, exc, tb = sys.exc_info()
             with g._mu:
                 if g._err is None:
                     # this goroutine is the first failed task
                     g._err = exc
                     if six.PY2:
                         # py3 has __traceback__ automatically
-                        exc.__traceback__ = sys.exc_info()[2]
+                        exc.__traceback__ = tb
                     g._cancel()
+            exc = None
+            tb  = None
 
 
     def wait(g):

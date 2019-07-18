@@ -25,6 +25,7 @@ from golang import sync, context
 import time, threading
 from pytest import raises
 from six.moves import range as xrange
+import six
 
 def test_once():
     once = sync.Once()
@@ -100,6 +101,17 @@ def test_workgroup():
     wg.wait()
     assert l == [1, 2]
 
+    # WorkGroup must catch/propagate all exception classes.
+    # Python2 allows to raise old-style classes not derived from BaseException.
+    # Python3 allows to raise only BaseException derivatives.
+    if six.PY2:
+        class MyError:
+            def __init__(self, *args):
+                self.args = args
+    else:
+        class MyError(BaseException):
+            pass
+
     # t1=fail, t2=ok, does not look at ctx
     wg = sync.WorkGroup(ctx)
     l = [0, 0]
@@ -109,15 +121,15 @@ def test_workgroup():
             with mu:
                 l[i] = i+1
                 if i == 0:
-                    raise RuntimeError('aaa')
+                    raise MyError('aaa')
         def f(ctx, i):
             Iam_f = 0
             _(ctx, i)
 
         wg.go(f, i)
-    with raises(RuntimeError) as exc:
+    with raises(MyError) as exc:
         wg.wait()
-    assert exc.type       is RuntimeError
+    assert exc.type       is MyError
     assert exc.value.args == ('aaa',)
     assert 'Iam__' in exc.traceback[-1].locals
     assert 'Iam_f' in exc.traceback[-2].locals
@@ -132,18 +144,18 @@ def test_workgroup():
             with mu:
                 l[i] = i+1
                 if i == 0:
-                    raise RuntimeError('bbb')
+                    raise MyError('bbb')
                 if i == 1:
                     ctx.done().recv()
-                    raise ValueError('ccc') # != RuntimeError
+                    raise ValueError('ccc') # != MyError
         def f(ctx, i):
             Iam_f = 0
             _(ctx, i)
 
         wg.go(f, i)
-    with raises(RuntimeError) as exc:
+    with raises(MyError) as exc:
         wg.wait()
-    assert exc.type       is RuntimeError
+    assert exc.type       is MyError
     assert exc.value.args == ('bbb',)
     assert 'Iam__' in exc.traceback[-1].locals
     assert 'Iam_f' in exc.traceback[-2].locals
