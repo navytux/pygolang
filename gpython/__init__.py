@@ -175,17 +175,17 @@ def main():
         # XXX provide details
         raise RuntimeError('gevent monkey-patching failed')
 
+#   """
+    # activate importing .pyx modules
+    import pyximport
+    pyximport.install()
+#   """
+
     # put go, chan, select, ... into builtin namespace
     import golang
     from six.moves import builtins
     for k in golang.__all__:
         setattr(builtins, k, getattr(golang, k))
-
-    """
-    # activate importing .pyx modules
-    import pyximport
-    pyximport.install()
-    """
 
     # sys.executable & friends
     exe = sys.argv[0]
