@@ -21,9 +21,14 @@
 
 cdef nogil:
     struct chan
+    struct selcase
 
     void chaninit  (chan *ch, unsigned size, unsigned itemsize)
     void chansend  (chan *ch, void *tx)
     bint chanrecv_ (chan *ch, void *rx)
     void chanrecv  (chan *ch, void *rx)
     void chanclose (chan *ch)
+    #unsigned chanlen(chan *ch)
+
+    void default   (chan *, void *)
+    int chanselect (selcase *casev, int casec)
