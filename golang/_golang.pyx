@@ -23,10 +23,24 @@
 
 # XXX nogil globally?
 
+cdef void panic(const char *arg) nogil:
+    1/0     # XXX -> throw?
+
 cdef struct _WaitGroup
-cdef struct chan
+
+# chan is a channel with Go semantic.
+cdef struct chan:
+    unsigned    _cap        # channel capacity (elements)
+    unsigned    _itemsize   # size of element
+
+    # ._mu          lock                                    XXX -> _OSMutex (that can synchronize in between Procs) ?
+    # ._dataq       deque *: data buffer                    XXX -> [_cap*_itemsize]
+    # ._recvq       deque _RecvWaiting: blocked receivers   XXX -> list
+    # ._sendq       deque _SendWaiting: blocked senders     XXX -> list
+    bint        _closed
 
 # _RecvWaiting represents a receiver waiting on a chan.
+# XXX merge in _SendWaiting
 cdef struct _RecvWaiting:
     _WaitGroup  *group  # group of waiters this receiver is part of
     chan        *chan   # channel receiver is waiting on
@@ -40,7 +54,7 @@ cdef struct _SendWaiting:
     _WaitGroup  *group  # group of waiters this sender is part of
     chan        *chan   # channel sender is waiting on
 
-    void        *tx     # data that was passed to send      XXX was `obj`
+    void        *data   # data that was passed to send      XXX was `obj`
 
     # on wakeup: receiver|closer -> sender:
     bint        ok      # whether send succeeded (it will not on close)
@@ -56,7 +70,88 @@ cdef struct _WaitGroup:
     #
     # on wakeup: sender|receiver -> group:
     #   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
-    int XXX
+    _SendWaiting    *which
+
+
+# chaninit initializes chan<itemsize>(size).
+cdef void chaninit(chan *ch, unsigned size, unsigned itemsize) nogil:
+    ch._cap      = size
+    ch._itemsize = itemsize
+    ch._closed   = False
+
+    # XXX alloc _dataq
+    # XXX ._recvq = NULL
+    # XXX ._sendq = NULL
+
+# chansend sends data to a receiver.
+#
+# sizeof(*data) must be ch._itemsize | data=NULL.
+cdef void chansend(chan *ch, void *data) nogil:
+    if ch is NULL:
+        _blockforever()
+
+    cdef _WaitGroup     g
+    cdef _SendWaiting   me
+
+    #ch._mu.acquire()
+    if 1:
+        ok = _trysend(ch, data)
+        if ok:
+            return
+
+        g.which     = NULL
+        me.group    = &g
+        me.chan     = ch
+        me.data     = data
+        me.ok       = False
+        #g._waitv.append(me)
+        #ch._sendq.append(me)
+
+    #ch._mu.release()
+
+    waitgroup(&g)
+    if not (g.which is &me):
+        panic("bug")    # XXX
+    if not me.ok:
+        panic("send on closed channel")
+
+
+# _trysend(ch, obj) -> ok
+#
+# must be called with ._mu held.
+# if ok or panic - returns with ._mu released.
+# if !ok - returns with ._mu still being held.
+cdef bint _trysend(chan *ch, void *data) nogil:
+    return False
+
+IF 0:   # _trysend
+    if self._closed:
+        self._mu.release()
+        panic("send on closed channel")
+
+    # synchronous channel
+    if self._cap == 0:
+        recv = _dequeWaiter(self._recvq)
+        if recv is None:
+            return False
+
+        self._mu.release()
+        recv.wakeup(obj, True)
+        return True
+
+    # buffered channel
+    else:
+        if len(self._dataq) >= self._cap:
+            return False
+
+        self._dataq.append(obj)
+        recv = _dequeWaiter(self._recvq)
+        self._mu.release()
+        if recv is not None:
+            rx = self._dataq.popleft()
+            recv.wakeup(rx, True)
+        return True
+####
 
 
 IF 0:   # _RecvWaiting
@@ -108,10 +203,12 @@ IF 0:   # _WaitGroup
                 self.which = waiter
                 return True
 
-    # wait waits for winning case of group to complete.
-    def wait(self):
-        self._sema.acquire()
+# waitgroup waits for winning case of group to complete.
+cdef void waitgroup(_WaitGroup *group) nogil:
+    #group._sema.acquire()  XXX
+    pass
 
+IF 0:   # _WaitGroup
     # wakeup wakes up the group.
     #
     # prior to wakeup try_to_win must have been called.
@@ -137,3 +234,6 @@ IF 0:   # _WaitGroup
                 except ValueError:
                     pass
 ####
+
+cdef void _blockforever() nogil:
+    1/0     # XXX stub
