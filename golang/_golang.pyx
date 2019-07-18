@@ -120,7 +120,7 @@ cdef void chansend(chan *ch, void *tx) nogil:
 #
 # ok is true - if receive was delivered by a successful send.
 # ok is false - if receive is due to channel being closed and empty.
-cdef bint chanrecv_(chan *ch, void *rx) nogil:  # -> ok
+cdef bint chanrecv_(chan *ch, void *rx) nogil: # -> ok
     1/0 # TODO
 
 # chanrecv receives from the channel.
@@ -133,37 +133,111 @@ cdef void chanrecv(chan *ch, void *rx) nogil:
 # must be called with ._mu held.
 # if ok or panic - returns with ._mu released.
 # if !ok - returns with ._mu still being held.
-cdef bint _trysend(chan *ch, void *data) nogil:
+cdef bint _trysend(chan *ch, void *tx) nogil:
     return False
 
 IF 0:   # _trysend
-    if self._closed:
-        self._mu.release()
+    if ch._closed:
+        ch._mu.release()
         panic("send on closed channel")
 
     # synchronous channel
-    if self._cap == 0:
-        recv = _dequeWaiter(self._recvq)
+    if ch._cap == 0:
+        recv = _dequeWaiter(ch._recvq)
         if recv is None:
             return False
 
-        self._mu.release()
+        ch._mu.release()
         recv.wakeup(obj, True)
         return True
 
     # buffered channel
     else:
-        if len(self._dataq) >= self._cap:
+        if len(ch._dataq) >= ch._cap:
             return False
 
-        self._dataq.append(obj)
-        recv = _dequeWaiter(self._recvq)
-        self._mu.release()
+        ch._dataq.append(obj)
+        recv = _dequeWaiter(ch._recvq)
+        ch._mu.release()
         if recv is not None:
-            rx = self._dataq.popleft()
+            rx = ch._dataq.popleft()
             recv.wakeup(rx, True)
         return True
 ####
+
+# _tryrecv() -> rx_=(rx, ok), ok
+#
+# must be called with ._mu held.
+# if ok or panic - returns with ._mu released.
+# if !ok - returns with ._mu still being held.
+cdef bint _tryrecv(chan *ch, void *rx): # -> ok
+    return False
+
+IF 0:   # _tryrecv
+    # buffered
+    if len(ch._dataq) > 0:
+        rx = ch._dataq.popleft()
+
+        # wakeup a blocked writer, if there is any
+        send = _dequeWaiter(ch._sendq)
+        ch._mu.release()
+        if send is not None:
+            ch._dataq.append(send.obj)
+            send.wakeup(True)
+
+        return (rx, True), True
+
+    # closed
+    if ch._closed:
+        ch._mu.release()
+        return (None, False), True
+
+    # sync | empty: there is waiting writer
+    send = _dequeWaiter(ch._sendq)
+    if send is None:
+        return (None, False), False
+
+    ch._mu.release()
+    rx = send.obj
+    send.wakeup(True)
+    return (rx, True), True
+####
+
+# chanclose closes sending side of the channel.
+cdef void chanclose(chan *ch) nogil:
+    if ch is NULL:
+        panic("close of nil channel")
+
+IF 0:   # chanclose
+    recvv = []
+    sendv = []
+
+    with self._mu:
+        if self._closed:
+            panic("close of closed channel")
+        self._closed = True
+
+        # schedule: wake-up all readers
+        while 1:
+            recv = _dequeWaiter(self._recvq)
+            if recv is None:
+                break
+            recvv.append(recv)
+
+        # schedule: wake-up all writers (they will panic)
+        while 1:
+            send = _dequeWaiter(self._sendq)
+            if send is None:
+                break
+            sendv.append(send)
+
+    # perform scheduled wakeups outside of ._mu
+    for recv in recvv:
+        recv.wakeup(None, False)
+    for send in sendv:
+        send.wakeup(False)
+####
+
 
 
 IF 0:   # _RecvWaiting
