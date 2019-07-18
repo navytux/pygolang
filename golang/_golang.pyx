@@ -85,8 +85,8 @@ cdef void chaninit(chan *ch, unsigned size, unsigned itemsize) nogil:
 
 # chansend sends data to a receiver.
 #
-# sizeof(*data) must be ch._itemsize | data=NULL.
-cdef void chansend(chan *ch, void *data) nogil:
+# sizeof(*tx) must be ch._itemsize | tx=NULL.
+cdef void chansend(chan *ch, void *tx) nogil:
     if ch is NULL:
         _blockforever()
 
@@ -95,14 +95,14 @@ cdef void chansend(chan *ch, void *data) nogil:
 
     #ch._mu.acquire()
     if 1:
-        ok = _trysend(ch, data)
+        ok = _trysend(ch, tx)
         if ok:
             return
 
         g.which     = NULL
         me.group    = &g
         me.chan     = ch
-        me.data     = data
+        me.data     = tx
         me.ok       = False
         #g._waitv.append(me)
         #ch._sendq.append(me)
@@ -115,6 +115,18 @@ cdef void chansend(chan *ch, void *data) nogil:
     if not me.ok:
         panic("send on closed channel")
 
+
+# chanrecv_ is "comma-ok" version of chanrecv.
+#
+# ok is true - if receive was delivered by a successful send.
+# ok is false - if receive is due to channel being closed and empty.
+cdef bint chanrecv_(chan *ch, void *rx) nogil:  # -> ok
+    1/0 # TODO
+
+# chanrecv receives from the channel.
+cdef void chanrecv(chan *ch, void *rx) nogil:
+    _ = chanrecv_(ch, rx)
+    return
 
 # _trysend(ch, obj) -> ok
 #

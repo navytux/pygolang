@@ -22,5 +22,7 @@
 cdef nogil:
     struct chan
 
-    void chaninit(chan *ch, unsigned size, unsigned itemsize)
-    void chansend(chan *ch, void *data)
+    void chaninit  (chan *ch, unsigned size, unsigned itemsize)
+    void chansend  (chan *ch, void *tx)
+    bint chanrecv_ (chan *ch, void *rx)
+    void chanrecv  (chan *ch, void *rx)
