@@ -35,29 +35,22 @@ cdef struct chan:
 
     # ._mu          lock                                    XXX -> _OSMutex (that can synchronize in between Procs) ?
     # ._dataq       deque *: data buffer                    XXX -> [_cap*_itemsize]
-    # ._recvq       deque _RecvWaiting: blocked receivers   XXX -> list
-    # ._sendq       deque _SendWaiting: blocked senders     XXX -> list
+    # ._recvq       deque _RecvWaiting: blocked receivers   XXX -> list_head
+    # ._sendq       deque _SendWaiting: blocked senders     XXX -> list_head
     bint        _closed
 
-# _RecvWaiting represents a receiver waiting on a chan.
-# XXX merge in _SendWaiting
-cdef struct _RecvWaiting:
-    _WaitGroup  *group  # group of waiters this receiver is part of
-    chan        *chan   # channel receiver is waiting on
+# _RecvSendWaiting represents a receiver/sender waiting on a chan.
+cdef struct _RecvSendWaiting:
+    _WaitGroup  *group  # group of waiters this receiver/sender is part of
+    chan        *chan   # channel receiver/sender is waiting on
 
-    # on wakeup: sender|closer -> receiver:
-    void        *rx
-    bint         ok
+    # XXX + op
 
-# _SendWaiting represents a sender waiting on a chan.
-cdef struct _SendWaiting:
-    _WaitGroup  *group  # group of waiters this sender is part of
-    chan        *chan   # channel sender is waiting on
-
-    void        *data   # data that was passed to send      XXX was `obj`
-
-    # on wakeup: receiver|closer -> sender:
-    bint        ok      # whether send succeeded (it will not on close)
+    # recv: on wakeup: sender|closer -> receiver
+    # send: data to send
+    void    *data
+    # on wakeup: whether recv/send succeeded  (send fails on close)
+    bint    ok
 
 # _WaitGroup is a group of waiting senders and receivers.
 #
@@ -70,7 +63,7 @@ cdef struct _WaitGroup:
     #
     # on wakeup: sender|receiver -> group:
     #   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
-    _SendWaiting    *which
+    _RecvSendWaiting    *which
 
 
 # chaninit initializes chan<itemsize>(size).
@@ -90,8 +83,8 @@ cdef void chansend(chan *ch, void *tx) nogil:
     if ch is NULL:
         _blockforever()
 
-    cdef _WaitGroup     g
-    cdef _SendWaiting   me
+    cdef _WaitGroup         g
+    cdef _RecvSendWaiting   me
 
     #ch._mu.acquire()
     if 1:
@@ -134,11 +127,8 @@ cdef void chanrecv(chan *ch, void *rx) nogil:
 # if ok or panic - returns with ._mu released.
 # if !ok - returns with ._mu still being held.
 cdef bint _trysend(chan *ch, void *tx) nogil:
-    return False
-
-IF 0:   # _trysend
     if ch._closed:
-        ch._mu.release()
+        #ch._mu.release()
         panic("send on closed channel")
 
     # synchronous channel
@@ -151,19 +141,20 @@ IF 0:   # _trysend
         recv.wakeup(obj, True)
         return True
 
-    # buffered channel
-    else:
-        if len(ch._dataq) >= ch._cap:
-            return False
-
-        ch._dataq.append(obj)
-        recv = _dequeWaiter(ch._recvq)
-        ch._mu.release()
-        if recv is not None:
-            rx = ch._dataq.popleft()
-            recv.wakeup(rx, True)
-        return True
-####
+#IF 0:   # _trysend
+#    # buffered channel
+#    else:
+#        if len(ch._dataq) >= ch._cap:
+#            return False
+#
+#        ch._dataq.append(obj)
+#        recv = _dequeWaiter(ch._recvq)
+#        ch._mu.release()
+#        if recv is not None:
+#            rx = ch._dataq.popleft()
+#            recv.wakeup(rx, True)
+#        return True
+#####
 
 # _tryrecv() -> rx_=(rx, ok), ok
 #
