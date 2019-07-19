@@ -162,7 +162,9 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
             return False
 
         #ch._mu.release()
-        recv.wakeup(obj, True)
+        # XXX copy tx -> recv.data
+        #recv.wakeup(obj, True)
+        group_wakeup(recv.group)
         return True
 
 #IF 0:   # _trysend
@@ -318,20 +320,22 @@ IF 0:   # _WaitGroup
                 return True
 
 # waitgroup waits for winning case of group to complete.
+# XXX -> group_wait ?
 cdef void waitgroup(_WaitGroup *group) nogil:
     #group._sema.acquire()  XXX
     pass
 
-IF 0:   # _WaitGroup
-    # wakeup wakes up the group.
-    #
-    # prior to wakeup try_to_win must have been called.
-    # in practice this means that waiters queued to chan.{_send|_recv}q must
-    # be dequeued with _dequeWaiter.
-    def wakeup(self):
-        assert self.which is not None
-        self._sema.release()
+# group_wakeup wakes up the group.
+#
+# prior to wakeup try_to_win must have been called.
+# in practice this means that waiters queued to chan.{_send|_recv}q must
+# be dequeued with _dequeWaiter.
+cdef void group_wakeup(_WaitGroup *group) nogil:
+    if group.which is not NULL:
+        panic("bug")    # XXX
+    #self._sema.release()
 
+IF 0:   # _WaitGroup
     # dequeAll removes all registered waiters from their wait queues.
     def dequeAll(self):
         for w in self._waitv:
