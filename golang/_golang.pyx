@@ -249,25 +249,30 @@ cdef void chanclose(chan *ch) nogil:
     if ch is NULL:
         panic("close of nil channel")
 
+    # XXX stub
+    if ch._closed:
+        panic("close of closed channel")
+    ch._closed = True
+
 IF 0:   # chanclose
     recvv = []
     sendv = []
 
-    with self._mu:
-        if self._closed:
+    with ch._mu:
+        if ch._closed:
             panic("close of closed channel")
-        self._closed = True
+        ch._closed = True
 
         # schedule: wake-up all readers
         while 1:
-            recv = _dequeWaiter(self._recvq)
+            recv = _dequeWaiter(ch._recvq)
             if recv is None:
                 break
             recvv.append(recv)
 
         # schedule: wake-up all writers (they will panic)
         while 1:
-            send = _dequeWaiter(self._sendq)
+            send = _dequeWaiter(ch._sendq)
             if send is None:
                 break
             sendv.append(send)
@@ -637,7 +642,7 @@ cdef class pychan:
 
     # close closes sending side of the channel.
     def close(ch):
-        chanclose(ch.chan)
+        chanclose_pypanic(ch.chan)
 
     def __len__(ch):
         return chanlen(ch.chan)
@@ -666,6 +671,9 @@ cdef void _topypanic() except *:
 
 cdef void chansend_pypanic(chan *ch, PyObject *_obj) nogil except +_topypanic:
     chansend(ch, _obj)
+
+cdef void chanclose_pypanic(chan *ch) nogil except +_topypanic:
+    chanclose(ch)
 
 # pyselect executes one ready send or receive channel case.
 #
