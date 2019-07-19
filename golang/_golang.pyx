@@ -584,7 +584,10 @@ pydefault  = object()
 # pynilchan is the nil py channel.
 #
 # On nil channel: send/recv block forever; close panics.
-pynilchan = pychan()    # XXX create with .chan = NULL
+cdef pychan nilchan = pychan()
+free(nilchan.chan)
+nilchan.chan = NULL
+pynilchan = nilchan
 
 # pychan is chan<object>
 cdef class pychan:
