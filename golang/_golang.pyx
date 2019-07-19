@@ -21,12 +21,15 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-#cdef extern from "../3rdparty/include/linux/list.h":
+from libc.stdlib cimport malloc, free
+from libc.string cimport memset
 
+#cdef extern from "../3rdparty/include/linux/list.h":
 cdef:
     struct list_head:
         list_head *next
         list_head *prev
+
 
 # ---- channels ----
 
@@ -40,10 +43,10 @@ cdef struct _WaitGroup
 # chan is a channel with Go semantic.
 cdef struct chan:
     unsigned    _cap        # channel capacity (elements)
-    unsigned    _itemsize   # size of element
+    unsigned    _elemsize   # size of element
 
     # ._mu          lock                                    XXX -> _OSMutex (that can synchronize in between Procs) ?
-    # ._dataq       deque *: data buffer                    XXX -> [_cap*_itemsize]
+    # ._dataq       deque *: data buffer                    XXX -> [_cap*_elemsize]
     list_head   _recvq      # blocked receivers _ -> _RecvSendWaiting.XXX
     list_head   _sendq      # blocked senders   _ -> _RecvSendWaiting.XXX
     bint        _closed
@@ -93,20 +96,34 @@ cdef _RecvSendWaiting *_dequeWaiter(list_head *queue) nogil:
 ####
 
 
+# makechan creates new chan<elemsize>(size).
+cdef chan *makechan(unsigned elemsize, unsigned size) nogil:
+    cdef chan *ch
+    ch = <chan *>malloc(sizeof(chan) + size*elemsize)
+    if ch == NULL:
+        return NULL
+    memset(ch, 0, sizeof(ch[0]))
 
-# chaninit initializes chan<itemsize>(size).
-cdef void chaninit(chan *ch, unsigned size, unsigned itemsize) nogil:
     ch._cap      = size
-    ch._itemsize = itemsize
+    ch._elemsize = elemsize
     ch._closed   = False
 
-    # XXX alloc _dataq
-    # XXX ._recvq = NULL
-    # XXX ._sendq = NULL
+    return ch
+
+
+# # chaninit initializes chan<elemsize>(size).
+# cdef void chaninit(chan *ch, unsigned elemsize, unsigned size) nogil:
+#     ch._cap      = size
+#     ch._elemsize = elemsize
+#     ch._closed   = False
+#
+#     # XXX alloc _dataq
+#     # XXX ._recvq = NULL
+#     # XXX ._sendq = NULL
 
 # chansend sends data to a receiver.
 #
-# sizeof(*tx) must be ch._itemsize | tx=NULL.
+# sizeof(*tx) must be ch._elemsize | tx=NULL.
 cdef void chansend(chan *ch, void *tx) nogil:
     if ch is NULL:
         _blockforever()
@@ -553,6 +570,21 @@ IF 0:
     dead.acquire()
 ####
 
+
+# ----------------------------------------
+
+cdef struct PyObject
+
+# pychan is chan<object>
+cdef class pychan:
+    cdef chan *chan
+
+    def __init__(ch, size=0):
+        ch.chan = makechan(sizeof(PyObject*), size)
+        if ch.chan == NULL:
+            raise MemoryError()
+
+    # XXX methods
 
 # ----------------------------------------
 

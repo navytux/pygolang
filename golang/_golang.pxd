@@ -23,7 +23,8 @@ cdef nogil:
     struct chan
     struct selcase
 
-    void chaninit  (chan *ch, unsigned size, unsigned itemsize)
+#   void chaninit  (chan *ch, unsigned size, unsigned itemsize)
+    chan *makechan (unsigned elemsize, unsigned size)
     void chansend  (chan *ch, void *tx)
     bint chanrecv_ (chan *ch, void *rx)
     void chanrecv  (chan *ch, void *rx)
