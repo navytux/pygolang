@@ -6,7 +6,7 @@ build/
 
 *.o
 *.so
-golang/_golang.c
+golang/_golang.cpp
 golang/_internal.c
 
 /dist/
