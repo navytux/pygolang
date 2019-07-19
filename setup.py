@@ -158,7 +158,7 @@ setup(
 
     packages    = find_packages(),
     ext_modules = [
-                    Extension('golang._golang',     ['golang/_golang.pyx', 'golang/panic.cpp']),
+                    Extension('golang._golang',     ['golang/_golang.pyx', 'golang/panic.cpp'], language="c++"),
                     Extension('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',

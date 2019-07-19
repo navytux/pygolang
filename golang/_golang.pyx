@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
 # cython: binding=True
-# distutils: include_dirs=../3rdparty/include
+# distutils: language = c++
+# distutils: include_dirs = ../3rdparty/include
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -34,6 +35,7 @@ cdef:
 
 cdef extern from "panic.h" nogil:
     void panic(const char *)
+    const char *recover()
 
 # ---- channels ----
 
@@ -379,9 +381,9 @@ IF 0:   # _WaitGroup
 
 # selcase represents one select case.
 cdef struct selcase:
-    void (*op)(chan *, void *)  # chansend/chanrecv/default
-    void *data                  # chansend: tx; chanrecv: rx
-    bint ok                     # comma-ok for rx
+    void (*op)(chan *, void *) nogil    # chansend/chanrecv/default
+    void *data                          # chansend: tx; chanrecv: rx
+    bint ok                             # comma-ok for rx
 
 # default represents default case for select.
 cdef void default(chan *_, void *__) nogil:
@@ -607,7 +609,7 @@ cdef class pychan:
         Py_INCREF(obj)
 
         with nogil:
-            chansend(ch.chan, <PyObject *>obj)
+            chansend_pypanic(ch.chan, <PyObject *>obj)
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -645,6 +647,25 @@ cdef class pychan:
             return "nilchan"
         else:
             return super(pychan, ch).__repr__()
+
+
+# XXX panic: place = ?
+
+cdef class _PanicError(Exception):
+    pass
+
+# panic stops normal execution of current goroutine.
+def pypanic(arg):
+    raise _PanicError(arg)
+
+# _topypanic converts C-level panic to python panic
+cdef void _topypanic() except *:
+    arg = recover()
+    if arg != NULL:
+        pypanic(arg)
+
+cdef void chansend_pypanic(chan *ch, PyObject *_obj) nogil except +_topypanic:
+    chansend(ch, _obj)
 
 # pyselect executes one ready send or receive channel case.
 #

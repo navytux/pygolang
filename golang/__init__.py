@@ -61,12 +61,14 @@ from dis import dis
 # and puts everything from golang.__all__ to __builtins__.
 
 
+"""
 # panic stops normal execution of current goroutine.
 def panic(arg):
     raise _PanicError(arg)
 
 class _PanicError(Exception):
     pass
+"""
 
 
 # @func is a necessary decorator for functions for selected golang features to work.
@@ -287,7 +289,9 @@ from ._golang import    \
     pychan      as chan,    \
     pyselect    as select,  \
     pydefault   as default, \
-    pynilchan   as nilchan
+    pynilchan   as nilchan, \
+    _PanicError,            \
+    pypanic     as panic
 
 # unbound chan.{send,recv,recv_}
 # XXX kill? (used only in golang_test.py)
