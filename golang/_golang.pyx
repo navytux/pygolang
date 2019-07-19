@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# cython: binding=True
 # distutils: include_dirs=../3rdparty/include
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
