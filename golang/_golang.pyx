@@ -19,6 +19,11 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+cdef extern from "linux/list.h":
+    struct list_head:
+        list_head *next
+        list_head *prev
+
 # ---- channels ----
 
 # XXX nogil globally?
@@ -35,8 +40,8 @@ cdef struct chan:
 
     # ._mu          lock                                    XXX -> _OSMutex (that can synchronize in between Procs) ?
     # ._dataq       deque *: data buffer                    XXX -> [_cap*_itemsize]
-    # ._recvq       deque _RecvWaiting: blocked receivers   XXX -> list_head
-    # ._sendq       deque _SendWaiting: blocked senders     XXX -> list_head
+    list_head   _recvq      # blocked receivers _ -> _RecvSendWaiting.XXX
+    list_head   _sendq      # blocked senders   _ -> _RecvSendWaiting.XXX
     bint        _closed
 
 # _RecvSendWaiting represents a receiver/sender waiting on a chan.
@@ -64,6 +69,25 @@ cdef struct _WaitGroup:
     # on wakeup: sender|receiver -> group:
     #   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     _RecvSendWaiting    *which
+
+# _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
+#
+# the channel owning {_recv|_send}q must be locked.
+cdef _RecvSendWaiting *_dequeWaiter(list_head *queue) nogil:
+    return NULL
+
+#IF 0
+#    while len(queue) > 0:
+#        w = queue.popleft()
+#        # if this waiter can win its group - return it.
+#        # if not - someone else from its group already has won, and so we anyway have
+#        # to remove the waiter from the queue.
+#        if w.group.try_to_win(w):
+#            return w
+#
+#    return None
+####
+
 
 
 # chaninit initializes chan<itemsize>(size).
@@ -133,11 +157,11 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
 
     # synchronous channel
     if ch._cap == 0:
-        recv = _dequeWaiter(ch._recvq)
-        if recv is None:
+        recv = _dequeWaiter(&ch._recvq)
+        if recv is NULL:
             return False
 
-        ch._mu.release()
+        #ch._mu.release()
         recv.wakeup(obj, True)
         return True
 
