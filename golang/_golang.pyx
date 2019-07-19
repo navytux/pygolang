@@ -32,12 +32,12 @@ cdef:
         list_head *prev
 
 
+cdef extern from "panic.h" nogil:
+    void panic(const char *)
+
 # ---- channels ----
 
 # XXX nogil globally?
-
-cdef void panic(const char *arg) nogil:
-    1/0     # XXX -> throw?
 
 cdef struct _WaitGroup
 
