@@ -20,10 +20,11 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import go, chan, _PanicError
+from golang import go, chan
 from golang import sync, context
 import time, threading
 from pytest import raises
+from golang.golang_test import panics
 from six.moves import range as xrange
 import six
 
@@ -82,7 +83,7 @@ def test_waitgroup():
     wg.done()
     assert ch.recv() == 'a'
 
-    with raises(_PanicError):
+    with panics("sync: negative WaitGroup counter"):
         wg.done()
 
 

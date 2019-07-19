@@ -94,8 +94,8 @@ def test_chan():
     assert ch.recv()    == None
     assert ch.recv_()   == (None, False)
     assert ch.recv_()   == (None, False)
-    with raises(_PanicError): ch.send(0)
-    with raises(_PanicError): ch.close()
+    with panics("send on closed channel"):  ch.send(0)
+    with panics("close of closed channel"): ch.close()
 
     # sync: send vs recv
     ch = chan()
@@ -115,7 +115,7 @@ def test_chan():
         waitBlocked(ch.send)
         ch.close()
     go(_)
-    with raises(_PanicError): ch.send(0)
+    with panics("send on closed channel"):  ch.send(0)
 
     # close vs recv
     ch = chan()
@@ -527,7 +527,7 @@ def _test_blockforever():
     z = nilchan
     with raises(BlocksForever): z.send(0)
     with raises(BlocksForever): z.recv()
-    with raises(_PanicError):   z.close()   # to fully cover nilchan ops
+    with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
 
     # select{} & nil-channel only
     with raises(BlocksForever): select()
@@ -644,10 +644,8 @@ def test_deferrecover():
     def nofunc():
         defer(lambda: v.append('xx'))
 
-    with raises(_PanicError) as exc:
+    with panics("function nofunc uses defer, but not @func"):
         nofunc()
-    assert exc.value.args == ("function nofunc uses defer, but not @func",)
-
 
     # panic in deferred call - all defers are called
     v = []
@@ -658,7 +656,7 @@ def test_deferrecover():
         defer(lambda: panic(3))
         defer(lambda: v.append(4))
 
-    with raises(_PanicError): _()
+    with panics(3): _()
     assert v == [4, 2, 1]
 
 
@@ -695,7 +693,7 @@ def test_deferrecover():
 
         panic("bbb")
 
-    with raises(_PanicError): _()
+    with panics(2): _()
     assert v == [3, 'recovered 1', 1]
 
 
@@ -746,7 +744,7 @@ def test_deferrecover():
 
         panic("zzz")
 
-    with raises(_PanicError): _()
+    with panics("zzz"): _()
     assert v == ['not recovered']
 
 
@@ -835,3 +833,43 @@ def bench_defer(b):
 
     for i in xrange(b.N):
         _()
+
+
+# ---- misc ----
+
+# panics is similar to pytest.raises and asserts that wrapped code panics with arg.
+class panics:
+    def __init__(self, arg):
+        self.arg = arg
+
+    def __enter__(self):
+        self.raises = raises(_PanicError)
+        self.exc_info = self.raises.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        ok = self.raises.__exit__(exc_type, exc_val, exc_tb)
+        if not ok:
+            return ok
+        # _PanicError raised - let's check panic argument
+        assert self.exc_info.value.args == (self.arg,)
+        return ok
+
+def test_panics():
+    # no panic -> "did not raise"
+    with raises(raises.Exception, match="DID NOT RAISE"):
+        with panics(""):
+            pass
+
+    # raise different type -> exception propagates
+    with raises(RuntimeError, match="hello world"):
+        with panics(""):
+            raise RuntimeError("hello world")
+
+    # panic with different argument
+    with raises(AssertionError, match=r"assert \('bbb',\) == \('aaa',\)"):
+        with panics("aaa"):
+            panic("bbb")
+
+    # panic with expected argument
+    with panics(123):
+        panic(123)
