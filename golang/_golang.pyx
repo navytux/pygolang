@@ -571,9 +571,17 @@ IF 0:
 ####
 
 
-# ----------------------------------------
+# ---- python interface ----
 
-cdef struct PyObject
+from cpython cimport PyObject, Py_INCREF, Py_DECREF
+
+# pydefault represents default case for pyselect.
+pydefault  = object()
+
+# pynilchan is the nil py channel.
+#
+# On nil channel: send/recv block forever; close panics.
+pynilchan = pychan()    # XXX create with .chan = NULL
 
 # pychan is chan<object>
 cdef class pychan:
@@ -584,7 +592,70 @@ cdef class pychan:
         if ch.chan == NULL:
             raise MemoryError()
 
-    # XXX methods
+    # send sends object to a receiver.
+    def send(ch, obj):
+        # increment obj reference count so that obj stays alive until recv
+        # wakes up - e.g. even if send wakes up earlier and returns / drops obj reference.
+        #
+        # in other words: we send to recv obj and 1 reference to it.
+        Py_INCREF(obj)
+
+        with nogil:
+            chansend(ch.chan, <PyObject *>obj)
+
+    # recv_ is "comma-ok" version of recv.
+    #
+    # ok is true - if receive was delivered by a successful send.
+    # ok is false - if receive is due to channel being closed and empty.
+    def recv_(ch): # -> (rx, ok)
+        cdef PyObject *_rx = NULL
+        cdef bint ok
+
+        with nogil:
+            ok = chanrecv_(ch.chan, &_rx)
+
+        if not ok:
+            return (None, ok)
+
+        # we received the object and 1 reference to it.
+        rx = <object>_rx    # increfs again
+        Py_DECREF(rx)       # since <object> convertion did incref
+        return (rx, ok)
+
+    # recv receives from the channel.
+    def recv(ch): # -> rx
+        rx, _ = ch.recv_()
+        return rx
+
+# pyselect executes one ready send or receive channel case.
+#
+# if no case is ready and default case was provided, select chooses default.
+# if no case is ready and default was not provided, select blocks until one case becomes ready.
+#
+# returns: selected case number and receive info (None if send case was selected).
+#
+# example:
+#
+#   _, _rx = select(
+#       ch1.recv,           # 0
+#       ch2.recv_,          # 1
+#       (ch2.send, obj2),   # 2
+#       default,            # 3
+#   )
+#   if _ == 0:
+#       # _rx is what was received from ch1
+#       ...
+#   if _ == 1:
+#       # _rx is (rx, ok) of what was received from ch2
+#       ...
+#   if _ == 2:
+#       # we know obj2 was sent to ch2
+#       ...
+#   if _ == 3:
+#       # default case
+#       ...
+def pyselect(*casev):
+    1/0 # XXX
 
 # ----------------------------------------
 
