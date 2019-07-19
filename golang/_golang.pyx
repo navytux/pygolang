@@ -277,7 +277,9 @@ IF 0:   # chanclose
         send.wakeup(False)
 ####
 
-# XXX chanlen   (=
+# chanlen returns current number of buffered elements.
+cdef unsigned chanlen(chan *ch) nogil:
+    panic("TODO")
 
 
 
@@ -627,6 +629,19 @@ cdef class pychan:
     def recv(ch): # -> rx
         rx, _ = ch.recv_()
         return rx
+
+    # close closes sending side of the channel.
+    def close(ch):
+        chanclose(ch.chan)
+
+    def __len__(ch):
+        return chanlen(ch.chan)
+
+    def __repr__(ch):
+        if ch.chan == NULL:
+            return "nilchan"
+        else:
+            return super(pychan, ch).__repr__()
 
 # pyselect executes one ready send or receive channel case.
 #
