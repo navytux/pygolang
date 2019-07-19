@@ -8,5 +8,5 @@ struct PanicError : std::exception {
 };
 
 void panic(const char *arg) {
-	throw PanicError{arg};
+	throw PanicError{.arg = arg};
 }
