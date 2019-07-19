@@ -157,7 +157,10 @@ setup(
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
-    ext_modules = [Extension('golang._internal', ['golang/_internal.pyx'])],
+    ext_modules = [
+                    Extension('golang._golang',     ['golang/_golang.pyx']),
+                    Extension('golang._internal',   ['golang/_internal.pyx']),
+                  ],
     platforms   = 'any',
     include_package_data = True,
 

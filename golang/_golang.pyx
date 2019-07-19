@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# distutils: include_dirs=../3rdparty/include
+#
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
@@ -19,7 +21,9 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-cdef extern from "linux/list.h":
+#cdef extern from "../3rdparty/include/linux/list.h":
+
+cdef:
     struct list_head:
         list_head *next
         list_head *prev
