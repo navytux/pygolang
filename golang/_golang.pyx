@@ -236,7 +236,7 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
 # must be called with ._mu held.
 # if ok or panic - returns with ._mu released.
 # if !ok - returns with ._mu still being held.
-cdef bint _tryrecv(chan *ch, void *rx): # -> ok
+cdef bint _tryrecv(chan *ch, void *prx) nogil: # -> ok
     return False
 
 IF 0:   # _tryrecv
