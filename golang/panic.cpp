@@ -24,3 +24,7 @@ const char *recover() {
 
 	return NULL;
 }
+
+void __rethrow() {
+	throw;
+}

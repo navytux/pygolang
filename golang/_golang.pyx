@@ -36,6 +36,7 @@ cdef:
 cdef extern from "panic.h" nogil:
     void panic(const char *)
     const char *recover()
+    void __rethrow()
 
 # ---- channels ----
 
@@ -62,8 +63,8 @@ cdef struct _RecvSendWaiting:
     # XXX + op
 
     # recv: on wakeup: sender|closer -> receiver
-    # send: data to send
-    void    *data
+    # send: ptr-to data to send
+    void    *pdata
     # on wakeup: whether recv/send succeeded  (send fails on close)
     bint    ok
 
@@ -126,8 +127,8 @@ cdef chan *makechan(unsigned elemsize, unsigned size) nogil:
 
 # chansend sends data to a receiver.
 #
-# sizeof(*tx) must be ch._elemsize | tx=NULL.
-cdef void chansend(chan *ch, void *tx) nogil:
+# sizeof(*ptx) must be ch._elemsize | ptx=NULL.
+cdef void chansend(chan *ch, void *ptx) nogil:
     if ch is NULL:
         _blockforever()
 
@@ -136,14 +137,14 @@ cdef void chansend(chan *ch, void *tx) nogil:
 
     #ch._mu.acquire()
     if 1:
-        ok = _trysend(ch, tx)
+        ok = _trysend(ch, ptx)
         if ok:
             return
 
         g.which     = NULL
         me.group    = &g
         me.chan     = ch
-        me.data     = tx
+        me.pdata    = ptx
         me.ok       = False
         #g._waitv.append(me)
         #ch._sendq.append(me)
@@ -162,7 +163,7 @@ cdef void chansend(chan *ch, void *tx) nogil:
 # ok is true - if receive was delivered by a successful send.
 # ok is false - if receive is due to channel being closed and empty.
 cdef bint chanrecv_(chan *ch, void *rx) nogil: # -> ok
-    1/0 # TODO
+    panic("TODO")
 
 # chanrecv receives from the channel.
 cdef void chanrecv(chan *ch, void *rx) nogil:
@@ -614,7 +615,7 @@ cdef class pychan:
         Py_INCREF(obj)
 
         with nogil:
-            chansend_pypanic(ch.chan, <PyObject *>obj)
+            chansend_pyexc(ch.chan, <PyObject *>obj)
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -625,7 +626,7 @@ cdef class pychan:
         cdef bint ok
 
         with nogil:
-            ok = chanrecv_(ch.chan, &_rx)
+            ok = chanrecv__pyexc(ch.chan, &_rx)
 
         if not ok:
             return (None, ok)
@@ -642,7 +643,7 @@ cdef class pychan:
 
     # close closes sending side of the channel.
     def close(ch):
-        chanclose_pypanic(ch.chan)
+        chanclose_pyexc(ch.chan)
 
     def __len__(ch):
         return chanlen(ch.chan)
@@ -663,17 +664,20 @@ cdef class _PanicError(Exception):
 def pypanic(arg):
     raise _PanicError(arg)
 
-# _topypanic converts C-level panic to python panic
-cdef void _topypanic() except *:
+# _topyexc converts C-level panic/exc to python panic/exc
+cdef void _topyexc() except *:
     arg = recover()
     if arg != NULL:
         pypanic(arg)
+    else:
+        _rethrow()
 
-cdef void chansend_pypanic(chan *ch, PyObject *_obj) nogil except +_topypanic:
-    chansend(ch, _obj)
+cdef void _rethrow() except *:
+    __rethrow()
 
-cdef void chanclose_pypanic(chan *ch) nogil except +_topypanic:
-    chanclose(ch)
+cdef void chansend_pyexc(chan *ch, PyObject *_obj)  nogil except +_topyexc:     chansend(ch, _obj)
+cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     chanrecv_(ch, _rx)
+cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     chanclose(ch)
 
 # pyselect executes one ready send or receive channel case.
 #
