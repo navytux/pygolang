@@ -20,9 +20,9 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import select, _PanicError
+from golang import select
 from golang import time
-from pytest import raises
+from golang.golang_test import panics
 
 # all timer tests operate in dt units
 dt = 10*time.millisecond
@@ -162,5 +162,5 @@ def test_timer_stop_drain():
 def test_timer_reset_armed():
     # reset while armed
     t = time.Timer(10*dt)
-    with raises(_PanicError):
+    with panics("Timer.reset: the timer is armed; must be stopped or expired"):
         t.reset(5*dt)
