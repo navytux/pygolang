@@ -36,6 +36,7 @@ cdef:
 cdef extern from "panic.h" nogil:
     void panic(const char *)
     const char *recover() except +
+    void bug(const char *)
 
 # ---- channels ----
 
@@ -152,7 +153,7 @@ cdef void chansend(chan *ch, void *ptx) nogil:
 
     waitgroup(&g)
     if not (g.which is &me):
-        panic("bug")    # XXX
+        bug("chansend: g.which != me")
     if not me.ok:
         panic("send on closed channel")
 
@@ -186,7 +187,7 @@ cdef bint chanrecv_(chan *ch, void *prx) nogil: # -> ok
 
     waitgroup(&g)
     if not (g.which is &me):
-        panic("bug")    # XXX
+        bug("chanrecv: g.which != me")
     return me.ok
 
 # chanrecv receives from the channel.
@@ -388,7 +389,7 @@ cdef void waitgroup(_WaitGroup *group) nogil:
 # be dequeued with _dequeWaiter.
 cdef void group_wakeup(_WaitGroup *group) nogil:
     if group.which is not NULL:
-        panic("bug")    # XXX
+        bug("group_wakeup: group.which=nil")
     #self._sema.release()
 
 IF 0:   # _WaitGroup

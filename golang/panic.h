@@ -9,6 +9,7 @@ extern "C" {
 
 void panic(const char *arg);
 const char *recover();
+void bug(const char *arg);
 
 #ifdef __cplusplus
 }

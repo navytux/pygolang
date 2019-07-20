@@ -1,9 +1,13 @@
 // XXX COPY
 
 #include <exception>
+#include <string>
 #include "panic.h"
 
-struct PanicError : std::exception {
+using std::string;
+using std::exception;
+
+struct PanicError : exception {
 	const char *arg;
 };
 
@@ -19,9 +23,25 @@ const char *recover() {
 	// if PanicError was thrown - recover from it
 	try {
 		throw;
-	} catch (PanicError exc) {
+	} catch (PanicError &exc) {
 		return exc.arg;
 	}
 
 	return NULL;
+}
+
+
+// bug indicates internl bug in golang implementation.
+struct Bug : exception {
+	const string msg;
+
+	virtual const char *what() const throw() {
+		return msg.c_str();
+	}
+
+	Bug(const string &msg) : msg("BUG: " + msg) {}
+};
+
+void bug(const char *msg) {
+	throw Bug(msg);
 }
