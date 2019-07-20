@@ -161,12 +161,37 @@ cdef void chansend(chan *ch, void *ptx) nogil:
 #
 # ok is true - if receive was delivered by a successful send.
 # ok is false - if receive is due to channel being closed and empty.
-cdef bint chanrecv_(chan *ch, void *rx) nogil: # -> ok
-    panic("TODO")
+cdef bint chanrecv_(chan *ch, void *prx) nogil: # -> ok
+    if ch is NULL:
+        _blockforever()
+
+    cdef _WaitGroup         g
+    cdef _RecvSendWaiting   me
+
+    #ch._mu.acquire()
+    if 1:
+        ok = _tryrecv(ch, prx)
+        if ok:
+            return ok
+
+        g.which     = NULL
+        me.group    = &g
+        me.chan     = ch
+        me.pdata    = prx
+        me.ok       = False
+        #g._waitv.append(me)
+        #ch._recvq.append(me)
+
+    #ch._mu.release()
+
+    waitgroup(&g)
+    if not (g.which is &me):
+        panic("bug")    # XXX
+    return me.ok
 
 # chanrecv receives from the channel.
-cdef void chanrecv(chan *ch, void *rx) nogil:
-    _ = chanrecv_(ch, rx)
+cdef void chanrecv(chan *ch, void *prx) nogil:
+    _ = chanrecv_(ch, prx)
     return
 
 # _trysend(ch, obj) -> ok
