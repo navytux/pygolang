@@ -8,7 +8,6 @@ struct PanicError : std::exception {
 };
 
 void panic(const char *arg) {
-	throw std::bad_alloc();
 	PanicError _; _.arg = arg;
 	throw _;
 }
