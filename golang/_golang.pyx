@@ -35,8 +35,7 @@ cdef:
 
 cdef extern from "panic.h" nogil:
     void panic(const char *)
-    const char *recover()
-    void __rethrow()
+    const char *recover() except +
 
 # ---- channels ----
 
@@ -666,14 +665,11 @@ def pypanic(arg):
 
 # _topyexc converts C-level panic/exc to python panic/exc
 cdef void _topyexc() except *:
+    # recover is declared `except +` - if it was another - not panic -
+    # exception, it will be converted to py exc by cython automatically.
     arg = recover()
     if arg != NULL:
         pypanic(arg)
-    else:
-        _rethrow()
-
-cdef void _rethrow() except *:
-    __rethrow()
 
 cdef void chansend_pyexc(chan *ch, PyObject *_obj)  nogil except +_topyexc:     chansend(ch, _obj)
 cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     chanrecv_(ch, _rx)

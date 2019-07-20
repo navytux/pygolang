@@ -8,10 +8,14 @@ struct PanicError : std::exception {
 };
 
 void panic(const char *arg) {
+	throw std::bad_alloc();
 	PanicError _; _.arg = arg;
 	throw _;
 }
 
+// recover recovers from exception thrown by panic.
+// it returns: !NULL - there was panic with that argument. NULl - there was no panic.
+// if another exception was thrown - recover rethrows it.
 const char *recover() {
 	// if PanicError was thrown - recover from it
 	try {
@@ -20,11 +24,5 @@ const char *recover() {
 		return exc.arg;
 	}
 
-	// XXX other exceptions -> ? handle them or not here?
-
 	return NULL;
-}
-
-void __rethrow() {
-	throw;
 }
