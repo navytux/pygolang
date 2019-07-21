@@ -563,6 +563,21 @@ void _chan::_dataq_append(const void *ptx) {
     ch->_dataq_n++;
 }
 
+// _dataq_popleft pops oldest element from ch._dataq into *prx.
+// called with ch._mu locked.
+void _chan::_dataq_popleft(void *prx) {
+    _chan *ch = this;
+
+    if (ch->_dataq_n == 0)
+        bug("chan: dataq.popleft on empty dataq");
+    if (ch->_dataq_r >= ch->_cap)
+        bug("chan: dataq.popleft: r >= cap");
+
+    memcpy(prx, &((char *)(ch+1))[ch->_dataq_r * ch->_elemsize], ch->_elemsize);
+    ch->_dataq_r++; // XXX % cap
+    ch->_dataq_n--;
+}
+
 // _blockforever blocks current goroutine forever.
 void _blockforever() {
     panic("_blockforever: TODO");
