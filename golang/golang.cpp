@@ -562,7 +562,7 @@ void _chan::_dataq_append(const void *ptx) {
         bug("chan: dataq.append: w >= cap");
 
     memcpy(&((char *)(ch+1))[ch->_dataq_w * ch->_elemsize], ptx, ch->_elemsize);
-    ch->_dataq_w++; // XXX % cap
+    ch->_dataq_w++; ch->_dataq_w %= ch->_cap;
     ch->_dataq_n++;
 }
 
@@ -577,7 +577,7 @@ void _chan::_dataq_popleft(void *prx) {
         bug("chan: dataq.popleft: r >= cap");
 
     memcpy(prx, &((char *)(ch+1))[ch->_dataq_r * ch->_elemsize], ch->_elemsize);
-    ch->_dataq_r++; // XXX % cap
+    ch->_dataq_r++; ch->_dataq_r %= ch->_cap;
     ch->_dataq_n--;
 }
 
