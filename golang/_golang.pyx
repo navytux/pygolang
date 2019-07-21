@@ -631,19 +631,20 @@ pydefault  = object()
 #
 # On nil channel: send/recv block forever; close panics.
 cdef pychan nilchan = pychan()
-free(nilchan.chan._ch)  # XXX vs _ch being shared_ptr ?
-nilchan.chan._ch = NULL
+free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ?
+nilchan.ch._ch = NULL
 pynilchan = nilchan
 
 # pychan is chan<object>
 cdef class pychan:
     cdef chan[PyObject*] ch
 
-"""
     def __init__(pych, size=0):
-        pych.ch = makechan(sizeof(PyObject*), size)
-        if ch.chan == NULL:
+        cdef chan[PyObject*] ch #(size)
+        pych.ch = ch
+        if pych.ch._ch == NULL:
             raise MemoryError()
+"""
 
     # send sends object to a receiver.
     def send(ch, obj):
