@@ -587,19 +587,20 @@ void _chan::_dataq_popleft(void *prx) {
 
 // ---- select ----
 
-// selcase represents one select case.
-struct selcase {
-    void (*op)(chan *, void *); // chansend/chanrecv/default
-    void *pdata;                // chansend: tx; chanrecv: rx
-    bool ok;                    // comma-ok for rx
+// _selcase represents one _select case.
+struct _selcase {
+    _chan *ch;                      // channel
+    void  (*op)(_chan *, void *);   // chansend/chanrecv/default
+    void  *data;                    // chansend: tx; chanrecv: rx
+    bool  ok;                       // comma-ok for rx
 };
 
-// default_ represents default case for select.
-void default_(chan *_, void *__) {
-    panic("default must not be called");
+// _default represents default case for _select.
+void _default(_chan *_, void *__) {
+    panic("_default must not be called");
 }
 
-// chanselect executes one ready send or receive channel case.
+// _chanselect executes one ready send or receive channel case.
 //
 // if no case is ready and default case was provided, select chooses default.
 // if no case is ready and default was not provided, select blocks until one case becomes ready.
@@ -628,7 +629,7 @@ void default_(chan *_, void *__) {
 //       ...
 //
 // XXX try to use `...` and kill casec
-int chanselect(selcase *casev, int casec) {
+int _chanselect(_selcase *casev, int casec) {
     panic("TODO: chanselect");
 #if 0
     # select promise: if multiple cases are ready - one will be selected randomly
@@ -808,16 +809,18 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
 
 void test() {
     _chan *a, *b;
-    void *tx = NULL;
-    void *rx = NULL;
+    int tx = 1;
+    int rx;
 
-    selcase sel[3];
-    sel[0].op   = _chansend
-    sel[0].data = &tx
-    sel[1].op   = _chanrecv
-    sel[1].data = &rx
-    sel[2].op   = default_
-    int _ = chanselect(sel, ARRAY_SIZE(sel));
+    _selcase sel[3];
+    sel[0].ch   = a;
+    sel[0].op   = _chansend;
+    sel[0].data = &tx;
+    sel[1].ch   = b;
+    sel[1].op   = _chanrecv;
+    sel[1].data = &rx;
+    sel[2].op   = _default;
+    int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
     if (_ == 0)
         printf("tx\n");
