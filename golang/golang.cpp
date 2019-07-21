@@ -362,8 +362,10 @@ bool _chan::recv_(void *prx) { // -> ok
 
     ch->_mu.acquire();
         bool ok, ready = ch->_tryrecv(prx, &ok);
-        if (ready)
+        if (ready) {
+            printf("recv: -> tryrecv ready; ok=%i\n", ok);
             return ok;
+        }
 
         _WaitGroup         g;
         _RecvSendWaiting   me(&g, ch);
