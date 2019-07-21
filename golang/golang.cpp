@@ -397,7 +397,7 @@ void _chan::recv(void *prx) {
 // must be called with ._mu held.
 // if ok or panic - returns with ._mu released.
 // if !ok - returns with ._mu still being held.
-bool _chan::_trysend(void *tx) { // -> ok
+bool _chan::_trysend(void *ptx) { // -> ok
     _chan *ch = this;
 
     if (ch->_closed) {
@@ -412,8 +412,8 @@ bool _chan::_trysend(void *tx) { // -> ok
             return false;
 
         ch->_mu.release();
-        // XXX vvv was recv->wakeup(tx, true);
-        // XXX copy tx -> recv.data
+        // XXX vvv was recv->wakeup(ptx, true);
+        memcpy(recv->pdata, ptx, ch->_elemsize);
         recv->ok = true;
         recv->group->wakeup();
         return true;
