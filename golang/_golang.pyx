@@ -698,6 +698,7 @@ cdef class pychan:
             return super(pychan, ch).__repr__()
 
 
+"""
 # XXX panic: place = ?
 
 cdef class _PanicError(Exception):
@@ -715,9 +716,11 @@ cdef void _topyexc() except *:
     if arg != NULL:
         pypanic(arg)
 
+"""
 cdef void chansend_pyexc(chan *ch, PyObject *_obj)  nogil except +_topyexc:     chansend(ch, _obj)
 cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     chanrecv_(ch, _rx)
 cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     chanclose(ch)
+"""
 
 # pyselect executes one ready send or receive channel case.
 #
@@ -747,8 +750,7 @@ cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     
 #       # default case
 #       ...
 def pyselect(*casev):
-    1/0 # XXX
-"""
+    pypanic("TODO")
 
 # ----------------------------------------
 
