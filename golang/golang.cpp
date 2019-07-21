@@ -457,19 +457,22 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
 
     // buffered
     if (ch->_dataq_n > 0) {
-        panic("TODO: _tryrecv (buffered)");
-#if 0
-        rx = ch._dataq.popleft()
+        ch->_dataq_popleft(prx);
+        *pok = true;
 
-        # wakeup a blocked writer, if there is any
-        send = _dequeWaiter(ch._sendq)
-        ch._mu.release()
-        if send is not None:
-            ch._dataq.append(send.obj)
-            send.wakeup(true)
+        // wakeup a blocked writer, if there is any
+        _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
+        if (send != NULL) {
+            ch->_dataq_append(send->pdata);
+            ch->_mu.release();
+            // XXX was send.wakeup(true)
+            send->ok = true;
+            send->group->wakeup();
+        } else {
+            ch->_mu.release();
+        }
 
-        return (rx, true), true
-#endif
+        return true;
     }
 
     // closed
