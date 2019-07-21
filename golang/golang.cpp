@@ -89,7 +89,13 @@ void bug(const char *msg) {
 
 // ---- semaphores ----
 
-// XXX init -> PyThread_init_thread (so that there is no concurrent calls to there)
+// init -> PyThread_init_thread (so that there is no concurrent calls to
+// PyThread_init_thread from e.g. PyThread_allocate_lock)
+static struct _init_pythread {
+    _init_pythread() {
+        PyThread_init_thread();
+    }
+} _init_pythread;
 
 // Sema provides semaphore.
 //
