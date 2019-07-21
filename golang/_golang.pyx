@@ -3,6 +3,7 @@
 # cython: binding=True
 # distutils: language = c++
 # distutils: include_dirs = ../3rdparty/include
+# distutils: sources = panic.cpp
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -191,6 +192,8 @@ cdef bint chanrecv_(chan *ch, void *prx) nogil: # -> ok
     return me.ok
 
 # chanrecv receives from the channel.
+#
+# received value is put into *prx.
 cdef void chanrecv(chan *ch, void *prx) nogil:
     _ = chanrecv_(ch, prx)
     return
@@ -232,7 +235,7 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
 #        return True
 #####
 
-# _tryrecv() -> rx_=(rx, ok), ok
+# _tryrecv() -> rx_=(rx, ok), ok        XXX
 #
 # must be called with ._mu held.
 # if ok or panic - returns with ._mu released.
