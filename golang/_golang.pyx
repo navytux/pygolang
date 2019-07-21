@@ -637,19 +637,15 @@ free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ?
 nilchan.ch._ch = NULL
 pynilchan = nilchan
 
+ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
+
 # pychan is chan<object>
 cdef class pychan:
-    cdef chan[PyObject*] ch
+    cdef chan[pPyObject] ch
 
     def __cinit__(pych, size=0):
-        pych.ch = makechan[PyObject*](size)
+        pych.ch = makechan[pPyObject](size)
 
-        #pych.ch = chan[PyObject*](size)
-        #pych.ch = (new chan[PyObject*](size))[0]
-        #cdef chan[PyObject*] ch #(size)
-        #pych.ch = ch
-        #if pych.ch._ch == NULL:
-        #    raise MemoryError()
 """
 
     # send sends object to a receiver.

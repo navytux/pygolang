@@ -67,10 +67,10 @@ struct chan {
 template<typename T>
 chan<T> makechan(unsigned size) {
     chan<T> ch;
-
     ch._ch = _makechan(sizeof(T), size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
+    return ch;
 }
 
 #endif  // __cplusplus
