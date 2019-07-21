@@ -28,6 +28,9 @@
 
 #include <exception>
 #include <string>
+#include <algorithm>
+#include <random>
+
 #include <string.h>
 
 // for semaphores (need pythread.h but it depends on PyAPI_FUNC from outside)
@@ -41,6 +44,7 @@
 #include "../3rdparty/include/linux/list.h"
 
 using std::string;
+using std::vector;
 using std::exception;
 
 
@@ -620,41 +624,51 @@ void _default(_chan *_, void *__) {
 //       # default case
 //       ...
 //
+// XXX update ^^^
 // XXX try to use `...` and kill casec
 int _chanselect(_selcase *casev, int casec) {
     // select promise: if multiple cases are ready - one will be selected randomly
-    ncasev = list(enumerate(casev))
-    random.shuffle(ncasev)
+    vector<int> v; // n -> n(case)
+    for (int i=0; i <casec; i++)
+        v.push_back(i);
+    std::random_shuffle(v.begin(), v.end());
+
+//  ncasev = list(enumerate(casev))
+//  random.shuffle(ncasev)
 
     // first pass: poll all cases and bail out in the end if default was provided
     recvv = [] // [](n, ch, commaok)
     sendv = [] // [](n, ch, tx)
-    ndefault = None
-    for (n, case) in ncasev:
+    ndefault = -1
+    for (auto n : v) {
+        _selcase *cas = &casev[n];
+        _chan *ch = cas->ch;
+
+        switch (cas->op) {
+        default:
+            panic("select: invalid op");
+
         // default: remember we have it
-        if case is default:
-            if ndefault is not None:
+        case _default:
+            if ndefault != -1:
                 panic("select: multiple default")
             ndefault = n
+            break;
 
         // send
-        elif isinstance(case, tuple):
-            send, tx = case
-            if im_class(send) is not chan:
-                panic("select: send on non-chan: %r" % (im_class(send),))
-            if send.__func__ is not _chan_send:
-                panic("select: send expected: %r" % (send,))
-
-            ch = send.__self__
-            if ch is not nilchan:   // nil chan is never ready
-                ch._mu.acquire()
-                if 1:
+        case chansend:
+            if (ch != NULL) {   // nil chan is never ready
+                ch._mu.acquire();
+                if 1 {
                     ok = ch._trysend(tx)
                     if ok:
                         return n, None
-                ch._mu.release()
+                }
+                ch._mu.release();
 
-                sendv.append((n, ch, tx))
+                sendv.append((n, ch, tx))   // XXX
+            }
+            break;
 
         // recv
         else:
@@ -681,10 +695,11 @@ int _chanselect(_selcase *casev, int casec) {
                 ch._mu.release()
 
                 recvv.append((n, ch, commaok))
+        }
 
     // execute default if we have it
-    if ndefault is not None:
-        return ndefault, None
+    if (ndefault != -1)
+        return ndefault;
 
     // select{} or with nil-channels only -> block forever
     if len(recvv) + len(sendv) == 0:
