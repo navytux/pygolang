@@ -26,7 +26,13 @@
 
 #include <exception>
 #include <string>
+#include <string.h>
 #include "golang.h"
+
+//#include "../3rdparty/include/linux/list.h":
+struct list_head {
+    list_head *next, *prev;
+};
 
 using std::string;
 using std::exception;
@@ -96,10 +102,12 @@ struct _chan {
     bool        _closed;
 };
 
+struct _WaitGroup;
+
 // _RecvSendWaiting represents a receiver/sender waiting on a chan.
 struct _RecvSendWaiting {
     _WaitGroup  *group; // group of waiters this receiver/sender is part of
-    chan        *chan;  // channel receiver/sender is waiting on
+    _chan       *chan;  // channel receiver/sender is waiting on
 
     // XXX + op
 
@@ -136,9 +144,10 @@ void _WaitGroup::wait() {
 // prior to wakeup try_to_win must have been called.
 // in practice this means that waiters queued to chan.{_send|_recv}q must
 // be dequeued with _dequeWaiter.
-void _WaitGroup::wakeup():
+void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
-    assert group.which is not None   // XXX
+    if (group.which == NULL)
+        bug("wakeup: group.which=nil");
     group._sema.release();
 }
 
@@ -163,14 +172,14 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
 // makechan creates new chan<elemsize>(size).
 _chan *makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
-    ch = (_chan *)malloc(sizeof(_chan) + size*elemsize)
+    ch = (_chan *)malloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         return NULL;
-    memset(ch, 0, sizeof(*ch))
+    memset(ch, 0, sizeof(*ch));
 
-    ch._cap      = size;
-    ch._elemsize = elemsize;
-    ch._closed   = False;
+    ch->_cap      = size;
+    ch->_elemsize = elemsize;
+    ch->_closed   = false;
 
     return ch;
 }
@@ -198,7 +207,7 @@ void _chan::send(void *ptx) {
         me.group    = &g
         me.chan     = ch
         me.pdata    = ptx
-        me.ok       = False
+        me.ok       = false
         //g._waitv.append(me)
         //ch._sendq.append(me)
     }
@@ -235,9 +244,9 @@ bool _chan::recv_(void *prx) { // -> ok
         me.group    = &g
         me.chan     = ch
         me.pdata    = prx
-        me.ok       = False
-        #g._waitv.append(me)
-        #ch._recvq.append(me)
+        me.ok       = false
+        //g._waitv.append(me)
+        //ch._recvq.append(me)
     }
     //ch._mu.release()
 
@@ -276,27 +285,27 @@ bool _chan::_trysend(chan *ch, void *tx) { // -> ok
     if (ch._cap == 0):
         recv = _dequeWaiter(&ch._recvq)
         if recv is NULL:
-            return False
+            return false
 
-        #ch._mu.release()
-        # XXX copy tx -> recv.data
-        #recv.wakeup(obj, True)
+        //ch._mu.release()
+        // XXX copy tx -> recv.data
+        //recv.wakeup(obj, true)
         group_wakeup(recv.group)
-        return True
+        return true
     }
 #if 0
     # buffered channel
     else:
         if len(ch._dataq) >= ch._cap:
-            return False
+            return false
 
         ch._dataq.append(obj)
         recv = _dequeWaiter(ch._recvq)
         ch._mu.release()
         if recv is not None:
             rx = ch._dataq.popleft()
-            recv.wakeup(rx, True)
-        return True
+            recv.wakeup(rx, true)
+        return true
 #endif
 }
 
@@ -308,7 +317,7 @@ bool _chan::_trysend(chan *ch, void *tx) { // -> ok
 // if !ok - returns with ._mu still being held.
 bool _chan::_tryrecv(void *prx) { // -> ok
     _chan& ch = this;
-    return False;
+    return false;
 
 #if 0
     # buffered
@@ -320,24 +329,24 @@ bool _chan::_tryrecv(void *prx) { // -> ok
         ch._mu.release()
         if send is not None:
             ch._dataq.append(send.obj)
-            send.wakeup(True)
+            send.wakeup(true)
 
-        return (rx, True), True
+        return (rx, true), true
 
     # closed
     if ch._closed:
         ch._mu.release()
-        return (None, False), True
+        return (None, false), true
 
     # sync | empty: there is waiting writer
     send = _dequeWaiter(ch._sendq)
     if send is None:
-        return (None, False), False
+        return (None, false), false
 
     ch._mu.release()
     rx = send.obj
-    send.wakeup(True)
-    return (rx, True), True
+    send.wakeup(true)
+    return (rx, true), true
 #endif
 }
 
@@ -351,7 +360,7 @@ void _chan::close(chan *ch) {
     // XXX stub
     if (ch._closed)
         panic("close of closed channel");
-    ch._closed = True
+    ch._closed = true
 
 #if 0
     recvv = []
@@ -360,7 +369,7 @@ void _chan::close(chan *ch) {
     with ch._mu:
         if ch._closed:
             panic("close of closed channel")
-        ch._closed = True
+        ch._closed = true
 
         # schedule: wake-up all readers
         while 1:
@@ -378,9 +387,9 @@ void _chan::close(chan *ch) {
 
     # perform scheduled wakeups outside of ._mu
     for recv in recvv:
-        recv.wakeup(None, False)
+        recv.wakeup(None, false)
     for send in sendv:
-        send.wakeup(False)
+        send.wakeup(false)
 #endif
 }
 
