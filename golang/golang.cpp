@@ -441,6 +441,8 @@ bool _chan::_trysend(void *ptx) { // -> ok
 // must be called with ._mu held.
 // if ready or panic - returns with ._mu released.
 // if !ready - returns with ._mu still being held.
+//
+// if !ready - (*prx, *pok) are left unmodified.
 bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
     _chan *ch = this;
 
@@ -467,19 +469,17 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
         return true;
     }
 
-    return false; // XXX stub
-
-#if 0
     // sync | empty: there is waiting writer
-    send = _dequeWaiter(ch._sendq)
-    if send is None:
-        return (None, false), false
+    _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
+    if (send == NULL)
+        return false;
 
-    ch._mu.release()
-    rx = send.obj
-    send.wakeup(true)
-    return (rx, true), true
-#endif
+    ch->_mu.release();
+    memcpy(prx, send->pdata, ch->_elemsize);
+    // XXX vvv was send.wakeup(true)
+    send->ok = true;
+    send->group->wakeup();
+    return true;
 }
 
 // close closes sending side of the channel.
