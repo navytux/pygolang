@@ -32,7 +32,7 @@ void bug(const char *arg);
 
 struct _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
-void _chansend(_chan *ch, void *ptx);
+void _chansend(_chan *ch, const void *ptx);
 bool _chanrecv_(_chan *ch, void *prx);
 void _chanrecv(_chan *ch, void *prx);
 void _chanclose(_chan *ch);

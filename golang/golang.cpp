@@ -173,15 +173,15 @@ struct _chan {
     unsigned    _dataq_r;   // index for next read  (in elements; can be used only if _dataq_n > 0)
     unsigned    _dataq_w;   // index for next write (in elements; can be used only if _dataq_n < _cap)
 
-    void send(void *ptx);
+    void send(const void *ptx);
     bool recv_(void *prx);
     void recv(void *prx);
-    bool _trysend(void *tx);
+    bool _trysend(const void *tx);
     bool _tryrecv(void *prx, bool *pok);
     void close();
     unsigned len();
 
-    void _dataq_append(void *ptx);
+    void _dataq_append(const void *ptx);
     void _dataq_popleft(void *prx);
 };
 
@@ -322,8 +322,8 @@ void _blockforever();
 // send sends data to a receiver.
 //
 // sizeof(*ptx) must be ch._elemsize.
-void _chansend(_chan *ch, void *ptx) { ch->send(ptx); }
-void _chan::send(void *ptx) {
+void _chansend(_chan *ch, const void *ptx) { ch->send(ptx); }
+void _chan::send(const void *ptx) {
     _chan *ch = this;
 
     if (ch == NULL)
@@ -336,7 +336,7 @@ void _chan::send(void *ptx) {
 
         _WaitGroup         g;
         _RecvSendWaiting   me(&g, ch);
-        me.pdata    = ptx;
+        me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read 
         me.ok       = false;
 
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
@@ -403,7 +403,7 @@ void _chan::recv(void *prx) {
 // must be called with ._mu held.
 // if ok or panic - returns with ._mu released.
 // if !ok - returns with ._mu still being held.
-bool _chan::_trysend(void *ptx) { // -> ok
+bool _chan::_trysend(const void *ptx) { // -> ok
     _chan *ch = this;
 
     if (ch->_closed) {
@@ -550,7 +550,7 @@ unsigned _chan::len() {
 
 // _dataq_append appends next element to ch._dataq.
 // called with ch._mu locked.
-void _chan::_dataq_append(void *ptx) {
+void _chan::_dataq_append(const void *ptx) {
     _chan *ch = this;
 
     if (ch->_dataq_n >= ch->_cap)
