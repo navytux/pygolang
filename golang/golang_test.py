@@ -525,6 +525,7 @@ def test_blockforever():
 
 def _test_blockforever():
     z = nilchan
+    assert len(z) == 0
     with raises(BlocksForever): z.send(0)
     with raises(BlocksForever): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
