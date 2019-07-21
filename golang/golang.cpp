@@ -498,8 +498,10 @@ void _chan::close() {
         panic("close of nil channel");
 
     ch->_mu.acquire();
-        if (ch->_closed)
+        if (ch->_closed) {
+            ch->_mu.release();
             panic("close of closed channel");
+        }
         ch->_closed = true;
 
         // wake-up all readers
