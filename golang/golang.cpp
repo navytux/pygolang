@@ -206,16 +206,15 @@ struct _RecvSendWaiting {
 struct _WaitGroup {
     list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
     Sema       _sema;   // used for wakeup (must be semaphore)
-    //
-    // ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
-    //
+
+    Sema       _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     _RecvSendWaiting    *which;
 
 
     _WaitGroup();
-    void add_waiter(_RecvSendWaiting *w);
+    bool try_to_win(_RecvSendWaiting *waiter);
     void wait();
     void wakeup();
 };
@@ -236,6 +235,25 @@ _WaitGroup::_WaitGroup() {
     INIT_LIST_HEAD(&group->waitq);
     group->_sema.acquire();
     group->which = NULL;
+}
+
+// try_to_win tries to win waiter after it was dequeued from a channel's {_send|_recv}q.
+//
+// -> won: true if won, false - if not.
+bool _WaitGroup::try_to_win(_RecvSendWaiting *waiter) { // -> won
+    _WaitGroup *group = this;
+
+    bool won;
+    group->_mu.acquire();
+        if (group->which != NULL) {
+            won = false;
+        }
+        else {
+            group->which = waiter;
+            won = true;
+        }
+    group->_mu.release();
+    return won;
 }
 
 // wait waits for winning case of group to complete.
@@ -260,18 +278,18 @@ void _WaitGroup::wakeup() {
 //
 // the channel owning {_recv|_send}q must be locked.
 _RecvSendWaiting *_dequeWaiter(list_head *queue) {
-    return NULL;
-/*
-    while len(queue) > 0:
-        w = queue.popleft()
-        # if this waiter can win its group - return it.
-        # if not - someone else from its group already has won, and so we anyway have
-        # to remove the waiter from the queue.
-        if w.group.try_to_win(w):
-            return w
+    while (!list_empty(queue)) {
+        _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
+        list_del_init(&w->in_rxtxq);
+        // if this waiter can win its group - return it.
+        // if not - someone else from its group already has won, and so we anyway have
+        // to remove the waiter from the queue.
+        if (w->group->try_to_win(w)) {
+            return w;
+        }
+    }
 
-    return None
-*/
+    return NULL;
 }
 
 // _makechan creates new _chan(elemsize, size).
@@ -320,7 +338,9 @@ void _chan::send(void *ptx) {
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
     ch->_mu.release();
 
+    printf("send: -> g.wait()...\n");
     g.wait();
+    printf("send: -> woken up\n");
     if (g.which != &me)
         bug("chansend: g.which != me");
     if (!me.ok)
@@ -353,7 +373,9 @@ bool _chan::recv_(void *prx) { // -> ok
         list_add_tail(&me.in_rxtxq, &ch->_recvq);
     ch->_mu.release();
 
+    printf("recv: -> g.wait()...\n");
     g.wait();
+    printf("recv: -> woken up\n");
     if (g.which != &me)
         bug("chanrecv: g.which != me");
     return me.ok;
@@ -396,8 +418,9 @@ bool _chan::_trysend(void *tx) { // -> ok
         recv->group->wakeup();
         return true;
     }
+    return false;    // XXX stub
 #if 0
-    # buffered channel
+    // buffered channel
     else:
         if len(ch._dataq) >= ch._cap:
             return false
