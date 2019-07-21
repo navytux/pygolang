@@ -641,7 +641,7 @@ pydefault  = object()
 #
 # On nil channel: send/recv block forever; close panics.
 cdef pychan nilchan = pychan()
-free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ?
+free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanfree (free sema)
 nilchan.ch._ch = NULL
 pynilchan = nilchan
 
