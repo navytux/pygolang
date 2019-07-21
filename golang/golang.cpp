@@ -208,6 +208,7 @@ void _blockforever();
 // send sends data to a receiver.
 //
 // sizeof(*ptx) must be ch._elemsize | ptx=NULL.
+void _chansend(_chan *ch, void *ptx) { ch->send(ptx); }
 void _chan::send(void *ptx) {
     _chan *ch = this;
 

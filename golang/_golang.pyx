@@ -44,6 +44,7 @@ cdef extern from "golang.h" nogil:
     cppclass chan[T]:
         _chan *_ch
         chan();
+        void send(T *ptx)
     chan[T] makechan[T](unsigned size) except +
 
 # ---- channels ----
@@ -647,19 +648,19 @@ cdef class pychan:
     def __cinit__(pych, size=0):
         pych.ch = makechan[pPyObject](size)
 
-"""
-
     # send sends object to a receiver.
-    def send(ch, obj):
+    def send(pych, obj):
         # increment obj reference count so that obj stays alive until recv
         # wakes up - e.g. even if send wakes up earlier and returns / drops obj reference.
         #
         # in other words: we send to recv obj and 1 reference to it.
         Py_INCREF(obj)
 
+        cdef PyObject *_obj = <PyObject *>obj
         with nogil:
-            chansend_pyexc(ch.chan, <PyObject *>obj)
+            chansend_pyexc(pych.ch, &_obj)
 
+"""
     # recv_ is "comma-ok" version of recv.
     #
     # ok is true - if receive was delivered by a successful send.
@@ -716,9 +717,10 @@ cdef void _topyexc() except *:
     if arg != NULL:
         pypanic(arg)
 
+cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_pobj)  nogil except +_topyexc:
+    ch.send(_pobj)
 """
-cdef void chansend_pyexc(chan *ch, PyObject *_obj)  nogil except +_topyexc:     chansend(ch, _obj)
-cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     chanrecv_(ch, _rx)
+cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     return chanrecv_(ch, _rx)
 cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     chanclose(ch)
 """
 
