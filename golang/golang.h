@@ -32,4 +32,25 @@ void bug(const char *arg);
 }
 #endif
 
+// chan<T> provides type-safe wrapper over _chan.
+struct _chan;
+template<typename T>
+struct chan {
+    _chan *ch;
+
+    chan(unsigned size) {
+        ch = makechan(sizeof(T), size);
+        if (ch == NULL)
+            throw std::bad_alloc();
+    }
+
+    // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
+
+    void send(T *ptx)   { ch->send(ptx);            }
+    bool recv_(T *prx)  { return ch->recv_(prx);    }
+    void recv(T *prx)   { ch->recv(prx);            }
+    void close()        { ch->close();              }
+    unsigned len()      { return ch->len();         }
+};
+
 #endif	// _PYGOLANG_PANIC_H
