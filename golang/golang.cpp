@@ -545,6 +545,9 @@ void _chan::close() {
 unsigned _chanlen(_chan *ch) { return ch->len(); }
 unsigned _chan::len() {
     _chan *ch = this;
+    if (ch == NULL)
+        return 0; // len(nil) = 0
+
     ch->_mu.acquire(); // only to make valgrind happy
     unsigned len = ch->_dataq_n;
     ch->_mu.release();
