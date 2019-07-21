@@ -523,7 +523,7 @@ class chan(object):
             recv = _dequeWaiter(self._recvq)
             self._mu.release()
             if recv is not None:
-                rx = self._dataq.popleft()
+                rx = self._dataq.popleft()      # XXX bug (^^^ mu released)
                 recv.wakeup(rx, True)
             return True
 
@@ -541,7 +541,7 @@ class chan(object):
             send = _dequeWaiter(self._sendq)
             self._mu.release()
             if send is not None:
-                self._dataq.append(send.obj)
+                self._dataq.append(send.obj)    # XXX bug (^^^ me released)
                 send.wakeup(True)
 
             return (rx, True), True

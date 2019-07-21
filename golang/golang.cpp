@@ -180,6 +180,9 @@ struct _chan {
     bool _tryrecv(void *prx, bool *pok);
     void close();
     unsigned len();
+
+    void _dataq_append(void *ptx);
+    void _dataq_popleft(void *prx);
 };
 
 struct _WaitGroup;
@@ -423,19 +426,21 @@ bool _chan::_trysend(void *ptx) { // -> ok
     }
     // buffered channel
     else {
-        panic("TODO: _trysend (buffered)");
-#if 0
-        if len(ch._dataq) >= ch._cap:
-            return false
+        if (ch->_dataq_n >= ch->_cap)
+            return false;
 
-        ch._dataq.append(obj)
-        recv = _dequeWaiter(ch._recvq)
-        ch._mu.release()
-        if recv is not None:
-            rx = ch._dataq.popleft()
-            recv.wakeup(rx, true)
-        return true
-#endif
+        ch->_dataq_append(ptx);
+        _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
+        if (recv != NULL) {
+            ch->_dataq_popleft(recv->pdata);
+            ch->_mu.release();
+            // XXX was recv.wakeup(rx, true)
+            recv->ok = true;
+            recv->group->wakeup();
+        } else {
+            ch->_mu.release();
+        }
+        return true;
     }
 }
 
@@ -543,6 +548,20 @@ unsigned _chan::len() {
     return len;
 }
 
+// _dataq_append appends next element to ch._dataq.
+// called with ch._mu locked.
+void _chan::_dataq_append(void *ptx) {
+    _chan *ch = this;
+
+    if (ch->_dataq_n >= ch->_cap)
+        bug("chan: dataq.append on full dataq");
+    if (ch->_dataq_w >= ch->_cap)
+        bug("chan: dataq.append: w >= cap");
+
+    memcpy(&((char *)(ch+1))[ch->_dataq_w * ch->_elemsize], ptx, ch->_elemsize);
+    ch->_dataq_w++; // XXX % cap
+    ch->_dataq_n++;
+}
 
 // _blockforever blocks current goroutine forever.
 void _blockforever() {
