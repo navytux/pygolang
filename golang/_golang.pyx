@@ -687,23 +687,21 @@ cdef class pychan:
     def recv(pych): # -> rx
         rx, _ = pych.recv_()
         return rx
-"""
 
     # close closes sending side of the channel.
-    def close(ch):
-        chanclose_pyexc(ch.chan)
+    def close(pych):
+        chanclose_pyexc(pych.ch)
 
-    def __len__(ch):
-        return chanlen(ch.chan)
+    def __len__(pych):
+        return pych.ch.len()
 
-    def __repr__(ch):
-        if ch.chan == NULL:
+    def __repr__(pych):
+        if pych.ch._ch == NULL:
             return "nilchan"
         else:
-            return super(pychan, ch).__repr__()
+            return super(pychan, pych).__repr__()
 
 
-"""
 # XXX panic: place = ?
 
 cdef class _PanicError(Exception):
@@ -725,9 +723,8 @@ cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_pobj)  nogil except +_t
     ch.send(_pobj)
 cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
     return ch.recv_(_prx)
-"""
-cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     chanclose(ch)
-"""
+cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
+    ch.close()
 
 # pyselect executes one ready send or receive channel case.
 #

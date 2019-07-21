@@ -374,6 +374,7 @@ bool _chan::_tryrecv(void *prx) { // -> ok
 }
 
 // close closes sending side of the channel.
+void _chanclose(_chan *ch) { ch->close(); }
 void _chan::close() {
     _chan *ch = this;
 
@@ -417,6 +418,7 @@ void _chan::close() {
 }
 
 // len returns current number of buffered elements.
+unsigned _chanlen(_chan *ch) { return ch->len(); }
 unsigned _chan::len() {
     //_chan *ch = this;
     panic("TODO");
