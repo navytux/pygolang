@@ -174,7 +174,7 @@ struct _chan {
     bool recv_(void *prx);
     void recv(void *prx);
     bool _trysend(void *tx);
-    bool _tryrecv(void *prx);
+    bool _tryrecv(void *prx, bool *pok);
     void close();
     unsigned len();
 };
@@ -341,8 +341,8 @@ bool _chan::recv_(void *prx) { // -> ok
         _blockforever();
 
     ch->_mu.acquire();
-        bool ok = ch->_tryrecv(prx);
-        if (ok)
+        bool ok, ready = ch->_tryrecv(prx, &ok);
+        if (ready)
             return ok;
 
         _WaitGroup         g;
@@ -413,18 +413,16 @@ bool _chan::_trysend(void *tx) { // -> ok
 }
 
 
-// _tryrecv() -> rx_=(rx, ok), ok        XXX
+// _tryrecv() -> rx_=(rx, ok), ready        XXX
 //
 // must be called with ._mu held.
 // if ok or panic - returns with ._mu released.
 // if !ok - returns with ._mu still being held.
-bool _chan::_tryrecv(void *prx) { // -> ok
-    return false;
-
-#if 0
+bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
     _chan *ch = this;
 
-    # buffered
+    // buffered
+#if 0
     if len(ch._dataq) > 0:
         rx = ch._dataq.popleft()
 
@@ -436,13 +434,20 @@ bool _chan::_tryrecv(void *prx) { // -> ok
             send.wakeup(true)
 
         return (rx, true), true
+#endif
 
-    # closed
-    if ch._closed:
-        ch._mu.release()
-        return (None, false), true
+    // closed
+    if (ch->_closed) {
+        ch->_mu.release();
+        memset(prx, 0, ch->_elemsize);
+        *pok = false;
+        return true;
+    }
 
-    # sync | empty: there is waiting writer
+    return false; // XXX stub
+
+#if 0
+    // sync | empty: there is waiting writer
     send = _dequeWaiter(ch._sendq)
     if send is None:
         return (None, false), false
