@@ -29,12 +29,12 @@ const char *recover();
 void bug(const char *arg);
 
 struct _chan;
-_chan *makechan(unsigned elemsize, unsigned size);
-void chansend(_chan *ch, void *ptx);
-bool chanrecv_(_chan *ch, void *prx);
-void chanrecv(_chan *ch, void *prx);
-void chanclose(_chan *ch);
-unsigned chanlen(_chan *ch);
+_chan *_makechan(unsigned elemsize, unsigned size);
+void _chansend(_chan *ch, void *ptx);
+bool _chanrecv_(_chan *ch, void *prx);
+void _chanrecv(_chan *ch, void *prx);
+void _chanclose(_chan *ch);
+unsigned _chanlen(_chan *ch);
 
 #ifdef __cplusplus
 }
@@ -46,19 +46,25 @@ template<typename T>
 struct chan {
     _chan *_ch;
 
-    chan(unsigned size) {
-        _ch = makechan(sizeof(T), size);
-        if (_ch == NULL)
-            throw std::bad_alloc();
-    }
+    // = nil channel if not initialized
+    chan() { _ch = NULL; }
 
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    void send(T *ptx)   { chansend(_ch, ptx);           }
-    bool recv_(T *prx)  { return chanrecv_(_ch, prx);   }
-    void recv(T *prx)   { chanrecv(_ch, prx);           }
-    void close()        { chanclose(_ch);               }
-    unsigned len()      { return chanlen(_ch);          }
+    void send(T *ptx)   { _chansend(_ch, ptx);          }
+    bool recv_(T *prx)  { return _chanrecv_(_ch, prx);  }
+    void recv(T *prx)   { _chanrecv(_ch, prx);          }
+    void close()        { _chanclose(_ch);              }
+    unsigned len()      { return _chanlen(_ch);         }
 };
+
+template<typename T>
+chan<T> makechan(unsigned size) {
+    chan<T> ch;
+
+    ch._ch = _makechan(sizeof(T), size);
+    if (ch._ch == NULL)
+        throw std::bad_alloc();
+}
 
 #endif	// _PYGOLANG_PANIC_H

@@ -40,8 +40,10 @@ cdef extern from "golang.h" nogil:
     void bug(const char *)
 
     struct _chan
-    cdef cppclass chan[T]:
+    cppclass chan[T]:
         _chan *_ch
+        chan();
+    chan[T] makechan[T](unsigned size) except +
 
 # ---- channels ----
 
@@ -637,13 +639,19 @@ pynilchan = nilchan
 
 # pychan is chan<object>
 cdef class pychan:
-    cdef chan[PyObject*] ch
+    #cdef chan[PyObject*] ch
+    cdef chan[PyObject] ch
 
-    def __init__(pych, size=0):
-        cdef chan[PyObject*] ch #(size)
-        pych.ch = ch
-        if pych.ch._ch == NULL:
-            raise MemoryError()
+    def __cinit__(pych, size=0):
+        #pych.ch = makechan[PyObject*](size)
+        pych.ch = makechan[PyObject](size)
+
+        #pych.ch = chan[PyObject*](size)
+        #pych.ch = (new chan[PyObject*](size))[0]
+        #cdef chan[PyObject*] ch #(size)
+        #pych.ch = ch
+        #if pych.ch._ch == NULL:
+        #    raise MemoryError()
 """
 
     # send sends object to a receiver.
