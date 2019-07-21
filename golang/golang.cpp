@@ -150,7 +150,7 @@ struct _WaitGroup {
 
 // wait waits for winning case of group to complete.
 void _WaitGroup::wait() {
-    panic("TODO");
+    panic("_WaitGroup::wait: TODO");
     //_WaitGroup *group = this;
     //group->_sema.acquire();
 }
@@ -165,7 +165,7 @@ void _WaitGroup::wakeup() {
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
     //group._sema.release();
-    panic("TODO");
+    panic("_WaitGroup::wakeup: TODO");
 }
 
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
@@ -421,13 +421,13 @@ void _chan::close() {
 unsigned _chanlen(_chan *ch) { return ch->len(); }
 unsigned _chan::len() {
     //_chan *ch = this;
-    panic("TODO");
+    panic("_chan::len: TODO");
 }
 
 
 // _blockforever blocks current goroutine forever.
 void _blockforever() {
-    panic("TODO");
+    panic("_blockforever: TODO");
 #if 0
     // take a lock twice. It will forever block on the second lock attempt.
     // Under gevent, similarly to Go, this raises "LoopExit: This operation
