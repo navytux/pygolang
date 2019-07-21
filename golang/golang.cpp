@@ -584,6 +584,196 @@ void _chan::_dataq_popleft(void *prx) {
     ch->_dataq_n--;
 }
 
+
+// ---- select ----
+
+// selcase represents one select case.
+struct selcase {
+    void (*op)(chan *, void *); // chansend/chanrecv/default
+    void *pdata;                // chansend: tx; chanrecv: rx
+    bool ok;                    // comma-ok for rx
+};
+
+// default_ represents default case for select.
+void default_(chan *_, void *__) {
+    panic("default must not be called");
+}
+
+// chanselect executes one ready send or receive channel case.
+//
+// if no case is ready and default case was provided, select chooses default.
+// if no case is ready and default was not provided, select blocks until one case becomes ready.
+//
+// returns: selected case number and receive info (None if send case was selected).
+//
+// example:
+//
+//   _, _rx = select(
+//       ch1.recv,           # 0
+//       ch2.recv_,          # 1
+//       (ch2.send, obj2),   # 2
+//       default,            # 3
+//   )
+//   if _ == 0:
+//       # _rx is what was received from ch1
+//       ...
+//   if _ == 1:
+//       # _rx is (rx, ok) of what was received from ch2
+//       ...
+//   if _ == 2:
+//       # we know obj2 was sent to ch2
+//       ...
+//   if _ == 3:
+//       # default case
+//       ...
+//
+// XXX try to use `...` and kill casec
+int chanselect(selcase *casev, int casec) {
+    panic("TODO: chanselect");
+#if 0
+    # select promise: if multiple cases are ready - one will be selected randomly
+    ncasev = list(enumerate(casev))
+    random.shuffle(ncasev)
+
+    # first pass: poll all cases and bail out in the end if default was provided
+    recvv = [] # [](n, ch, commaok)
+    sendv = [] # [](n, ch, tx)
+    ndefault = None
+    for (n, case) in ncasev:
+        # default: remember we have it
+        if case is default:
+            if ndefault is not None:
+                panic("select: multiple default")
+            ndefault = n
+
+        # send
+        elif isinstance(case, tuple):
+            send, tx = case
+            if im_class(send) is not chan:
+                panic("select: send on non-chan: %r" % (im_class(send),))
+            if send.__func__ is not _chan_send:
+                panic("select: send expected: %r" % (send,))
+
+            ch = send.__self__
+            if ch is not nilchan:   # nil chan is never ready
+                ch._mu.acquire()
+                if 1:
+                    ok = ch._trysend(tx)
+                    if ok:
+                        return n, None
+                ch._mu.release()
+
+                sendv.append((n, ch, tx))
+
+        # recv
+        else:
+            recv = case
+            if im_class(recv) is not chan:
+                panic("select: recv on non-chan: %r" % (im_class(recv),))
+            if recv.__func__ is _chan_recv:
+                commaok = False
+            elif recv.__func__ is _chan_recv_:
+                commaok = True
+            else:
+                panic("select: recv expected: %r" % (recv,))
+
+            ch = recv.__self__
+            if ch is not nilchan:   # nil chan is never ready
+                ch._mu.acquire()
+                if 1:
+                    rx_, ok = ch._tryrecv()
+                    if ok:
+                        if not commaok:
+                            rx, ok = rx_
+                            rx_ = rx
+                        return n, rx_
+                ch._mu.release()
+
+                recvv.append((n, ch, commaok))
+
+    # execute default if we have it
+    if ndefault is not None:
+        return ndefault, None
+
+    # select{} or with nil-channels only -> block forever
+    if len(recvv) + len(sendv) == 0:
+        _blockforever()
+
+    # second pass: subscribe and wait on all rx/tx cases
+    g = _WaitGroup()
+
+    # selected returns what was selected in g.
+    # the return signature is the one of select.
+    def selected():
+        g.wait()
+        sel = g.which
+        if isinstance(sel, _SendWaiting):
+            if not sel.ok:
+                panic("send on closed channel")
+            return sel.sel_n, None
+
+        if isinstance(sel, _RecvWaiting):
+            rx_ = sel.rx_
+            if not sel.sel_commaok:
+                rx, ok = rx_
+                rx_ = rx
+            return sel.sel_n, rx_
+
+        raise AssertionError("select: unreachable")
+
+    try:
+        for n, ch, tx in sendv:
+            ch._mu.acquire()
+            with g._mu:
+                # a case that we previously queued already won
+                if g.which is not None:
+                    ch._mu.release()
+                    return selected()
+
+                ok = ch._trysend(tx)
+                if ok:
+                    // don't let already queued cases win
+                    g.which = "tx prepoll won"  # !None
+
+                    return n, None
+
+                w = _SendWaiting(g, ch, tx)
+                w.sel_n = n
+                ch._sendq.append(w)
+            ch._mu.release()
+
+        for n, ch, commaok in recvv:
+            ch._mu.acquire()
+            with g._mu:
+                # a case that we previously queued already won
+                if g.which is not None:
+                    ch._mu.release()
+                    return selected()
+
+                rx_, ok = ch._tryrecv()
+                if ok:
+                    // don't let already queued cases win
+                    g.which = "rx prepoll won"  # !None
+
+                    if not commaok:
+                        rx, ok = rx_
+                        rx_ = rx
+                    return n, rx_
+
+                w = _RecvWaiting(g, ch)
+                w.sel_n = n
+                w.sel_commaok = commaok
+                ch._recvq.append(w)
+            ch._mu.release()
+
+        return selected()
+
+    finally:
+        // unsubscribe not-succeeded waiters
+        g.dequeAll()
+#endif
+}
+
 // _blockforever blocks current goroutine forever.
 void _blockforever() {
     panic("_blockforever: TODO");
