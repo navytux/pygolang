@@ -19,6 +19,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+"""
 cdef nogil:
     struct chan
     struct selcase
@@ -33,3 +34,4 @@ cdef nogil:
 
     void default   (chan *, void *)
     int chanselect (selcase *casev, int casec)
+"""

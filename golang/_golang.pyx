@@ -381,6 +381,7 @@ IF 0:   # _WaitGroup
                 self.which = waiter
                 return True
 
+"""
 # waitgroup waits for winning case of group to complete.
 # XXX -> group_wait ?
 cdef void waitgroup(_WaitGroup *group) nogil:
@@ -396,6 +397,7 @@ cdef void group_wakeup(_WaitGroup *group) nogil:
     if group.which is not NULL:
         bug("group_wakeup: group.which=nil")
     #self._sema.release()
+"""
 
 IF 0:   # _WaitGroup
     # dequeAll removes all registered waiters from their wait queues.
@@ -415,6 +417,7 @@ IF 0:   # _WaitGroup
                     pass
 ####
 
+"""
 # selcase represents one select case.
 cdef struct selcase:
     void (*op)(chan *, void *) nogil    # chansend/chanrecv/default
@@ -611,7 +614,9 @@ IF 0:
     dead.acquire()
 ####
 
+"""
 
+"""
 # ---- python interface ----
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
@@ -735,9 +740,11 @@ cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     
 #       ...
 def pyselect(*casev):
     1/0 # XXX
+"""
 
 # ----------------------------------------
 
+"""
 from libc.stdio cimport printf
 
 cdef void test() nogil:
@@ -765,3 +772,4 @@ cdef void test() nogil:
 def xtest():
     with nogil:
         test()
+"""

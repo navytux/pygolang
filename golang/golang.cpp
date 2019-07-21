@@ -125,6 +125,23 @@ struct _WaitGroup {
 };
 
 
+// wait waits for winning case of group to complete.
+void _WaitGroup::wait() {
+    _WaitGroup *group = this;
+    group._sema.acquire();
+}
+
+// wakeup wakes up the group.
+//
+// prior to wakeup try_to_win must have been called.
+// in practice this means that waiters queued to chan.{_send|_recv}q must
+// be dequeued with _dequeWaiter.
+void _WaitGroup::wakeup():
+    _WaitGroup *group = this;
+    assert group.which is not None   // XXX
+    group._sema.release();
+}
+
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
 //
 // the channel owning {_recv|_send}q must be locked.
