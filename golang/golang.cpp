@@ -622,24 +622,22 @@ void _default(_chan *_, void *__) {
 //
 // XXX try to use `...` and kill casec
 int _chanselect(_selcase *casev, int casec) {
-    panic("TODO: chanselect");
-#if 0
-    # select promise: if multiple cases are ready - one will be selected randomly
+    // select promise: if multiple cases are ready - one will be selected randomly
     ncasev = list(enumerate(casev))
     random.shuffle(ncasev)
 
-    # first pass: poll all cases and bail out in the end if default was provided
-    recvv = [] # [](n, ch, commaok)
-    sendv = [] # [](n, ch, tx)
+    // first pass: poll all cases and bail out in the end if default was provided
+    recvv = [] // [](n, ch, commaok)
+    sendv = [] // [](n, ch, tx)
     ndefault = None
     for (n, case) in ncasev:
-        # default: remember we have it
+        // default: remember we have it
         if case is default:
             if ndefault is not None:
                 panic("select: multiple default")
             ndefault = n
 
-        # send
+        // send
         elif isinstance(case, tuple):
             send, tx = case
             if im_class(send) is not chan:
@@ -648,7 +646,7 @@ int _chanselect(_selcase *casev, int casec) {
                 panic("select: send expected: %r" % (send,))
 
             ch = send.__self__
-            if ch is not nilchan:   # nil chan is never ready
+            if ch is not nilchan:   // nil chan is never ready
                 ch._mu.acquire()
                 if 1:
                     ok = ch._trysend(tx)
@@ -658,7 +656,7 @@ int _chanselect(_selcase *casev, int casec) {
 
                 sendv.append((n, ch, tx))
 
-        # recv
+        // recv
         else:
             recv = case
             if im_class(recv) is not chan:
@@ -671,7 +669,7 @@ int _chanselect(_selcase *casev, int casec) {
                 panic("select: recv expected: %r" % (recv,))
 
             ch = recv.__self__
-            if ch is not nilchan:   # nil chan is never ready
+            if ch is not nilchan:   // nil chan is never ready
                 ch._mu.acquire()
                 if 1:
                     rx_, ok = ch._tryrecv()
@@ -684,19 +682,21 @@ int _chanselect(_selcase *casev, int casec) {
 
                 recvv.append((n, ch, commaok))
 
-    # execute default if we have it
+    // execute default if we have it
     if ndefault is not None:
         return ndefault, None
 
-    # select{} or with nil-channels only -> block forever
+    // select{} or with nil-channels only -> block forever
     if len(recvv) + len(sendv) == 0:
         _blockforever()
 
-    # second pass: subscribe and wait on all rx/tx cases
+    panic("TODO: chanselect (blocking)");
+#if 0
+    // second pass: subscribe and wait on all rx/tx cases
     g = _WaitGroup()
 
-    # selected returns what was selected in g.
-    # the return signature is the one of select.
+    // selected returns what was selected in g.
+    // the return signature is the one of select.
     def selected():
         g.wait()
         sel = g.which
@@ -718,7 +718,7 @@ int _chanselect(_selcase *casev, int casec) {
         for n, ch, tx in sendv:
             ch._mu.acquire()
             with g._mu:
-                # a case that we previously queued already won
+                // a case that we previously queued already won
                 if g.which is not None:
                     ch._mu.release()
                     return selected()
@@ -726,7 +726,7 @@ int _chanselect(_selcase *casev, int casec) {
                 ok = ch._trysend(tx)
                 if ok:
                     // don't let already queued cases win
-                    g.which = "tx prepoll won"  # !None
+                    g.which = "tx prepoll won"  // !None
 
                     return n, None
 
@@ -738,7 +738,7 @@ int _chanselect(_selcase *casev, int casec) {
         for n, ch, commaok in recvv:
             ch._mu.acquire()
             with g._mu:
-                # a case that we previously queued already won
+                // a case that we previously queued already won
                 if g.which is not None:
                     ch._mu.release()
                     return selected()
@@ -746,7 +746,7 @@ int _chanselect(_selcase *casev, int casec) {
                 rx_, ok = ch._tryrecv()
                 if ok:
                     // don't let already queued cases win
-                    g.which = "rx prepoll won"  # !None
+                    g.which = "rx prepoll won"  // !None
 
                     if not commaok:
                         rx, ok = rx_
