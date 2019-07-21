@@ -24,10 +24,15 @@
 // - to provide chan<T> template that can be used as chan[T] in Cython.
 // - because Cython (currently ?) does not allow to add methods to `cdef struct`.
 
+#include "golang.h"
+
 #include <exception>
 #include <string>
 #include <string.h>
-#include "golang.h"
+
+// for semaphores (need pythread.h but it depends on PyAPI_FUNC from outside)
+#include <Python.h>
+#include <pythread.h>
 
 //#include "../3rdparty/include/linux/list.h":
 struct list_head {
@@ -82,6 +87,59 @@ void bug(const char *msg) {
 }
 
 
+// ---- semaphores ----
+
+// XXX init -> PyThread_init_thread (so that there is no concurrent calls to there)
+
+// Sema provides semaphore.
+//
+// Reuse Python semaphore implementation for portability. In Python semaphores
+// do not depend on GIL and by reusing the implementation we can offload us
+// from covering different systems.
+//
+// On POSIX, for example, Python uses sem_post/sem_wait.
+//
+// XXX recheck gevent case
+struct Sema {
+    // python calls it "lock", but it is actually a semaphore.
+    // and in particular can be released by thread different from thread that acquired it.
+    PyThread_type_lock _pysema;
+
+    Sema();
+    ~Sema();
+    void acquire();
+    void release();
+
+private:
+    Sema(const Sema&); // forbid copy
+};
+
+Sema::Sema() {
+    Sema *sema = this;
+
+    sema->_pysema = PyThread_allocate_lock();
+    if (!sema->_pysema)
+        panic("sema: alloc failed");
+}
+
+Sema::~Sema() {
+    Sema *sema = this;
+
+    PyThread_free_lock(sema->_pysema);
+    sema->_pysema = NULL;
+}
+
+void Sema::acquire() {
+    Sema *sema = this;
+    PyThread_acquire_lock(sema->_pysema, WAIT_LOCK);
+}
+
+void Sema::release() {
+    Sema *sema = this;
+    PyThread_release_lock(sema->_pysema);
+}
+
+
 // ---- channels -----
 
 // _chan is a raw channel with Go semantic.
@@ -133,7 +191,7 @@ struct _RecvSendWaiting {
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
     // ._waitv   [] of _{Send|Recv}Waiting
-    // ._sema    semaphore   used for wakeup
+    Sema _sema;     // used for wakeup
     //
     // ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
     //
@@ -150,9 +208,8 @@ struct _WaitGroup {
 
 // wait waits for winning case of group to complete.
 void _WaitGroup::wait() {
-    panic("_WaitGroup::wait: TODO");
-    //_WaitGroup *group = this;
-    //group->_sema.acquire();
+    _WaitGroup *group = this;
+    group->_sema.acquire();
 }
 
 // wakeup wakes up the group.
@@ -164,8 +221,7 @@ void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
-    //group._sema.release();
-    panic("_WaitGroup::wakeup: TODO");
+    group->_sema.release();
 }
 
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.

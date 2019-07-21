@@ -47,14 +47,17 @@ unsigned _chanlen(_chan *ch);
 
 #ifdef __cplusplus
 
+#include <exception>    // bad_alloc & co
+
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
 struct chan {
     _chan *_ch;
 
     // = nil channel if not initialized
-    chan() { _ch = NULL; }
+    chan() { _ch = 0; }
 
+    // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
     void send(T *ptx)   { _chansend(_ch, ptx);          }
@@ -68,11 +71,11 @@ template<typename T>
 chan<T> makechan(unsigned size) {
     chan<T> ch;
     ch._ch = _makechan(sizeof(T), size);
-    if (ch._ch == NULL)
+    if (ch._ch == 0)
         throw std::bad_alloc();
     return ch;
 }
 
 #endif  // __cplusplus
 
-#endif	// _PYGOLANG_GOLANG_H
+#endif  // _PYGOLANG_GOLANG_H
