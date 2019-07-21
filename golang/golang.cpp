@@ -246,6 +246,7 @@ void _chan::send(void *ptx) {
 //
 // ok is true - if receive was delivered by a successful send.
 // ok is false - if receive is due to channel being closed and empty.
+bool _chanrecv_(_chan *ch, void *prx) { return ch->recv_(prx); }
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
 
@@ -280,6 +281,7 @@ bool _chan::recv_(void *prx) { // -> ok
 // recv receives from the channel.
 //
 // received value is put into *prx.
+void _chanrecv(_chan *ch, void *prx) { ch->recv(prx); }
 void _chan::recv(void *prx) {
     _chan *ch = this;
     (void)ch->recv_(prx);

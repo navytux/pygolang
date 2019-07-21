@@ -45,6 +45,10 @@ cdef extern from "golang.h" nogil:
         _chan *_ch
         chan();
         void send(T *ptx)
+        bint recv_(T *prx)
+        void recv(T *prx)
+        void close()
+        unsigned len()
     chan[T] makechan[T](unsigned size) except +
 
 # ---- channels ----
@@ -656,21 +660,20 @@ cdef class pychan:
         # in other words: we send to recv obj and 1 reference to it.
         Py_INCREF(obj)
 
-        cdef PyObject *_obj = <PyObject *>obj
+        _obj = <PyObject *>obj
         with nogil:
             chansend_pyexc(pych.ch, &_obj)
 
-"""
     # recv_ is "comma-ok" version of recv.
     #
     # ok is true - if receive was delivered by a successful send.
     # ok is false - if receive is due to channel being closed and empty.
-    def recv_(ch): # -> (rx, ok)
+    def recv_(pych): # -> (rx, ok)
         cdef PyObject *_rx = NULL
         cdef bint ok
 
         with nogil:
-            ok = chanrecv__pyexc(ch.chan, &_rx)
+            ok = chanrecv__pyexc(pych.ch, &_rx)
 
         if not ok:
             return (None, ok)
@@ -681,9 +684,10 @@ cdef class pychan:
         return (rx, ok)
 
     # recv receives from the channel.
-    def recv(ch): # -> rx
-        rx, _ = ch.recv_()
+    def recv(pych): # -> rx
+        rx, _ = pych.recv_()
         return rx
+"""
 
     # close closes sending side of the channel.
     def close(ch):
@@ -719,8 +723,9 @@ cdef void _topyexc() except *:
 
 cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_pobj)  nogil except +_topyexc:
     ch.send(_pobj)
+cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
+    return ch.recv_(_prx)
 """
-cdef bint chanrecv__pyexc(chan *ch, PyObject **_rx) nogil except +_topyexc:     return chanrecv_(ch, _rx)
 cdef void chanclose_pyexc(chan *ch)                 nogil except +_topyexc:     chanclose(ch)
 """
 
