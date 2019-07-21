@@ -802,3 +802,27 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
     ch->_mu.release();
     return blocked;
 }
+
+
+// ---- XXX ----
+
+void test() {
+    _chan *a, *b;
+    void *tx = NULL;
+    void *rx = NULL;
+
+    selcase sel[3];
+    sel[0].op   = _chansend
+    sel[0].data = &tx
+    sel[1].op   = _chanrecv
+    sel[1].data = &rx
+    sel[2].op   = default_
+    int _ = chanselect(sel, ARRAY_SIZE(sel));
+
+    if (_ == 0)
+        printf("tx\n");
+    if (_ == 1)
+        printf("rx\n");
+    if (_ == 2)
+        printf("defaut\n");
+}
