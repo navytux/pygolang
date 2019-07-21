@@ -164,11 +164,14 @@ struct _chan {
     unsigned    _elemsize;  // size of element
 
     Sema        _mu;        // XXX need to be only Mutex
-    // ._dataq       deque *: data buffer                    XXX -> [_cap*_elemsize]
     list_head   _recvq;     // blocked receivers (_ -> _RecvSendWaiting.in_rxtxq)
     list_head   _sendq;     // blocked senders   (_ -> _RecvSendWaiting.in_rxtxq)
     bool        _closed;
 
+    // data queue (circular buffer) goes past _chan memory and occupies [_cap*elemsize] bytes.
+    unsigned    _dataq_n;   // total number of entries in dataq
+    unsigned    _dataq_r;   // index for next read  (in elements; can be used only if _dataq_n > 0)
+    unsigned    _dataq_w;   // index for next write (in elements; can be used only if _dataq_n < _cap)
 
     void send(void *ptx);
     bool recv_(void *prx);
@@ -185,8 +188,6 @@ struct _WaitGroup;
 struct _RecvSendWaiting {
     _WaitGroup  *group; // group of waiters this receiver/sender is part of
     _chan       *chan;  // channel receiver/sender is waiting on
-
-    // XXX + op
 
     list_head   in_rxtxq; // in recv or send queue of a channel (_chan._recvq|_sendq -> _)
     list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
@@ -530,8 +531,11 @@ void _chan::close() {
 // len returns current number of buffered elements.
 unsigned _chanlen(_chan *ch) { return ch->len(); }
 unsigned _chan::len() {
-    //_chan *ch = this;
-    panic("_chan::len: TODO");
+    _chan *ch = this;
+    ch->_mu.acquire(); // only to make valgrind happy
+    unsigned len = ch->_dataq_n;
+    ch->_mu.release();
+    return len;
 }
 
 
