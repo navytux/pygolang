@@ -83,6 +83,8 @@ void bug(const char *msg) {
 // and the caller must make sure to pass correct arguments.
 //
 // See chan<T> for type-safe wrapper.
+//
+// _chan is not related to Python runtime and works without GIL.
 struct _chan {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
@@ -279,4 +281,94 @@ bool _chan::_trysend(chan *ch, void *tx) { // -> ok
             recv.wakeup(rx, True)
         return True
 #endif
+}
+
+
+// _tryrecv() -> rx_=(rx, ok), ok        XXX
+//
+// must be called with ._mu held.
+// if ok or panic - returns with ._mu released.
+// if !ok - returns with ._mu still being held.
+bool _chan::_tryrecv(void *prx) { // -> ok
+    _chan& ch = this;
+    return False;
+
+#if 0
+    # buffered
+    if len(ch._dataq) > 0:
+        rx = ch._dataq.popleft()
+
+        # wakeup a blocked writer, if there is any
+        send = _dequeWaiter(ch._sendq)
+        ch._mu.release()
+        if send is not None:
+            ch._dataq.append(send.obj)
+            send.wakeup(True)
+
+        return (rx, True), True
+
+    # closed
+    if ch._closed:
+        ch._mu.release()
+        return (None, False), True
+
+    # sync | empty: there is waiting writer
+    send = _dequeWaiter(ch._sendq)
+    if send is None:
+        return (None, False), False
+
+    ch._mu.release()
+    rx = send.obj
+    send.wakeup(True)
+    return (rx, True), True
+#endif
+}
+
+// close closes sending side of the channel.
+void _chan::close(chan *ch) {
+    chan *ch = this;
+
+    if (ch == NULL)
+        panic("close of nil channel");
+
+    // XXX stub
+    if (ch._closed)
+        panic("close of closed channel");
+    ch._closed = True
+
+#if 0
+    recvv = []
+    sendv = []
+
+    with ch._mu:
+        if ch._closed:
+            panic("close of closed channel")
+        ch._closed = True
+
+        # schedule: wake-up all readers
+        while 1:
+            recv = _dequeWaiter(ch._recvq)
+            if recv is None:
+                break
+            recvv.append(recv)
+
+        # schedule: wake-up all writers (they will panic)
+        while 1:
+            send = _dequeWaiter(ch._sendq)
+            if send is None:
+                break
+            sendv.append(send)
+
+    # perform scheduled wakeups outside of ._mu
+    for recv in recvv:
+        recv.wakeup(None, False)
+    for send in sendv:
+        send.wakeup(False)
+#endif
+}
+
+// len returns current number of buffered elements.
+unsigned _chan::len() {
+    _chan *ch = this;
+    panic("TODO");
 }

@@ -235,7 +235,6 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
 #            recv.wakeup(rx, True)
 #        return True
 #####
-"""
 
 # _tryrecv() -> rx_=(rx, ok), ok        XXX
 #
@@ -319,6 +318,7 @@ IF 0:   # chanclose
 cdef unsigned chanlen(chan *ch) nogil:
     panic("TODO")
 
+"""
 
 
 
