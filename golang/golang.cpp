@@ -25,7 +25,7 @@
 
 #include <exception>
 #include <string>
-#include "panic.h"
+#include "golang.h"
 
 using std::string;
 using std::exception;

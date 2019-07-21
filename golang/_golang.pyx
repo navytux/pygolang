@@ -3,7 +3,7 @@
 # cython: binding=True
 # distutils: language = c++
 # distutils: include_dirs = ../3rdparty/include
-# distutils: sources = panic.cpp
+# distutils: sources = golang.cpp
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -34,7 +34,7 @@ cdef:
         list_head *prev
 
 
-cdef extern from "panic.h" nogil:
+cdef extern from "golang.h" nogil:
     void panic(const char *)
     const char *recover() except +
     void bug(const char *)
