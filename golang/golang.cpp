@@ -34,10 +34,11 @@
 #include <Python.h>
 #include <pythread.h>
 
-//#include "../3rdparty/include/linux/list.h":
-struct list_head {
-    list_head *next, *prev;
-};
+// XXX -> better use c.h or ccan/array_size.h ?
+#ifndef ARRAY_SIZE
+# define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+#endif
+#include "../3rdparty/include/linux/list.h"
 
 using std::string;
 using std::exception;
@@ -187,11 +188,21 @@ struct _RecvSendWaiting {
 
     // XXX + op
 
+    list_head   in_rxtxq; // in recv or send queue of a channel (_chan->_recvq|_sendq -> _)
+
     // recv: on wakeup: sender|closer -> receiver
     // send: ptr-to data to send
     void    *pdata;
     // on wakeup: whether recv/send succeeded  (send fails on close)
     bool    ok;
+
+    _RecvSendWaiting(_WaitGroup *group, _chan *ch) {
+        _RecvSendWaiting *w = this;
+        w->group = group;
+        w->chan  = ch;
+        INIT_LIST_HEAD(&w->in_rxtxq);
+        group->add_waiter(w);
+    }
 };
 
 // _WaitGroup is a group of waiting senders and receivers.
@@ -208,11 +219,17 @@ struct _WaitGroup {
     _RecvSendWaiting    *which;
 
 
-
+    _WaitGroup();
     void wait();
     void wakeup();
 };
 
+
+_WaitGroup::WaitGroup() {
+    _WaitGroup *group = this;
+    group->_sema.acquire();
+    group->which = NULL;
+}
 
 // wait waits for winning case of group to complete.
 void _WaitGroup::wait() {
@@ -263,6 +280,9 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     ch->_elemsize = elemsize;
     ch->_closed   = false;
 
+    INIT_LIST_HEAD(&ch->_recvq);
+    INIT_LIST_HEAD(&ch->_sendq);
+
     return ch;
 }
 
@@ -280,23 +300,17 @@ void _chan::send(void *ptx) {
     if (ch == NULL)
         _blockforever();
 
-    _WaitGroup         g;
-    _RecvSendWaiting   me;
-
     ch->_mu.acquire();
-    if (1) {
         bool ok = ch->_trysend(ptx);
         if (ok)
             return;
 
-        g.which     = NULL;
-        me.group    = &g;
-        me.chan     = ch;
+        _WaitGroup         g;
+        _RecvSendWaiting   me(&g, ch);
         me.pdata    = ptx;
         me.ok       = false;
-        //g._waitv.append(me)
-        //ch._sendq.append(me)
-    }
+
+        list_add_tail(&me.in_rxtxq, &ch->_sendq);
     ch->_mu.release();
 
     g.wait();
@@ -317,23 +331,17 @@ bool _chan::recv_(void *prx) { // -> ok
     if (ch == NULL)
         _blockforever();
 
-    _WaitGroup         g;
-    _RecvSendWaiting   me;
-
     ch->_mu.acquire();
-    if (1) {
         bool ok = ch->_tryrecv(prx);
         if (ok)
             return ok;
 
-        g.which     = NULL;
-        me.group    = &g;
-        me.chan     = ch;
+        _WaitGroup         g;
+        _RecvSendWaiting   me(&g, ch);
         me.pdata    = prx;
         me.ok       = false;
-        //g._waitv.append(me)
-        //ch._recvq.append(me)
-    }
+
+        list_add_tail(&me.in_rxtxq, &ch->_recvq);
     ch->_mu.release();
 
     g.wait();
