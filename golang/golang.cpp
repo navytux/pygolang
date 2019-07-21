@@ -375,9 +375,9 @@ bool _chan::recv_(void *prx) { // -> ok
 
     printf("recv: -> g.wait()...\n");
     g.wait();
-    printf("recv: -> woken up\n");
     if (g.which != &me)
         bug("chanrecv: g.which != me");
+    printf("recv: -> woken up;  ok=%i\n", me.ok);
     return me.ok;
 }
 
@@ -476,6 +476,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
 
     ch->_mu.release();
     memcpy(prx, send->pdata, ch->_elemsize);
+    *pok = true;
     // XXX vvv was send.wakeup(true)
     send->ok = true;
     send->group->wakeup();
