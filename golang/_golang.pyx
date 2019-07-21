@@ -639,12 +639,10 @@ pynilchan = nilchan
 
 # pychan is chan<object>
 cdef class pychan:
-    #cdef chan[PyObject*] ch
-    cdef chan[PyObject] ch
+    cdef chan[PyObject*] ch
 
     def __cinit__(pych, size=0):
-        #pych.ch = makechan[PyObject*](size)
-        pych.ch = makechan[PyObject](size)
+        pych.ch = makechan[PyObject*](size)
 
         #pych.ch = chan[PyObject*](size)
         #pych.ch = (new chan[PyObject*](size))[0]

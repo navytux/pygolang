@@ -186,8 +186,8 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
 */
 }
 
-// makechan creates new chan<elemsize>(size).
-_chan *makechan(unsigned elemsize, unsigned size) {
+// _makechan creates new _chan(elemsize, size).
+_chan *_makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
     ch = (_chan *)malloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)

@@ -1,5 +1,5 @@
-#ifndef	_PYGOLANG_PANIC_H
-#define	_PYGOLANG_PANIC_H
+#ifndef	_PYGOLANG_GOLANG_H
+#define	_PYGOLANG_GOLANG_H
 
 // Copyright (C) 2018-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
@@ -19,6 +19,8 @@
 //
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
+
+// ---- C-level API that is always available ----
 
 #ifdef	__cplusplus
 extern "C" {
@@ -40,6 +42,10 @@ unsigned _chanlen(_chan *ch);
 }
 #endif
 
+
+// ---- C++-level API that is available when compiling with C++ ----
+
+#ifdef __cplusplus
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -67,4 +73,6 @@ chan<T> makechan(unsigned size) {
         throw std::bad_alloc();
 }
 
-#endif	// _PYGOLANG_PANIC_H
+#endif  // __cplusplus
+
+#endif	// _PYGOLANG_GOLANG_H
