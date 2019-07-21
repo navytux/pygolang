@@ -421,10 +421,10 @@ bool _chan::_trysend(void *ptx) { // -> ok
         recv->group->wakeup();
         return true;
     }
-    return false;    // XXX stub
-#if 0
     // buffered channel
-    else:
+    else {
+        panic("TODO: _trysend (buffered)");
+#if 0
         if len(ch._dataq) >= ch._cap:
             return false
 
@@ -436,6 +436,7 @@ bool _chan::_trysend(void *ptx) { // -> ok
             recv.wakeup(rx, true)
         return true
 #endif
+    }
 }
 
 
@@ -450,8 +451,9 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
     _chan *ch = this;
 
     // buffered
+    if (ch->_dataq_n > 0) {
+        panic("TODO: _tryrecv (buffered)");
 #if 0
-    if len(ch._dataq) > 0:
         rx = ch._dataq.popleft()
 
         # wakeup a blocked writer, if there is any
@@ -463,6 +465,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
 
         return (rx, true), true
 #endif
+    }
 
     // closed
     if (ch->_closed) {
