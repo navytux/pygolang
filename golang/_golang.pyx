@@ -4,6 +4,7 @@
 # distutils: language = c++
 # distutils: include_dirs = ../3rdparty/include
 # distutils: sources = golang.cpp
+# distutils: depends = golang.h
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
