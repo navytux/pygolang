@@ -493,40 +493,38 @@ void _chan::close() {
     if (ch == NULL)
         panic("close of nil channel");
 
-    // XXX stub
-    if (ch->_closed)
-        panic("close of closed channel");
-    ch->_closed = true;
+    ch->_mu.acquire();
+        if (ch->_closed)
+            panic("close of closed channel");
+        ch->_closed = true;
 
-#if 0
-    recvv = []
-    sendv = []
+        // wake-up all readers
+        while (1) {
+            _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
+            if (recv == NULL)
+                break;
 
-    with ch._mu:
-        if ch._closed:
-            panic("close of closed channel")
-        ch._closed = true
+            ch->_mu.release();
+            // XXX was recv.wakeup(None, false)
+            memset(recv->pdata, 0, ch->_elemsize);
+            recv->ok = false;
+            recv->group->wakeup();
+            ch->_mu.acquire();
+        }
 
-        # schedule: wake-up all readers
-        while 1:
-            recv = _dequeWaiter(ch._recvq)
-            if recv is None:
-                break
-            recvv.append(recv)
+        // wake-up all writers (they will panic)
+        while (1) {
+            _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
+            if (send == NULL)
+                break;
 
-        # schedule: wake-up all writers (they will panic)
-        while 1:
-            send = _dequeWaiter(ch._sendq)
-            if send is None:
-                break
-            sendv.append(send)
-
-    # perform scheduled wakeups outside of ._mu
-    for recv in recvv:
-        recv.wakeup(None, false)
-    for send in sendv:
-        send.wakeup(false)
-#endif
+            ch->_mu.release();
+            // XXX was send.wakeup(false)
+            send->ok = false;
+            send->group->wakeup();
+            ch->_mu.acquire();
+        }
+    ch->_mu.release();
 }
 
 // len returns current number of buffered elements.
