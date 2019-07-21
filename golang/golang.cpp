@@ -91,6 +91,8 @@ void bug(const char *msg) {
 
 // init -> PyThread_init_thread (so that there is no concurrent calls to
 // PyThread_init_thread from e.g. PyThread_allocate_lock)
+//
+// XXX -> explicit call from golang -> and detect gevent'ed envirtnment from there.
 static struct _init_pythread {
     _init_pythread() {
         PyThread_init_thread();
@@ -103,7 +105,7 @@ static struct _init_pythread {
 // do not depend on GIL and by reusing the implementation we can offload us
 // from covering different systems.
 //
-// On POSIX, for example, Python uses sem_post/sem_wait.
+// On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
 //
 // XXX recheck gevent case
 struct Sema {
@@ -117,7 +119,7 @@ struct Sema {
     void release();
 
 private:
-    Sema(const Sema&); // forbid copy
+    Sema(const Sema&); // dont copy
 };
 
 Sema::Sema() {
@@ -160,7 +162,7 @@ struct _chan {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
-    // ._mu          lock                                    XXX -> _OSMutex (that can synchronize in between Procs) ?
+    Sema        _mu;        // XXX need to be only Mutex
     // ._dataq       deque *: data buffer                    XXX -> [_cap*_elemsize]
     list_head   _recvq;     // blocked receivers _ -> _RecvSendWaiting.XXX
     list_head   _sendq;     // blocked senders   _ -> _RecvSendWaiting.XXX
@@ -197,7 +199,7 @@ struct _RecvSendWaiting {
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
     // ._waitv   [] of _{Send|Recv}Waiting
-    Sema _sema;     // used for wakeup
+    Sema _sema;     // used for wakeup (must be semaphore)
     //
     // ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
     //
@@ -254,7 +256,8 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     ch = (_chan *)malloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         return NULL;
-    memset(ch, 0, sizeof(*ch));
+    memset((void *)ch, 0, sizeof(*ch));
+    new (&ch->_mu) Sema();
 
     ch->_cap      = size;
     ch->_elemsize = elemsize;
@@ -280,7 +283,7 @@ void _chan::send(void *ptx) {
     _WaitGroup         g;
     _RecvSendWaiting   me;
 
-    //ch._mu.acquire()
+    ch->_mu.acquire();
     if (1) {
         bool ok = ch->_trysend(ptx);
         if (ok)
@@ -294,8 +297,7 @@ void _chan::send(void *ptx) {
         //g._waitv.append(me)
         //ch._sendq.append(me)
     }
-
-    //ch._mu.release()
+    ch->_mu.release();
 
     g.wait();
     if (g.which != &me)
@@ -318,7 +320,7 @@ bool _chan::recv_(void *prx) { // -> ok
     _WaitGroup         g;
     _RecvSendWaiting   me;
 
-    //ch._mu.acquire()
+    ch->_mu.acquire();
     if (1) {
         bool ok = ch->_tryrecv(prx);
         if (ok)
@@ -332,7 +334,7 @@ bool _chan::recv_(void *prx) { // -> ok
         //g._waitv.append(me)
         //ch._recvq.append(me)
     }
-    //ch._mu.release()
+    ch->_mu.release();
 
     g.wait();
     if (g.which != &me)
@@ -360,7 +362,7 @@ bool _chan::_trysend(void *tx) { // -> ok
     _chan *ch = this;
 
     if (ch->_closed) {
-        //ch._mu.release()
+        ch->_mu.release();
         panic("send on closed channel");
     }
 
@@ -370,7 +372,7 @@ bool _chan::_trysend(void *tx) { // -> ok
         if (recv == NULL)
             return false;
 
-        //ch._mu.release()
+        ch->_mu.release();
         // XXX vvv was recv->wakeup(tx, true);
         // XXX copy tx -> recv.data
         recv->ok = true;
