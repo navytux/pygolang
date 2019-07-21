@@ -165,8 +165,8 @@ struct _chan {
 
     Sema        _mu;        // XXX need to be only Mutex
     // ._dataq       deque *: data buffer                    XXX -> [_cap*_elemsize]
-    list_head   _recvq;     // blocked receivers _ -> _RecvSendWaiting.XXX
-    list_head   _sendq;     // blocked senders   _ -> _RecvSendWaiting.XXX
+    list_head   _recvq;     // blocked receivers (_ -> _RecvSendWaiting.in_rxtxq)
+    list_head   _sendq;     // blocked senders   (_ -> _RecvSendWaiting.in_rxtxq)
     bool        _closed;
 
 
@@ -188,7 +188,8 @@ struct _RecvSendWaiting {
 
     // XXX + op
 
-    list_head   in_rxtxq; // in recv or send queue of a channel (_chan->_recvq|_sendq -> _)
+    list_head   in_rxtxq; // in recv or send queue of a channel (_chan._recvq|_sendq -> _)
+    list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
 
     // recv: on wakeup: sender|closer -> receiver
     // send: ptr-to data to send
@@ -203,8 +204,8 @@ struct _RecvSendWaiting {
 //
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
-    // ._waitv   [] of _{Send|Recv}Waiting
-    Sema _sema;     // used for wakeup (must be semaphore)
+    list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
+    Sema       _sema;   // used for wakeup (must be semaphore)
     //
     // ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
     //
@@ -214,6 +215,7 @@ struct _WaitGroup {
 
 
     _WaitGroup();
+    void add_waiter(_RecvSendWaiting *w);
     void wait();
     void wakeup();
 };
@@ -225,11 +227,13 @@ _RecvSendWaiting::_RecvSendWaiting(_WaitGroup *group, _chan *ch) {
     w->group = group;
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
-    group->add_waiter(w);
+    INIT_LIST_HEAD(&w->in_group);
+    list_add_tail(&w->in_group, &group->waitq);
 }
 
 _WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
+    INIT_LIST_HEAD(&group->waitq);
     group->_sema.acquire();
     group->which = NULL;
 }
