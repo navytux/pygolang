@@ -413,11 +413,11 @@ bool _chan::_trysend(void *tx) { // -> ok
 }
 
 
-// _tryrecv() -> rx_=(rx, ok), ready        XXX
+// _tryrecv() -> rx_=(rx, ok), ready
 //
 // must be called with ._mu held.
-// if ok or panic - returns with ._mu released.
-// if !ok - returns with ._mu still being held.
+// if ready or panic - returns with ._mu released.
+// if !ready - returns with ._mu still being held.
 bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
     _chan *ch = this;
 
