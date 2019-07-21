@@ -759,7 +759,7 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_t
 #       # default case
 #       ...
 def pyselect(*casev):
-    pypanic("TODO")
+    pypanic("TODO: pyselect")
 
 
 # ---- for py tests ----

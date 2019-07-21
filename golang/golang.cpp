@@ -587,14 +587,6 @@ void _chan::_dataq_popleft(void *prx) {
 
 // ---- select ----
 
-// _selcase represents one _select case.
-struct _selcase {
-    _chan *ch;                      // channel
-    void  (*op)(_chan *, void *);   // chansend/chanrecv/default
-    void  *data;                    // chansend: tx; chanrecv: rx
-    bool  ok;                       // comma-ok for rx
-};
-
 // _default represents default case for _select.
 void _default(_chan *_, void *__) {
     panic("_default must not be called");
@@ -808,13 +800,13 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
 // ---- XXX ----
 
 void test() {
-    _chan *a, *b;
+    _chan *a = NULL, *b = NULL;
     int tx = 1;
     int rx;
 
     _selcase sel[3];
     sel[0].ch   = a;
-    sel[0].op   = _chansend;
+//  sel[0].op   = _chansend;
     sel[0].data = &tx;
     sel[1].ch   = b;
     sel[1].op   = _chanrecv;
@@ -829,3 +821,16 @@ void test() {
     if (_ == 2)
         printf("defaut\n");
 }
+
+#if 0
+void testcpp() {
+    chan<int> a, b;
+    int tx = 1;
+    int rx;
+
+    selcase sel[3];
+    sel[0] = {a.send, 1};
+    sel[1] = {b.recv};
+    sel[2] = default_;
+}
+#endif

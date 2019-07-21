@@ -38,6 +38,16 @@ void _chanrecv(_chan *ch, void *prx);
 void _chanclose(_chan *ch);
 unsigned _chanlen(_chan *ch);
 
+// _selcase represents one _select case.
+struct _selcase {
+    _chan *ch;                      // channel
+    void  (*op)(_chan *, void *);   // chansend/chanrecv/default
+    void  *data;                    // chansend: tx; chanrecv: rx
+    bool  rxok;                     // tx: unused; rx: comma-ok after recv_
+};
+
+void _default(_chan *, void *);
+
 bool _tchanblocked(_chan *ch, bool recv, bool send);
 
 #ifdef __cplusplus
