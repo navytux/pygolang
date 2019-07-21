@@ -196,13 +196,7 @@ struct _RecvSendWaiting {
     // on wakeup: whether recv/send succeeded  (send fails on close)
     bool    ok;
 
-    _RecvSendWaiting(_WaitGroup *group, _chan *ch) {
-        _RecvSendWaiting *w = this;
-        w->group = group;
-        w->chan  = ch;
-        INIT_LIST_HEAD(&w->in_rxtxq);
-        group->add_waiter(w);
-    }
+    _RecvSendWaiting(_WaitGroup *group, _chan *ch);
 };
 
 // _WaitGroup is a group of waiting senders and receivers.
@@ -225,7 +219,16 @@ struct _WaitGroup {
 };
 
 
-_WaitGroup::WaitGroup() {
+// XXX place=?
+_RecvSendWaiting::_RecvSendWaiting(_WaitGroup *group, _chan *ch) {
+    _RecvSendWaiting *w = this;
+    w->group = group;
+    w->chan  = ch;
+    INIT_LIST_HEAD(&w->in_rxtxq);
+    group->add_waiter(w);
+}
+
+_WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
     group->_sema.acquire();
     group->which = NULL;
@@ -292,7 +295,7 @@ void _blockforever();
 
 // send sends data to a receiver.
 //
-// sizeof(*ptx) must be ch._elemsize | ptx=NULL.
+// sizeof(*ptx) must be ch._elemsize.
 void _chansend(_chan *ch, void *ptx) { ch->send(ptx); }
 void _chan::send(void *ptx) {
     _chan *ch = this;
@@ -324,6 +327,8 @@ void _chan::send(void *ptx) {
 //
 // ok is true - if receive was delivered by a successful send.
 // ok is false - if receive is due to channel being closed and empty.
+//
+// sizeof(*prx) must be ch._elemsize | prx=NULL.
 bool _chanrecv_(_chan *ch, void *prx) { return ch->recv_(prx); }
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
