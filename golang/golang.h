@@ -38,6 +38,8 @@ void _chanrecv(_chan *ch, void *prx);
 void _chanclose(_chan *ch);
 unsigned _chanlen(_chan *ch);
 
+bool _tchanblocked(_chan *ch, bool recv, bool send);
+
 #ifdef __cplusplus
 }
 #endif

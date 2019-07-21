@@ -27,8 +27,9 @@ import os, sys, time, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
-from golang import _chan_recv, _chan_send
-from golang._pycompat import im_class
+from golang._golang import _waitBlocked as waitBlocked
+#from golang import _chan_recv, _chan_send
+#from golang._pycompat import im_class
 
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
@@ -59,6 +60,7 @@ def bench_go(b):
         done.recv()
 
 
+"""
 # waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
 # For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
@@ -85,9 +87,11 @@ def waitBlocked(chanop):
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
             panic("deadlock")
         time.sleep(0)   # yield to another thread / coroutine
+"""
 
 
 def test_chan():
+    print()
     # sync: pre-close vs send/recv
     ch = chan()
     ch.close()
@@ -97,17 +101,27 @@ def test_chan():
     with panics("send on closed channel"):  ch.send(0)
     with panics("close of closed channel"): ch.close()
 
+    print('000')
+
     # sync: send vs recv
     ch = chan()
     def _():
         ch.send(1)
         assert ch.recv() == 2
+        print('...')
         ch.close()
+        print(',,,')
     go(_)
+    print('aaa')
     assert ch.recv() == 1
+    print('bbb')
     ch.send(2)
+    print('ccc')
     assert ch.recv_() == (None, False)
+    print('ddd')
     assert ch.recv_() == (None, False)
+
+    print('111')
 
     # sync: close vs send
     ch = chan()

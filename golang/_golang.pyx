@@ -25,6 +25,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from __future__ import print_function, absolute_import
+
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset
 
@@ -693,7 +695,7 @@ cdef class pychan:
         chanclose_pyexc(pych.ch)
 
     def __len__(pych):
-        return pych.ch.len()
+        return chanlen_pyexc(pych.ch)
 
     def __repr__(pych):
         if pych.ch._ch == NULL:
@@ -725,6 +727,9 @@ cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_t
     return ch.recv_(_prx)
 cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
     ch.close()
+cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_topyexc:
+    return ch.len()
+
 
 # pyselect executes one ready send or receive channel case.
 #
@@ -755,6 +760,54 @@ cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_t
 #       ...
 def pyselect(*casev):
     pypanic("TODO")
+
+
+# ---- for py tests ----
+
+from golang._pycompat import im_class
+import six, time
+
+# unbound pychan.{send,recv,recv_}
+_pychan_send  = pychan.send
+_pychan_recv  = pychan.recv
+_pychan_recv_ = pychan.recv_
+if six.PY2:
+    # on py3 class.func gets the func; on py2 - unbound_method(func)
+    _pychan_send  = _pychan_send.__func__
+    _pychan_recv  = _pychan_recv.__func__
+    _pychan_recv_ = _pychan_recv_.__func__
+
+cdef extern from "golang.h" nogil:
+    bint _tchanblocked(_chan *ch, bint recv, bint send)
+
+# _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
+#
+# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
+def _waitBlocked(chanop):
+    if im_class(chanop) is not pychan:
+        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
+    cdef pychan pych = chanop.__self__
+    cdef bint recv = False
+    cdef bint send = False
+    if chanop.__func__ is _pychan_recv:
+        recv = True
+    elif chanop.__func__ is _pychan_send:
+        send = True
+    else:
+        pypanic("wait blocked: unexpected chan method: %r" % (chanop,))
+
+    cdef _chan *_ch = pych.ch._ch
+    if _ch == NULL:
+        pypanic("wait blocked: called on nil channel")
+
+    t0 = time.time()
+    while 1:
+        if _tchanblocked(_ch, recv, send):
+            return
+        now = time.time()
+        if now-t0 > 10: # waited > 10 seconds - likely deadlock
+            pypanic("deadlock")
+        time.sleep(0)   # yield to another thread / coroutine
 
 # ----------------------------------------
 
