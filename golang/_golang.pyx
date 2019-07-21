@@ -43,6 +43,7 @@ cdef extern from "golang.h" nogil:
 
 # XXX nogil globally?
 
+"""
 cdef struct _WaitGroup
 
 # chan is a channel with Go semantic.
@@ -234,6 +235,7 @@ cdef bint _trysend(chan *ch, void *tx) nogil:
 #            recv.wakeup(rx, True)
 #        return True
 #####
+"""
 
 # _tryrecv() -> rx_=(rx, ok), ok        XXX
 #
