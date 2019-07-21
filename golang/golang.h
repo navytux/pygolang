@@ -28,29 +28,37 @@ void panic(const char *arg);
 const char *recover();
 void bug(const char *arg);
 
+struct _chan;
+_chan *makechan(unsigned elemsize, unsigned size);
+void chansend(_chan *ch, void *ptx);
+bool chanrecv_(_chan *ch, void *prx);
+void chanrecv(_chan *ch, void *prx);
+void chanclose(_chan *ch);
+unsigned chanlen(_chan *ch);
+
 #ifdef __cplusplus
 }
 #endif
 
+
 // chan<T> provides type-safe wrapper over _chan.
-struct _chan;
 template<typename T>
 struct chan {
-    _chan *ch;
+    _chan *_ch;
 
     chan(unsigned size) {
-        ch = makechan(sizeof(T), size);
-        if (ch == NULL)
+        _ch = makechan(sizeof(T), size);
+        if (_ch == NULL)
             throw std::bad_alloc();
     }
 
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    void send(T *ptx)   { ch->send(ptx);            }
-    bool recv_(T *prx)  { return ch->recv_(prx);    }
-    void recv(T *prx)   { ch->recv(prx);            }
-    void close()        { ch->close();              }
-    unsigned len()      { return ch->len();         }
+    void send(T *ptx)   { chansend(_ch, ptx);           }
+    bool recv_(T *prx)  { return chanrecv_(_ch, prx);   }
+    void recv(T *prx)   { chanrecv(_ch, prx);           }
+    void close()        { chanclose(_ch);               }
+    unsigned len()      { return chanlen(_ch);          }
 };
 
 #endif	// _PYGOLANG_PANIC_H

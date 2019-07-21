@@ -39,6 +39,10 @@ cdef extern from "golang.h" nogil:
     const char *recover() except +
     void bug(const char *)
 
+    struct _chan
+    cdef cppclass chan[T]:
+        _chan *_ch
+
 # ---- channels ----
 
 # XXX nogil globally?
@@ -616,7 +620,6 @@ IF 0:
 
 """
 
-"""
 # ---- python interface ----
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
@@ -628,16 +631,17 @@ pydefault  = object()
 #
 # On nil channel: send/recv block forever; close panics.
 cdef pychan nilchan = pychan()
-free(nilchan.chan)
-nilchan.chan = NULL
+free(nilchan.chan._ch)  # XXX vs _ch being shared_ptr ?
+nilchan.chan._ch = NULL
 pynilchan = nilchan
 
 # pychan is chan<object>
 cdef class pychan:
-    cdef chan *chan
+    cdef chan[PyObject*] ch
 
-    def __init__(ch, size=0):
-        ch.chan = makechan(sizeof(PyObject*), size)
+"""
+    def __init__(pych, size=0):
+        pych.ch = makechan(sizeof(PyObject*), size)
         if ch.chan == NULL:
             raise MemoryError()
 
