@@ -37,6 +37,7 @@ struct list_head {
 using std::string;
 using std::exception;
 
+
 // ---- panic ----
 
 // panic throws exception that represents C-level panic.
@@ -100,6 +101,15 @@ struct _chan {
     list_head   _recvq;     // blocked receivers _ -> _RecvSendWaiting.XXX
     list_head   _sendq;     // blocked senders   _ -> _RecvSendWaiting.XXX
     bool        _closed;
+
+
+    void send(void *ptx);
+    bool recv_(void *prx);
+    void recv(void *prx);
+    bool _trysend(void *tx);
+    bool _tryrecv(void *prx);
+    void close();
+    unsigned len();
 };
 
 struct _WaitGroup;
@@ -130,13 +140,19 @@ struct _WaitGroup {
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     _RecvSendWaiting    *which;
+
+
+
+    void wait();
+    void wakeup();
 };
 
 
 // wait waits for winning case of group to complete.
 void _WaitGroup::wait() {
-    _WaitGroup *group = this;
-    group._sema.acquire();
+    panic("TODO");
+    //_WaitGroup *group = this;
+    //group->_sema.acquire();
 }
 
 // wakeup wakes up the group.
@@ -146,9 +162,10 @@ void _WaitGroup::wait() {
 // be dequeued with _dequeWaiter.
 void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
-    if (group.which == NULL)
+    if (group->which == NULL)
         bug("wakeup: group.which=nil");
-    group._sema.release();
+    //group._sema.release();
+    panic("TODO");
 }
 
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
@@ -185,6 +202,9 @@ _chan *makechan(unsigned elemsize, unsigned size) {
 }
 
 
+void _blockforever();
+
+
 // send sends data to a receiver.
 //
 // sizeof(*ptx) must be ch._elemsize | ptx=NULL.
@@ -194,29 +214,29 @@ void _chan::send(void *ptx) {
     if (ch == NULL)
         _blockforever();
 
-    cdef _WaitGroup         g
-    cdef _RecvSendWaiting   me
+    _WaitGroup         g;
+    _RecvSendWaiting   me;
 
     //ch._mu.acquire()
     if (1) {
-        ok = _trysend(ch, ptx)
-        if ok:
-            return
+        bool ok = ch->_trysend(ptx);
+        if (ok)
+            return;
 
-        g.which     = NULL
-        me.group    = &g
-        me.chan     = ch
-        me.pdata    = ptx
-        me.ok       = false
+        g.which     = NULL;
+        me.group    = &g;
+        me.chan     = ch;
+        me.pdata    = ptx;
+        me.ok       = false;
         //g._waitv.append(me)
         //ch._sendq.append(me)
     }
 
     //ch._mu.release()
 
-    waitgroup(&g)
-    if (g.which != &me):
-        bug("chansend: g.which != me")
+    g.wait();
+    if (g.which != &me)
+        bug("chansend: g.which != me");
     if (!me.ok)
         panic("send on closed channel");
 }
@@ -231,26 +251,26 @@ bool _chan::recv_(void *prx) { // -> ok
     if (ch == NULL)
         _blockforever();
 
-    cdef _WaitGroup         g
-    cdef _RecvSendWaiting   me
+    _WaitGroup         g;
+    _RecvSendWaiting   me;
 
     //ch._mu.acquire()
-    if 1 {
-        ok = _tryrecv(ch, prx)
-        if ok:
-            return ok
+    if (1) {
+        bool ok = ch->_tryrecv(prx);
+        if (ok)
+            return ok;
 
-        g.which     = NULL
-        me.group    = &g
-        me.chan     = ch
-        me.pdata    = prx
-        me.ok       = false
+        g.which     = NULL;
+        me.group    = &g;
+        me.chan     = ch;
+        me.pdata    = prx;
+        me.ok       = false;
         //g._waitv.append(me)
         //ch._recvq.append(me)
     }
     //ch._mu.release()
 
-    waitgroup(&g);
+    g.wait();
     if (g.which != &me)
         bug("chanrecv: g.which != me");
     return me.ok;
@@ -259,11 +279,9 @@ bool _chan::recv_(void *prx) { // -> ok
 // recv receives from the channel.
 //
 // received value is put into *prx.
-void _chan::recv(chan *ch, void *prx) {
-    _chan& ch = this;
-    bool _;
-
-    _ = ch.recv_(ch, prx);
+void _chan::recv(void *prx) {
+    _chan *ch = this;
+    (void)ch->recv_(prx);
     return;
 }
 
@@ -273,25 +291,26 @@ void _chan::recv(chan *ch, void *prx) {
 // must be called with ._mu held.
 // if ok or panic - returns with ._mu released.
 // if !ok - returns with ._mu still being held.
-bool _chan::_trysend(chan *ch, void *tx) { // -> ok
-    _chan& ch = this;
+bool _chan::_trysend(void *tx) { // -> ok
+    _chan *ch = this;
 
-    if (ch._closed) {
+    if (ch->_closed) {
         //ch._mu.release()
         panic("send on closed channel");
     }
 
     // synchronous channel
-    if (ch._cap == 0):
-        recv = _dequeWaiter(&ch._recvq)
-        if recv is NULL:
-            return false
+    if (ch->_cap == 0) {
+        _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
+        if (recv == NULL)
+            return false;
 
         //ch._mu.release()
+        // XXX vvv was recv->wakeup(tx, true);
         // XXX copy tx -> recv.data
-        //recv.wakeup(obj, true)
-        group_wakeup(recv.group)
-        return true
+        recv->ok = true;
+        recv->group->wakeup();
+        return true;
     }
 #if 0
     # buffered channel
@@ -316,10 +335,11 @@ bool _chan::_trysend(chan *ch, void *tx) { // -> ok
 // if ok or panic - returns with ._mu released.
 // if !ok - returns with ._mu still being held.
 bool _chan::_tryrecv(void *prx) { // -> ok
-    _chan& ch = this;
     return false;
 
 #if 0
+    _chan *ch = this;
+
     # buffered
     if len(ch._dataq) > 0:
         rx = ch._dataq.popleft()
@@ -351,16 +371,16 @@ bool _chan::_tryrecv(void *prx) { // -> ok
 }
 
 // close closes sending side of the channel.
-void _chan::close(chan *ch) {
-    chan *ch = this;
+void _chan::close() {
+    _chan *ch = this;
 
     if (ch == NULL)
         panic("close of nil channel");
 
     // XXX stub
-    if (ch._closed)
+    if (ch->_closed)
         panic("close of closed channel");
-    ch._closed = true
+    ch->_closed = true;
 
 #if 0
     recvv = []
@@ -395,6 +415,20 @@ void _chan::close(chan *ch) {
 
 // len returns current number of buffered elements.
 unsigned _chan::len() {
-    _chan *ch = this;
+    //_chan *ch = this;
     panic("TODO");
+}
+
+
+// _blockforever blocks current goroutine forever.
+void _blockforever() {
+    panic("TODO");
+#if 0
+    // take a lock twice. It will forever block on the second lock attempt.
+    // Under gevent, similarly to Go, this raises "LoopExit: This operation
+    // would block forever", if there are no other greenlets scheduled to be run.
+    dead = threading.Lock()
+    dead.acquire()
+    dead.acquire()
+#endif
 }
