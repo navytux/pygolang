@@ -790,7 +790,7 @@ def pyselect(*pycasev):
     cdef pychan pych
     cdef pPyObject _rx = NULL
     cdef cbool rxok = False
-    cdef bint commaok
+    cdef bint commaok = False # init: silence "used not initialized" warning
 
     # prepare casev for chanselect
     for i in range(n):
