@@ -227,7 +227,8 @@ struct _RecvSendWaiting {
     // this case is used in its select as case #sel_n
     int     sel_n;
 
-    _RecvSendWaiting(_WaitGroup *group, _chan *ch);
+    _RecvSendWaiting();
+    void init(_WaitGroup *group, _chan *ch);
 private:
     _RecvSendWaiting(const _RecvSendWaiting&);  // dont copy
 };
@@ -254,9 +255,19 @@ private:
 };
 
 
+// Default _RecvSendWaiting ctor creates zero-value _RecvSendWaiting.
+// zero value _RecvSendWaiting is invalid and must be initialized via .init before use.
 // XXX place=?
-_RecvSendWaiting::_RecvSendWaiting(_WaitGroup *group, _chan *ch) {
+_RecvSendWaiting::_RecvSendWaiting() {
     _RecvSendWaiting *w = this;
+    bzero((void *)w, sizeof(*w));
+}
+
+// init initializes waiter to be part of group waiting on ch.
+void _RecvSendWaiting::init(_WaitGroup *group, _chan *ch) {
+    _RecvSendWaiting *w = this;
+    if (w->group != NULL)
+        bug("_RecvSendWaiting: double init");
     w->group = group;
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
@@ -368,7 +379,7 @@ void _chan::send(const void *ptx) {
             return;
 
         _WaitGroup         g;
-        _RecvSendWaiting   me(&g, ch);
+        _RecvSendWaiting   me; me.init(&g, ch);
         me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
         me.ok       = false;
 
@@ -405,7 +416,7 @@ bool _chan::recv_(void *prx) { // -> ok
         }
 
         _WaitGroup         g;
-        _RecvSendWaiting   me(&g, ch);
+        _RecvSendWaiting   me; me.init(&g, ch);
         me.pdata    = prx;
         me.ok       = false;
 
@@ -728,6 +739,9 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
+    vector<_RecvSendWaiting>  waitv; // storage for waiters we create
+    waitv.reserve(casec);            // the memory must _not_ move
+    // XXX defer deque all from waitv
 
     int selected = -1;
     for (auto n : nv) {
@@ -751,16 +765,21 @@ int _chanselect(const _selcase *casev, int casec) {
                 bool done = ch->_trysend(cas->data);
                 if (done) {
                     // don't let already queued cases win
-                    g.which = "tx prepoll won"  // !NULL    XXX -> current waiter?
+                    g.which = "tx prepoll won"; // !NULL    XXX -> current waiter?
                     selected = n;
                     break;
                 }
 
-                // FIXME bad - need to retain w live while select is running
-                _RecvSendWaiting  w(&g, ch);
-                w.pdata = cas->data;
-                w.ok    = false;
-                w.sel_n = n;
+                auto l = waitv.size()
+                if (l >= casec)
+                    bug("select: waitv overflow");
+                waitv.resize(l+1);
+                _RecvSendWaiting *w = &waitv[l];
+
+                w->init(&g, ch);
+                w->pdata = cas->data;
+                w->ok    = false;
+                w->sel_n = n;
 
                 list_add_tail(&w.in_rxtxq, &ch->_sendq);
             }
@@ -772,7 +791,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
                     // don't let already queued cases win
-                    g.which = "rx prepoll won"  // !NULL    XXX -> current waiter?
+                    g.which = "rx prepoll won"; // !NULL    XXX -> current waiter?
 
                     if (commaok)
                         *cas->rxok = ok;
@@ -780,11 +799,16 @@ int _chanselect(const _selcase *casev, int casec) {
                     break;
                 }
 
-                // FIXME bad - need to retain w live while select is running
-                _RecvSendWaiting  w(&g, ch);
-                w.pdata = cas->data;
-                w.ok    = false;
-                w.sel_n = n;
+                auto l = waitv.size()
+                if (l >= casec)
+                    bug("select: waitv overflow");
+                waitv.resize(l+1);
+                _RecvSendWaiting *w = &waitv[l];
+
+                w->init(&g, ch);
+                w->pdata = cas->data;
+                w->ok    = false;
+                w->sel_n = n;
 
                 list_add_tail(&w.in_rxtxq, &ch->_recvq);
             }
@@ -804,7 +828,7 @@ int _chanselect(const _selcase *casev, int casec) {
     }
 
     const _selcase *cas = &casev[selected];
-    if (cas.op == _CHANSEND) {
+    if (cas->op == _CHANSEND) {
         if (!sel.ok)
             panic("send on closed channel zzz");    // XXX
         return selected;
