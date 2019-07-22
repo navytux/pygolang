@@ -354,9 +354,9 @@ cdef void test() nogil:
     cdef int _
 
     cdef selcase sel[3]
-    sel[0].op   = chansend
+    sel[0].op   = chansend      XXX -> _selsend     + test via _send/_recv
     sel[0].data = tx
-    sel[1].op   = chanrecv
+    sel[1].op   = chanrecv          -> _selrecv
     sel[1].data = rx
     sel[2].op   = default
     _ = chanselect(sel, 3)  # XXX 3 -> array_len(sel)
