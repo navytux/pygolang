@@ -216,7 +216,7 @@ struct _RecvSendWaiting {
     _chan       *chan;  // channel receiver/sender is waiting on
 
     list_head   in_rxtxq; // in recv or send queue of a channel (_chan._recvq|_sendq -> _)
-    list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
+//  list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
 
     // recv: on wakeup: sender|closer -> receiver
     // send: ptr-to data to send
@@ -236,7 +236,7 @@ private:
 //
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
-    list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
+//  list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
     Sema       _sema;   // used for wakeup (must be semaphore)
 
     Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
@@ -260,16 +260,16 @@ _RecvSendWaiting::_RecvSendWaiting(_WaitGroup *group, _chan *ch) {
     w->group = group;
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
-    INIT_LIST_HEAD(&w->in_group);
+//  INIT_LIST_HEAD(&w->in_group);
     w->pdata = NULL;
     w->ok    = false;
     w->sel_n = -1;
-    list_add_tail(&w->in_group, &group->waitq);
+//  list_add_tail(&w->in_group, &group->waitq);
 }
 
 _WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
-    INIT_LIST_HEAD(&group->waitq);
+//  INIT_LIST_HEAD(&group->waitq);
     group->_sema.acquire();
     group->which = NULL;
 }
@@ -739,9 +739,10 @@ int _chanselect(const _selcase *casev, int casec) {
 
         ch->_mu.lock();
         with_lock _(g._mu); // with, because _trysend may panic
-            // a case that we previously queued already won
+            // a case that we previously queued already won while we were
+            // queing other cases.
             if (g.which != NULL) {
-                // XXX release ch.mu
+                ch->_mu.unlock();
                 break;
             }
 
@@ -796,11 +797,27 @@ int _chanselect(const _selcase *casev, int casec) {
     }
 
     // no case became ready during phase 2 subscribe - wait.
-    if (selected == -1) {
+    if (selected == -1) {   // XXX -> just use g.which ?
         g.wait();
         sel = g.which;
-
         selected = sel.sel_n;
+    }
+
+    const _selcase *cas = &casev[selected];
+    if (cas.op == _CHANSEND) {
+        if (!sel.ok)
+            panic("send on closed channel zzz");    // XXX
+        return selected;
+    }
+    else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+        bool commaok = (cas->op == _CHANRECV_);
+
+        if (commaok)
+            *cas->rxok = sel.ok;
+        return selected;
+    }
+    else {
+        bug("select: selected case has invalid op");
     }
 
 
