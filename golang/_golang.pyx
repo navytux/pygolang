@@ -31,11 +31,16 @@ from libc.stdlib cimport malloc, free
 from libc.string cimport memset
 from libcpp.vector cimport vector
 
+"""
 #cdef extern from "../3rdparty/include/linux/list.h":
 cdef:
     struct list_head:
         list_head *next
         list_head *prev
+"""
+
+cdef extern from *:
+    ctypedef bint cbool "bool"
 
 
 cdef extern from "golang.h" nogil:
@@ -784,7 +789,7 @@ def pyselect(*pycasev):
     cdef vector[_selcase] casev = vector[_selcase](n)
     cdef pychan pych
     cdef pPyObject _rx = NULL
-    cdef bint rxok = False
+    cdef cbool rxok = False
     cdef bint commaok
 
     # prepare casev for chanselect
@@ -812,13 +817,13 @@ def pyselect(*pycasev):
         else:
             recv = case
             if im_class(recv) is not pychan:
-                panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
+                pypanic("pyselect: recv on non-chan: %r" % (im_class(recv),))
             if recv.__func__ is _pychan_recv:
                 commaok = False
             elif recv.__func__ is _pychan_recv_:
                 commaok = True
             else:
-                panic("pyselect: recv expected: %r" % (recv,))
+                pypanic("pyselect: recv expected: %r" % (recv,))
 
             pych = recv.__self__
             if commaok:
