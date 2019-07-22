@@ -882,6 +882,17 @@ _selcase _recv(chan<T> ch, T *prx) {
     return sel;
 }
 
+// _recv_ creates `*pok = ch.recv_(prx)` case for select.
+template<typename T>
+_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
+    _selcase sel;
+    sel.ch      = ch._ch;
+    sel.op      = (void *)_chanrecv_;
+    sel.data    = prx;
+    sel.rxok    = pok;
+    return sel;
+}
+
 void testcpp() {
     chan<int> a;
     chan<char[100]> b;
@@ -918,7 +929,7 @@ void testcpp() {
         _send(a, i),            // 0
         _recv(b, &s),           // 1
         _recv_(a, &j, &jok),    // 2
-        _default                // 3 XXX
+//      _default                // 3 XXX
     });
 
     if (_ == 0)
