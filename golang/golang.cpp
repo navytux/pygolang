@@ -846,7 +846,7 @@ void testcpp() {
     char s[100];
 
     int _ = select({
-        _send(a, i),            // 0
+        _send(a, &i),           // 0
         _recv(b, &s),           // 1
         _recv_(a, &j, &jok),    // 2
         _default,               // 3

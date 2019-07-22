@@ -121,7 +121,9 @@ struct chan {
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    // XXX send & bad - e.g. if tx was auto-created temporary
+    // XXX send & in general bad - e.g. if tx was auto-created temporary - must be `T *ptx`
+    // ( for single send & could be ok, but for select, where _send returns and
+    //   then select runs - not ok )
     void send(const T *ptx)     { _chansend(_ch, ptx);          }
     bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void recv(T *prx)           { _chanrecv(_ch, prx);          }
@@ -146,10 +148,10 @@ int select(const std::initializer_list<_selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
 }
 
-// _send<T> creates `ch<T>.send(tx)` case for select.
+// _send<T> creates `ch<T>.send(ptx)` case for select.
 template<typename T>
-_selcase _send(chan<T> ch, const T &tx) {
-    return _selsend(ch._ch, &tx /* NOTE address of original tx object passed to _send */);
+_selcase _send(chan<T> ch, const T *ptx) {
+    return _selsend(ch._ch, ptx);
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.

@@ -34,7 +34,6 @@ from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
 
-
 cdef extern from "golang.h" nogil:
     void panic(const char *)
     const char *recover() except +
@@ -64,7 +63,7 @@ cdef extern from "golang.h" nogil:
     # XXX not sure how to wrap select
     int _chanselect(const _selcase *casev, int casec) except +
 
-    _selcase _send[T](chan[T] ch, T tx)
+    _selcase _send[T](chan[T] ch, const T *ptx)
     _selcase _recv[T](chan[T] ch, T* prx)
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
@@ -73,6 +72,11 @@ cdef extern from "golang.h" nogil:
 # ---- python interface ----
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
+
+cdef extern from "Python.h":
+    ctypedef struct PyTupleObject:
+        PyObject **ob_item
+
 
 # pydefault represents default case for pyselect.
 pydefault  = object()
@@ -204,9 +208,10 @@ def pyselect(*pycasev):
     cdef int i, n = len(pycasev), selected
     cdef vector[_selcase] casev = vector[_selcase](n)
     cdef pychan pych
-    cdef pPyObject _rx = NULL
-    cdef cbool rxok = False
+    cdef pPyObject _rx = NULL # all select recvs are setup to receive into _rx
+    cdef cbool rxok = False   # (its ok as only one receive will be actually executed)
     cdef bint commaok = False # init: silence "used not initialized" warning
+    cdef tuple tcase
 
     # prepare casev for chanselect
     for i in range(n):
@@ -216,8 +221,15 @@ def pyselect(*pycasev):
             casev[i] = _default
 
         # send
-        elif isinstance(case, tuple):
-            send, tx = case
+        elif type(case) is tuple:
+            tcase = case
+            _tcase = <PyTupleObject *>tcase
+            if len(tcase) != 2:
+                pypanic("pyselect: invalid [%d]() case" % len(tcase))
+            send = <object>(_tcase.ob_item[0])
+            p_tx = &(_tcase.ob_item[1])
+            tx   = <object>(p_tx[0])
+            #send, tx = tcase
             print('pyselect: send: %r %r' % (send, tx))
             if im_class(send) is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
@@ -228,7 +240,8 @@ def pyselect(*pycasev):
             # incref tx; we'll decref it if it won't be sent.
             # see pychan.send for details
             Py_INCREF(tx)
-            casev[i] = _send(pych.ch, <pPyObject>tx)
+            #casev[i] = _send(pych.ch, p_tx)
+            casev[i] = _send(pych.ch, <pPyObject *>p_tx)
 
         # recv
         else:
