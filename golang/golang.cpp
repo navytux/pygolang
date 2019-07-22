@@ -33,9 +33,6 @@
 
 #include <string.h>
 
-// XXX -> golang.h ?
-#include <array>
-
 // for semaphores (need pythread.h but it depends on PyAPI_FUNC from outside)
 #include <Python.h>
 #include <pythread.h>
@@ -910,20 +907,10 @@ void testcpp() {
 //  int _ = select(sel, ARRAY_SIZE(sel));
 //  int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
-    //_selcase sel = send(a, i);
-    //_selcase sel = (a.send, i);
-    _selcase sel = _send(a, i);
-    (void)sel;
-
     a.send(i);
     b.recv(&s);
     jok = a.recv_(&j);
     (void)jok;
-
-#if 0
-    std::array<_selcase, 2> casev{_send(a, i), _send(a, i)};
-    go_select(casev);
-#endif
 
     int _ = go_select({
         _send(a, i),            // 0
