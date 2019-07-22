@@ -63,7 +63,9 @@ cdef extern from "golang.h" nogil:
         _CHANRECV_
         _DEFAULT
 
-    _selcase _send[T](chan[T], T)
+    _selcase _send[T](chan[T] ch, T tx)
+    _selcase _recv[T](chan[T] ch, T* prx)
+    _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
 
 
@@ -816,7 +818,7 @@ def pyselect(*pycasev):
 
             pych = recv.__self__
             if commaok:
-                casev[i] = _recv_(pych.ch, &_rx, &_ok)
+                casev[i] = _recv_(pych.ch, &_rx, &_rxok)
             else:
                 casev[i] = _recv(pych.ch, &_rx)
 
