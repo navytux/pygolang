@@ -761,44 +761,83 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_t
 #       # default case
 #       ...
 def pyselect(*casev):
-#    cdef int i, n = len(casev)
-#    cdef vector[_selcase] casev(n)
-#    cdef pychan pych
-#
-#    for i in range(n):
-#        case = casev[i]
-#        # default
-#        if case is default:
-#            casev[i] = _default
-#
-#        # send
-#        elif isinstance(case, tuple):
-#            send, tx = case
-#            if im_class(send) is not pychan:
-#                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
-#            if send.__func__ is not _chan_send:
-#                pypanic("pyselect: send expected: %r" % (send,))
-#
-#            pych = send.__self__
-#            # XXX incref(tx); decref if not sent
-#            casev[i] = _send(pych.ch, <PyObject *>tx)
-#
-#        # recv
-#        else:
-#            recv = case
-#            if im_class(recv) is not pychan:
-#                panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
-#            if recv.__func__ is _chan_recv:
-#                commaok = False
-#            elif recv.__func__ is _chan_recv_:
-#                commaok = True
-#            else:
-#                panic("pyselect: recv expected: %r" % (recv,))
-#
-#            pych = recv.__self__
-#            casev[i] = _recv_(pych.ch, &_rx, &_ok)      # XXX ok?
+    cdef int i, n = len(casev), selected
+    cdef vector[_selcase] casev(n)
+    cdef pychan pych
+    cdef PyObject *_rx = NULL
+    cdef bint rxok = False
 
-    pypanic("TODO: pyselect")
+    # prepare casev for chanselect
+    for i in range(n):
+        case = casev[i]
+        # default
+        if case is default:
+            casev[i] = _default
+
+        # send
+        elif isinstance(case, tuple):
+            send, tx = case
+            if im_class(send) is not pychan:
+                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
+            if send.__func__ is not _chan_send:
+                pypanic("pyselect: send expected: %r" % (send,))
+
+            pych = send.__self__
+            # incref tx; we'll decref it if it won't be sent.
+            # see pychan.send for details
+            Py_INCREF(tx)
+            casev[i] = _send(pych.ch, <PyObject *>tx)
+
+        # recv
+        else:
+            cdef bint commaok
+            recv = case
+            if im_class(recv) is not pychan:
+                panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
+            if recv.__func__ is _chan_recv:
+                commaok = False
+            elif recv.__func__ is _chan_recv_:
+                commaok = True
+            else:
+                panic("pyselect: recv expected: %r" % (recv,))
+
+            pych = recv.__self__
+            if commaok:
+                casev[i] = _recv_(pych.ch, &_rx, &_ok)
+            else:
+                casev[i] = _recv(pych.ch, &_rx)
+
+    with nogil:
+        selected = select(casev)
+
+    # decref not sent tx (see ^^^ send prepare)
+    for i in range(n):
+        if casev[i].op == _CHANSEND and (i != selected):
+            ptx = <PyObject **>casev[i].data
+            tx  = ptx[0]
+            Py_DECREF(tx)
+
+    # return what was selected
+    cdef _chanop op = casev[selected].op
+    if op == _CHANDEFAULT:
+        return selected, None
+    if op == _CHANSEND:
+        return selected, None
+
+    if not (op == _CHANRECV or op == _CHANRECV_):
+        bug("pyselect: chanselect returned with bad op")
+    # we received NULL or the object and 1 reference to it (see pychan.recv_ for details)
+    cdef object rx = None
+    if _rx != NULL:
+        rx = <object>_rx    # increfs again
+        Py_DECREF(rx)       # since <object> convertion did incref
+
+    if op == _CHANRECV:
+        return selected, rx
+    if op == _CHANRECV_:
+        return selected, (rx, rxok)
+
+    bug("pyselect: unreachable")
 
 
 # ---- for py tests ----
