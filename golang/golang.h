@@ -20,6 +20,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+#include <stddef.h>
+
 // ---- C-level API that is always available ----
 
 #ifdef	__cplusplus
@@ -48,6 +50,31 @@ struct _selcase {
 
 int _chanselect(const _selcase *casev, int casec);
 
+// _selsend creates `_chansend(ch, ptx)` case for _chanselect.
+static inline
+struct _selcase _selsend(struct _chan *ch, const void *ptx) {
+    struct _selcase _{
+        .ch     = ch,
+        .op      = (void *)_chansend,
+        .data    = (void *)ptx,
+        .rxok    = NULL,
+    };
+    return _;
+}
+
+// _selrecv creates `_chanrecv(ch, prx)` case for chanselect.
+static inline
+struct _selcase _selrecv(struct _chan *ch, void *prx) {
+    struct _selcase _{
+        .ch     = ch,
+        .op      = (void *)_chanrecv,
+        .data    = prx,
+        .rxok    = NULL,
+    };
+    return _;
+}
+
+
 extern const _selcase _default; // XXX _seldefault ?
 //void _default(_chan *, void *);
 
@@ -71,7 +98,7 @@ struct chan {
     _chan *_ch;
 
     // = nil channel if not initialized
-    chan() { _ch = 0; }
+    chan() { _ch = NULL; }
 
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
@@ -88,14 +115,14 @@ template<typename T>
 chan<T> makechan(unsigned size) {
     chan<T> ch;
     ch._ch = _makechan(sizeof(T), size);
-    if (ch._ch == 0)
+    if (ch._ch == NULL)
         throw std::bad_alloc();
     return ch;
 }
 
 
 // select, together with _send<T>, _recv<T>, _recv_<T> and _default, provide
-// type-safe wrapper over _chanselect.
+// type-safe wrapper over _chanselect and _selsend/_selrecv/_selrecv_.
 static inline
 int select(const std::initializer_list<_selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
@@ -104,12 +131,15 @@ int select(const std::initializer_list<_selcase> &casev) {
 // _send<T> creates `ch<T>.send(tx)` case for select.
 template<typename T>
 _selcase _send(chan<T> ch, const T &tx) {
+    return _selsend(ch._ch, &tx /* NOTE address of original tx object passed to _send */);
+#if 0
     return _selcase{
         .ch      = ch._ch,
         .op      = (void *)_chansend,
         .data    = &tx,     // NOTE address of original tx object passed to _send
         .rxok    = NULL,
     };
+#endif
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.

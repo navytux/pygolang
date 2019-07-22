@@ -831,21 +831,25 @@ void test() {
     _selcase sel[4];
     sel[0]  = _selsend(a, &tx);
     sel[1]  = _selrecv(b, &rx);
+#if 0
     sel[2]  = _selrecv_(a, &arx, &aok);
     sel[3]  = _default;
+#endif
 
-    _selcase sel[4];
+//  _selcase sel[4];
+#if 0
     sel[0].ch   = a;
     sel[0].op   = _chansend;
     sel[0].data = &tx;
     sel[1].ch   = b;
     sel[1].op   = _chanrecv;
     sel[1].data = &rx;
+#endif
     sel[2].ch   = a;
     sel[2].op   = _chanrecv_;
     sel[2].data = &arx;
     sel[2].rxok = &aok;
-    sel[3]      = _default;
+//  sel[3]      = _default;
     int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
     if (_ == 0)
