@@ -663,10 +663,8 @@ cdef class pychan:
         # in other words: we send to recv obj and 1 reference to it.
         Py_INCREF(obj)
 
-        _obj = <PyObject *>obj
         with nogil:
-            #chansend_pyexc(pych.ch, &_obj)
-            chansend_pyexc(pych.ch, _obj)
+            chansend_pyexc(pych.ch, <PyObject *>obj)
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -763,6 +761,43 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_t
 #       # default case
 #       ...
 def pyselect(*casev):
+#    cdef int i, n = len(casev)
+#    cdef vector[_selcase] casev(n)
+#    cdef pychan pych
+#
+#    for i in range(n):
+#        case = casev[i]
+#        # default
+#        if case is default:
+#            casev[i] = _default
+#
+#        # send
+#        elif isinstance(case, tuple):
+#            send, tx = case
+#            if im_class(send) is not pychan:
+#                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
+#            if send.__func__ is not _chan_send:
+#                pypanic("pyselect: send expected: %r" % (send,))
+#
+#            pych = send.__self__
+#            # XXX incref(tx); decref if not sent
+#            casev[i] = _send(pych.ch, <PyObject *>tx)
+#
+#        # recv
+#        else:
+#            recv = case
+#            if im_class(recv) is not pychan:
+#                panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
+#            if recv.__func__ is _chan_recv:
+#                commaok = False
+#            elif recv.__func__ is _chan_recv_:
+#                commaok = True
+#            else:
+#                panic("pyselect: recv expected: %r" % (recv,))
+#
+#            pych = recv.__self__
+#            casev[i] = _recv_(pych.ch, &_rx, &_ok)      # XXX ok?
+
     pypanic("TODO: pyselect")
 
 

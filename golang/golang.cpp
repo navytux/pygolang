@@ -596,7 +596,7 @@ void _chan::_dataq_popleft(void *prx) {
 // _default represents default case for _select.
 const _selcase _default = {
     .ch     = NULL,
-    .op     = (void *)&_default, // !NULL to fault on just-zero memory
+    .op     = _DEFAULT,
     .data   = NULL,
     .rxok   = NULL,
 };
@@ -650,14 +650,14 @@ int _chanselect(const _selcase *casev, int casec) {
         _chan *ch = cas->ch;
 
         // default: remember we have it
-        if (cas->op == &_default) {
+        if (cas->op == _DEFAULT) {
             if (ndefault != -1)
                 panic("select: multiple default");
             ndefault = n;
         }
 
         // send
-        else if (cas->op == _chansend) {
+        else if (cas->op == _CHANSEND) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.acquire();
                 if (1) {
@@ -672,8 +672,8 @@ int _chanselect(const _selcase *casev, int casec) {
         }
 
         // recv
-        else if (cas->op == _chanrecv || cas->op == _chanrecv_) {
-            bool commaok = (cas->op == _chanrecv_);
+        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+            bool commaok = (cas->op == _CHANRECV_);
 
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.acquire();

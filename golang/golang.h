@@ -40,12 +40,19 @@ void _chanrecv(_chan *ch, void *prx);
 void _chanclose(_chan *ch);
 unsigned _chanlen(_chan *ch);
 
+enum _chanop {
+    _CHANSEND   = 0,
+    _CHANRECV   = 1,
+    _CHANRECV_  = 2,
+    _DEFAULT    = 3,
+};
+
 // _selcase represents one _select case.
 struct _selcase {
-    _chan *ch;                      // channel
-    void  *op;                      // chansend/chanrecv/chanrecv_/default
-    void  *data;                    // chansend: ptx; chanrecv*: prx
-    bool  *rxok;                    // chanrecv_: where to save ok; otherwise not used
+    _chan           *ch;    // channel
+    enum _chanop    op;     // chansend/chanrecv/chanrecv_/default
+    void            *data;  // chansend: ptx; chanrecv*: prx
+    bool            *rxok;  // chanrecv_: where to save ok; otherwise not used
 };
 
 int _chanselect(const _selcase *casev, int casec);
@@ -55,7 +62,7 @@ static inline
 struct _selcase _selsend(struct _chan *ch, const void *ptx) {
     struct _selcase _{
         .ch     = ch,
-        .op      = (void *)_chansend,
+        .op      = _CHANSEND,
         .data    = (void *)ptx,
         .rxok    = NULL,
     };
@@ -67,7 +74,7 @@ static inline
 struct _selcase _selrecv(struct _chan *ch, void *prx) {
     struct _selcase _{
         .ch     = ch,
-        .op      = (void *)_chanrecv,
+        .op      = _CHANRECV,
         .data    = prx,
         .rxok    = NULL,
     };
@@ -79,7 +86,7 @@ static inline
 struct _selcase _selrecv_(struct _chan *ch, void *prx, bool *pok) {
     struct _selcase _{
         .ch     = ch,
-        .op      = (void *)_chanrecv_,
+        .op      = _CHANRECV_,
         .data    = prx,
         .rxok    = pok,
     };
