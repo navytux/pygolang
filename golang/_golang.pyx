@@ -211,7 +211,6 @@ def pyselect(*pycasev):
     cdef pPyObject _rx = NULL # all select recvs are setup to receive into _rx
     cdef cbool rxok = False   # (its ok as only one receive will be actually executed)
     cdef bint commaok = False # init: silence "used not initialized" warning
-    cdef tuple tcase
 
     # prepare casev for chanselect
     for i in range(n):
@@ -222,25 +221,24 @@ def pyselect(*pycasev):
 
         # send
         elif type(case) is tuple:
-            tcase = case
-            _tcase = <PyTupleObject *>tcase
-            if len(tcase) != 2:
-                pypanic("pyselect: invalid [%d]() case" % len(tcase))
+            if len(case) != 2:
+                pypanic("pyselect: invalid [%d]() case" % len(case))
+            _tcase = <PyTupleObject *>case
+
             send = <object>(_tcase.ob_item[0])
-            p_tx = &(_tcase.ob_item[1])
-            tx   = <object>(p_tx[0])
-            #send, tx = tcase
-            #print('pyselect: send: %r %r' % (send, tx))
             if im_class(send) is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
             if send.__func__ is not _pychan_send:
                 pypanic("pyselect: send expected: %r" % (send,))
 
+            # quilt ptx through case[1]
+            p_tx = &(_tcase.ob_item[1])
+            tx   = <object>(p_tx[0])
+
             pych = send.__self__
             # incref tx; we'll decref it if it won't be sent.
             # see pychan.send for details
             Py_INCREF(tx)
-            #casev[i] = _send(pych.ch, p_tx)
             casev[i] = _send(pych.ch, <pPyObject *>p_tx)
 
         # recv
