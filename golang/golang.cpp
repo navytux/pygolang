@@ -849,18 +849,35 @@ void test() {
 #endif
 
 // XXX go_select -> select
+#if 0
 template<size_t N>
 int go_select(const std::array<_selcase, N> &casev) {
     return _chanselect(casev.data(), casev.size());
 }
+#endif
 
-// _send creates send case for select.
+int go_select(const std::initializer_list<_selcase> &casev) {
+    return _chanselect(casev.begin(), casev.size());
+}
+
+// _send creates `ch.send(tx)` case for select.
 template<typename T>
 _selcase _send(chan<T> ch, T tx) {
     _selcase sel;
     sel.ch      = ch._ch;
     sel.op      = (void *)_chansend;
     sel.data    = &tx;
+    sel.rxok    = NULL;
+    return sel;
+}
+
+// _recv creates `ch.recv(prx)` case for select.
+template<typename T>
+_selcase _recv(chan<T> ch, T *prx) {
+    _selcase sel;
+    sel.ch      = ch._ch;
+    sel.op      = (void *)_chanrecv;
+    sel.data    = prx;
     sel.rxok    = NULL;
     return sel;
 }
@@ -892,15 +909,17 @@ void testcpp() {
     jok = a.recv_(&j);
     (void)jok;
 
+#if 0
+    std::array<_selcase, 2> casev{_send(a, i), _send(a, i)};
+    go_select(casev);
+#endif
+
     int _ = go_select({
         _send(a, i),            // 0
+        _recv(b, &s),           // 1
+        _recv_(a, &j, &jok),    // 2
+        _default                // 3 XXX
     });
-#if 0
-            _recv(b, &s),           // 1
-            _recv_(a, &j, &jok),    // 2
-            _default                // 3 XXX
-        },
-    );
 
     if (_ == 0)
         printf("tx\n");
@@ -910,5 +929,4 @@ void testcpp() {
         printf("rx_\n");
     if (_ == 3)
         printf("defaut\n");
-#endif
 }
