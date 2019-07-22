@@ -230,7 +230,7 @@ def pyselect(*pycasev):
             p_tx = &(_tcase.ob_item[1])
             tx   = <object>(p_tx[0])
             #send, tx = tcase
-            print('pyselect: send: %r %r' % (send, tx))
+            #print('pyselect: send: %r %r' % (send, tx))
             if im_class(send) is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
             if send.__func__ is not _pychan_send:

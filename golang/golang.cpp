@@ -348,9 +348,9 @@ void _chan::send(const void *ptx) {
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
     ch->_mu.release();
 
-    printf("send: -> g.wait()...\n");
+    //printf("send: -> g.wait()...\n");
     g.wait();
-    printf("send: -> woken up\n");
+    //printf("send: -> woken up\n");
     if (g.which != &me)
         bug("chansend: g.which != me");
     if (!me.ok)
@@ -385,11 +385,11 @@ bool _chan::recv_(void *prx) { // -> ok
         list_add_tail(&me.in_rxtxq, &ch->_recvq);
     ch->_mu.release();
 
-    printf("recv: -> g.wait()...\n");
+    //printf("recv: -> g.wait()...\n");
     g.wait();
     if (g.which != &me)
         bug("chanrecv: g.which != me");
-    printf("recv: -> woken up;  ok=%i\n", me.ok);
+    //printf("recv: -> woken up;  ok=%i\n", me.ok);
     return me.ok;
 }
 
