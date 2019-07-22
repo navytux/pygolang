@@ -365,7 +365,7 @@ void _chan::send(const void *ptx) {
 
         _WaitGroup         g;
         _RecvSendWaiting   me(&g, ch);
-        me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read 
+        me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
         me.ok       = false;
 
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
@@ -759,7 +759,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 w.pdata = cas->data;
                 w.ok    = false;
                 w.sel_n = n;
-                
+
                 list_add_tail(&w.in_rxtxq, &ch->_sendq);
             }
 
