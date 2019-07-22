@@ -126,7 +126,7 @@ struct Sema {
     void release();
 
 private:
-    Sema(const Sema&); // dont copy
+    Sema(const Sema&);      // dont copy
 };
 
 Sema::Sema() {
@@ -154,6 +154,17 @@ void Sema::release() {
     PyThread_release_lock(sema->_pysema);
 }
 
+// Mutex provides mutex.
+// currently implemented via Sema.
+struct Mutex {
+    void lock()     { _sema.acquire();  }
+    void unlock()   { _sema.release();  }
+    Mutex() {}
+
+private:
+    Sema _sema;
+    Mutex(const Mutex&);    // don't copy
+};
 
 // ---- channels -----
 
@@ -169,7 +180,7 @@ struct _chan {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
-    Sema        _mu;        // XXX need to be only Mutex
+    Mutex       _mu;
     list_head   _recvq;     // blocked receivers (_ -> _RecvSendWaiting.in_rxtxq)
     list_head   _sendq;     // blocked senders   (_ -> _RecvSendWaiting.in_rxtxq)
     bool        _closed;
@@ -189,6 +200,8 @@ struct _chan {
 
     void _dataq_append(const void *ptx);
     void _dataq_popleft(void *prx);
+private:
+    _chan(const _chan&);    // dont copy
 };
 
 struct _WaitGroup;
@@ -211,6 +224,8 @@ struct _RecvSendWaiting {
     int     sel_n;
 
     _RecvSendWaiting(_WaitGroup *group, _chan *ch);
+private:
+    _RecvSendWaiting(const _RecvSendWaiting&);  // dont copy
 };
 
 // _WaitGroup is a group of waiting senders and receivers.
@@ -220,7 +235,7 @@ struct _WaitGroup {
     list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
     Sema       _sema;   // used for wakeup (must be semaphore)
 
-    Sema       _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
+    Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     _RecvSendWaiting    *which;
@@ -230,6 +245,8 @@ struct _WaitGroup {
     bool try_to_win(_RecvSendWaiting *waiter);
     void wait();
     void wakeup();
+private:
+    _WaitGroup(const _WaitGroup&);  // dont copy
 };
 
 
@@ -260,7 +277,7 @@ bool _WaitGroup::try_to_win(_RecvSendWaiting *waiter) { // -> won
     _WaitGroup *group = this;
 
     bool won;
-    group->_mu.acquire();
+    group->_mu.lock();
         if (group->which != NULL) {
             won = false;
         }
@@ -268,7 +285,7 @@ bool _WaitGroup::try_to_win(_RecvSendWaiting *waiter) { // -> won
             group->which = waiter;
             won = true;
         }
-    group->_mu.release();
+    group->_mu.unlock();
     return won;
 }
 
@@ -341,9 +358,9 @@ void _chan::send(const void *ptx) {
     if (ch == NULL)
         _blockforever();
 
-    ch->_mu.acquire();
-        bool ok = ch->_trysend(ptx);
-        if (ok)
+    ch->_mu.lock();
+        bool done = ch->_trysend(ptx);
+        if (done)
             return;
 
         _WaitGroup         g;
@@ -352,7 +369,7 @@ void _chan::send(const void *ptx) {
         me.ok       = false;
 
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
-    ch->_mu.release();
+    ch->_mu.unlock();
 
     //printf("send: -> g.wait()...\n");
     g.wait();
@@ -376,10 +393,10 @@ bool _chan::recv_(void *prx) { // -> ok
     if (ch == NULL)
         _blockforever();
 
-    ch->_mu.acquire();
-        bool ok, ready = ch->_tryrecv(prx, &ok);
-        if (ready) {
-            //printf("recv: -> tryrecv ready; ok=%i\n", ok);
+    ch->_mu.lock();
+        bool ok, done = ch->_tryrecv(prx, &ok);
+        if (done) {
+            //printf("recv: -> tryrecv done; ok=%i\n", ok);
             return ok;
         }
 
@@ -389,7 +406,7 @@ bool _chan::recv_(void *prx) { // -> ok
         me.ok       = false;
 
         list_add_tail(&me.in_rxtxq, &ch->_recvq);
-    ch->_mu.release();
+    ch->_mu.unlock();
 
     //printf("recv: -> g.wait()...\n");
     g.wait();
@@ -410,16 +427,16 @@ void _chan::recv(void *prx) {
 }
 
 
-// _trysend(ch, obj) -> ok
+// _trysend(ch, obj) -> done
 //
 // must be called with ._mu held.
-// if ok or panic - returns with ._mu released.
-// if !ok - returns with ._mu still being held.
-bool _chan::_trysend(const void *ptx) { // -> ok
+// if done or panic - returns with ._mu released.
+// if !done - returns with ._mu still being held.
+bool _chan::_trysend(const void *ptx) { // -> done
     _chan *ch = this;
 
     if (ch->_closed) {
-        ch->_mu.release();
+        ch->_mu.unlock();
         panic("send on closed channel");
     }
 
@@ -429,7 +446,7 @@ bool _chan::_trysend(const void *ptx) { // -> ok
         if (recv == NULL)
             return false;
 
-        ch->_mu.release();
+        ch->_mu.unlock();
         // XXX vvv was recv->wakeup(ptx, true);
         memcpy(recv->pdata, ptx, ch->_elemsize);
         recv->ok = true;
@@ -445,26 +462,26 @@ bool _chan::_trysend(const void *ptx) { // -> ok
         _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
         if (recv != NULL) {
             ch->_dataq_popleft(recv->pdata);
-            ch->_mu.release();
+            ch->_mu.unlock();
             // XXX was recv.wakeup(rx, true)
             recv->ok = true;
             recv->group->wakeup();
         } else {
-            ch->_mu.release();
+            ch->_mu.unlock();
         }
         return true;
     }
 }
 
 
-// _tryrecv() -> rx_=(rx, ok), ready
+// _tryrecv() -> rx_=(rx, ok), done
 //
 // must be called with ._mu held.
-// if ready or panic - returns with ._mu released.
-// if !ready - returns with ._mu still being held.
+// if done or panic - returns with ._mu released.
+// if !done - returns with ._mu still being held.
 //
-// if !ready - (*prx, *pok) are left unmodified.
-bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
+// if !done - (*prx, *pok) are left unmodified.
+bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     _chan *ch = this;
 
     // buffered
@@ -476,12 +493,12 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
         _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
         if (send != NULL) {
             ch->_dataq_append(send->pdata);
-            ch->_mu.release();
+            ch->_mu.unlock();
             // XXX was send.wakeup(true)
             send->ok = true;
             send->group->wakeup();
         } else {
-            ch->_mu.release();
+            ch->_mu.unlock();
         }
 
         return true;
@@ -489,7 +506,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
 
     // closed
     if (ch->_closed) {
-        ch->_mu.release();
+        ch->_mu.unlock();
         memset(prx, 0, ch->_elemsize);
         *pok = false;
         return true;
@@ -500,7 +517,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> ready
     if (send == NULL)
         return false;
 
-    ch->_mu.release();
+    ch->_mu.unlock();
     memcpy(prx, send->pdata, ch->_elemsize);
     *pok = true;
     // XXX vvv was send.wakeup(true)
@@ -517,9 +534,9 @@ void _chan::close() {
     if (ch == NULL)
         panic("close of nil channel");
 
-    ch->_mu.acquire();
+    ch->_mu.lock();
         if (ch->_closed) {
-            ch->_mu.release();
+            ch->_mu.unlock();
             panic("close of closed channel");
         }
         ch->_closed = true;
@@ -530,12 +547,12 @@ void _chan::close() {
             if (recv == NULL)
                 break;
 
-            ch->_mu.release();
+            ch->_mu.unlock();
             // XXX was recv.wakeup(None, false)
             memset(recv->pdata, 0, ch->_elemsize);
             recv->ok = false;
             recv->group->wakeup();
-            ch->_mu.acquire();
+            ch->_mu.lock();
         }
 
         // wake-up all writers (they will panic)
@@ -544,13 +561,13 @@ void _chan::close() {
             if (send == NULL)
                 break;
 
-            ch->_mu.release();
+            ch->_mu.unlock();
             // XXX was send.wakeup(false)
             send->ok = false;
             send->group->wakeup();
-            ch->_mu.acquire();
+            ch->_mu.lock();
         }
-    ch->_mu.release();
+    ch->_mu.unlock();
 }
 
 // len returns current number of buffered elements.
@@ -560,9 +577,9 @@ unsigned _chan::len() {
     if (ch == NULL)
         return 0; // len(nil) = 0
 
-    ch->_mu.acquire(); // only to make valgrind happy
+    ch->_mu.lock(); // only to make valgrind happy
     unsigned len = ch->_dataq_n;
-    ch->_mu.release();
+    ch->_mu.unlock();
     return len;
 }
 
@@ -644,12 +661,9 @@ int _chanselect(const _selcase *casev, int casec) {
         nv[i] = i;
     std::random_shuffle(nv.begin(), nv.end());
 
-//  recvv = [] // [](n, ch, commaok)
-//  sendv = [] // [](n, ch, tx)
-
     // first pass: poll all cases and bail out in the end if default was provided
     int  ndefault = -1;
-    bool halt = true;   // whether to block forever if no default was provided
+    bool havenonnil = false; // whether we have at least one !nil channel
     for (auto n : nv) {
         const _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
@@ -664,16 +678,14 @@ int _chanselect(const _selcase *casev, int casec) {
         // send
         else if (cas->op == _CHANSEND) {
             if (ch != NULL) {   // nil chan is never ready
-                ch->_mu.acquire();
+                ch->_mu.lock();
                 if (1) {
-                    bool ok = ch->_trysend(cas->data);
-                    if (ok)
+                    bool done = ch->_trysend(cas->data);
+                    if (done)
                         return n;
                 }
-                ch->_mu.release();
-
-                halt = false;
-//              sendv.append((n, ch, tx))   // XXX
+                ch->_mu.unlock();
+                havenonnil = true;
             }
         }
 
@@ -682,19 +694,17 @@ int _chanselect(const _selcase *casev, int casec) {
             bool commaok = (cas->op == _CHANRECV_);
 
             if (ch != NULL) {   // nil chan is never ready
-                ch->_mu.acquire();
+                ch->_mu.lock();
                 if (1) {
-                    bool ok, ready = ch->_tryrecv(cas->data, &ok);
-                    if (ready) {
+                    bool ok, done = ch->_tryrecv(cas->data, &ok);
+                    if (done) {
                         if (commaok)
                             *cas->rxok = ok;
                         return n;
                     }
                 }
-                ch->_mu.release();
-
-                halt = false;
-//              recvv.append((n, ch, commaok))
+                ch->_mu.unlock();
+                havenonnil = true;
             }
         }
 
@@ -709,12 +719,96 @@ int _chanselect(const _selcase *casev, int casec) {
         return ndefault;
 
     // select{} or with nil-channels only -> block forever
-//  if (len(recvv) + len(sendv) == 0)
-    if (halt)
+    if (!havenonnil)
         _blockforever();
 
+    panic("TODO: select (blocking)");
+#if 0
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
+
+    int selected = -1;
+    for (auto n : nv) {
+        const _selcase *cas = &casev[n];
+        _chan *ch = cas->ch;
+
+        if (ch == NULL) // nil chan is never ready
+            continue;
+
+        ch->_mu.lock();
+        g._mu.lock();    // XXX -> with g._mu (_trysend may panic)
+            // a case that we previously queued already won
+            if (g.which != NULL) {
+                // XXX release ch.mu, g._mu
+                break;
+            }
+
+            // send
+            if (cas->op == _CHANSEND) {
+                done = ch->_trysend(cas->data);
+                if (done) {
+                    // don't let already queued cases win
+                    g.which = "tx prepoll won"  // !NULL    XXX -> current waiter?
+                    // XXX g.mu.unlock()   XXX no -> goes away due to "with"
+                    selected = n;
+                    break;
+                }
+
+                // FIXME bad - need to retain w live while select is running
+                _RecvSendWaiting  w(&g, ch);
+                w.pdata = cas->data;
+                w.ok    = false;
+                w.sel_n = n;
+                
+                list_add_tail(&w.in_rxtxq, &ch->_sendq);
+            }
+
+            // recv
+            else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+                bool commaok = (cas->op == _CHANRECV_);
+
+                ok, done = ch->_tryrecv(cas->data, &ok);
+                if (done) {
+                    // don't let already queued cases win
+                    g.which = "rx prepoll won"  // !NULL    XXX -> current waiter?
+
+                    if (commaok)
+                        *cas->rxok = ok;
+                    // XXX g.mu.unlock     XXX no -> goes away due to "with"
+                    selected = n;
+                    break;
+                }
+
+                // FIXME bad - need to retain w live while select is running
+                _RecvSendWaiting  w(&g, ch);
+                w.pdata = cas->data;
+                w.ok    = false;
+                w.sel_n = n;
+
+                list_add_tail(&w.in_rxtxq, &ch->_recvq);
+            }
+
+            // bad case
+            else {
+                bug("select: invalid op during phase 2");
+            }
+
+        g._mu.unlock()     // XXX disable -> with
+        ch->_mu.unlock();
+    }
+
+    // no case became ready during phase 2 subscribe - wait.
+    if (selected == -1) {
+        g.wait()
+        sel = g.which
+
+        selected = sel.sel_n;
+    }
+
+
+
+
+
 
     // selected returns what was selected in g.
     // the return signature is the one of select.
@@ -737,11 +831,11 @@ int _chanselect(const _selcase *casev, int casec) {
 
     try:
         for n, ch, tx in sendv:
-            ch->_mu.acquire();
+            ch->_mu.lock();
             with g._mu:
                 // a case that we previously queued already won
                 if (g.which != NULL) {
-                    ch->_mu.release()
+                    ch->_mu.unlock()
                     return selected()
                 }
 
@@ -755,14 +849,14 @@ int _chanselect(const _selcase *casev, int casec) {
                 w = _SendWaiting(g, ch, tx)
                 w.sel_n = n
                 ch._sendq.append(w)
-            ch->_mu.release()
+            ch->_mu.unlock()
 
         for n, ch, commaok in recvv:
-            ch._mu.acquire()
+            ch._mu.lock()
             with g._mu:
                 // a case that we previously queued already won
                 if (g.which != NULL) {
-                    ch._mu.release()
+                    ch._mu.unlock()
                     return selected()
                 }
 
@@ -780,13 +874,14 @@ int _chanselect(const _selcase *casev, int casec) {
                 w.sel_n = n
                 w.sel_commaok = commaok
                 ch._recvq.append(w)
-            ch._mu.release()
+            ch._mu.unlock()
 
         return selected()
 
     finally:
         // unsubscribe not-succeeded waiters
         g.dequeAll()
+#endif
 }
 
 // _blockforever blocks current goroutine forever.
@@ -809,12 +904,12 @@ void _blockforever() {
 // whether to check receivers and/or senders is controlled by recv/send.
 bool _tchanblocked(_chan *ch, bool recv, bool send) {
     bool blocked = false;
-    ch->_mu.acquire();
+    ch->_mu.lock();
     if (recv && !list_empty(&ch->_recvq))
         blocked = true;
     if (send && !list_empty(&ch->_sendq))
         blocked = true;
-    ch->_mu.release();
+    ch->_mu.unlock();
     return blocked;
 }
 
