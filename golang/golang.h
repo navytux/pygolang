@@ -132,25 +132,12 @@ int select(const std::initializer_list<_selcase> &casev) {
 template<typename T>
 _selcase _send(chan<T> ch, const T &tx) {
     return _selsend(ch._ch, &tx /* NOTE address of original tx object passed to _send */);
-#if 0
-    return _selcase{
-        .ch      = ch._ch,
-        .op      = (void *)_chansend,
-        .data    = &tx,     // NOTE address of original tx object passed to _send
-        .rxok    = NULL,
-    };
-#endif
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.
 template<typename T>
 _selcase _recv(chan<T> ch, T *prx) {
-    return _selcase{
-        .ch      = ch._ch,
-        .op      = (void *)_chanrecv,
-        .data    = prx,
-        .rxok    = NULL,
-    };
+    return _selrecv(ch._ch, prx);
 }
 
 // _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
