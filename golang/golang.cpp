@@ -362,7 +362,7 @@ void _chan::send(const void *ptx) {
 // ok is true - if receive was delivered by a successful send.
 // ok is false - if receive is due to channel being closed and empty.
 //
-// sizeof(*prx) must be ch._elemsize | prx=NULL.
+// sizeof(*prx) must be ch._elemsize | prx=NULL.    XXX do we need prx=NULL ?
 bool _chanrecv_(_chan *ch, void *prx) { return ch->recv_(prx); }
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
@@ -698,9 +698,11 @@ int _chanselect(_selcase *casev, int casec) {
     if (ndefault != -1)
         return ndefault;
 
+#if 0
     // select{} or with nil-channels only -> block forever
     if (len(recvv) + len(sendv) == 0)
         _blockforever();
+#endif
 
     panic("TODO: chanselect (blocking)");
 #if 0
@@ -835,18 +837,32 @@ void test() {
     if (_ == 1)
         printf("rx\n");
     if (_ == 2)
+        printf("rx_\n");
+    if (_ == 3)
         printf("defaut\n");
 }
 
-#if 0
 void testcpp() {
-    chan<int> a, b;
-    int tx = 1;
-    int rx;
+    chan<int> a;
+    chan<char[100]> b;
+    int i=1, j; bool jok;
+    char s[100];
 
-    selcase sel[3];
-    sel[0] = {a.send, 1};
-    sel[1] = {b.recv};
-    sel[2] = default_;
+    _selcase sel[3];            // XXX use the same _selcase for high-level too?
+    sel[0] = send(a, i);
+    sel[1] = recv(b, &s);
+    sel[2] = recv_(a, &j, &jok);
+    sel[3] = xdefault;  // XXX
+
+//  int _ = select(sel, ARRAY_SIZE(sel));
+    int _ = _chanselect(sel, ARRAY_SIZE(sel));
+
+    if (_ == 0)
+        printf("tx\n");
+    if (_ == 1)
+        printf("rx\n");
+    if (_ == 2)
+        printf("rx_\n");
+    if (_ == 3)
+        printf("defaut\n");
 }
-#endif
