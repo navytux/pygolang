@@ -670,6 +670,9 @@ const _selcase _default = {
 // XXX update ^^^
 // XXX casev is not modified and can be used for next _chanselect calls.
 int _chanselect(const _selcase *casev, int casec) {
+    if (casec < 0)
+        panic("select: casec < 0");
+
     // select promise: if multiple cases are ready - one will be selected randomly
     vector<int> nv(casec); // n -> n(case)      TODO stack-allocate for small casec
     for (int i=0; i <casec; i++)
@@ -770,7 +773,7 @@ int _chanselect(const _selcase *casev, int casec) {
                     break;
                 }
 
-                auto l = waitv.size()
+                int l = waitv.size();
                 if (l >= casec)
                     bug("select: waitv overflow");
                 waitv.resize(l+1);
@@ -781,7 +784,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 w->ok    = false;
                 w->sel_n = n;
 
-                list_add_tail(&w.in_rxtxq, &ch->_sendq);
+                list_add_tail(&w->in_rxtxq, &ch->_sendq);
             }
 
             // recv
@@ -799,7 +802,7 @@ int _chanselect(const _selcase *casev, int casec) {
                     break;
                 }
 
-                auto l = waitv.size()
+                int l = waitv.size();
                 if (l >= casec)
                     bug("select: waitv overflow");
                 waitv.resize(l+1);
@@ -810,7 +813,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 w->ok    = false;
                 w->sel_n = n;
 
-                list_add_tail(&w.in_rxtxq, &ch->_recvq);
+                list_add_tail(&w->in_rxtxq, &ch->_recvq);
             }
 
             // bad case
