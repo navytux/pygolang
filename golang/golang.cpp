@@ -845,18 +845,6 @@ void test() {
 }
 #endif
 
-// XXX go_select -> select
-#if 0
-template<size_t N>
-int go_select(const std::array<_selcase, N> &casev) {
-    return _chanselect(casev.data(), casev.size());
-}
-#endif
-
-int go_select(const std::initializer_list<_selcase> &casev) {
-    return _chanselect(casev.begin(), casev.size());
-}
-
 void testcpp() {
     chan<int> a;
     chan<char[100]> b;
@@ -879,7 +867,7 @@ void testcpp() {
     jok = a.recv_(&j);
     (void)jok;
 
-    int _ = go_select({
+    int _ = select({
         _send(a, i),            // 0
         _recv(b, &s),           // 1
         _recv_(a, &j, &jok),    // 2

@@ -46,6 +46,8 @@ struct _selcase {
     bool  *rxok;                    // chanrecv_: where to save ok; otherwise not used
 };
 
+int _chanselect(const _selcase *casev, int casec);
+
 void _default(_chan *, void *);
 
 bool _tchanblocked(_chan *ch, bool recv, bool send);
@@ -59,7 +61,8 @@ bool _tchanblocked(_chan *ch, bool recv, bool send);
 
 #ifdef __cplusplus
 
-#include <exception>    // bad_alloc & co
+#include <exception>        // bad_alloc & co
+#include <initializer_list>
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -87,6 +90,14 @@ chan<T> makechan(unsigned size) {
     if (ch._ch == 0)
         throw std::bad_alloc();
     return ch;
+}
+
+
+// select, together with _send<T>, _recv<T>, _recv_<T> and _default, provide
+// type-safe wrapper over _chanselect.
+static inline
+int select(const std::initializer_list<_selcase> &casev) {
+    return _chanselect(casev.begin(), casev.size());
 }
 
 // _send<T> creates `ch<T>.send(tx)` case for select.
@@ -121,6 +132,8 @@ _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
         .rxok   = pok,
     };
 }
+
+// XXX _default
 
 #endif  // __cplusplus
 
