@@ -131,8 +131,8 @@ chan<T> makechan(unsigned size) {
 }
 
 
-// select, together with _send<T>, _recv<T>, _recv_<T> and _default, provide
-// type-safe wrapper over _chanselect and _selsend/_selrecv/_selrecv_.
+// select, together with _send<T>, _recv<T> and _recv_<T>, provide type-safe
+// wrappers over _chanselect and _selsend/_selrecv/_selrecv_.
 static inline
 int select(const std::initializer_list<_selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
@@ -155,8 +155,6 @@ template<typename T>
 _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
-
-// XXX _default
 
 #endif  // __cplusplus
 
