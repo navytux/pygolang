@@ -89,7 +89,7 @@ def waitBlocked(chanop):
         time.sleep(0)   # yield to another thread / coroutine
 """
 
-
+# XXX + test for chan bug discovered (too early ch._mu release in _trysend and _tryrecv for buffered)
 def test_chan():
     print()
     # sync: pre-close vs send/recv

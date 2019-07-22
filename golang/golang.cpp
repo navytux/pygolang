@@ -47,6 +47,8 @@ using std::string;
 using std::vector;
 using std::exception;
 
+// namespace golang ?
+
 
 // ---- panic ----
 
@@ -628,9 +630,9 @@ void _default(_chan *_, void *__) {
 // XXX try to use `...` and kill casec
 int _chanselect(_selcase *casev, int casec) {
     // select promise: if multiple cases are ready - one will be selected randomly
-    vector<int> v; // n -> n(case)
+    vector<int> v(casec); // n -> n(case)      TODO stack-allocate for small casec
     for (int i=0; i <casec; i++)
-        v.push_back(i);
+        v[i] = i;
     std::random_shuffle(v.begin(), v.end());
 
 //  ncasev = list(enumerate(casev))
