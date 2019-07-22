@@ -829,6 +829,12 @@ void test() {
     int rx;
 
     _selcase sel[4];
+    sel[0]  = _selsend(a, &tx);
+    sel[1]  = _selrecv(b, &rx);
+    sel[2]  = _selrecv_(a, &arx, &aok);
+    sel[3]  = _default;
+
+    _selcase sel[4];
     sel[0].ch   = a;
     sel[0].op   = _chansend;
     sel[0].data = &tx;
@@ -857,22 +863,6 @@ void testcpp() {
     chan<char[100]> b;
     int i=1, j; bool jok;
     char s[100];
-
-#if 0
-    _selcase sel[3];            // XXX use the same _selcase for high-level too?
-    sel[0] = send(a, i);
-    sel[1] = recv(b, &s);
-    sel[2] = recv_(a, &j, &jok);
-    sel[3] = xdefault;  // XXX
-#endif
-
-//  int _ = select(sel, ARRAY_SIZE(sel));
-//  int _ = _chanselect(sel, ARRAY_SIZE(sel));
-
-    a.send(i);
-    b.recv(&s);
-    jok = a.recv_(&j);
-    (void)jok;
 
     int _ = select({
         _send(a, i),            // 0

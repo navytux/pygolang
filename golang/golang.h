@@ -103,7 +103,7 @@ int select(const std::initializer_list<_selcase> &casev) {
 
 // _send<T> creates `ch<T>.send(tx)` case for select.
 template<typename T>
-_selcase _send(chan<T> ch, T tx) {
+_selcase _send(chan<T> ch, T tx) {  // XXX bad - taking address of temp tx -> &?
     return _selcase{
         .ch      = ch._ch,
         .op      = (void *)_chansend,
