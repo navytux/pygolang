@@ -857,39 +857,6 @@ int go_select(const std::initializer_list<_selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
 }
 
-// _send creates `ch.send(tx)` case for select.
-template<typename T>
-_selcase _send(chan<T> ch, T tx) {
-    return _selcase{
-        .ch      = ch._ch,
-        .op      = (void *)_chansend,
-        .data    = &tx,
-        .rxok    = NULL,
-    };
-}
-
-// _recv creates `ch.recv(prx)` case for select.
-template<typename T>
-_selcase _recv(chan<T> ch, T *prx) {
-    return _selcase{
-        .ch      = ch._ch,
-        .op      = (void *)_chanrecv,
-        .data    = prx,
-        .rxok    = NULL,
-    };
-}
-
-// _recv_ creates `*pok = ch.recv_(prx)` case for select.
-template<typename T>
-_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
-    return _selcase{
-        .ch     = ch._ch,
-        .op     = (void *)_chanrecv_,
-        .data   = prx,
-        .rxok   = pok,
-    };
-}
-
 void testcpp() {
     chan<int> a;
     chan<char[100]> b;

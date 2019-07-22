@@ -41,7 +41,6 @@ unsigned _chanlen(_chan *ch);
 // _selcase represents one _select case.
 struct _selcase {
     _chan *ch;                      // channel
-//  void  (*op)(_chan *, void *);   // chansend/chanrecv/chanrecv_/default
     void  *op;                      // chansend/chanrecv/chanrecv_/default
     void  *data;                    // chansend: ptx; chanrecv*: prx
     bool  *rxok;                    // chanrecv_: where to save ok; otherwise not used
@@ -88,6 +87,39 @@ chan<T> makechan(unsigned size) {
     if (ch._ch == 0)
         throw std::bad_alloc();
     return ch;
+}
+
+// _send<T> creates `ch<T>.send(tx)` case for select.
+template<typename T>
+_selcase _send(chan<T> ch, T tx) {
+    return _selcase{
+        .ch      = ch._ch,
+        .op      = (void *)_chansend,
+        .data    = &tx,
+        .rxok    = NULL,
+    };
+}
+
+// _recv<T> creates `ch<T>.recv(prx)` case for select.
+template<typename T>
+_selcase _recv(chan<T> ch, T *prx) {
+    return _selcase{
+        .ch      = ch._ch,
+        .op      = (void *)_chanrecv,
+        .data    = prx,
+        .rxok    = NULL,
+    };
+}
+
+// _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
+template<typename T>
+_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
+    return _selcase{
+        .ch     = ch._ch,
+        .op     = (void *)_chanrecv_,
+        .data   = prx,
+        .rxok   = pok,
+    };
 }
 
 #endif  // __cplusplus
