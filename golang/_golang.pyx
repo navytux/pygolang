@@ -800,7 +800,7 @@ def pyselect(*pycasev):
             # incref tx; we'll decref it if it won't be sent.
             # see pychan.send for details
             Py_INCREF(tx)
-            casev[i] = _send(pych.ch, <PyObject *>tx)
+            casev[i] = _send(pych.ch, <pPyObject>tx)
 
         # recv
         else:
