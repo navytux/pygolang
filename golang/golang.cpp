@@ -885,15 +885,12 @@ int _chanselect(const _selcase *casev, int casec) {
 
 // _blockforever blocks current goroutine forever.
 void _blockforever() {
-    panic("_blockforever: TODO");
-#if 0
     // take a lock twice. It will forever block on the second lock attempt.
     // Under gevent, similarly to Go, this raises "LoopExit: This operation
     // would block forever", if there are no other greenlets scheduled to be run.
-    dead = threading.Lock()
-    dead.acquire()
-    dead.acquire()
-#endif
+    Sema dead;
+    dead.acquire();
+    dead.acquire();
 }
 
 // ---- for tests ----
