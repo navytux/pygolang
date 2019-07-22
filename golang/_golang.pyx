@@ -766,6 +766,7 @@ def pyselect(*casev):
     cdef pychan pych
     cdef PyObject *_rx = NULL
     cdef bint rxok = False
+    cdef bint commaok
 
     # prepare casev for chanselect
     for i in range(n):
@@ -790,7 +791,6 @@ def pyselect(*casev):
 
         # recv
         else:
-            cdef bint commaok
             recv = case
             if im_class(recv) is not pychan:
                 panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
@@ -826,18 +826,17 @@ def pyselect(*casev):
 
     if not (op == _CHANRECV or op == _CHANRECV_):
         bug("pyselect: chanselect returned with bad op")
+    commaok = (op == _CHANRECV_)
     # we received NULL or the object and 1 reference to it (see pychan.recv_ for details)
     cdef object rx = None
     if _rx != NULL:
         rx = <object>_rx    # increfs again
         Py_DECREF(rx)       # since <object> convertion did incref
 
-    if op == _CHANRECV:
-        return selected, rx
-    if op == _CHANRECV_:
+    if commaok:
         return selected, (rx, rxok)
-
-    bug("pyselect: unreachable")
+    else:
+        return selected, rx
 
 
 # ---- for py tests ----
