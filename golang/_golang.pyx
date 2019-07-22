@@ -60,8 +60,8 @@ cdef extern from "golang.h" nogil:
         _chanop op
         void    *data
 
-    # XXX not sure how to wrap select
-    int _chanselect(const _selcase *casev, int casec) except +
+    # XXX not sure how to wrap just select
+    int _chanselect(const _selcase *casev, int casec)
 
     _selcase _send[T](chan[T] ch, const T *ptx)
     _selcase _recv[T](chan[T] ch, T* prx)
@@ -175,6 +175,8 @@ cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_t
     ch.close()
 cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_topyexc:
     return ch.len()
+cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_topyexc:
+    return _chanselect(casev, casec)
 
 
 # pyselect executes one ready send or receive channel case.
@@ -260,8 +262,8 @@ def pyselect(*pycasev):
                 casev[i] = _recv(pych.ch, &_rx)
 
     with nogil:
-        #selected = select(casev)    # XXX c++ exc
-        selected = _chanselect(&casev[0], casev.size())
+        #selected = select(casev)
+        selected = _chanselect_pyexc(&casev[0], casev.size())
 
     # decref not sent tx (see ^^^ send prepare)
     for i in range(n):
