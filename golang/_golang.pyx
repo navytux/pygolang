@@ -779,7 +779,7 @@ def pyselect(*pycasev):
     cdef int i, n = len(pycasev), selected
     cdef vector[_selcase] casev = vector[_selcase](n)
     cdef pychan pych
-    cdef PyObject *_rx = NULL
+    cdef pPyObject _rx = NULL
     cdef bint rxok = False
     cdef bint commaok
 
@@ -818,7 +818,7 @@ def pyselect(*pycasev):
 
             pych = recv.__self__
             if commaok:
-                casev[i] = _recv_(pych.ch, &_rx, &_rxok)
+                casev[i] = _recv_(pych.ch, &_rx, &rxok)
             else:
                 casev[i] = _recv(pych.ch, &_rx)
 
