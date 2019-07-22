@@ -37,7 +37,6 @@ cdef extern from *:
 cdef extern from "golang.h" nogil:
     void panic(const char *)
     const char *recover() except +
-    void bug(const char *)
 
     struct _chan
     cppclass chan[T]:
@@ -282,7 +281,7 @@ def pyselect(*pycasev):
         return selected, None
 
     if not (op == _CHANRECV or op == _CHANRECV_):
-        bug("pyselect: chanselect returned with bad op")
+        raise AssertionError("pyselect: chanselect returned with bad op")
     commaok = (op == _CHANRECV_)
     # we received NULL or the object and 1 reference to it (see pychan.recv_ for details)
     cdef object rx = None

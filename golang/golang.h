@@ -30,7 +30,6 @@ extern "C" {
 
 void panic(const char *arg);
 const char *recover();
-void bug(const char *arg);
 
 struct _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);

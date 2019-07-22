@@ -747,7 +747,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
             // send
             if (cas->op == _CHANSEND) {
-                done = ch->_trysend(cas->data);
+                bool done = ch->_trysend(cas->data);
                 if (done) {
                     // don't let already queued cases win
                     g.which = "tx prepoll won"  // !NULL    XXX -> current waiter?
@@ -768,7 +768,7 @@ int _chanselect(const _selcase *casev, int casec) {
             else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
                 bool commaok = (cas->op == _CHANRECV_);
 
-                ok, done = ch->_tryrecv(cas->data, &ok);
+                bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
                     // don't let already queued cases win
                     g.which = "rx prepoll won"  // !NULL    XXX -> current waiter?
@@ -797,8 +797,8 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // no case became ready during phase 2 subscribe - wait.
     if (selected == -1) {
-        g.wait()
-        sel = g.which
+        g.wait();
+        sel = g.which;
 
         selected = sel.sel_n;
     }
@@ -891,6 +891,7 @@ void _blockforever() {
     Sema dead;
     dead.acquire();
     dead.acquire();
+    bug("_blockforever: woken up");
 }
 
 // ---- for tests ----
