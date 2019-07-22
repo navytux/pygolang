@@ -630,53 +630,47 @@ void _default(_chan *_, void *__) {
 // XXX try to use `...` and kill casec
 int _chanselect(_selcase *casev, int casec) {
     // select promise: if multiple cases are ready - one will be selected randomly
-    vector<int> v(casec); // n -> n(case)      TODO stack-allocate for small casec
+    vector<int> nv(casec); // n -> n(case)      TODO stack-allocate for small casec
     for (int i=0; i <casec; i++)
-        v[i] = i;
-    std::random_shuffle(v.begin(), v.end());
+        nv[i] = i;
+    std::random_shuffle(nv.begin(), nv.end());
 
 //  ncasev = list(enumerate(casev))
 //  random.shuffle(ncasev)
 
     // first pass: poll all cases and bail out in the end if default was provided
-    recvv = [] // [](n, ch, commaok)
-    sendv = [] // [](n, ch, tx)
-    ndefault = -1
-    for (auto n : v) {
+//  recvv = [] // [](n, ch, commaok)
+//  sendv = [] // [](n, ch, tx)
+    int ndefault = -1;
+    for (auto n : nv) {
         _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
 
-        switch (cas->op) {
-        default:
-            panic("select: invalid op");
-
         // default: remember we have it
-        case _default:
-            if ndefault != -1:
-                panic("select: multiple default")
-            ndefault = n
-            break;
+        if (cas->op == _default) {
+            if (ndefault != -1)
+                panic("select: multiple default");
+            ndefault = n;
+        }
 
         // send
-        case chansend:
+        else if (cas->op == _chansend) {
             if (ch != NULL) {   // nil chan is never ready
-                ch._mu.acquire();
-                if 1 {
-                    ok = ch._trysend(tx)
-                    if ok:
-                        return n, None
+                ch->_mu.acquire();
+                if (1) {
+                    bool ok = ch->_trysend(cas->data);
+                    if (ok)
+                        return n;
                 }
-                ch._mu.release();
+                ch->_mu.release();
 
-                sendv.append((n, ch, tx))   // XXX
+//              sendv.append((n, ch, tx))   // XXX
             }
-            break;
+        }
 
         // recv
-        else:
+        else if (cas->op == _chanrecv) {     // XXX + chanrecv_ ?
             recv = case
-            if im_class(recv) is not chan:
-                panic("select: recv on non-chan: %r" % (im_class(recv),))
             if recv.__func__ is _chan_recv:
                 commaok = False
             elif recv.__func__ is _chan_recv_:
@@ -684,28 +678,35 @@ int _chanselect(_selcase *casev, int casec) {
             else:
                 panic("select: recv expected: %r" % (recv,))
 
-            ch = recv.__self__
-            if ch is not nilchan:   // nil chan is never ready
-                ch._mu.acquire()
-                if 1:
-                    rx_, ok = ch._tryrecv()
+            if (ch != NULL) {   // nil chan is never ready
+                ch->_mu.acquire();
+                if (1) {
+                    rx_, ok = ch->_tryrecv();
                     if ok:
                         if not commaok:
                             rx, ok = rx_
                             rx_ = rx
                         return n, rx_
-                ch._mu.release()
+                }
+                ch->_mu.release();
 
-                recvv.append((n, ch, commaok))
+//              recvv.append((n, ch, commaok))
+            }
         }
+
+        // bad case
+        else {
+            panic("select: invalid op");
+        }
+    }
 
     // execute default if we have it
     if (ndefault != -1)
         return ndefault;
 
     // select{} or with nil-channels only -> block forever
-    if len(recvv) + len(sendv) == 0:
-        _blockforever()
+    if (len(recvv) + len(sendv) == 0)
+        _blockforever();
 
     panic("TODO: chanselect (blocking)");
 #if 0

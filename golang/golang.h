@@ -42,7 +42,7 @@ unsigned _chanlen(_chan *ch);
 struct _selcase {
     _chan *ch;                      // channel
     void  (*op)(_chan *, void *);   // chansend/chanrecv/default
-    void  *data;                    // chansend: tx; chanrecv: rx
+    void  *data;                    // chansend: ptx; chanrecv: prx
     bool  rxok;                     // tx: unused; rx: comma-ok after recv_
 };
 
