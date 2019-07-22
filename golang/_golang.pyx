@@ -55,13 +55,17 @@ cdef extern from "golang.h" nogil:
         unsigned len()
     chan[T] makechan[T](unsigned size) except +
 
-    struct _selcase:
-        pass
     enum _chanop:
         _CHANSEND
         _CHANRECV
         _CHANRECV_
         _DEFAULT
+    struct _selcase:
+        _chanop op
+        void    *data
+
+    # XXX not sure how to wrap select
+    int _chanselect(const _selcase *casev, int casec) except +
 
     _selcase _send[T](chan[T] ch, T tx)
     _selcase _recv[T](chan[T] ch, T* prx)
@@ -823,18 +827,21 @@ def pyselect(*pycasev):
                 casev[i] = _recv(pych.ch, &_rx)
 
     with nogil:
-        selected = select(casev)    # XXX c++ exc
+        #selected = select(casev)    # XXX c++ exc
+        selected = _chanselect(&casev[0], casev.size())
 
     # decref not sent tx (see ^^^ send prepare)
     for i in range(n):
         if casev[i].op == _CHANSEND and (i != selected):
-            ptx = <PyObject **>casev[i].data
-            tx  = ptx[0]
-            Py_DECREF(tx)
+            p_tx = <PyObject **>casev[i].data
+            _tx  = p_tx[0]
+            tx   = <object>_tx  # increfs gain
+            Py_DECREF(tx)       # for ^^^ <object>
+            Py_DECREF(tx)       # for incref at send prepare
 
     # return what was selected
     cdef _chanop op = casev[selected].op
-    if op == _CHANDEFAULT:
+    if op == _DEFAULT:
         return selected, None
     if op == _CHANSEND:
         return selected, None
