@@ -33,6 +33,9 @@
 
 #include <string.h>
 
+// XXX -> golang.h ?
+#include <array>
+
 // for semaphores (need pythread.h but it depends on PyAPI_FUNC from outside)
 #include <Python.h>
 #include <pythread.h>
@@ -643,7 +646,7 @@ int _chanselect(const _selcase *casev, int casec) {
 //  sendv = [] // [](n, ch, tx)
     int ndefault = -1;
     for (auto n : nv) {
-        _selcase *cas = &casev[n];
+        const _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
 
         // default: remember we have it
@@ -814,6 +817,7 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
 
 // ---- XXX ----
 
+#if 0
 void test() {
     _chan *a = NULL, *b = NULL;
     int tx = 1, arx; bool aok;
@@ -842,8 +846,22 @@ void test() {
     if (_ == 3)
         printf("defaut\n");
 }
+#endif
 
-int select(...) {
+template<size_t N>
+int select(const std::array<_selcase, N> &casev) {
+    return _chanselect(casev.data(), casev.size());
+}
+
+// _send creates send case for select.
+template<typename T>
+_selcase _send(chan<T> ch, T tx) {
+    _selcase sel;
+    sel.ch      = ch;
+    sel.op      = _chansend;
+    sel.data    = &tx;
+    sel.rxok    = NULL;
+    return sel;
 }
 
 void testcpp() {
@@ -863,12 +881,22 @@ void testcpp() {
 //  int _ = select(sel, ARRAY_SIZE(sel));
 //  int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
-    int _ = select(
-        send(a, i),             // 0
-        recv(b, &s),            // 1
-        recv_(a, &j, &jok),     // 2
-        xdefault,               // 3    XXX
-        4
+    //_selcase sel = send(a, i);
+    //_selcase sel = (a.send, i);
+    _selcase sel = _send(a, i);
+    (void)sel;
+
+    a.send(i);
+    b.recv(&s);
+    jok = a.recv_(&j);
+
+#if 1
+    int _ = select({
+            _send(a, i),            // 0
+            _recv(b, &s),           // 1
+            _recv_(a, &j, &jok),    // 2
+            _default                // 3 XXX
+        },
     );
 
     if (_ == 0)
@@ -879,4 +907,5 @@ void testcpp() {
         printf("rx_\n");
     if (_ == 3)
         printf("defaut\n");
+#endif
 }

@@ -72,11 +72,12 @@ struct chan {
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    void send(T *ptx)   { _chansend(_ch, ptx);          }
-    bool recv_(T *prx)  { return _chanrecv_(_ch, prx);  }
-    void recv(T *prx)   { _chanrecv(_ch, prx);          }
-    void close()        { _chanclose(_ch);              }
-    unsigned len()      { return _chanlen(_ch);         }
+    // XXX send: `T *ptx` <-> `T tx` ?
+    void send(T tx)             { _chansend(_ch, &tx);          }
+    bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
+    void recv(T *prx)           { _chanrecv(_ch, prx);          }
+    void close()                { _chanclose(_ch);              }
+    unsigned len()              { return _chanlen(_ch);         }
 };
 
 template<typename T>

@@ -46,7 +46,8 @@ cdef extern from "golang.h" nogil:
     cppclass chan[T]:
         _chan *_ch
         chan();
-        void send(T *ptx)
+        #void send(T *ptx)
+        void send(T tx)
         bint recv_(T *prx)
         void recv(T *prx)
         void close()
@@ -664,7 +665,8 @@ cdef class pychan:
 
         _obj = <PyObject *>obj
         with nogil:
-            chansend_pyexc(pych.ch, &_obj)
+            #chansend_pyexc(pych.ch, &_obj)
+            chansend_pyexc(pych.ch, _obj)
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -721,8 +723,10 @@ cdef void _topyexc() except *:
     if arg != NULL:
         pypanic(arg)
 
-cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_pobj)  nogil except +_topyexc:
-    ch.send(_pobj)
+#cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_pobj)  nogil except +_topyexc:
+#    ch.send(_pobj)
+cdef void chansend_pyexc(chan[pPyObject] ch, PyObject *_obj)    nogil except +_topyexc:
+    ch.send(_obj)
 cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
     return ch.recv_(_prx)
 cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
