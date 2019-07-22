@@ -628,7 +628,7 @@ void _default(_chan *_, void *__) {
 //
 // XXX update ^^^
 // XXX try to use `...` and kill casec
-int _chanselect(_selcase *casev, int casec) {
+int _chanselect(const _selcase *casev, int casec) {
     // select promise: if multiple cases are ready - one will be selected randomly
     vector<int> nv(casec); // n -> n(case)      TODO stack-allocate for small casec
     for (int i=0; i <casec; i++)
@@ -705,6 +705,7 @@ int _chanselect(_selcase *casev, int casec) {
 #endif
 
     panic("TODO: chanselect (blocking)");
+    return -1;
 #if 0
     // second pass: subscribe and wait on all rx/tx cases
     g = _WaitGroup()
@@ -842,20 +843,33 @@ void test() {
         printf("defaut\n");
 }
 
+int select(...) {
+}
+
 void testcpp() {
     chan<int> a;
     chan<char[100]> b;
     int i=1, j; bool jok;
     char s[100];
 
+#if 0
     _selcase sel[3];            // XXX use the same _selcase for high-level too?
     sel[0] = send(a, i);
     sel[1] = recv(b, &s);
     sel[2] = recv_(a, &j, &jok);
     sel[3] = xdefault;  // XXX
+#endif
 
 //  int _ = select(sel, ARRAY_SIZE(sel));
-    int _ = _chanselect(sel, ARRAY_SIZE(sel));
+//  int _ = _chanselect(sel, ARRAY_SIZE(sel));
+
+    int _ = select(
+        send(a, i),             // 0
+        recv(b, &s),            // 1
+        recv_(a, &j, &jok),     // 2
+        xdefault,               // 3    XXX
+        4
+    );
 
     if (_ == 0)
         printf("tx\n");
