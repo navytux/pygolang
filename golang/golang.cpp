@@ -644,10 +644,12 @@ int _chanselect(const _selcase *casev, int casec) {
         nv[i] = i;
     std::random_shuffle(nv.begin(), nv.end());
 
-    // first pass: poll all cases and bail out in the end if default was provided
 //  recvv = [] // [](n, ch, commaok)
 //  sendv = [] // [](n, ch, tx)
-    int ndefault = -1;
+
+    // first pass: poll all cases and bail out in the end if default was provided
+    int  ndefault = -1;
+    bool halt = true;   // whether to block forever if no default was provided
     for (auto n : nv) {
         const _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
@@ -670,6 +672,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 }
                 ch->_mu.release();
 
+                halt = false;
 //              sendv.append((n, ch, tx))   // XXX
             }
         }
@@ -690,6 +693,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 }
                 ch->_mu.release();
 
+                halt = false;
 //              recvv.append((n, ch, commaok))
             }
         }
@@ -704,11 +708,10 @@ int _chanselect(const _selcase *casev, int casec) {
     if (ndefault != -1)
         return ndefault;
 
-#if 0
     // select{} or with nil-channels only -> block forever
-    if (len(recvv) + len(sendv) == 0)
+//  if (len(recvv) + len(sendv) == 0)
+    if (halt)
         _blockforever();
-#endif
 
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
@@ -719,8 +722,8 @@ int _chanselect(const _selcase *casev, int casec) {
         g.wait()
         sel = g.which
         if isinstance(sel, _SendWaiting):
-            if not sel.ok:
-                panic("send on closed channel")
+            if (!sel.ok)
+                panic("send on closed channel");
             return sel->sel_n, None
 
         if isinstance(sel, _RecvWaiting):
