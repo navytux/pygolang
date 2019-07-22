@@ -848,8 +848,9 @@ void test() {
 }
 #endif
 
+// XXX go_select -> select
 template<size_t N>
-int select(const std::array<_selcase, N> &casev) {
+int go_select(const std::array<_selcase, N> &casev) {
     return _chanselect(casev.data(), casev.size());
 }
 
@@ -857,8 +858,8 @@ int select(const std::array<_selcase, N> &casev) {
 template<typename T>
 _selcase _send(chan<T> ch, T tx) {
     _selcase sel;
-    sel.ch      = ch;
-    sel.op      = _chansend;
+    sel.ch      = ch._ch;
+    sel.op      = (void *)_chansend;
     sel.data    = &tx;
     sel.rxok    = NULL;
     return sel;
@@ -889,10 +890,12 @@ void testcpp() {
     a.send(i);
     b.recv(&s);
     jok = a.recv_(&j);
+    (void)jok;
 
-#if 1
-    int _ = select({
-            _send(a, i),            // 0
+    int _ = go_select({
+        _send(a, i),            // 0
+    });
+#if 0
             _recv(b, &s),           // 1
             _recv_(a, &j, &jok),    // 2
             _default                // 3 XXX
