@@ -860,12 +860,12 @@ int go_select(const std::initializer_list<_selcase> &casev) {
 // _send creates `ch.send(tx)` case for select.
 template<typename T>
 _selcase _send(chan<T> ch, T tx) {
-    _selcase sel;
-    sel.ch      = ch._ch;
-    sel.op      = (void *)_chansend;
-    sel.data    = &tx;
-    sel.rxok    = NULL;
-    return sel;
+    return _selcase{
+        .ch      = ch._ch,
+        .op      = (void *)_chansend,
+        .data    = &tx,
+        .rxok    = NULL,
+    };
 }
 
 // _recv creates `ch.recv(prx)` case for select.
