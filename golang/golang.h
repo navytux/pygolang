@@ -62,7 +62,7 @@ struct _selcase _selsend(struct _chan *ch, const void *ptx) {
     return _;
 }
 
-// _selrecv creates `_chanrecv(ch, prx)` case for chanselect.
+// _selrecv creates `_chanrecv(ch, prx)` case for _chanselect.
 static inline
 struct _selcase _selrecv(struct _chan *ch, void *prx) {
     struct _selcase _{
@@ -74,9 +74,20 @@ struct _selcase _selrecv(struct _chan *ch, void *prx) {
     return _;
 }
 
+// _selrecv_ creates `*pok = _chanrecv_(ch, prx)` case for _chanselect.
+static inline
+struct _selcase _selrecv_(struct _chan *ch, void *prx, bool *pok) {
+    struct _selcase _{
+        .ch     = ch,
+        .op      = (void *)_chanrecv_,
+        .data    = prx,
+        .rxok    = pok,
+    };
+    return _;
+}
 
-extern const _selcase _default; // XXX _seldefault ?
-//void _default(_chan *, void *);
+// _default represents default case for _select.
+extern const _selcase _default;
 
 bool _tchanblocked(_chan *ch, bool recv, bool send);
 
@@ -103,8 +114,7 @@ struct chan {
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    // XXX send: `T *ptx` <-> `T tx` ?
-    void send(T tx)             { _chansend(_ch, &tx);          }
+    void send(const T &tx)      { _chansend(_ch, &tx);          }
     bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void recv(T *prx)           { _chanrecv(_ch, prx);          }
     void close()                { _chanclose(_ch);              }
@@ -143,12 +153,7 @@ _selcase _recv(chan<T> ch, T *prx) {
 // _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
 template<typename T>
 _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
-    return _selcase{
-        .ch     = ch._ch,
-        .op     = (void *)_chanrecv_,
-        .data   = prx,
-        .rxok   = pok,
-    };
+    return _selrecv_(ch._ch, prx, pok);
 }
 
 // XXX _default

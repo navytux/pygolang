@@ -601,12 +601,6 @@ const _selcase _default = {
     .rxok   = NULL,
 };
 
-#if 0
-void _default(_chan *_, void *__) {
-    panic("_default must not be called");
-}
-#endif
-
 // _chanselect executes one ready send or receive channel case.
 //
 // if no case is ready and default case was provided, select chooses default.
@@ -636,7 +630,7 @@ void _default(_chan *_, void *__) {
 //       ...
 //
 // XXX update ^^^
-// XXX try to use `...` and kill casec
+// XXX casev is not modified and can be used for next _chanselect calls.
 int _chanselect(const _selcase *casev, int casec) {
     // select promise: if multiple cases are ready - one will be selected randomly
     vector<int> nv(casec); // n -> n(case)      TODO stack-allocate for small casec
@@ -831,25 +825,8 @@ void test() {
     _selcase sel[4];
     sel[0]  = _selsend(a, &tx);
     sel[1]  = _selrecv(b, &rx);
-#if 0
     sel[2]  = _selrecv_(a, &arx, &aok);
     sel[3]  = _default;
-#endif
-
-//  _selcase sel[4];
-#if 0
-    sel[0].ch   = a;
-    sel[0].op   = _chansend;
-    sel[0].data = &tx;
-    sel[1].ch   = b;
-    sel[1].op   = _chanrecv;
-    sel[1].data = &rx;
-#endif
-    sel[2].ch   = a;
-    sel[2].op   = _chanrecv_;
-    sel[2].data = &arx;
-    sel[2].rxok = &aok;
-//  sel[3]      = _default;
     int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
     if (_ == 0)
@@ -872,7 +849,7 @@ void testcpp() {
         _send(a, i),            // 0
         _recv(b, &s),           // 1
         _recv_(a, &j, &jok),    // 2
-//      _default                // 3 XXX
+        _default,               // 3
     });
 
     if (_ == 0)
