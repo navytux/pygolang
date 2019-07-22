@@ -29,6 +29,7 @@ from __future__ import print_function, absolute_import
 
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset
+from libcpp.vector cimport vector
 
 #cdef extern from "../3rdparty/include/linux/list.h":
 cdef:
@@ -53,6 +54,18 @@ cdef extern from "golang.h" nogil:
         void close()
         unsigned len()
     chan[T] makechan[T](unsigned size) except +
+
+    struct _selcase:
+        pass
+    enum _chanop:
+        _CHANSEND
+        _CHANRECV
+        _CHANRECV_
+        _DEFAULT
+
+    _selcase _send[T](chan[T], T)
+    const _selcase _default
+
 
 # ---- channels ----
 
@@ -760,9 +773,9 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_t
 #   if _ == 3:
 #       # default case
 #       ...
-def pyselect(*casev):
-    cdef int i, n = len(casev), selected
-    cdef vector[_selcase] casev(n)
+def pyselect(*pycasev):
+    cdef int i, n = len(pycasev), selected
+    cdef vector[_selcase] casev = vector[_selcase](n)
     cdef pychan pych
     cdef PyObject *_rx = NULL
     cdef bint rxok = False
@@ -770,9 +783,9 @@ def pyselect(*casev):
 
     # prepare casev for chanselect
     for i in range(n):
-        case = casev[i]
+        case = pycasev[i]
         # default
-        if case is default:
+        if case is pydefault:
             casev[i] = _default
 
         # send
@@ -780,7 +793,7 @@ def pyselect(*casev):
             send, tx = case
             if im_class(send) is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
-            if send.__func__ is not _chan_send:
+            if send.__func__ is not _pychan_send:
                 pypanic("pyselect: send expected: %r" % (send,))
 
             pych = send.__self__
@@ -794,9 +807,9 @@ def pyselect(*casev):
             recv = case
             if im_class(recv) is not pychan:
                 panic("pyselect: recv on non-chan: %r" % (im_class(recv),))
-            if recv.__func__ is _chan_recv:
+            if recv.__func__ is _pychan_recv:
                 commaok = False
-            elif recv.__func__ is _chan_recv_:
+            elif recv.__func__ is _pychan_recv_:
                 commaok = True
             else:
                 panic("pyselect: recv expected: %r" % (recv,))
@@ -808,7 +821,7 @@ def pyselect(*casev):
                 casev[i] = _recv(pych.ch, &_rx)
 
     with nogil:
-        selected = select(casev)
+        selected = select(casev)    # XXX c++ exc
 
     # decref not sent tx (see ^^^ send prepare)
     for i in range(n):
