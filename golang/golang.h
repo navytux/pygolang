@@ -48,7 +48,8 @@ struct _selcase {
 
 int _chanselect(const _selcase *casev, int casec);
 
-void _default(_chan *, void *);
+extern const _selcase _default; // XXX _seldefault ?
+//void _default(_chan *, void *);
 
 bool _tchanblocked(_chan *ch, bool recv, bool send);
 

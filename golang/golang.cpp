@@ -594,9 +594,18 @@ void _chan::_dataq_popleft(void *prx) {
 // ---- select ----
 
 // _default represents default case for _select.
+const _selcase _default = {
+    .ch     = NULL,
+    .op     = (void *)&_default, // !NULL to fault on just-zero memory
+    .data   = NULL,
+    .rxok   = NULL,
+};
+
+#if 0
 void _default(_chan *_, void *__) {
     panic("_default must not be called");
 }
+#endif
 
 // _chanselect executes one ready send or receive channel case.
 //
@@ -647,7 +656,7 @@ int _chanselect(const _selcase *casev, int casec) {
         _chan *ch = cas->ch;
 
         // default: remember we have it
-        if (cas->op == _default) {
+        if (cas->op == &_default) {
             if (ndefault != -1)
                 panic("select: multiple default");
             ndefault = n;
@@ -814,7 +823,6 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
 
 // ---- XXX ----
 
-#if 0
 void test() {
     _chan *a = NULL, *b = NULL;
     int tx = 1, arx; bool aok;
@@ -831,7 +839,7 @@ void test() {
     sel[2].op   = _chanrecv_;
     sel[2].data = &arx;
     sel[2].rxok = &aok;
-    sel[3].op   = _default;
+    sel[3]      = _default;
     int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
     if (_ == 0)
@@ -843,7 +851,6 @@ void test() {
     if (_ == 3)
         printf("defaut\n");
 }
-#endif
 
 void testcpp() {
     chan<int> a;
