@@ -207,6 +207,9 @@ struct _RecvSendWaiting {
     // on wakeup: whether recv/send succeeded  (send fails on close)
     bool    ok;
 
+    // this case is used in its select as case #sel_n
+    int     sel_n;
+
     _RecvSendWaiting(_WaitGroup *group, _chan *ch);
 };
 
@@ -237,6 +240,9 @@ _RecvSendWaiting::_RecvSendWaiting(_WaitGroup *group, _chan *ch) {
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
     INIT_LIST_HEAD(&w->in_group);
+    w->pdata = NULL;
+    w->ok    = false;
+    w->sel_n = -1;
     list_add_tail(&w->in_group, &group->waitq);
 }
 
@@ -373,7 +379,7 @@ bool _chan::recv_(void *prx) { // -> ok
     ch->_mu.acquire();
         bool ok, ready = ch->_tryrecv(prx, &ok);
         if (ready) {
-            printf("recv: -> tryrecv ready; ok=%i\n", ok);
+            //printf("recv: -> tryrecv ready; ok=%i\n", ok);
             return ok;
         }
 
@@ -638,9 +644,6 @@ int _chanselect(const _selcase *casev, int casec) {
         nv[i] = i;
     std::random_shuffle(nv.begin(), nv.end());
 
-//  ncasev = list(enumerate(casev))
-//  random.shuffle(ncasev)
-
     // first pass: poll all cases and bail out in the end if default was provided
 //  recvv = [] // [](n, ch, commaok)
 //  sendv = [] // [](n, ch, tx)
@@ -707,11 +710,8 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 #endif
 
-    panic("TODO: chanselect (blocking)");
-    return -1;
-#if 0
     // second pass: subscribe and wait on all rx/tx cases
-    g = _WaitGroup()
+    _WaitGroup  g;
 
     // selected returns what was selected in g.
     // the return signature is the one of select.
@@ -721,27 +721,28 @@ int _chanselect(const _selcase *casev, int casec) {
         if isinstance(sel, _SendWaiting):
             if not sel.ok:
                 panic("send on closed channel")
-            return sel.sel_n, None
+            return sel->sel_n, None
 
         if isinstance(sel, _RecvWaiting):
             rx_ = sel.rx_
             if not sel.sel_commaok:
                 rx, ok = rx_
                 rx_ = rx
-            return sel.sel_n, rx_
+            return sel->sel_n, rx_
 
         raise AssertionError("select: unreachable")
 
     try:
         for n, ch, tx in sendv:
-            ch._mu.acquire()
+            ch->_mu.acquire();
             with g._mu:
                 // a case that we previously queued already won
-                if g.which is not None:
-                    ch._mu.release()
+                if (g.which != NULL) {
+                    ch->_mu.release()
                     return selected()
+                }
 
-                ok = ch._trysend(tx)
+                ok = ch->_trysend(tx)
                 if ok:
                     // don't let already queued cases win
                     g.which = "tx prepoll won"  // !None
@@ -751,15 +752,16 @@ int _chanselect(const _selcase *casev, int casec) {
                 w = _SendWaiting(g, ch, tx)
                 w.sel_n = n
                 ch._sendq.append(w)
-            ch._mu.release()
+            ch->_mu.release()
 
         for n, ch, commaok in recvv:
             ch._mu.acquire()
             with g._mu:
                 // a case that we previously queued already won
-                if g.which is not None:
+                if (g.which != NULL) {
                     ch._mu.release()
                     return selected()
+                }
 
                 rx_, ok = ch._tryrecv()
                 if ok:
@@ -782,7 +784,6 @@ int _chanselect(const _selcase *casev, int casec) {
     finally:
         // unsubscribe not-succeeded waiters
         g.dequeAll()
-#endif
 }
 
 // _blockforever blocks current goroutine forever.
