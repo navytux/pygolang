@@ -669,24 +669,18 @@ int _chanselect(_selcase *casev, int casec) {
         }
 
         // recv
-        else if (cas->op == _chanrecv) {     // XXX + chanrecv_ ?
-            recv = case
-            if recv.__func__ is _chan_recv:
-                commaok = False
-            elif recv.__func__ is _chan_recv_:
-                commaok = True
-            else:
-                panic("select: recv expected: %r" % (recv,))
+        else if (cas->op == _chanrecv || cas->op == _chanrecv_) {
+            bool commaok = (cas->op == _chanrecv_);
 
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.acquire();
                 if (1) {
-                    rx_, ok = ch->_tryrecv();
-                    if ok:
-                        if not commaok:
-                            rx, ok = rx_
-                            rx_ = rx
-                        return n, rx_
+                    bool ok, ready = ch->_tryrecv(cas->data, &ok);
+                    if (ready) {
+                        if (commaok)
+                            *cas->rxok = ok;
+                        return n;
+                    }
                 }
                 ch->_mu.release();
 
@@ -819,17 +813,21 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
 
 void test() {
     _chan *a = NULL, *b = NULL;
-    int tx = 1;
+    int tx = 1, arx; bool aok;
     int rx;
 
-    _selcase sel[3];
+    _selcase sel[4];
     sel[0].ch   = a;
-//  sel[0].op   = _chansend;
+    sel[0].op   = _chansend;
     sel[0].data = &tx;
     sel[1].ch   = b;
     sel[1].op   = _chanrecv;
     sel[1].data = &rx;
-    sel[2].op   = _default;
+    sel[2].ch   = a;
+    sel[2].op   = _chanrecv_;
+    sel[2].data = &arx;
+    sel[2].rxok = &aok;
+    sel[3].op   = _default;
     int _ = _chanselect(sel, ARRAY_SIZE(sel));
 
     if (_ == 0)

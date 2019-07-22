@@ -41,9 +41,9 @@ unsigned _chanlen(_chan *ch);
 // _selcase represents one _select case.
 struct _selcase {
     _chan *ch;                      // channel
-    void  (*op)(_chan *, void *);   // chansend/chanrecv/default
-    void  *data;                    // chansend: ptx; chanrecv: prx
-    bool  rxok;                     // tx: unused; rx: comma-ok after recv_
+    void  (*op)(_chan *, void *);   // chansend/chanrecv/chanrecv_/default
+    void  *data;                    // chansend: ptx; chanrecv*: prx
+    bool  *rxok;                    // chanrecv_: where to save ok; otherwise not used
 };
 
 void _default(_chan *, void *);
