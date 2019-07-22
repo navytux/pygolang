@@ -209,25 +209,27 @@ def test_select():
     N = 1000 # times to do repeated select/chan or select/select interactions
 
     # non-blocking try send: not ok
-    ch = chan()
-    _, _rx = select(
-            (ch.send, 0),
-            default,
-    )
-    assert (_, _rx) == (1, None)
+    for i in range(N):
+        ch = chan()
+        _, _rx = select(
+                (ch.send, 0),
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
     # non-blocking try recv: not ok
-    _, _rx = select(
-            ch.recv,
-            default,
-    )
-    assert (_, _rx) == (1, None)
+    for i in range(N):
+        _, _rx = select(
+                ch.recv,
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
-    _, _rx = select(
-            ch.recv_,
-            default,
-    )
-    assert (_, _rx) == (1, None)
+        _, _rx = select(
+                ch.recv_,
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
     # non-blocking try send: ok
     ch = chan()

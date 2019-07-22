@@ -121,7 +121,8 @@ struct chan {
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    void send(const T &tx)      { _chansend(_ch, &tx);          }
+    // XXX send & bad - e.g. if tx was auto-created temporary
+    void send(const T *ptx)     { _chansend(_ch, ptx);          }
     bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void recv(T *prx)           { _chanrecv(_ch, prx);          }
     void close()                { _chanclose(_ch);              }
