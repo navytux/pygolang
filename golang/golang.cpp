@@ -871,12 +871,12 @@ _selcase _send(chan<T> ch, T tx) {
 // _recv creates `ch.recv(prx)` case for select.
 template<typename T>
 _selcase _recv(chan<T> ch, T *prx) {
-    _selcase sel;
-    sel.ch      = ch._ch;
-    sel.op      = (void *)_chanrecv;
-    sel.data    = prx;
-    sel.rxok    = NULL;
-    return sel;
+    return _selcase{
+        .ch      = ch._ch,
+        .op      = (void *)_chanrecv,
+        .data    = prx,
+        .rxok    = NULL,
+    };
 }
 
 // _recv_ creates `*pok = ch.recv_(prx)` case for select.
