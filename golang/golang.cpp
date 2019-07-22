@@ -30,6 +30,7 @@
 #include <string>
 #include <algorithm>
 #include <random>
+#include <mutex>    // lock_guard
 
 #include <string.h>
 
@@ -165,6 +166,9 @@ private:
     Sema _sema;
     Mutex(const Mutex&);    // don't copy
 };
+
+// with_lock imitates with mu   XXX
+typedef std::lock_guard<Mutex> with_lock;
 
 // ---- channels -----
 
@@ -722,8 +726,6 @@ int _chanselect(const _selcase *casev, int casec) {
     if (!havenonnil)
         _blockforever();
 
-    panic("TODO: select (blocking)");
-#if 0
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
 
@@ -736,10 +738,10 @@ int _chanselect(const _selcase *casev, int casec) {
             continue;
 
         ch->_mu.lock();
-        g._mu.lock();    // XXX -> with g._mu (_trysend may panic)
+        with_lock _(g._mu); // with, because _trysend may panic
             // a case that we previously queued already won
             if (g.which != NULL) {
-                // XXX release ch.mu, g._mu
+                // XXX release ch.mu
                 break;
             }
 
@@ -749,7 +751,6 @@ int _chanselect(const _selcase *casev, int casec) {
                 if (done) {
                     // don't let already queued cases win
                     g.which = "tx prepoll won"  // !NULL    XXX -> current waiter?
-                    // XXX g.mu.unlock()   XXX no -> goes away due to "with"
                     selected = n;
                     break;
                 }
@@ -774,7 +775,6 @@ int _chanselect(const _selcase *casev, int casec) {
 
                     if (commaok)
                         *cas->rxok = ok;
-                    // XXX g.mu.unlock     XXX no -> goes away due to "with"
                     selected = n;
                     break;
                 }
@@ -792,8 +792,6 @@ int _chanselect(const _selcase *casev, int casec) {
             else {
                 bug("select: invalid op during phase 2");
             }
-
-        g._mu.unlock()     // XXX disable -> with
         ch->_mu.unlock();
     }
 
@@ -810,6 +808,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
 
 
+#if 0
     // selected returns what was selected in g.
     // the return signature is the one of select.
     def selected():
