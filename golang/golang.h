@@ -34,10 +34,11 @@ const char *recover();
 struct _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
 void _chansend(_chan *ch, const void *ptx);
-bool _chanrecv_(_chan *ch, void *prx);
 void _chanrecv(_chan *ch, void *prx);
+bool _chanrecv_(_chan *ch, void *prx);
 void _chanclose(_chan *ch);
 unsigned _chanlen(_chan *ch);
+unsigned _chancap(_chan *ch);
 
 enum _chanop {
     _CHANSEND   = 0,
@@ -61,9 +62,9 @@ static inline
 struct _selcase _selsend(struct _chan *ch, const void *ptx) {
     struct _selcase _{
         .ch     = ch,
-        .op      = _CHANSEND,
-        .data    = (void *)ptx,
-        .rxok    = NULL,
+        .op     = _CHANSEND,
+        .data   = (void *)ptx,
+        .rxok   = NULL,
     };
     return _;
 }
@@ -73,9 +74,9 @@ static inline
 struct _selcase _selrecv(struct _chan *ch, void *prx) {
     struct _selcase _{
         .ch     = ch,
-        .op      = _CHANRECV,
-        .data    = prx,
-        .rxok    = NULL,
+        .op     = _CHANRECV,
+        .data   = prx,
+        .rxok   = NULL,
     };
     return _;
 }
@@ -85,9 +86,9 @@ static inline
 struct _selcase _selrecv_(struct _chan *ch, void *prx, bool *pok) {
     struct _selcase _{
         .ch     = ch,
-        .op      = _CHANRECV_,
-        .data    = prx,
-        .rxok    = pok,
+        .op     = _CHANRECV_,
+        .data   = prx,
+        .rxok   = pok,
     };
     return _;
 }
@@ -120,18 +121,17 @@ struct chan {
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
 
-    // XXX send & in general bad - e.g. if tx was auto-created temporary - must be `T *ptx`
-    // ( for single send & could be ok, but for select, where _send returns and
-    //   then select runs - not ok )
     void send(const T *ptx)     { _chansend(_ch, ptx);          }
-    bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void recv(T *prx)           { _chanrecv(_ch, prx);          }
+    bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
+    unsigned cap()              { return _chancap(_ch);         }
 };
 
+// makechan<T> makes new chan<T> with capacity=size.
 template<typename T>
-chan<T> makechan(unsigned size) {
+chan<T> makechan(unsigned size=0) {
     chan<T> ch;
     ch._ch = _makechan(sizeof(T), size);
     if (ch._ch == NULL)
