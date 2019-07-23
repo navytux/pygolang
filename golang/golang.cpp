@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// pygolang C part: provides runtime implementation such as panic and channels.
+// Pygolang C part: provides runtime implementation of panic, channels, etc.
 //
 // C++ (not C) is used:
 // - to implement C-level panic (via C++ exceptions).
@@ -34,11 +34,12 @@
 
 #include <string.h>
 
-// for semaphores (need pythread.h but it depends on PyAPI_FUNC from outside)
+// for semaphores (need pythread.h but it depends on PyAPI_FUNC from Python.h)
 #include <Python.h>
 #include <pythread.h>
 
 // XXX -> better use c.h or ccan/array_size.h ?
+// XXX move list.h into here?
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
@@ -48,24 +49,23 @@ using std::string;
 using std::vector;
 using std::exception;
 
-// namespace golang ?
-
+namespace golang {
 
 // ---- panic ----
 
-// panic throws exception that represents C-level panic.
-// the exception can be caught at C++ level via try/catch and recovered via recover.
 struct PanicError : exception {
 	const char *arg;
 };
 
+// panic throws exception that represents C-level panic.
+// the exception can be caught at C++ level via try/catch and recovered via recover.
 void panic(const char *arg) {
 	PanicError _; _.arg = arg;
 	throw _;
 }
 
 // recover recovers from exception thrown by panic.
-// it returns: !NULL - there was panic with that argument. NULl - there was no panic.
+// it returns: !NULL - there was panic with that argument. NULL - there was no panic.
 // if another exception was thrown - recover rethrows it.
 const char *recover() {
 	// if PanicError was thrown - recover from it
@@ -79,7 +79,7 @@ const char *recover() {
 }
 
 
-// bug indicates internl bug in golang implementation.
+// bug indicates internal bug in golang implementation.
 struct Bug : exception {
 	const string msg;
 
@@ -100,7 +100,7 @@ void bug(const char *msg) {
 // init -> PyThread_init_thread (so that there is no concurrent calls to
 // PyThread_init_thread from e.g. PyThread_allocate_lock)
 //
-// XXX -> explicit call from golang -> and detect gevent'ed envirtnment from there.
+// XXX -> explicit call from golang -> and detect gevent'ed environment from there.
 static struct _init_pythread {
     _init_pythread() {
         PyThread_init_thread();
@@ -127,7 +127,7 @@ struct Sema {
     void release();
 
 private:
-    Sema(const Sema&);      // dont copy
+    Sema(const Sema&);      // don't copy
 };
 
 Sema::Sema() {
@@ -189,7 +189,7 @@ struct _chan {
     list_head   _sendq;     // blocked senders   (_ -> _RecvSendWaiting.in_rxtxq)
     bool        _closed;
 
-    // data queue (circular buffer) goes past _chan memory and occupies [_cap*elemsize] bytes.
+    // data queue (circular buffer) goes past _chan memory and occupies [_cap*_elemsize] bytes.
     unsigned    _dataq_n;   // total number of entries in dataq
     unsigned    _dataq_r;   // index for next read  (in elements; can be used only if _dataq_n > 0)
     unsigned    _dataq_w;   // index for next write (in elements; can be used only if _dataq_n < _cap)
@@ -205,7 +205,7 @@ struct _chan {
     void _dataq_append(const void *ptx);
     void _dataq_popleft(void *prx);
 private:
-    _chan(const _chan&);    // dont copy
+    _chan(const _chan&);    // don't copy
 };
 
 struct _WaitGroup;
@@ -230,7 +230,7 @@ struct _RecvSendWaiting {
     _RecvSendWaiting();
     void init(_WaitGroup *group, _chan *ch);
 private:
-    _RecvSendWaiting(const _RecvSendWaiting&);  // dont copy
+    _RecvSendWaiting(const _RecvSendWaiting&);  // don't copy
 };
 
 // _WaitGroup is a group of waiting senders and receivers.
@@ -251,7 +251,7 @@ struct _WaitGroup {
     void wait();
     void wakeup();
 private:
-    _WaitGroup(const _WaitGroup&);  // dont copy
+    _WaitGroup(const _WaitGroup&);  // don't copy
 };
 
 
@@ -1001,3 +1001,5 @@ void testcpp() {
     if (_ == 3)
         printf("defaut\n");
 }
+
+}   // golang::
