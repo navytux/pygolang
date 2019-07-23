@@ -101,6 +101,7 @@ void bug(const char *msg) {
 // PyThread_init_thread from e.g. PyThread_allocate_lock)
 //
 // XXX -> explicit call from golang -> and detect gevent'ed environment from there.
+// XXX place
 static struct _init_pythread {
     _init_pythread() {
         PyThread_init_thread();
@@ -167,7 +168,7 @@ private:
     Mutex(const Mutex&);    // don't copy
 };
 
-// with_lock imitates with mu   XXX
+// with_lock imitates `with mu` from python.
 typedef std::lock_guard<Mutex> with_lock;
 
 // ---- channels -----
@@ -596,6 +597,15 @@ unsigned _chan::len() {
     unsigned len = ch->_dataq_n;
     ch->_mu.unlock();
     return len;
+}
+
+// cap returns channel capacity.
+unsigned _chancap(_chan *ch) { return ch->cap(); }
+unsigned _chan::cap() {
+    _chan *ch = this;
+    if (ch == NULL)
+        return 0; // cap(nil) = 0
+    return ch._cap;
 }
 
 // _dataq_append appends next element to ch._dataq.
