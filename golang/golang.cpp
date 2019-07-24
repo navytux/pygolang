@@ -840,12 +840,12 @@ int _chanselect(const _selcase *casev, int casec) {
     if (selected == -1) {   // XXX -> just use g.which ?
         g.wait();
         sel = g.which;
-        selected = sel.sel_n;
+        selected = sel->sel_n;
     }
 
     const _selcase *cas = &casev[selected];
     if (cas->op == _CHANSEND) {
-        if (!sel.ok)
+        if (!sel->ok)
             panic("send on closed channel zzz");    // XXX
         return selected;
     }
@@ -853,7 +853,7 @@ int _chanselect(const _selcase *casev, int casec) {
         bool commaok = (cas->op == _CHANRECV_);
 
         if (commaok)
-            *cas->rxok = sel.ok;
+            *cas->rxok = sel->ok;
         return selected;
     }
     else {
