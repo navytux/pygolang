@@ -25,6 +25,7 @@
 // ---- C-level API that is always available ----
 
 #ifdef	__cplusplus
+namespace golang {
 extern "C" {
 #endif
 
@@ -99,7 +100,7 @@ extern const _selcase _default;
 bool _tchanblocked(_chan *ch, bool recv, bool send);
 
 #ifdef __cplusplus
-}
+}}
 #endif
 
 
@@ -109,6 +110,8 @@ bool _tchanblocked(_chan *ch, bool recv, bool send);
 
 #include <exception>        // bad_alloc & co
 #include <initializer_list>
+
+namespace golang {
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -165,6 +168,7 @@ _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
 
+}   // golang::
 #endif  // __cplusplus
 
 #endif  // _PYGOLANG_GOLANG_H

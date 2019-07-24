@@ -202,6 +202,7 @@ struct _chan {
     bool _tryrecv(void *prx, bool *pok);
     void close();
     unsigned len();
+    unsigned cap();
 
     void _dataq_append(const void *ptx);
     void _dataq_popleft(void *prx);
@@ -605,7 +606,7 @@ unsigned _chan::cap() {
     _chan *ch = this;
     if (ch == NULL)
         return 0; // cap(nil) = 0
-    return ch._cap;
+    return ch->_cap;
 }
 
 // _dataq_append appends next element to ch._dataq.

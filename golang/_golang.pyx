@@ -34,7 +34,7 @@ from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
 
-cdef extern from "golang.h" nogil:
+cdef extern from "golang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover() except +
 
