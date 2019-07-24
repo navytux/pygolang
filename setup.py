@@ -149,7 +149,7 @@ setup(
     url         = 'https://lab.nexedi.com/kirr/pygolang',
     project_urls= {},   # XXX
     license     = 'GPLv3+ with wide exception for Open-Source',
-    license_file= 'COPYING',
+    #   license_file= 'COPYING',        XXX gives warning "unknown distro option"
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
