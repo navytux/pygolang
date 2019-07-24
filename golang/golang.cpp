@@ -32,6 +32,7 @@
 #include <random>
 #include <mutex>    // lock_guard
 
+#include <stdlib.h>
 #include <string.h>
 
 // for semaphores (need pythread.h but it depends on PyAPI_FUNC from Python.h)
@@ -217,7 +218,7 @@ struct _RecvSendWaiting {
     _WaitGroup  *group; // group of waiters this receiver/sender is part of
     _chan       *chan;  // channel receiver/sender is waiting on
 
-    list_head   in_rxtxq; // in recv or send queue of a channel (_chan._recvq|_sendq -> _)
+    list_head   in_rxtxq; // in recv or send queue of the channel (_chan._recvq|_sendq -> _)
 //  list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
 
     // recv: on wakeup: sender|closer -> receiver
@@ -226,7 +227,7 @@ struct _RecvSendWaiting {
     // on wakeup: whether recv/send succeeded  (send fails on close)
     bool    ok;
 
-    // this case is used in its select as case #sel_n
+    // this wait is used in under select as case #sel_n
     int     sel_n;
 
     _RecvSendWaiting();
@@ -685,7 +686,7 @@ int _chanselect(const _selcase *casev, int casec) {
         panic("select: casec < 0");
 
     // select promise: if multiple cases are ready - one will be selected randomly
-    vector<int> nv(casec); // n -> n(case)      TODO stack-allocate for small casec
+    vector<int> nv(casec); // n -> n(case)      TODO -> caller stack-allocate nv
     for (int i=0; i <casec; i++)
         nv[i] = i;
     std::random_shuffle(nv.begin(), nv.end());
@@ -753,8 +754,14 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
-    vector<_RecvSendWaiting>  waitv; // storage for waiters we create
-    waitv.reserve(casec);            // the memory must _not_ move
+//  vector<_RecvSendWaiting>  waitv; // storage for waiters we create
+//  waitv.reserve(casec);            // the memory must _not_ move
+    // storage for waiters we create    XXX stack-allocate
+    //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
+    _RecvSendWaiting *waitv = calloc(sizeof(_RecvSendWaiting), casec);
+    unsigned          waitc = 0;
+    if (waitv == NULL)
+        throw std::bad_alloc();
     // XXX defer deque all from waitv
 
     int selected = -1;
@@ -784,11 +791,9 @@ int _chanselect(const _selcase *casev, int casec) {
                     break;
                 }
 
-                int l = waitv.size();
-                if (l >= casec)
+                if (waitc >= casec)
                     bug("select: waitv overflow");
-                waitv.resize(l+1);
-                _RecvSendWaiting *w = &waitv[l];
+                _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(&g, ch);
                 w->pdata = cas->data;
@@ -813,11 +818,9 @@ int _chanselect(const _selcase *casev, int casec) {
                     break;
                 }
 
-                int l = waitv.size();
-                if (l >= casec)
+                if (waitc >= casec)
                     bug("select: waitv overflow");
-                waitv.resize(l+1);
-                _RecvSendWaiting *w = &waitv[l];
+                _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(&g, ch);
                 w->pdata = cas->data;
