@@ -159,7 +159,9 @@ setup(
     packages    = find_packages(),
     ext_modules = [
                     Extension('golang._golang',
-                        ['golang/_golang.pyx', 'golang/golang.cpp'],
+                        ['golang/_golang.pyx', 'golang/golang.cpp',
+                         'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp',    # XXX temp here?
+                        ],
                         depends=['golang/golang.h'],
                         language="c++"),
                     Extension('golang._internal',   ['golang/_internal.pyx']),
