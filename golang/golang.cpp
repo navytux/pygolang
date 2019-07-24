@@ -54,44 +54,44 @@ namespace golang {
 // ---- panic ----
 
 struct PanicError : exception {
-	const char *arg;
+    const char *arg;
 };
 
 // panic throws exception that represents C-level panic.
 // the exception can be caught at C++ level via try/catch and recovered via recover.
 void panic(const char *arg) {
-	PanicError _; _.arg = arg;
-	throw _;
+    PanicError _; _.arg = arg;
+    throw _;
 }
 
 // recover recovers from exception thrown by panic.
 // it returns: !NULL - there was panic with that argument. NULL - there was no panic.
 // if another exception was thrown - recover rethrows it.
 const char *recover() {
-	// if PanicError was thrown - recover from it
-	try {
-		throw;
-	} catch (PanicError &exc) {
-		return exc.arg;
-	}
+    // if PanicError was thrown - recover from it
+    try {
+        throw;
+    } catch (PanicError &exc) {
+        return exc.arg;
+    }
 
-	return NULL;
+    return NULL;
 }
 
 
 // bug indicates internal bug in golang implementation.
 struct Bug : exception {
-	const string msg;
+    const string msg;
 
-	virtual const char *what() const throw() {
-		return msg.c_str();
-	}
+    virtual const char *what() const throw() {
+        return msg.c_str();
+    }
 
-	Bug(const string &msg) : msg("BUG: " + msg) {}
+    Bug(const string &msg) : msg("BUG: " + msg) {}
 };
 
 void bug(const char *msg) {
-	throw Bug(msg);
+    throw Bug(msg);
 }
 
 
@@ -833,6 +833,8 @@ int _chanselect(const _selcase *casev, int casec) {
             }
         ch->_mu.unlock();
     }
+
+    _RecvSendWaiting *sel;  // XXX temp
 
     // no case became ready during phase 2 subscribe - wait.
     if (selected == -1) {   // XXX -> just use g.which ?
