@@ -169,8 +169,26 @@ private:
     Mutex(const Mutex&);    // don't copy
 };
 
-// with_lock imitates `with mu` from python.
+// with_lock mimics `with mu` from python.
 typedef std::lock_guard<Mutex> with_lock;
+
+// defer(f) mimics defer from golang.
+// XXX f is called at end of current scope, not function.
+template<typename F>
+struct _deferred {
+    F f;
+    _deferred(F f) : f(f) {}
+    ~_deferred() { f(); }
+private:
+    _deferred(const _deferred&);    // don't copy
+};
+
+template<typename F>
+_deferred<F> _defer(F f) {
+    return _deferred<F>(f);
+}
+
+#define defer(f) auto _defer_ ## __COUNTER__ = _defer(f)
 
 // ---- channels -----
 
@@ -331,7 +349,8 @@ void _WaitGroup::wakeup() {
 _RecvSendWaiting *_dequeWaiter(list_head *queue) {
     while (!list_empty(queue)) {
         _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
-        list_del_init(&w->in_rxtxq);
+        list_del_init(&w->in_rxtxq); // _init is important as we can try to remove the waiter
+                                     // second time in select
         // if this waiter can win its group - return it.
         // if not - someone else from its group already has won, and so we anyway have
         // to remove the waiter from the queue.
@@ -754,15 +773,27 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;
-//  vector<_RecvSendWaiting>  waitv; // storage for waiters we create
-//  waitv.reserve(casec);            // the memory must _not_ move
+
     // storage for waiters we create    XXX stack-allocate
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
-    _RecvSendWaiting *waitv = calloc(sizeof(_RecvSendWaiting), casec);
+    _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
     unsigned          waitc = 0;
     if (waitv == NULL)
         throw std::bad_alloc();
-    // XXX defer deque all from waitv
+    // remove all registered waiters from their wait queues on exit.
+    defer([]() {
+        unsigned i;
+        for (i = 0; i < waitc; i++) {
+            _RecvSendWaiting *w = &waitv[i];
+            w->chan->_mu.lock();
+            list_del_init(&w->in_rxtxq); // thanks _init used in _dequeWaiter
+            w->chan->_mu.unlock();       // it is ok if w was already removed
+        }
+
+        free(waitv);
+        waitv = NULL;
+    });
+
 
     int selected = -1;
     for (auto n : nv) {
