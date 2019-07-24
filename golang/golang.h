@@ -32,7 +32,7 @@ extern "C" {
 void panic(const char *arg);
 const char *recover();
 
-struct _chan;
+typedef struct _chan _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
 void _chansend(_chan *ch, const void *ptx);
 void _chanrecv(_chan *ch, void *prx);
@@ -49,19 +49,19 @@ enum _chanop {
 };
 
 // _selcase represents one _select case.
-struct _selcase {
+typedef struct _selcase {
     _chan           *ch;    // channel
     enum _chanop    op;     // chansend/chanrecv/chanrecv_/default
     void            *data;  // chansend: ptx; chanrecv*: prx
     bool            *rxok;  // chanrecv_: where to save ok; otherwise not used
-};
+} _selcase;
 
 int _chanselect(const _selcase *casev, int casec);
 
 // _selsend creates `_chansend(ch, ptx)` case for _chanselect.
 static inline
-struct _selcase _selsend(struct _chan *ch, const void *ptx) {
-    struct _selcase _{
+_selcase _selsend(_chan *ch, const void *ptx) {
+    _selcase _{
         .ch     = ch,
         .op     = _CHANSEND,
         .data   = (void *)ptx,
@@ -72,8 +72,8 @@ struct _selcase _selsend(struct _chan *ch, const void *ptx) {
 
 // _selrecv creates `_chanrecv(ch, prx)` case for _chanselect.
 static inline
-struct _selcase _selrecv(struct _chan *ch, void *prx) {
-    struct _selcase _{
+_selcase _selrecv(_chan *ch, void *prx) {
+    _selcase _{
         .ch     = ch,
         .op     = _CHANRECV,
         .data   = prx,
@@ -84,8 +84,8 @@ struct _selcase _selrecv(struct _chan *ch, void *prx) {
 
 // _selrecv_ creates `*pok = _chanrecv_(ch, prx)` case for _chanselect.
 static inline
-struct _selcase _selrecv_(struct _chan *ch, void *prx, bool *pok) {
-    struct _selcase _{
+_selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
+    _selcase _{
         .ch     = ch,
         .op     = _CHANRECV_,
         .data   = prx,

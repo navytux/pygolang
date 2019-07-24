@@ -18,6 +18,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 #include "golang.h"
+#include <stdio.h>
 
 void test_chan_c() {
     _chan *a = NULL, *b = NULL;
