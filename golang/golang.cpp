@@ -175,6 +175,7 @@ typedef std::lock_guard<Mutex> with_lock;
 // defer(f) mimics defer from golang.
 // XXX f is called at end of current scope, not function.
 template<typename F>
+// XXX void f(void)
 struct _deferred {
     F f;
     _deferred(F f) : f(f) {}
@@ -188,7 +189,8 @@ _deferred<F> _defer(F f) {
     return _deferred<F>(f);
 }
 
-#define defer(f) auto _defer_ ## __COUNTER__ = _defer(f)
+//#define defer(f) auto _defer_ ## __COUNTER__ = _defer(f)
+#define defer(f) _deferred<typeof(f)> _defer_ ## __COUNTER__ (f)
 
 // ---- channels -----
 
@@ -781,7 +783,8 @@ int _chanselect(const _selcase *casev, int casec) {
     if (waitv == NULL)
         throw std::bad_alloc();
     // remove all registered waiters from their wait queues on exit.
-    defer([]() {
+    defer([&]() {
+    //_deferred _([&]() {
         unsigned i;
         for (i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
