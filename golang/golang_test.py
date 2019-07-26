@@ -188,6 +188,8 @@ def test_select():
         )
         assert (_, _rx) == (1, None)
 
+    print('000')
+
     # non-blocking try recv: not ok
     for i in range(N):
         _, _rx = select(
@@ -201,6 +203,8 @@ def test_select():
                 default,
         )
         assert (_, _rx) == (1, None)
+
+    print('111')
 
     # non-blocking try send: ok
     ch = chan()
@@ -225,6 +229,8 @@ def test_select():
         assert (_, _rx) == (0, None)
     ch.send('stop')
     done.recv()
+
+    print('222')
 
     # non-blocking try recv: ok
     ch = chan()
@@ -251,6 +257,8 @@ def test_select():
             assert (_, _rx) == (0, (i, True))
     done.recv()
 
+
+    print('333')
 
     # blocking 2·send
     ch1 = chan()
