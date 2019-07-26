@@ -280,6 +280,8 @@ def test_select():
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
+    print('444')
+
     # blocking 2·recv
     ch1 = chan()
     ch2 = chan()
@@ -299,6 +301,8 @@ def test_select():
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
+
+    print('555')
 
     # blocking send/recv
     ch1 = chan()
@@ -320,6 +324,8 @@ def test_select():
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
+    print('555+')
+
     # blocking recv/send
     ch1 = chan()
     ch2 = chan()
@@ -339,6 +345,7 @@ def test_select():
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
+    print('777')
 
     # blocking send + nil channel
     z = nilchan
@@ -361,6 +368,8 @@ def test_select():
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
+    print('888 ?\n')
+
     # blocking recv + nil channel
     for i in range(N):
         ch = chan()
@@ -371,16 +380,20 @@ def test_select():
             done.close()
         go(_)
 
+        #print('\taaa')
         _, _rx = select(
                 z.recv,
                 (z.send, 0),
                 ch.recv,
         )
+        #print('\tbbb')
 
         assert (_, _rx) == (2, 'd')
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
+
+    print('999')
 
     # buffered ping-pong
     ch = chan(1)
@@ -392,6 +405,8 @@ def test_select():
         assert _    == (i % 2)
         assert _rx  == (i - 1 if i % 2 else None)
 
+
+    print('aaa')
 
     # select vs select
     # channels are recreated on every iteration.
@@ -433,6 +448,8 @@ def test_select():
         assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
+    print('bbb')
+
     # select vs select
     # channels are shared for all iterations.
     # (this tries to trigger parasitic effects from already performed select)
@@ -473,6 +490,9 @@ def test_select():
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
+
+    print('ccc')
+
 
 
 # benchmark sync chan send vs recv on select side.
