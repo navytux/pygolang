@@ -370,9 +370,9 @@ def _waitBlocked(chanop):
 cdef class _tRaiseWhenBlocked:
     def __enter__(t):
         global _tblockforever
-        _tblockforever()
         _tblockforever = _raiseblocked
-        pass
+        return t
+
     def __exit__(t, typ, val, tb):
         _tblockforever = NULL
 
