@@ -179,6 +179,7 @@ def bench_chan(b):
 def test_select():
     N = 1000 # times to do repeated select/chan or select/select interactions
 
+    """
     # non-blocking try send: not ok
     for i in range(N):
         ch = chan()
@@ -367,11 +368,15 @@ def test_select():
         assert (_, _rx) == (2, None)
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
+    """
 
-    print('888 ?\n')
+    """
+    print('888 ?\n'); z = nilchan
 
     # blocking recv + nil channel
+    N = 100; import gc
     for i in range(N):
+        #gc.collect()
         ch = chan()
         done = chan()
         def _():
@@ -392,6 +397,7 @@ def test_select():
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
+    """
 
     print('999')
 

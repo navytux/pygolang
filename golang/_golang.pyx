@@ -37,9 +37,8 @@ cdef extern from "golang.h" namespace "golang" nogil:
         _chan *_ch
         chan();
         void send(T *ptx)
-        #void send(T tx)
-        bint recv_(T *prx)
         void recv(T *prx)
+        bint recv_(T *prx)
         void close()
         unsigned len()
     chan[T] makechan[T](unsigned size) except +
@@ -62,7 +61,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
     const _selcase _default
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
-
+ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
@@ -70,10 +69,11 @@ cdef extern from "Python.h":
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset
 from libcpp.vector cimport vector
-
 cdef extern from *:
     ctypedef bint cbool "bool"
 
+
+# ---- panic ----
 
 cdef class _PanicError(Exception):
     pass
@@ -83,6 +83,7 @@ def pypanic(arg):
     raise _PanicError(arg)
 
 # _topyexc converts C-level panic/exc to python panic/exc.
+# (see usage in e.g. *_pyexc functions in "misc")
 cdef void _topyexc() except *:
     # recover is declared `except +` - if it was another - not panic -
     # exception, it will be converted to py exc by cython automatically.
@@ -90,21 +91,16 @@ cdef void _topyexc() except *:
     if arg != NULL:
         pypanic(arg)
 
-# (see also: *_pyexc functions at the end)
 
-
-# pydefault represents default case for pyselect.
-pydefault  = object()
+# ---- channels -----
 
 # pynilchan is the nil py channel.
 #
 # On nil channel: send/recv block forever; close panics.
 cdef pychan nilchan = pychan()
-free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanfree (free sema)
+free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanrelease (free sema)
 nilchan.ch._ch = NULL
 pynilchan = nilchan
-
-ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 
 # pychan is chan<object>
 cdef class pychan:
@@ -165,6 +161,9 @@ cdef class pychan:
         else:
             return super(pychan, pych).__repr__()
 
+
+# pydefault represents default case for pyselect.
+pydefault  = object()
 
 # pyselect executes one ready send or receive channel case.
 #
