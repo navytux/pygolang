@@ -18,6 +18,8 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 #include "golang.h"
+#include <stdio.h>
+using namespace golang;
 
 void test_chan_cpp() {
     chan<int> a;

@@ -62,7 +62,7 @@ int _chanselect(const _selcase *casev, int casec);
 // _selsend creates `_chansend(ch, ptx)` case for _chanselect.
 static inline
 _selcase _selsend(_chan *ch, const void *ptx) {
-    _selcase _{
+    _selcase _ = {
         .ch     = ch,
         .op     = _CHANSEND,
         .data   = (void *)ptx,
@@ -74,7 +74,7 @@ _selcase _selsend(_chan *ch, const void *ptx) {
 // _selrecv creates `_chanrecv(ch, prx)` case for _chanselect.
 static inline
 _selcase _selrecv(_chan *ch, void *prx) {
-    _selcase _{
+    _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV,
         .data   = prx,
@@ -86,7 +86,7 @@ _selcase _selrecv(_chan *ch, void *prx) {
 // _selrecv_ creates `*pok = _chanrecv_(ch, prx)` case for _chanselect.
 static inline
 _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
-    _selcase _{
+    _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV_,
         .data   = prx,

@@ -20,7 +20,7 @@
 #include "golang.h"
 #include <stdio.h>
 
-void test_chan_c() {
+void test_chan_c(void) {
     _chan *a = NULL, *b = NULL;
     int tx = 1, arx; bool aok;
     int rx;
