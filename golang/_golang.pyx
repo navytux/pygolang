@@ -146,7 +146,7 @@ cdef class pychan:
             return (None, ok)
 
         # we received the object and the channel droped pointer to it.
-        rx = <object>_rx    # increfs again
+        rx = <object>_rx
         Py_DECREF(rx)
         return (rx, ok)
 
@@ -233,8 +233,9 @@ def pyselect(*pycasev):
             tx   = <object>(p_tx[0])
 
             pych = send.__self__
-            # incref tx; we'll decref it if it won't be sent.
-            # see pychan.send for details
+            # incref tx as if corresponding channel is holding pointer to the object while it is being sent.
+            # we'll decref the object if it won't be sent.
+            # see pychan.send for details.
             Py_INCREF(tx)
             casev[i] = _send(pych.ch, <pPyObject *>p_tx)
 
@@ -265,9 +266,8 @@ def pyselect(*pycasev):
         if casev[i].op == _CHANSEND and (i != selected):
             p_tx = <PyObject **>casev[i].data
             _tx  = p_tx[0]
-            tx   = <object>_tx  # increfs gain
-            Py_DECREF(tx)       # for ^^^ <object>
-            Py_DECREF(tx)       # for incref at send prepare
+            tx   = <object>_tx
+            Py_DECREF(tx)
 
     # return what was selected
     cdef _chanop op = casev[selected].op
@@ -279,11 +279,12 @@ def pyselect(*pycasev):
     if not (op == _CHANRECV or op == _CHANRECV_):
         raise AssertionError("pyselect: chanselect returned with bad op")
     commaok = (op == _CHANRECV_)
-    # we received NULL or the object and 1 reference to it (see pychan.recv_ for details)
+    # we received NULL or the object; if it is object, corresponding channel
+    # dropped pointer to it (see pychan.recv_ for details).
     cdef object rx = None
     if _rx != NULL:
-        rx = <object>_rx    # increfs again
-        Py_DECREF(rx)       # since <object> convertion did incref
+        rx = <object>_rx
+        Py_DECREF(rx)
 
     if commaok:
         return selected, (rx, rxok)
