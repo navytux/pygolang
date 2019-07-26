@@ -526,14 +526,22 @@ def bench_select(b):
 
 
 def test_blockforever():
+    print('\n000')
     with tRaiseWhenBlocked():
+        print('111')
         _test_blockforever()
+        print('---')
 
 def _test_blockforever():
     z = nilchan
+    print('aaa')
     assert len(z) == 0
+    print('bbb')
     assert repr(z) == "nilchan"
+    print('ccc')
+    z.send(0)
     with raises(tBlocksForever): z.send(0)
+    print('ddd')
     with raises(tBlocksForever): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
 

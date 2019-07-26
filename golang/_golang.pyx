@@ -321,9 +321,10 @@ if six.PY2:
     _pychan_recv  = _pychan_recv.__func__
     _pychan_recv_ = _pychan_recv_.__func__
 
-cdef extern from "golang.h" nogil:
+cdef extern from "golang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
     int _tchansendqlen(_chan *ch)
+    void (*_tblockforever)()
 
 # _len{recv,send}q returns len(_chan._{recv,send}q)
 def _lenrecvq(pychan pych not None): # -> int
@@ -368,7 +369,10 @@ def _waitBlocked(chanop):
 # `with _tRaiseWhenBlocked` hooks into golang _blockforever to raise _BlocksForever.
 cdef class _tRaiseWhenBlocked:
     def __enter__(t):
+        global _tblockforever
+        _tblockforever()
         _tblockforever = _raiseblocked
+        pass
     def __exit__(t, typ, val, tb):
         _tblockforever = NULL
 
@@ -377,7 +381,9 @@ cdef class _tRaiseWhenBlocked:
 class _tBlocksForever(Exception):
     pass
 
-cdef void _raiseblocked():
+from libc.stdio cimport printf
+cdef void _raiseblocked() nogil:
+    printf("t: _raiseblocked\n")
     panic("_tgolang: blocksforever")
 
 
