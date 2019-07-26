@@ -666,7 +666,7 @@ const _selcase _default = {
     .rxok   = NULL,
 };
 
-static _RecvSendWaiting _sel_txrx_prepoll_won;
+static const _RecvSendWaiting _sel_txrx_prepoll_won;
 
 // _chanselect executes one ready send or receive channel case.
 //
@@ -738,14 +738,12 @@ int _chanselect(const _selcase *casev, int casec) {
 
         // recv
         else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
-            bool commaok = (cas->op == _CHANRECV_);
-
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
                     bool ok, done = ch->_tryrecv(cas->data, &ok);
                     if (done) {
-                        if (commaok)
+                        if (cas->op == _CHANRECV_)
                             *cas->rxok = ok;
                         return n;
                     }
@@ -814,8 +812,8 @@ int _chanselect(const _selcase *casev, int casec) {
                 bool done = ch->_trysend(cas->data);
                 if (done) {
                     // don't let already queued cases win
-                    //g.which = "tx prepoll won"; // !NULL    XXX -> current waiter?
                     g.which = &_sel_txrx_prepoll_won; // !NULL
+
                     selected = n;
                     break;
                 }
@@ -834,15 +832,12 @@ int _chanselect(const _selcase *casev, int casec) {
 
             // recv
             else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
-                bool commaok = (cas->op == _CHANRECV_);
-
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
                     // don't let already queued cases win
                     g.which = &_sel_txrx_prepoll_won;    // !NULL
-                    //g.which = "rx prepoll won"; // !NULL    XXX -> current waiter?
 
-                    if (commaok)
+                    if (cas->op == _CHANRECV_)
                         *cas->rxok = ok;
                     selected = n;
                     break;
@@ -866,6 +861,8 @@ int _chanselect(const _selcase *casev, int casec) {
             }
         ch->_mu.unlock();
     }
+
+    // XXX make sure we don't actually use _sel_txrx_prepoll_won
 
     const _RecvSendWaiting *sel = NULL;  // XXX temp
 
