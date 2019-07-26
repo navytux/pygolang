@@ -75,22 +75,23 @@ def test_chan():
     print('000')
 
     # sync: send vs recv
-    ch = chan()
-    def _():
-        ch.send(1)
-        assert ch.recv() == 2
-        print('...')
-        ch.close()
-        print(',,,')
-    go(_)
-    print('aaa')
-    assert ch.recv() == 1
-    print('bbb')
-    ch.send(2)
-    print('ccc')
-    assert ch.recv_() == (None, False)
-    print('ddd')
-    assert ch.recv_() == (None, False)
+    N=5
+    a = object()
+    b = object()
+    import gc
+    for i in range(N):
+        #gc.collect()
+        print()
+        ch = chan()
+        def _():
+            ch.send(a)
+            assert ch.recv() is b
+            ch.close()
+        go(_)
+        assert ch.recv() is a
+        ch.send(b)
+        assert ch.recv_() == (None, False)
+        assert ch.recv_() == (None, False)
 
     print('111')
 

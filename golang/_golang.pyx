@@ -65,6 +65,7 @@ ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
+    int Py_REFCNT(object o)     # XXX temp?
 
 from libc.stdlib cimport malloc, free
 from libc.string cimport memset
@@ -119,10 +120,13 @@ cdef class pychan:
         #
         # in other words: we send to recv obj and 1 reference to it.
         Py_INCREF(obj)
+        print('send %x  refcnt=%d' % (id(obj), Py_REFCNT(obj)))
 
         with nogil:
             _obj = <PyObject *>obj
-            chansend_pyexc(pych.ch, &_obj)
+            chansend_pyexc(pych.ch, &_obj)  # XXX decref on panic
+        time.sleep(0.5)
+        print('\tsend wokeup  refcnt=%d' % Py_REFCNT(obj))
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -139,13 +143,22 @@ cdef class pychan:
             return (None, ok)
 
         # we received the object and 1 reference to it.
+        #return (<object>_rx, ok)
         rx = <object>_rx    # increfs again
-        Py_DECREF(rx)       # since <object> convertion did incref
+        t = (rx, ok)
+        rx = None           # defref _rx
+        return t
+        #print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
+        #time.sleep(1)
+#       Py_DECREF(rx)       # since <object> convertion did incref  FIXME wrong XXX not wrong?
+        #Py_DECREF(rx)       # XXX extra bug
         return (rx, ok)
 
     # recv receives from the channel.
     def recv(pych): # -> rx
         rx, _ = pych.recv_()
+        print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
+        time.sleep(1)
         return rx
 
     # close closes sending side of the channel.
