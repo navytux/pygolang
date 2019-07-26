@@ -804,7 +804,7 @@ int _chanselect(const _selcase *casev, int casec) {
             // queing other cases.
             if (g.which != NULL) {
                 ch->_mu.unlock();
-                break;
+                goto ready;
             }
 
             // send
@@ -858,6 +858,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // wait for a case to become ready
     g.wait();
+ready:
     if (g.which == &_sel_txrx_prepoll_won)
         bug("select: woke up with g.which=_sel_txrx_prepoll_won");
 

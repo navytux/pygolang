@@ -24,15 +24,9 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+"""_golang.pyx provides Python interface to golang.{h,cpp}"""
 
 from __future__ import print_function, absolute_import
-
-from libc.stdlib cimport malloc, free
-from libc.string cimport memset
-from libcpp.vector cimport vector
-
-cdef extern from *:
-    ctypedef bint cbool "bool"
 
 cdef extern from "golang.h" namespace "golang" nogil:
     void panic(const char *)
@@ -67,14 +61,36 @@ cdef extern from "golang.h" namespace "golang" nogil:
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
 
-
-# ---- python interface ----
-
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
+
+from libc.stdlib cimport malloc, free
+from libc.string cimport memset
+from libcpp.vector cimport vector
+
+cdef extern from *:
+    ctypedef bint cbool "bool"
+
+
+cdef class _PanicError(Exception):
+    pass
+
+# panic stops normal execution of current goroutine.
+def pypanic(arg):
+    raise _PanicError(arg)
+
+# _topyexc converts C-level panic/exc to python panic/exc.
+cdef void _topyexc() except *:
+    # recover is declared `except +` - if it was another - not panic -
+    # exception, it will be converted to py exc by cython automatically.
+    arg = recover()
+    if arg != NULL:
+        pypanic(arg)
+
+# (see also: *_pyexc functions at the end)
 
 
 # pydefault represents default case for pyselect.
@@ -96,6 +112,9 @@ cdef class pychan:
 
     def __cinit__(pych, size=0):
         pych.ch = makechan[pPyObject](size)
+
+    # XXX chanrelease on __del__
+    # XXX on del: drain buffered channel (to decref sent objects) ?
 
     # send sends object to a receiver.
     def send(pych, obj):
@@ -145,37 +164,6 @@ cdef class pychan:
             return "nilchan"
         else:
             return super(pychan, pych).__repr__()
-
-
-# XXX panic: place = ?
-
-cdef class _PanicError(Exception):
-    pass
-
-# panic stops normal execution of current goroutine.
-def pypanic(arg):
-    raise _PanicError(arg)
-
-# _topyexc converts C-level panic/exc to python panic/exc
-cdef void _topyexc() except *:
-    # recover is declared `except +` - if it was another - not panic -
-    # exception, it will be converted to py exc by cython automatically.
-    arg = recover()
-    if arg != NULL:
-        pypanic(arg)
-
-cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   nogil except +_topyexc:
-    ch.send(_ptx)
-#cdef void chansend_pyexc(chan[pPyObject] ch, PyObject *_obj)    nogil except +_topyexc:
-#    ch.send(_obj)
-cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
-    return ch.recv_(_prx)
-cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
-    ch.close()
-cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_topyexc:
-    return ch.len()
-cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_topyexc:
-    return _chanselect(casev, casec)
 
 
 # pyselect executes one ready send or receive channel case.
@@ -293,6 +281,20 @@ def pyselect(*pycasev):
         return selected, (rx, rxok)
     else:
         return selected, rx
+
+
+# ---- misc ----
+
+cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   nogil except +_topyexc:
+    ch.send(_ptx)
+cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
+    return ch.recv_(_prx)
+cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
+    ch.close()
+cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_topyexc:
+    return ch.len()
+cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_topyexc:
+    return _chanselect(casev, casec)
 
 
 # ---- for py tests ----
