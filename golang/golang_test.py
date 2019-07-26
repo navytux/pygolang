@@ -27,7 +27,7 @@ import os, sys, time, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
-from golang._golang import _waitBlocked as waitBlocked
+from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as lenrecvq, _lensendq as lensendq
 #from golang import _chan_recv, _chan_send
 #from golang._pycompat import im_class
 

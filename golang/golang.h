@@ -98,7 +98,10 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 // _default represents default case for _select.
 extern const _selcase _default;
 
-bool _tchanblocked(_chan *ch, bool recv, bool send);
+// for testing
+int _tchanrecvqlen(_chan *ch);
+int _tchansendqlen(_chan *ch);
+//bool _tchanblocked(_chan *ch, bool recv, bool send);
 
 #ifdef __cplusplus
 }}

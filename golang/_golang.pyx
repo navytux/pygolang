@@ -311,7 +311,14 @@ if six.PY2:
     _pychan_recv_ = _pychan_recv_.__func__
 
 cdef extern from "golang.h" nogil:
-    bint _tchanblocked(_chan *ch, bint recv, bint send)
+    int _tchanrecvqlen(_chan *ch)
+    int _tchansendqlen(_chan *ch)
+
+# _len{recv,send}q returns len(_chan._{recv,send}q)
+def _lenrecvq(pychan pych not None): # -> int
+    return _tchanrecvqlen(pych.ch._ch)
+def _lensendq(pychan pych not None): # -> int
+    return _tchansendqlen(pych.ch._ch)
 
 # _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
@@ -335,7 +342,7 @@ def _waitBlocked(chanop):
 
     t0 = time.time()
     while 1:
-        if _tchanblocked(_ch, recv, send):
+        if (_lenrecvq(pych) + _lensendq(pych)) != 0:
             return
         now = time.time()
         if now-t0 > 10: # waited > 10 seconds - likely deadlock

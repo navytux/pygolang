@@ -993,6 +993,30 @@ void _blockforever() {
 
 // ---- for tests ----
 
+
+// _tchanlenrecvqlen returns len(_ch._recvq)
+int _tchanrecvqlen(_chan *_ch) {
+    int l = 0;
+    list_head *h;
+    _ch->_mu.lock();
+    list_for_each(h, &_ch->_recvq)
+        l++;
+    _ch->_mu.unlock();
+    return l;
+}
+
+// _tchanlensendqlen returns len(_ch._sendq)
+int _tchansendqlen(_chan *_ch) {
+    int l = 0;
+    list_head *h;
+    _ch->_mu.lock();
+    list_for_each(h, &_ch->_sendq)
+        l++;
+    _ch->_mu.unlock();
+    return l;
+}
+
+#if 0
 // _tchanblocked returns whether there are any recevers/senders blocked on the channel.
 //
 // whether to check receivers and/or senders is controlled by recv/send.
@@ -1006,5 +1030,6 @@ bool _tchanblocked(_chan *ch, bool recv, bool send) {
     ch->_mu.unlock();
     return blocked;
 }
+#endif
 
 }   // golang::
