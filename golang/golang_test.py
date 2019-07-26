@@ -27,7 +27,7 @@ import os, sys, time, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
-from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as lenrecvq, _lensendq as lensendq
+from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq
 #from golang import _chan_recv, _chan_send
 #from golang._pycompat import im_class
 
@@ -297,8 +297,8 @@ def test_select():
     )
     assert (_, _rx) == (0, None)
     done.recv()
-    assert lensendq(ch1) == lenrecvq(ch1) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking 2·recv
@@ -317,8 +317,8 @@ def test_select():
     )
     assert (_, _rx) == (0, 'a')
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking send/recv
@@ -337,8 +337,8 @@ def test_select():
     )
     assert (_, _rx) == (0, None)
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking recv/send
@@ -357,8 +357,8 @@ def test_select():
     )
     assert (_, _rx) == (0, 'a')
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking send + nil channel
@@ -368,7 +368,7 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.send)
-            assert len(z._sendq) == len(z._recvq) == 0
+            assert len_sendq(z) == len_recvq(z) == 0
             assert ch.recv() == 'c'
             done.close()
         go(_)
@@ -381,7 +381,7 @@ def test_select():
 
         assert (_, _rx) == (2, None)
         done.recv()
-        assert len(ch._sendq) == len(ch._recvq) == 0
+        assert len_sendq(ch) == len_recvq(ch) == 0
 
     # blocking recv + nil channel
     for i in range(N):
@@ -389,7 +389,7 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.recv)
-            assert len(z._sendq) == len(z._recvq) == 0
+            assert len_sendq(z) == len_recvq(z) == 0
             ch.send('d')
             done.close()
         go(_)
@@ -402,7 +402,7 @@ def test_select():
 
         assert (_, _rx) == (2, 'd')
         done.recv()
-        assert len(ch._sendq) == len(ch._recvq) == 0
+        assert len_sendq(ch) == len_recvq(ch) == 0
 
 
     # buffered ping-pong
@@ -452,8 +452,8 @@ def test_select():
         assert (_, _rx) == (1, None)
 
         done.recv()
-        assert len(ch1._sendq) == len(ch1._recvq) == 0
-        assert len(ch2._sendq) == len(ch2._recvq) == 0
+        assert len_sendq(ch1) == len_recvq(ch1) == 0
+        assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # select vs select
@@ -494,8 +494,8 @@ def test_select():
         assert (_, _rx) == (1, None)
 
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
 # benchmark sync chan send vs recv on select side.
