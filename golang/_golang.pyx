@@ -366,7 +366,8 @@ def _waitBlocked(chanop):
         time.sleep(0)   # yield to another thread / coroutine
 
 
-# `with _tRaiseWhenBlocked` hooks into golang _blockforever to raise _BlocksForever.
+# `with _tRaiseWhenBlocked` hooks into golang _blockforever to raise panic with
+# "t: blocks forever" instead of blocking.
 cdef class _tRaiseWhenBlocked:
     def __enter__(t):
         global _tblockforever
@@ -376,15 +377,8 @@ cdef class _tRaiseWhenBlocked:
     def __exit__(t, typ, val, tb):
         _tblockforever = NULL
 
-# BlocksForever is used in "blocks forever" tests where golang._blockforever
-# is patched to raise instead of block.
-class _tBlocksForever(Exception):
-    pass
-
-from libc.stdio cimport printf
 cdef void _raiseblocked() nogil:
-    printf("t: _raiseblocked\n")
-    panic("_tgolang: blocksforever")
+    panic("t: blocks forever")
 
 
 # ----------------------------------------

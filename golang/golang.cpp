@@ -882,7 +882,6 @@ ready:
 // _blockforever blocks current goroutine forever.
 void (*_tblockforever)() = NULL;
 void _blockforever() {
-    printf("blockforever: t=%p\n", _tblockforever);
     if (_tblockforever != NULL)
         _tblockforever();
     // take a lock twice. It will forever block on the second lock attempt.

@@ -28,7 +28,7 @@ from six.moves import range as xrange
 
 import golang
 from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq, \
-        _tRaiseWhenBlocked as tRaiseWhenBlocked, _tBlocksForever as tBlocksForever
+        _tRaiseWhenBlocked as tRaiseWhenBlocked
 
 
 def test_go():
@@ -526,30 +526,22 @@ def bench_select(b):
 
 
 def test_blockforever():
-    print('\n000')
     with tRaiseWhenBlocked():
-        print('111')
         _test_blockforever()
-        print('---')
 
 def _test_blockforever():
     z = nilchan
-    print('aaa')
     assert len(z) == 0
-    print('bbb')
     assert repr(z) == "nilchan"
-    print('ccc')
-    z.send(0)
-    with raises(tBlocksForever): z.send(0)
-    print('ddd')
-    with raises(tBlocksForever): z.recv()
+    with panics("t: blocks forever"): z.send(0)
+    with panics("t: blocks forever"): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
 
     # select{} & nil-channel only
-    with raises(tBlocksForever): select()
-    with raises(tBlocksForever): select((z.send, 0))
-    with raises(tBlocksForever): select(z.recv)
-    with raises(tBlocksForever): select((z.send, 1), z.recv)
+    with panics("t: blocks forever"): select()
+    with panics("t: blocks forever"): select((z.send, 0))
+    with panics("t: blocks forever"): select(z.recv)
+    with panics("t: blocks forever"): select((z.send, 1), z.recv)
 
 
 def test_func():
