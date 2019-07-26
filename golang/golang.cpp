@@ -804,7 +804,7 @@ int _chanselect(const _selcase *casev, int casec) {
             // queing other cases.
             if (g.which != NULL) {
                 ch->_mu.unlock();
-                break;
+                break;  // XXX return what?
             }
 
             // send
