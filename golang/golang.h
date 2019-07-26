@@ -21,6 +21,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 #include <stddef.h>
+#include <stdbool.h>
 
 // ---- C-level API that is always available ----
 
@@ -30,7 +31,7 @@ extern "C" {
 #endif
 
 void panic(const char *arg);
-const char *recover();
+const char *recover(void);
 
 typedef struct _chan _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);

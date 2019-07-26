@@ -870,7 +870,7 @@ int _chanselect(const _selcase *casev, int casec) {
         ch->_mu.unlock();
     }
 
-    const _RecvSendWaiting *sel;  // XXX temp
+    const _RecvSendWaiting *sel = NULL;  // XXX temp
 
     // no case became ready during phase 2 subscribe - wait.
     if (selected == -1) {   // XXX -> just use g.which ?
@@ -896,6 +896,10 @@ int _chanselect(const _selcase *casev, int casec) {
         bug("select: selected case has invalid op");
     }
 
+
+    // XXX temp
+    panic("TODO");
+    return -1;
 
 
 
