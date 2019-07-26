@@ -261,7 +261,7 @@ struct _WaitGroup {
     Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
-    _RecvSendWaiting    *which;
+    const _RecvSendWaiting    *which;
 
 
     _WaitGroup();
@@ -667,6 +667,8 @@ const _selcase _default = {
     .rxok   = NULL,
 };
 
+static _RecvSendWaiting _sel_txrx_prepoll_won;
+
 // _chanselect executes one ready send or receive channel case.
 //
 // if no case is ready and default case was provided, select chooses default.
@@ -815,7 +817,8 @@ int _chanselect(const _selcase *casev, int casec) {
                 bool done = ch->_trysend(cas->data);
                 if (done) {
                     // don't let already queued cases win
-                    g.which = "tx prepoll won"; // !NULL    XXX -> current waiter?
+                    //g.which = "tx prepoll won"; // !NULL    XXX -> current waiter?
+                    g.which = &_sel_txrx_prepoll_won; // !NULL
                     selected = n;
                     break;
                 }
@@ -839,7 +842,8 @@ int _chanselect(const _selcase *casev, int casec) {
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
                     // don't let already queued cases win
-                    g.which = "rx prepoll won"; // !NULL    XXX -> current waiter?
+                    g.which = &_sel_txrx_prepoll_won;    // !NULL
+                    //g.which = "rx prepoll won"; // !NULL    XXX -> current waiter?
 
                     if (commaok)
                         *cas->rxok = ok;
@@ -866,7 +870,7 @@ int _chanselect(const _selcase *casev, int casec) {
         ch->_mu.unlock();
     }
 
-    _RecvSendWaiting *sel;  // XXX temp
+    const _RecvSendWaiting *sel;  // XXX temp
 
     // no case became ready during phase 2 subscribe - wait.
     if (selected == -1) {   // XXX -> just use g.which ?
