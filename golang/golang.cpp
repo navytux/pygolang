@@ -1016,20 +1016,4 @@ int _tchansendqlen(_chan *_ch) {
     return l;
 }
 
-#if 0
-// _tchanblocked returns whether there are any recevers/senders blocked on the channel.
-//
-// whether to check receivers and/or senders is controlled by recv/send.
-bool _tchanblocked(_chan *ch, bool recv, bool send) {
-    bool blocked = false;
-    ch->_mu.lock();
-    if (recv && !list_empty(&ch->_recvq))
-        blocked = true;
-    if (send && !list_empty(&ch->_sendq))
-        blocked = true;
-    ch->_mu.unlock();
-    return blocked;
-}
-#endif
-
 }   // golang::

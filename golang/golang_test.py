@@ -60,35 +60,6 @@ def bench_go(b):
         done.recv()
 
 
-"""
-# waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
-#
-# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
-def waitBlocked(chanop):
-    if im_class(chanop) is not chan:
-        panic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
-    ch = chanop.__self__
-    recv = send = False
-    if chanop.__func__ is _chan_recv:
-        recv = True
-    elif chanop.__func__ is _chan_send:
-        send = True
-    else:
-        panic("wait blocked: unexpected chan method: %r" % (chanop,))
-
-    t0 = time.time()
-    while 1:
-        with ch._mu:
-            if recv and len(ch._recvq) > 0:
-                return
-            if send and len(ch._sendq) > 0:
-                return
-        now = time.time()
-        if now-t0 > 10: # waited > 10 seconds - likely deadlock
-            panic("deadlock")
-        time.sleep(0)   # yield to another thread / coroutine
-"""
-
 # XXX + test for chan bug discovered (too early ch._mu release in _trysend and _tryrecv for buffered)
 def test_chan():
     print()
