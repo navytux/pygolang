@@ -372,6 +372,11 @@ cdef class _tRaiseWhenBlocked:
     def __exit__(t, typ, val, tb):
         _tblockforever = NULL
 
+# BlocksForever is used in "blocks forever" tests where golang._blockforever
+# is patched to raise instead of block.
+class _tBlocksForever(Exception):
+    pass
+
 cdef void _raiseblocked():
     panic("_tgolang: blocksforever")
 

@@ -27,9 +27,9 @@ import os, sys, time, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
-from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq
-#from golang import _chan_recv, _chan_send
-#from golang._pycompat import im_class
+from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq, \
+        _tRaiseWhenBlocked as tRaiseWhenBlocked, _tBlocksForever as tBlocksForever
+
 
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
@@ -525,36 +525,23 @@ def bench_select(b):
     done.recv()
 
 
-# BlocksForever is used in "blocks forever" tests where golang._blockforever
-# is patched to raise instead of block.
-class BlocksForever(Exception):
-    pass
-
 def test_blockforever():
-    B = golang._blockforever
-    def _(): raise BlocksForever()
-    golang._blockforever = _
-    try:
-        _test_blockforever()
-    finally:
-        golang._blockforever = B
-
-    with tRaiseWhenBlocked:
+    with tRaiseWhenBlocked():
         _test_blockforever()
 
 def _test_blockforever():
     z = nilchan
     assert len(z) == 0
     assert repr(z) == "nilchan"
-    with raises(BlocksForever): z.send(0)
-    with raises(BlocksForever): z.recv()
+    with raises(tBlocksForever): z.send(0)
+    with raises(tBlocksForever): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
 
     # select{} & nil-channel only
-    with raises(BlocksForever): select()
-    with raises(BlocksForever): select((z.send, 0))
-    with raises(BlocksForever): select(z.recv)
-    with raises(BlocksForever): select((z.send, 1), z.recv)
+    with raises(tBlocksForever): select()
+    with raises(tBlocksForever): select((z.send, 0))
+    with raises(tBlocksForever): select(z.recv)
+    with raises(tBlocksForever): select((z.send, 1), z.recv)
 
 
 def test_func():
