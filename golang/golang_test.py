@@ -72,8 +72,6 @@ def test_chan():
     with panics("send on closed channel"):  ch.send(0)
     with panics("close of closed channel"): ch.close()
 
-    print('000')
-
     # sync: send vs recv
     N=5
     a = object()
@@ -92,8 +90,6 @@ def test_chan():
         ch.send(b)
         assert ch.recv_() == (None, False)
         assert ch.recv_() == (None, False)
-
-    print('111')
 
     # sync: close vs send
     ch = chan()
@@ -180,7 +176,7 @@ def bench_chan(b):
 def test_select():
     N = 1000 # times to do repeated select/chan or select/select interactions
 
-    """
+#   """
     # non-blocking try send: not ok
     for i in range(N):
         ch = chan()
@@ -369,9 +365,9 @@ def test_select():
         assert (_, _rx) == (2, None)
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
-    """
+#   """
 
-    """
+#   """
     print('888 ?\n'); z = nilchan
 
     # blocking recv + nil channel
@@ -398,7 +394,7 @@ def test_select():
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
-    """
+#   """
 
     print('999')
 
