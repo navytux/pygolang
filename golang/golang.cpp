@@ -804,7 +804,7 @@ int _chanselect(const _selcase *casev, int casec) {
             // queing other cases.
             if (g.which != NULL) {
                 ch->_mu.unlock();
-                break;  // XXX return what?
+                break;
             }
 
             // send
@@ -856,17 +856,13 @@ int _chanselect(const _selcase *casev, int casec) {
         ch->_mu.unlock();
     }
 
-    // XXX make sure we don't actually use _sel_txrx_prepoll_won
+    // wait for a case to become ready
+    g.wait();
+    if (g.which == &_sel_txrx_prepoll_won)
+        bug("select: woke up with g.which=_sel_txrx_prepoll_won");
 
-    const _RecvSendWaiting *sel = NULL;  // XXX temp
-
-    // no case became ready during phase 2 subscribe - wait.
-    if (selected == -1) {   // XXX -> just use g.which ?
-        g.wait();
-        sel = g.which;
-        selected = sel->sel_n;
-    }
-
+    const _RecvSendWaiting *sel = g.which;
+    int selected = sel->sel_n;
     const _selcase *cas = &casev[selected];
     if (cas->op == _CHANSEND) {
         if (!sel->ok)
@@ -874,99 +870,12 @@ int _chanselect(const _selcase *casev, int casec) {
         return selected;
     }
     else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
-        bool commaok = (cas->op == _CHANRECV_);
-
-        if (commaok)
+        if (cas->op == _CHANRECV_)
             *cas->rxok = sel->ok;
         return selected;
     }
-    else {
-        bug("select: selected case has invalid op");
-    }
 
-
-    // XXX temp
-    printf("select: final return\n");
-    panic("TODO");
-    return -1;
-
-
-
-
-
-#if 0
-    // selected returns what was selected in g.
-    // the return signature is the one of select.
-    def selected():
-        g.wait()
-        sel = g.which
-        if isinstance(sel, _SendWaiting):
-            if (!sel.ok)
-                panic("send on closed channel");
-            return sel->sel_n, None
-
-        if isinstance(sel, _RecvWaiting):
-            rx_ = sel.rx_
-            if not sel.sel_commaok:
-                rx, ok = rx_
-                rx_ = rx
-            return sel->sel_n, rx_
-
-        raise AssertionError("select: unreachable")
-
-    try:
-        for n, ch, tx in sendv:
-            ch->_mu.lock();
-            with g._mu:
-                // a case that we previously queued already won
-                if (g.which != NULL) {
-                    ch->_mu.unlock()
-                    return selected()
-                }
-
-                ok = ch->_trysend(tx)
-                if ok:
-                    // don't let already queued cases win
-                    g.which = "tx prepoll won"  // !None
-
-                    return n, None
-
-                w = _SendWaiting(g, ch, tx)
-                w.sel_n = n
-                ch._sendq.append(w)
-            ch->_mu.unlock()
-
-        for n, ch, commaok in recvv:
-            ch._mu.lock()
-            with g._mu:
-                // a case that we previously queued already won
-                if (g.which != NULL) {
-                    ch._mu.unlock()
-                    return selected()
-                }
-
-                rx_, ok = ch._tryrecv()
-                if ok:
-                    // don't let already queued cases win
-                    g.which = "rx prepoll won"  // !None
-
-                    if not commaok:
-                        rx, ok = rx_
-                        rx_ = rx
-                    return n, rx_
-
-                w = _RecvWaiting(g, ch)
-                w.sel_n = n
-                w.sel_commaok = commaok
-                ch._recvq.append(w)
-            ch._mu.unlock()
-
-        return selected()
-
-    finally:
-        // unsubscribe not-succeeded waiters
-        g.dequeAll()
-#endif
+    bug("select: selected case has invalid op");
 }
 
 // _blockforever blocks current goroutine forever.
