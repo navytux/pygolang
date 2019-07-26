@@ -61,7 +61,7 @@ struct PanicError : exception {
 
 // panic throws exception that represents C-level panic.
 // the exception can be caught at C++ level via try/catch and recovered via recover.
-void panic(const char *arg) {
+[[noreturn]] void panic(const char *arg) {
     PanicError _; _.arg = arg;
     throw _;
 }
@@ -92,7 +92,7 @@ struct Bug : exception {
     Bug(const string &msg) : msg("BUG: " + msg) {}
 };
 
-void bug(const char *msg) {
+[[noreturn]] void bug(const char *msg) {
     throw Bug(msg);
 }
 
