@@ -316,17 +316,17 @@ cdef extern from "golang.h" nogil:
 
 # _len{recv,send}q returns len(_chan._{recv,send}q)
 def _lenrecvq(pychan pych not None): # -> int
-    if pych.ch._ch == NULL:    # XXX temp?
-        raise('aaa')
+    if pych.ch._ch == NULL:
+        raise AssertionError('len .recvq on nil channel')
     return _tchanrecvqlen(pych.ch._ch)
 def _lensendq(pychan pych not None): # -> int
-    if pych.ch._ch == NULL:    # XXX temp?
-        raise('bbb')
+    if pych.ch._ch == NULL:
+        raise AssertionError('len .sendq on nil channel')
     return _tchansendqlen(pych.ch._ch)
 
 # _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
-# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
+# For example `_waitBlocked(ch.send)` waits till sender blocks waiting on ch.
 def _waitBlocked(chanop):
     if im_class(chanop) is not pychan:
         pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))

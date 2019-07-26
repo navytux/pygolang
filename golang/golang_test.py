@@ -339,7 +339,6 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.send)
-            #assert len_sendq(z) == len_recvq(z) == 0   XXX don't  check for nil
             assert ch.recv() == 'c'
             done.close()
         go(_)
@@ -360,7 +359,6 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.recv)
-            assert len_sendq(z) == len_recvq(z) == 0
             ch.send('d')
             done.close()
         go(_)
