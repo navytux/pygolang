@@ -117,7 +117,7 @@ cdef class pychan:
     def send(pych, obj):
         # increment obj reference count - until received the channel is holding pointer to the object.
         Py_INCREF(obj)
-        print('send %x  refcnt=%d' % (id(obj), Py_REFCNT(obj)))
+#       print('send %x  refcnt=%d' % (id(obj), Py_REFCNT(obj)))
 
         try:
             with nogil:
@@ -128,8 +128,8 @@ cdef class pychan:
             Py_DECREF(obj)
             raise
 
-        time.sleep(0.5)
-        print('\tsend wokeup  refcnt=%d' % Py_REFCNT(obj))
+#       time.sleep(0.5)
+#       print('\tsend wokeup  refcnt=%d' % Py_REFCNT(obj))
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -153,8 +153,8 @@ cdef class pychan:
     # recv receives from the channel.
     def recv(pych): # -> rx
         rx, _ = pych.recv_()
-        print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
-        time.sleep(1)
+#       print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
+#       time.sleep(1)
         return rx
 
     # close closes sending side of the channel.

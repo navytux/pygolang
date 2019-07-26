@@ -81,7 +81,7 @@ def test_chan():
     import gc
     for i in range(N):
         #gc.collect()
-        print()
+        #print()
         ch = chan()
         def _():
             ch.send(a)
