@@ -364,6 +364,18 @@ def _waitBlocked(chanop):
             pypanic("deadlock")
         time.sleep(0)   # yield to another thread / coroutine
 
+
+# `with _tRaiseWhenBlocked` hooks into golang _blockforever to raise _BlocksForever.
+cdef class _tRaiseWhenBlocked:
+    def __enter__(t):
+        _tblockforever = _raiseblocked
+    def __exit__(t, typ, val, tb):
+        _tblockforever = NULL
+
+cdef void _raiseblocked():
+    panic("_tgolang: blocksforever")
+
+
 # ----------------------------------------
 
 """

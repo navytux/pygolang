@@ -539,6 +539,9 @@ def test_blockforever():
     finally:
         golang._blockforever = B
 
+    with tRaiseWhenBlocked:
+        _test_blockforever()
+
 def _test_blockforever():
     z = nilchan
     assert len(z) == 0
