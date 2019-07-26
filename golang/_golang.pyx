@@ -115,16 +115,19 @@ cdef class pychan:
 
     # send sends object to a receiver.
     def send(pych, obj):
-        # increment obj reference count so that obj stays alive until recv
-        # wakes up - e.g. even if send wakes up earlier and returns / drops obj reference.
-        #
-        # in other words: we send to recv obj and 1 reference to it.
+        # increment obj reference count - until received the channel is holding pointer to the object.
         Py_INCREF(obj)
         print('send %x  refcnt=%d' % (id(obj), Py_REFCNT(obj)))
 
-        with nogil:
-            _obj = <PyObject *>obj
-            chansend_pyexc(pych.ch, &_obj)  # XXX decref on panic
+        try:
+            with nogil:
+                _obj = <PyObject *>obj
+                chansend_pyexc(pych.ch, &_obj)
+        except _PanicError:
+            # the object was not sent - e.g. it was send on a closed channel
+            Py_DECREF(obj)
+            raise
+
         time.sleep(0.5)
         print('\tsend wokeup  refcnt=%d' % Py_REFCNT(obj))
 
@@ -142,16 +145,9 @@ cdef class pychan:
         if not ok:
             return (None, ok)
 
-        # we received the object and 1 reference to it.
-        #return (<object>_rx, ok)
+        # we received the object and the channel droped pointer to it.
         rx = <object>_rx    # increfs again
-        t = (rx, ok)
-        rx = None           # defref _rx
-        return t
-        #print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
-        #time.sleep(1)
-#       Py_DECREF(rx)       # since <object> convertion did incref  FIXME wrong XXX not wrong?
-        #Py_DECREF(rx)       # XXX extra bug
+        Py_DECREF(rx)
         return (rx, ok)
 
     # recv receives from the channel.
