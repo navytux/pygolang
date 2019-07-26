@@ -774,13 +774,14 @@ int _chanselect(const _selcase *casev, int casec) {
     // storage for waiters we create    XXX stack-allocate
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
     _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
-    unsigned          waitc = 0;
+    int               waitc = 0;
     if (waitv == NULL)
         throw std::bad_alloc();
     // remove all registered waiters from their wait queues on exit.
+    // XXX recheck the cleanup is called at right time
     defer([&]() {
-        unsigned i;
-        for (i = 0; i < waitc; i++) {
+        printf("select: deferred cleanup\n");
+        for (int i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
             w->chan->_mu.lock();
             list_del_init(&w->in_rxtxq); // thanks _init used in _dequeWaiter
