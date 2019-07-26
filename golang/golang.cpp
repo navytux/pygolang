@@ -608,8 +608,14 @@ void _chan::close() {
 unsigned _chanlen(_chan *ch) { return ch->len(); }
 unsigned _chan::len() {
     _chan *ch = this;
+    printf("_chan::len ch=%p\n", ch);
+    printf("_chan::len this=%p\n", this);
+    printf("ch == NULL: %d\n", (ch == NULL));
+    printf("ch == nullptr: %d\n", (ch == nullptr));
+    printf("this == nullptr: %d\n", (this == nullptr));
     if (ch == NULL)
         return 0; // len(nil) = 0
+    printf("bbb\n");
 
     ch->_mu.lock(); // only to make valgrind happy
     unsigned len = ch->_dataq_n;
