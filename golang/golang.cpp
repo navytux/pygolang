@@ -175,6 +175,7 @@ typedef std::lock_guard<Mutex> with_lock;
 
 // defer(f) mimics defer from golang.
 // XXX f is called at end of current scope, not function.
+#define defer(f) _deferred _defer_ ## __COUNTER__ (f)
 struct _deferred {
     typedef std::function<void(void)> F;
     F f;
@@ -184,8 +185,6 @@ struct _deferred {
 private:
     _deferred(const _deferred&);    // don't copy
 };
-
-#define defer(f) _deferred _defer_ ## __COUNTER__ (f)
 
 // ---- channels -----
 
@@ -771,7 +770,6 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 
     // second pass: subscribe and wait on all rx/tx cases
-    printf("\n\nselect: enter phase 2\n");
     _WaitGroup  g;
 
     // storage for waiters we create    XXX stack-allocate
@@ -781,9 +779,7 @@ int _chanselect(const _selcase *casev, int casec) {
     if (waitv == NULL)
         throw std::bad_alloc();
     // remove all registered waiters from their wait queues on exit.
-    // XXX recheck the cleanup is called at right time
     defer([&]() {
-        printf("select: deferred cleanup\n");
         for (int i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
             w->chan->_mu.lock();
@@ -870,8 +866,6 @@ int _chanselect(const _selcase *casev, int casec) {
             }
         ch->_mu.unlock();
     }
-
-    printf("select: after subscribe\n");
 
     const _RecvSendWaiting *sel = NULL;  // XXX temp
 
