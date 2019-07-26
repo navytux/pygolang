@@ -297,7 +297,7 @@ def test_select():
     )
     assert (_, _rx) == (0, None)
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
+    assert lensendq(ch1) == lenrecvq(ch1) == 0
     assert len(ch2._sendq) == len(ch2._recvq) == 0
 
 
