@@ -171,7 +171,8 @@ private:
 };
 
 // with_lock mimics `with mu` from python.
-typedef std::lock_guard<Mutex> with_lock;
+#define with_lock(mu) std::lock_guard<Mutex> _with_lock_ ## __COUNTER__ (mu)
+//typedef std::lock_guard<Mutex> with_lock;
 
 // defer(f) mimics defer from golang.
 // XXX f is called at end of current scope, not function.
@@ -753,7 +754,7 @@ int _chanselect(const _selcase *casev, int casec) {
             }
         }
 
-        // bad case
+        // bad
         else {
             panic("select: invalid op");
         }
@@ -776,13 +777,13 @@ int _chanselect(const _selcase *casev, int casec) {
     int               waitc = 0;
     if (waitv == NULL)
         throw std::bad_alloc();
-    // remove all registered waiters from their wait queues on exit.
+    // on exit: remove all registered waiters from their wait queues.
     defer([&]() {
         for (int i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
             w->chan->_mu.lock();
-            list_del_init(&w->in_rxtxq); // thanks _init used in _dequeWaiter
-            w->chan->_mu.unlock();       // it is ok if w was already removed
+            list_del_init(&w->in_rxtxq); // thanks to _init used in _dequeWaiter
+            w->chan->_mu.unlock();       // it is ok to del twice even if w was already removed
         }
 
         free(waitv);
@@ -790,7 +791,6 @@ int _chanselect(const _selcase *casev, int casec) {
     });
 
 
-    int selected = -1;
     for (auto n : nv) {
         const _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
@@ -799,7 +799,7 @@ int _chanselect(const _selcase *casev, int casec) {
             continue;
 
         ch->_mu.lock();
-        with_lock _(g._mu); // with, because _trysend may panic
+        with_lock(g._mu); // with, because _trysend may panic
             // a case that we previously queued already won while we were
             // queing other cases.
             if (g.which != NULL) {
@@ -811,11 +811,8 @@ int _chanselect(const _selcase *casev, int casec) {
             if (cas->op == _CHANSEND) {
                 bool done = ch->_trysend(cas->data);
                 if (done) {
-                    // don't let already queued cases win
-                    g.which = &_sel_txrx_prepoll_won; // !NULL
-
-                    selected = n;
-                    break;
+                    g.which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
+                    return n;
                 }
 
                 if (waitc >= casec)
@@ -834,13 +831,10 @@ int _chanselect(const _selcase *casev, int casec) {
             else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
-                    // don't let already queued cases win
-                    g.which = &_sel_txrx_prepoll_won;    // !NULL
-
+                    g.which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     if (cas->op == _CHANRECV_)
                         *cas->rxok = ok;
-                    selected = n;
-                    break;
+                    return n;
                 }
 
                 if (waitc >= casec)
@@ -855,7 +849,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 list_add_tail(&w->in_rxtxq, &ch->_recvq);
             }
 
-            // bad case
+            // bad
             else {
                 bug("select: invalid op during phase 2");
             }
