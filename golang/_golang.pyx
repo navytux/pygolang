@@ -316,8 +316,12 @@ cdef extern from "golang.h" nogil:
 
 # _len{recv,send}q returns len(_chan._{recv,send}q)
 def _lenrecvq(pychan pych not None): # -> int
+    if pych.ch._ch == NULL:    # XXX temp?
+        raise('aaa')
     return _tchanrecvqlen(pych.ch._ch)
 def _lensendq(pychan pych not None): # -> int
+    if pych.ch._ch == NULL:    # XXX temp?
+        raise('bbb')
     return _tchansendqlen(pych.ch._ch)
 
 # _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.

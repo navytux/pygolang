@@ -771,6 +771,7 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 
     // second pass: subscribe and wait on all rx/tx cases
+    printf("\n\nselect: enter phase 2\n");
     _WaitGroup  g;
 
     // storage for waiters we create    XXX stack-allocate
@@ -870,6 +871,8 @@ int _chanselect(const _selcase *casev, int casec) {
         ch->_mu.unlock();
     }
 
+    printf("select: after subscribe\n");
+
     const _RecvSendWaiting *sel = NULL;  // XXX temp
 
     // no case became ready during phase 2 subscribe - wait.
@@ -898,6 +901,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
 
     // XXX temp
+    printf("select: final return\n");
     panic("TODO");
     return -1;
 
