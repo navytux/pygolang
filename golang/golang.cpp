@@ -385,12 +385,13 @@ void _blockforever();
 // send sends data to a receiver.
 //
 // sizeof(*ptx) must be ch._elemsize.
-void _chansend(_chan *ch, const void *ptx) { ch->send(ptx); }
+void _chansend(_chan *ch, const void *ptx) {
+    if (ch == NULL)      // NOTE: cannot do this check in _chan::send
+        _blockforever(); // (C++ assumes this is never NULL and optimizes it out)
+    ch->send(ptx);
+}
 void _chan::send(const void *ptx) {
     _chan *ch = this;
-
-    if (ch == NULL)
-        _blockforever();
 
     ch->_mu.lock();
         bool done = ch->_trysend(ptx);
@@ -420,12 +421,13 @@ void _chan::send(const void *ptx) {
 // ok is false - if receive is due to channel being closed and empty.
 //
 // sizeof(*prx) must be ch._elemsize | prx=NULL.    XXX do we need prx=NULL ?
-bool _chanrecv_(_chan *ch, void *prx) { return ch->recv_(prx); }
-bool _chan::recv_(void *prx) { // -> ok
-    _chan *ch = this;
-
+bool _chanrecv_(_chan *ch, void *prx) {
     if (ch == NULL)
         _blockforever();
+    return ch->recv_(prx);
+}
+bool _chan::recv_(void *prx) { // -> ok
+    _chan *ch = this;
 
     ch->_mu.lock();
         bool ok, done = ch->_tryrecv(prx, &ok);
@@ -561,12 +563,13 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
 }
 
 // close closes sending side of the channel.
-void _chanclose(_chan *ch) { ch->close(); }
-void _chan::close() {
-    _chan *ch = this;
-
+void _chanclose(_chan *ch) {
     if (ch == NULL)
         panic("close of nil channel");
+    ch->close();
+}
+void _chan::close() {
+    _chan *ch = this;
 
     ch->_mu.lock();
         if (ch->_closed) {
@@ -605,17 +608,13 @@ void _chan::close() {
 }
 
 // len returns current number of buffered elements.
-unsigned _chanlen(_chan *ch) { return ch->len(); }
-unsigned _chan::len() {
-    _chan *ch = this;
-    printf("_chan::len ch=%p\n", ch);
-    printf("_chan::len this=%p\n", this);
-    printf("ch == NULL: %d\n", (ch == NULL));
-    printf("ch == nullptr: %d\n", (ch == nullptr));
-    printf("this == nullptr: %d\n", (this == nullptr));
+unsigned _chanlen(_chan *ch) {
     if (ch == NULL)
         return 0; // len(nil) = 0
-    printf("bbb\n");
+    return ch->len();
+}
+unsigned _chan::len() {
+    _chan *ch = this;
 
     ch->_mu.lock(); // only to make valgrind happy
     unsigned len = ch->_dataq_n;
@@ -624,11 +623,13 @@ unsigned _chan::len() {
 }
 
 // cap returns channel capacity.
-unsigned _chancap(_chan *ch) { return ch->cap(); }
-unsigned _chan::cap() {
-    _chan *ch = this;
+unsigned _chancap(_chan *ch) {
     if (ch == NULL)
         return 0; // cap(nil) = 0
+    return ch->cap();
+}
+unsigned _chan::cap() {
+    _chan *ch = this;
     return ch->_cap;
 }
 

@@ -101,7 +101,7 @@ extern const _selcase _default;
 // for testing
 int _tchanrecvqlen(_chan *ch);
 int _tchansendqlen(_chan *ch);
-extern void (*_tblockforever)();
+extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 }}
