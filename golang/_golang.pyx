@@ -28,19 +28,24 @@
 
 from __future__ import print_function, absolute_import
 
+from libcpp cimport nullptr_t, nullptr as nil
+
 cdef extern from "golang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover() except +
 
     struct _chan
     cppclass chan[T]:
-        _chan *_ch
         chan();
         void send(T *ptx)
         void recv(T *prx)
         bint recv_(T *prx)
         void close()
         unsigned len()
+        unsigned cap()
+        bint operator==(nullptr_t)
+        bint operator!=(nullptr_t)
+        _chan *_rawchan()
     chan[T] makechan[T](unsigned size) except +
 
     enum _chanop:
@@ -98,10 +103,11 @@ cdef void _topyexc() except *:
 # pynilchan is the nil py channel.
 #
 # On nil channel: send/recv block forever; close panics.
-cdef pychan nilchan = pychan()
-free(nilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanrelease (free sema)
-nilchan.ch._ch = NULL
-pynilchan = nilchan
+cdef pychan _pynilchan = pychan()
+_pynilchan.ch = chan[pPyObject]()  # = NULL
+#free(_pynilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanrelease (free sema)
+#_pynilchan.ch._ch = NULL
+pynilchan = _pynilchan
 
 # pychan is chan<object>
 cdef class pychan:
@@ -165,7 +171,7 @@ cdef class pychan:
         return chanlen_pyexc(pych.ch)
 
     def __repr__(pych):
-        if pych.ch._ch == NULL:
+        if pych.ch == nil:
             return "nilchan"
         else:
             return super(pychan, pych).__repr__()
@@ -328,13 +334,13 @@ cdef extern from "golang.h" namespace "golang" nogil:
 
 # _len{recv,send}q returns len(_chan._{recv,send}q)
 def _lenrecvq(pychan pych not None): # -> int
-    if pych.ch._ch == NULL:
+    if pych.ch == nil:
         raise AssertionError('len(.recvq) on nil channel')
-    return _tchanrecvqlen(pych.ch._ch)
+    return _tchanrecvqlen(pych.ch._rawchan())
 def _lensendq(pychan pych not None): # -> int
-    if pych.ch._ch == NULL:
+    if pych.ch == nil:
         raise AssertionError('len(.sendq) on nil channel')
-    return _tchansendqlen(pych.ch._ch)
+    return _tchansendqlen(pych.ch._rawchan())
 
 # _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
 #
@@ -352,8 +358,7 @@ def _waitBlocked(chanop):
     else:
         pypanic("wait blocked: unexpected chan method: %r" % (chanop,))
 
-    cdef _chan *_ch = pych.ch._ch
-    if _ch == NULL:
+    if pych.ch == nil:
         pypanic("wait blocked: called on nil channel")
 
     t0 = time.time()

@@ -1,5 +1,5 @@
-#ifndef	_PYGOLANG_GOLANG_H
-#define	_PYGOLANG_GOLANG_H
+#ifndef _PYGOLANG_GOLANG_H
+#define _PYGOLANG_GOLANG_H
 
 // Copyright (C) 2018-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
@@ -25,7 +25,7 @@
 
 // ---- C-level API that is always available ----
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 namespace golang {
 extern "C" {
 #endif
@@ -117,13 +117,21 @@ extern void (*_tblockforever)(void);
 
 namespace golang {
 
+template<typename T> class chan;
+template<typename T> chan<T> makechan(unsigned size=0);
+template<typename T> _selcase _send(chan<T>, const T*);
+template<typename T> _selcase _recv(chan<T>, T*);
+template<typename T> _selcase _recv_(chan<T>, T*, bool*);
+
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
-struct chan {
+class chan {
     _chan *_ch;
 
+public:
     // = nil channel if not initialized
     chan() { _ch = NULL; }
+    friend chan<T> makechan<T>(unsigned size);
 
     // XXX copy = ok?
     // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
@@ -134,11 +142,21 @@ struct chan {
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
     unsigned cap()              { return _chancap(_ch);         }
+
+    bool operator==(nullptr_t)  { return (_ch == NULL); }
+    bool operator!=(nullptr_t)  { return (_ch != NULL); }
+
+    // for testing
+    _chan *_rawchan()           { return _ch;   }
+
+    friend _selcase _send<T>(chan<T>, const T*);
+    friend _selcase _recv<T>(chan<T>, T*);
+    friend _selcase _recv_<T>(chan<T>, T*, bool*);
 };
 
 // makechan<T> makes new chan<T> with capacity=size.
 template<typename T>
-chan<T> makechan(unsigned size=0) {
+chan<T> makechan(unsigned size) {
     chan<T> ch;
     ch._ch = _makechan(sizeof(T), size);
     if (ch._ch == NULL)
