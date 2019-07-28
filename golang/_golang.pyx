@@ -118,6 +118,7 @@ cdef class pychan:
 
     # XXX chanrelease on __del__
     # XXX on del: drain buffered channel (to decref sent objects) ?
+    # XXX -> __dealloc__
 
     # send sends object to a receiver.
     def send(pych, obj):
