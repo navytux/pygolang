@@ -28,8 +28,7 @@
 
 from __future__ import print_function, absolute_import
 
-from cpython cimport PyObject, Py_INCREF, Py_DECREF
-ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
+from cpython cimport Py_INCREF, Py_DECREF
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
@@ -46,7 +45,7 @@ cdef class _PanicError(Exception):
     pass
 
 # panic stops normal execution of current goroutine.
-def pypanic(arg):
+cpdef pypanic(arg):
     raise _PanicError(arg)
 
 # _topyexc converts C-level panic/exc to python panic/exc.
@@ -70,8 +69,6 @@ pynilchan = _pynilchan
 
 # pychan is chan<object>
 cdef class pychan:
-    cdef chan[pPyObject] ch
-
     def __cinit__(pych, size=0):
         pych.ch = makechan[pPyObject](size)
 

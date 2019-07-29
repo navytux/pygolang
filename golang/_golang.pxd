@@ -58,11 +58,20 @@ cdef extern from "golang.h" namespace "golang" nogil:
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
 
-# XXX pypanic
+
+# XXX do we need to export py* stuff ?
+
+cpdef pypanic(arg)
 # XXX topyexc ?
 
-# XXX cdef class pychan
-# XXX pynilchan, pydefault, pyselect
+# pychan is chan<object>
+from cpython cimport PyObject
+ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
+cdef class pychan:
+    cdef chan[pPyObject] ch
+
+# XXX pynilchan, pydefault
+#cpdef pyselect(*pycasev)   XXX ?
 
 
 """
