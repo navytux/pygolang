@@ -191,9 +191,14 @@ chan<T> makechan(unsigned size) {
 
 // select, together with _send<T>, _recv<T> and _recv_<T>, provide type-safe
 // wrappers over _chanselect and _selsend/_selrecv/_selrecv_.
-static inline
+static inline                       // select({case1, case2, case3})
 int select(const std::initializer_list<const _selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
+}
+
+template<size_t N> static inline    // select(casev_array)
+int select(const _selcase (&casev)[N]) {
+    return _chanselect(&casev[0], N);
 }
 
 // _send<T> creates `ch<T>.send(ptx)` case for select.
