@@ -163,6 +163,7 @@ setup(
                          'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp',    # XXX temp here?
                         ],
                         depends=['golang/golang.h'],
+                        # XXX package_data = golang.h _golang.pxd
                         extra_compile_args=['-fsanitize=undefined'],  # XXX debug
                         extra_link_args=['-fsanitize=undefined'],     # XXX debug
                         #extra_compile_args=['-fsanitize=address'],  # XXX debug
