@@ -21,7 +21,7 @@
 
 # XXX golang._golang -> golang ?
 from golang._golang cimport chan, select, _send, _recv, _recv_, _default
-from golang._golang cimport _chanselect     # XXX temp?
+from golang._golang cimport _chanselect, _selcase   # XXX temp?
 from libc.stdio cimport printf
 
 cdef extern from *:
@@ -38,12 +38,31 @@ cdef void _test_chan_nogil() nogil:
     cdef Point p
     cdef cbool jok
 
+    """
     _ = _chanselect([
         _send(chi, &i),         # 0
         _recv(chp, &p),         # 1
         _recv_(chi, &j, &jok),  # 2
         _default,               # 3
     ], 4)
+    """
+
+    """
+    cdef _selcase[4] v = (
+        _send(chi, &i),         # 0
+        _recv(chp, &p),         # 1
+        _recv_(chi, &j, &jok),  # 2
+        _default,               # 3
+    )
+    _ = select(v)
+    """
+
+    _ = select([
+        _send(chi, &i),         # 0
+        _recv(chp, &p),         # 1
+        _recv_(chi, &j, &jok),  # 2
+        _default,               # 3
+    ])
 
     """
     _ = select({
@@ -54,6 +73,7 @@ cdef void _test_chan_nogil() nogil:
     })
     """
 
+    """
     if _ == 0:
         printf('tx\n')
     if _ == 1:
@@ -62,6 +82,7 @@ cdef void _test_chan_nogil() nogil:
         printf('rx_\n')
     if _ == 3:
         printf('defaut\n')
+    """
 
 
 def test_chan_nogil():
