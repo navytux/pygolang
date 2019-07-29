@@ -27,17 +27,21 @@ from libc.stdio cimport printf
 cdef extern from *:
     ctypedef bint cbool "bool"
 
+ctypedef struct Point:
+    int x
+    int y
+
 cdef void _test_chan_nogil() nogil:
-    cdef chan[int] a
-    cdef chan[char[100]] b
+    cdef chan[int]     chi
+    cdef chan[Point]   chp
     cdef int i=1, j
-    cdef char[100] s
+    cdef Point p
     cdef cbool jok
 
     _ = _chanselect([
-        _send(a, &i),           # 0
-        _recv(b, &s),           # 1
-        _recv_(a, &j, &jok),    # 2
+        _send(chi, &i),         # 0
+        _recv(chp, &p),         # 1
+        _recv_(chi, &j, &jok),  # 2
         _default,               # 3
     ], 4)
 
@@ -55,6 +59,8 @@ cdef void _test_chan_nogil() nogil:
     if _ == 1:
         printf('rx\n')
     if _ == 2:
+        printf('rx_\n')
+    if _ == 3:
         printf('defaut\n')
 
 
