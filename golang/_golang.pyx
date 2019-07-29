@@ -28,45 +28,6 @@
 
 from __future__ import print_function, absolute_import
 
-#from libcpp cimport nullptr_t, nullptr as nil
-
-#cdef extern from "golang.h" namespace "golang" nogil:
-#    void panic(const char *)
-#    const char *recover() except +
-#
-#    struct _chan
-#    cppclass chan[T]:
-#        chan();
-#        void send(T *ptx)
-#        void recv(T *prx)
-#        bint recv_(T *prx)
-#        void close()
-#        unsigned len()
-#        unsigned cap()
-#        bint operator==(nullptr_t)
-#        bint operator!=(nullptr_t)
-#        void operator=(nullptr_t)
-#        # XXX == != = vs chan
-#        _chan *_rawchan()
-#    chan[T] makechan[T](unsigned size) except +
-#
-#    enum _chanop:
-#        _CHANSEND
-#        _CHANRECV
-#        _CHANRECV_
-#        _DEFAULT
-#    struct _selcase:
-#        _chanop op
-#        void    *data
-#
-#    # XXX not sure how to wrap just select
-#    int _chanselect(const _selcase *casev, int casec)
-#
-#    _selcase _send[T](chan[T] ch, const T *ptx)
-#    _selcase _recv[T](chan[T] ch, T* prx)
-#    _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
-#    const _selcase _default
-
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":

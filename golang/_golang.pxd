@@ -58,6 +58,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
 
+
 """
 cdef nogil:
     struct chan
