@@ -342,37 +342,3 @@ cdef class _tRaiseWhenBlocked:
 cdef void _raiseblocked() nogil:
     panic("t: blocks forever")
 
-
-# ----------------------------------------
-
-# XXX -> _golang_test.pyx
-
-"""
-from libc.stdio cimport printf
-
-cdef void test() nogil:
-    cdef chan a, b
-    cdef void *tx = NULL
-    cdef void *rx = NULL
-    cdef int _
-
-    cdef selcase sel[3]
-    sel[0].op   = chansend      XXX -> _selsend     + test via _send/_recv
-    sel[0].data = tx
-    sel[1].op   = chanrecv          -> _selrecv
-    sel[1].data = rx
-    sel[2].op   = default
-    _ = chanselect(sel, 3)  # XXX 3 -> array_len(sel)
-
-    if _ == 0:
-        printf('tx\n')
-    if _ == 1:
-        printf('rx\n')
-    if _ == 2:
-        printf('defaut\n')
-
-
-def xtest():
-    with nogil:
-        test()
-"""
