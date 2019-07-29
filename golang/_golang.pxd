@@ -19,6 +19,45 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+from libcpp cimport nullptr_t, nullptr as nil
+
+cdef extern from "golang.h" namespace "golang" nogil:
+    void panic(const char *)
+    const char *recover() except +                  # XXX kill `except +` here?
+
+    struct _chan
+    cppclass chan[T]:
+        chan();
+        void send(T *ptx)
+        void recv(T *prx)
+        bint recv_(T *prx)
+        void close()
+        unsigned len()
+        unsigned cap()
+        bint operator==(nullptr_t)
+        bint operator!=(nullptr_t)
+        void operator=(nullptr_t)
+        # XXX == != = vs chan
+        _chan *_rawchan()
+    chan[T] makechan[T](unsigned size) except +     # XXX kill `except +` here?
+
+    enum _chanop:
+        _CHANSEND
+        _CHANRECV
+        _CHANRECV_
+        _DEFAULT
+    struct _selcase:
+        _chanop op
+        void    *data
+
+    # XXX not sure how to wrap just select
+    int _chanselect(const _selcase *casev, int casec)
+
+    _selcase _send[T](chan[T] ch, const T *ptx)
+    _selcase _recv[T](chan[T] ch, T* prx)
+    _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
+    const _selcase _default
+
 """
 cdef nogil:
     struct chan
