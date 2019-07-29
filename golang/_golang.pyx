@@ -348,6 +348,8 @@ cdef void _raiseblocked() nogil:
 
 # ----------------------------------------
 
+# XXX -> _golang_test.pyx
+
 """
 from libc.stdio cimport printf
 

@@ -58,6 +58,12 @@ cdef extern from "golang.h" namespace "golang" nogil:
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
 
+# XXX pypanic
+# XXX topyexc ?
+
+# XXX cdef class pychan
+# XXX pynilchan, pydefault, pyselect
+
 
 """
 cdef nogil:
