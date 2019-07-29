@@ -74,8 +74,6 @@ cdef extern from "Python.h":
         PyObject **ob_item
     int Py_REFCNT(object o)     # XXX temp?
 
-from libc.stdlib cimport malloc, free
-from libc.string cimport memset
 from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
@@ -107,8 +105,6 @@ cdef void _topyexc() except *:
 # On nil channel: send/recv block forever; close panics.
 cdef pychan _pynilchan = pychan()
 _pynilchan.ch = chan[pPyObject]()  # = NULL
-#free(_pynilchan.ch._ch)  # XXX vs _ch being shared_ptr ? XXX -> chanrelease (free sema)
-#_pynilchan.ch._ch = NULL
 pynilchan = _pynilchan
 
 # pychan is chan<object>
