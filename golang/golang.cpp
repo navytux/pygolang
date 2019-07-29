@@ -425,6 +425,7 @@ void _chan::decref() {
 
     // refcnt=0 -> free the channel
     printf("chan %p -> dealloc\n", ch);
+//  panic("ZZZ");
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch));
     free(ch);

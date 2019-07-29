@@ -155,7 +155,7 @@ public:
     chan(chan&& from) { _ch = from._ch; from._ch = NULL; }
     chan& operator=(chan&& from) {
         if (this != &from) {
-            _chanxdecref(_ch); _ch = from._ch;
+            _chanxdecref(_ch); _ch = from._ch; from._ch = NULL;
         }
         return *this;
     }
