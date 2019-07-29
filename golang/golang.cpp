@@ -399,7 +399,7 @@ void _chan::incref() {
     _chan *ch = this;
 
     int refcnt_was = ch->_refcnt.fetch_add(+1);
-    printf("chan %p incref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
+//  printf("chan %p incref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
     if (refcnt_was < 1)
         panic("chan: incref: refcnt was < 1");
 }
@@ -417,14 +417,14 @@ void _chan::decref() {
     _chan *ch = this;
 
     int refcnt_was = ch->_refcnt.fetch_add(-1);
-    printf("chan %p decref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
+//  printf("chan %p decref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
     if (refcnt_was < 1)
         panic("chan: decref: refcnt was < 1");
     if (refcnt_was != 1)
         return;
 
     // refcnt=0 -> free the channel
-    printf("chan %p -> dealloc\n", ch);
+//  printf("chan %p -> dealloc\n", ch);
 //  panic("ZZZ");
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch));

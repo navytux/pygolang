@@ -116,11 +116,9 @@ cdef class pychan:
     cdef chan[pPyObject] ch
 
     def __cinit__(pych, size=0):
-        print('pychan.__cinit__')
         pych.ch = makechan[pPyObject](size)
 
     def __dealloc__(pych):
-        print('pychan.__dealloc__')
         # XXX on del: drain buffered channel (to decref sent objects) ?
         pych.ch = nil # does _chanxdecref(ch)
 
