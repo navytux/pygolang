@@ -50,10 +50,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
         _chanop op
         void    *data
 
-    # XXX not sure how to wrap just select
-    int _chanselect(const _selcase *casev, int casec)
-    int select(const _selcase casev[])
-    #int select(...)
+    int select(_selcase casev[])
 
     _selcase _send[T](chan[T] ch, const T *ptx)
     _selcase _recv[T](chan[T] ch, T* prx)

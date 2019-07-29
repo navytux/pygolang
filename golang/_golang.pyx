@@ -221,7 +221,6 @@ def pyselect(*pycasev):
                 casev[i] = _recv(pych.ch, &_rx)
 
     with nogil:
-        #selected = select(casev)
         selected = _chanselect_pyexc(&casev[0], casev.size())
 
     # decref not sent tx (see ^^^ send prepare)
@@ -256,6 +255,9 @@ def pyselect(*pycasev):
 
 
 # ---- misc ----
+
+cdef extern from "golang.h" namespace "golang" nogil:
+    int _chanselect(_selcase *casev, int casec)
 
 cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   nogil except +_topyexc:
     ch.send(_ptx)
