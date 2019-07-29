@@ -52,6 +52,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
 
     # XXX not sure how to wrap just select
     int _chanselect(const _selcase *casev, int casec)
+    int select(_selcase casev[])
 
     _selcase _send[T](chan[T] ch, const T *ptx)
     _selcase _recv[T](chan[T] ch, T* prx)
@@ -72,21 +73,3 @@ cdef class pychan:
 
 # XXX pynilchan, pydefault
 #cpdef pyselect(*pycasev)   XXX ?
-
-
-"""
-cdef nogil:
-    struct chan
-    struct selcase
-
-#   void chaninit  (chan *ch, unsigned size, unsigned itemsize)
-    chan *makechan (unsigned elemsize, unsigned size)
-    void chansend  (chan *ch, void *tx)
-    bint chanrecv_ (chan *ch, void *rx)
-    void chanrecv  (chan *ch, void *rx)
-    void chanclose (chan *ch)
-    unsigned chanlen(chan *ch)
-
-    void default   (chan *, void *)
-    int chanselect (selcase *casev, int casec)
-"""

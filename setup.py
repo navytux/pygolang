@@ -169,6 +169,10 @@ setup(
                         #extra_compile_args=['-fsanitize=address'],  # XXX debug
                         #extra_link_args=['-fsanitize=address'],     # XXX debug
                         language="c++"),
+                    #Extension('golang._golang_test',
+                    #    ['golang/_golang_test.pyx'],
+                    #    depends=['golang/golang.h', 'golang/_golang.pxd'],
+                    #    ),  # XXX + language=c++
                     Extension('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',

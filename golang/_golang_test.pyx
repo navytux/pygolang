@@ -19,21 +19,22 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+# XXX golang._golang -> golang ?
+from golang._golang cimport chan, select, _send, _recv, _recv_, _default
 from libc.stdio cimport printf
 
-cdef void test() nogil:
-    cdef chan a, b
-    cdef void *tx = NULL
-    cdef void *rx = NULL
-    cdef int _
+cdef void _test_chan_nogil() nogil:
+    cdef chan[int] a
+    cdef chan[char[100]] b
+    cdef int i=1, j
+    cdef bint jok
 
-    cdef selcase sel[3]
-    sel[0].op   = chansend      XXX -> _selsend     + test via _send/_recv
-    sel[0].data = tx
-    sel[1].op   = chanrecv          -> _selrecv
-    sel[1].data = rx
-    sel[2].op   = default
-    _ = chanselect(sel, 3)  # XXX 3 -> array_len(sel)
+    _ = select({
+        _send(a, &i),           # 0
+        _recv(b, &s),           # 1
+        _recv_(a, &j, &jok),    # 2
+        _default,               # 3
+    })
 
     if _ == 0:
         printf('tx\n')
@@ -43,6 +44,6 @@ cdef void test() nogil:
         printf('defaut\n')
 
 
-def xtest():
+def test_chan_nogil():
     with nogil:
-        test()
+        _test_chan_nogil()
