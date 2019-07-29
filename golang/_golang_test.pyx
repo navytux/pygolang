@@ -24,12 +24,15 @@ from golang._golang cimport chan, select, _send, _recv, _recv_, _default
 from golang._golang cimport _chanselect     # XXX temp?
 from libc.stdio cimport printf
 
+cdef extern from *:
+    ctypedef bint cbool "bool"
+
 cdef void _test_chan_nogil() nogil:
     cdef chan[int] a
     cdef chan[char[100]] b
     cdef int i=1, j
     cdef char[100] s
-    cdef bint jok
+    cdef cbool jok
 
     _ = _chanselect([
         _send(a, &i),           # 0

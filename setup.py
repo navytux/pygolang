@@ -172,7 +172,7 @@ setup(
                     Extension('golang._golang_test',
                         ['golang/_golang_test.pyx'],
                         depends=['golang/golang.h', 'golang/_golang.pxd'],
-                        ),  # XXX + language=c++
+                        language="c++"),
                     Extension('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',
