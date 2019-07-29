@@ -32,6 +32,7 @@
 #include <random>
 #include <mutex>        // lock_guard
 #include <functional>   // function
+#include <atomic>
 
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +48,7 @@
 #endif
 #include "../3rdparty/include/linux/list.h"
 
+using std::atomic;
 using std::string;
 using std::vector;
 using std::exception;
@@ -198,7 +200,7 @@ private:
 //
 // _chan is not related to Python runtime and works without GIL.
 struct _chan {
-    unsigned    _refcnt;    // reference counter for the channel XXX atomic
+    atomic<int> _refcnt;    // reference counter for _chan object
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
@@ -374,7 +376,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     memset((void *)ch, 0, sizeof(*ch));
     new (&ch->_mu) Sema();
 
-    // XXX refcnt
+    ch->_refcnt   = 1;
     ch->_cap      = size;
     ch->_elemsize = elemsize;
     ch->_closed   = false;
@@ -394,7 +396,12 @@ void _chanxincref(_chan *ch) {
     ch->incref();
 }
 void _chan::incref() {
-    panic("TODO: incref");
+    _chan *ch = this;
+
+    int refcnt_was = ch->_refcnt.fetch_add(+1);
+    printf("chan %p incref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
+    if (refcnt_was < 1)
+        panic("chan: incref: refcnt was < 1");
 }
 
 // _chanxdecref decrements reference counter of the channel.
@@ -407,7 +414,20 @@ void _chanxdecref(_chan *ch) {
     ch->decref();
 }
 void _chan::decref() {
-    panic("TODO: decref");
+    _chan *ch = this;
+
+    int refcnt_was = ch->_refcnt.fetch_add(-1);
+    printf("chan %p decref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
+    if (refcnt_was < 1)
+        panic("chan: decref: refcnt was < 1");
+    if (refcnt_was != 1)
+        return;
+
+    // refcnt=0 -> free the channel
+    printf("chan %p -> dealloc\n", ch);
+    ch->_mu.~Mutex();
+    memset((void *)ch, 0, sizeof(*ch));
+    free(ch);
 }
 
 
