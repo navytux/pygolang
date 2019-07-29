@@ -30,6 +30,11 @@ namespace golang {
 extern "C" {
 #endif
 
+#ifdef __cplusplus
+    [[noreturn]]
+#else
+    _Noreturn
+#endif
 void panic(const char *arg);
 const char *recover(void);
 
