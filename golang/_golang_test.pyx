@@ -21,20 +21,31 @@
 
 # XXX golang._golang -> golang ?
 from golang._golang cimport chan, select, _send, _recv, _recv_, _default
+from golang._golang cimport _chanselect     # XXX temp?
 from libc.stdio cimport printf
 
 cdef void _test_chan_nogil() nogil:
     cdef chan[int] a
     cdef chan[char[100]] b
     cdef int i=1, j
+    cdef char[100] s
     cdef bint jok
 
+    _ = _chanselect([
+        _send(a, &i),           # 0
+        _recv(b, &s),           # 1
+        _recv_(a, &j, &jok),    # 2
+        _default,               # 3
+    ], 4)
+
+    """
     _ = select({
         _send(a, &i),           # 0
         _recv(b, &s),           # 1
         _recv_(a, &j, &jok),    # 2
         _default,               # 3
     })
+    """
 
     if _ == 0:
         printf('tx\n')
