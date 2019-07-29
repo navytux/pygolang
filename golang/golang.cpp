@@ -198,6 +198,7 @@ private:
 //
 // _chan is not related to Python runtime and works without GIL.
 struct _chan {
+    unsigned    _refcnt;    // reference counter for the channel XXX atomic
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
@@ -210,6 +211,9 @@ struct _chan {
     unsigned    _dataq_n;   // total number of entries in dataq
     unsigned    _dataq_r;   // index for next read  (in elements; can be used only if _dataq_n > 0)
     unsigned    _dataq_w;   // index for next write (in elements; can be used only if _dataq_n < _cap)
+
+    void incref();
+    void decref();
 
     void send(const void *ptx);
     bool recv_(void *prx);
@@ -360,6 +364,8 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
 }
 
 // _makechan creates new _chan(elemsize, size).
+//
+// returned channel has refcnt=1.
 _chan *_makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
     ch = (_chan *)malloc(sizeof(_chan) + size*elemsize);
@@ -368,6 +374,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     memset((void *)ch, 0, sizeof(*ch));
     new (&ch->_mu) Sema();
 
+    // XXX refcnt
     ch->_cap      = size;
     ch->_elemsize = elemsize;
     ch->_closed   = false;
@@ -376,6 +383,31 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     INIT_LIST_HEAD(&ch->_sendq);
 
     return ch;
+}
+
+// _chanxincref increments reference counter of the channel.
+//
+// it is noop if ch=nil.
+void _chanxincref(_chan *ch) {
+    if (ch == NULL)
+        return;
+    ch->incref();
+}
+void _chan::incref() {
+    panic("TODO: incref");
+}
+
+// _chanxdecref decrements reference counter of the channel.
+//
+// if refcnt goes to zero, the channel is deallocated.
+// it is noop if ch=nil.
+void _chanxdecref(_chan *ch) {
+    if (ch == NULL)
+        return;
+    ch->decref();
+}
+void _chan::decref() {
+    panic("TODO: decref");
 }
 
 

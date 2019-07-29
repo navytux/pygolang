@@ -40,6 +40,8 @@ const char *recover(void);
 
 typedef struct _chan _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
+void _chanxincref(_chan *ch);
+void _chanxdecref(_chan *ch);
 void _chansend(_chan *ch, const void *ptx);
 void _chanrecv(_chan *ch, void *prx);
 bool _chanrecv_(_chan *ch, void *prx);
@@ -134,12 +136,29 @@ class chan {
     _chan *_ch;
 
 public:
-    // = nil channel if not initialized
-    chan() { _ch = NULL; }
+    chan() { _ch = NULL; } // nil channel if not initialized
     friend chan<T> makechan<T>(unsigned size);
+    ~chan() { _chanxdecref(_ch); _ch = NULL; }
 
-    // XXX copy = ok?
-    // XXX free on dtor? ref-count? (i.e. shared_ptr ?)
+    // = nil
+    chan(nullptr_t) { _ch = NULL; }
+    chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = NULL; return *this; }
+    // copy
+    chan(const chan& from) { _ch = from._ch; _chanxincref(_ch); }
+    chan& operator=(const chan& from) {
+        if (this != &from) {
+            _chanxdecref(_ch); _ch = from._ch; _chanxincref(_ch);
+        }
+        return *this;
+    }
+    // move
+    chan(chan&& from) { _ch = from._ch; from._ch = NULL; }
+    chan& operator=(chan&& from) {
+        if (this != &from) {
+            _chanxdecref(_ch); _ch = from._ch;
+        }
+        return *this;
+    }
 
     void send(const T *ptx)     { _chansend(_ch, ptx);          }
     void recv(T *prx)           { _chanrecv(_ch, prx);          }

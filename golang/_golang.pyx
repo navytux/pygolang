@@ -45,6 +45,8 @@ cdef extern from "golang.h" namespace "golang" nogil:
         unsigned cap()
         bint operator==(nullptr_t)
         bint operator!=(nullptr_t)
+        void operator=(nullptr_t)
+        # XXX == != = vs chan
         _chan *_rawchan()
     chan[T] makechan[T](unsigned size) except +
 
@@ -116,9 +118,9 @@ cdef class pychan:
     def __cinit__(pych, size=0):
         pych.ch = makechan[pPyObject](size)
 
-    # XXX chanrelease on __del__
-    # XXX on del: drain buffered channel (to decref sent objects) ?
-    # XXX -> __dealloc__
+    def __dealloc__(pych):
+        # XXX on del: drain buffered channel (to decref sent objects) ?
+        pych.ch = nil # does _chanxdecref(ch)
 
     # send sends object to a receiver.
     def send(pych, obj):
