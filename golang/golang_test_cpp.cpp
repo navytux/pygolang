@@ -17,6 +17,8 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// Test that excersizes C++-level golang.h API.
+
 #include "golang.h"
 #include <stdio.h>
 using namespace golang;
@@ -33,6 +35,8 @@ void test_chan_cpp() {
         _recv_(a, &j, &jok),    // 2
         _default,               // 3
     });
+
+    // XXX select(array) ?
 
     if (_ == 0)
         printf("tx\n");

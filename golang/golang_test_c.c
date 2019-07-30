@@ -17,6 +17,12 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// Test that excersizes C-level golang.h API.
+
+#ifdef __cplusplus
+# error "this file must be compiled with C - not C++ - compiler"
+#endif
+
 #include "golang.h"
 #include <stdio.h>
 
