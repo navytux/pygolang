@@ -17,10 +17,12 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-from setuptools import setup, find_packages
-from setuptools.extension import Extension
+from setuptools import find_packages
+#from setuptools.extension import Extension
+from setuptools_dso import DSO, Extension, setup
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
+from distutils import sysconfig
 from os.path import dirname, join
 import sys, re
 
@@ -157,27 +159,39 @@ setup(
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
 
     packages    = find_packages(),
+
+    x_dsos      = [DSO('golang.libgolang', ['golang/golang.cpp'],
+                        define_macros   = [('BUILD_LIBGOLANG', None)],
+                        soversion       = '0.1',
+                        # XXX get_python_inc -> setuptools_dso?
+                        include_dirs    = [sysconfig.get_python_inc(plat_specific=0),
+                                           sysconfig.get_python_inc(plat_specific=1)])],
     ext_modules = [
                     Extension('golang._golang',
-                        ['golang/_golang.pyx', 'golang/golang.cpp'],
+                        #['golang/_golang.pyx', 'golang/golang.cpp'],
+                        ['golang/_golang.pyx'],
                         depends=['golang/golang.h'],
+                        dsos   = ['golang.libgolang'],  # XXX setuptools adds lib prefix
                         # XXX package_data = golang.h _golang.pxd
-                        extra_compile_args=['-fsanitize=undefined'],  # XXX debug
-                        extra_link_args=['-fsanitize=undefined'],     # XXX debug
+                        #extra_compile_args=['-fsanitize=undefined'],  # XXX debug
+                        #extra_link_args=['-fsanitize=undefined'],     # XXX debug
                         #extra_compile_args=['-fsanitize=address'],  # XXX debug
                         #extra_link_args=['-fsanitize=address'],     # XXX debug
                         language="c++"),
+
                     Extension('golang._golang_test',
                         ['golang/_golang_test.pyx',
                          # XXX explain _c _cpp tests
                          'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp'],
                         depends=['golang/golang.h', 'golang/_golang.pxd'],
+                        dsos   = ['golang.libgolang'],
                         language="c++"),
                     Extension('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',
     include_package_data = True,
 
+    # XXX setup_requires = ['setuptools_dso']
     install_requires = ['gevent', 'six', 'decorator', 'cython'],
 
     extras_require = {
