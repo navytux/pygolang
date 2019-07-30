@@ -17,26 +17,6 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package _golang provides Python- and Cython-level Go-like runtimes
-
-Panic + recover
----------------
-
-XXX
-
-
-Channels
---------
-
-Python-level channels, represented by pychan + pyselect
-
-Cython-level channels, represented by chan[T] + select do not depend on Python
-runtime and can be used in nogil code.
-
-XXX
-
-from golang cimport chan, select, XXX
-"""
 
 from libcpp cimport nullptr_t, nullptr as nil
 
@@ -56,7 +36,6 @@ cdef extern from "golang.h" namespace "golang" nogil:
         bint operator==(nullptr_t)
         bint operator!=(nullptr_t)
         void operator=(nullptr_t)
-        # XXX == != = vs chan
         _chan *_rawchan()
     chan[T] makechan[T](unsigned size) except +     # XXX kill `except +` here?
 

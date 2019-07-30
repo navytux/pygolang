@@ -17,7 +17,26 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+"""Package golang.pyx provides Go-like features for Cython and runtime for golang.py
 
+Channels
+--------
+
+Python-level channels, represented by pychan + pyselect
+
+Cython-level channels, represented by chan[T] + select do not depend on Python
+runtime and can be used in nogil code.
+
+XXX
+
+from golang cimport chan, select, XXX
+
+
+Panic + recover
+---------------
+
+XXX
+"""
 # redirect `cimport golang` -> `cimport golang._golang`
 #
 # we do this because we cannot put pyx code into __init__.pyx - else Python and
