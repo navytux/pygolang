@@ -344,4 +344,3 @@ cdef class _tRaiseWhenBlocked:
 
 cdef void _raiseblocked() nogil:
     panic("t: blocks forever")
-
