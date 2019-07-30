@@ -192,6 +192,7 @@ setup(
     include_package_data = True,
 
     # XXX setup_requires = ['setuptools_dso']
+    # https://github.com/mdavidsaver/p4p/issues/20
     install_requires = ['gevent', 'six', 'decorator', 'cython'],
 
     extras_require = {
