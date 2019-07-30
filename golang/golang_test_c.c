@@ -31,7 +31,7 @@
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 
-void test_chan_c(void) {
+void _test_chan_c(void) {
     _chan *a = NULL, *b = NULL;
     int tx = 1, arx; bool aok;
     int rx;

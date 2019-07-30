@@ -23,7 +23,7 @@
 #include <stdio.h>
 using namespace golang;
 
-void test_chan_cpp() {
+void _test_chan_cpp() {
     chan<int> a;
     chan<char[100]> b;
     int i=1, j; bool jok;

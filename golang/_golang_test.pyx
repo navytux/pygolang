@@ -19,7 +19,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang cimport chan, select, _send, _recv, _recv_, _default
+from golang cimport chan, select, _send, _recv, _recv_, _default, _topyexc
 from libc.stdio cimport printf
 
 # small test that verifies pyx-level channel API.
@@ -55,7 +55,21 @@ cdef void _test_chan_nogil() nogil:
     if _ == 3:
         printf('defaut\n')
 
-
 def test_chan_nogil():
     with nogil:
         _test_chan_nogil()
+
+# golang_test_c.c
+cdef extern from *:
+    void _test_chan_c() nogil except +_topyexc
+def test_chan_c():
+    with nogil:
+        _test_chan_c()
+
+# golang_test_cpp.cpp
+cdef extern from *:
+    void _test_chan_cpp() nogil except +_topyexc
+def test_chan_cpp():
+    1/0
+    with nogil:
+        _test_chan_cpp()
