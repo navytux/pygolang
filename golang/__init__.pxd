@@ -18,5 +18,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-# XXX doc what / why
+# redirect `cimport golang` -> `cimport golang._golang`
+#
+# we do this because we cannot put pyx code into __init__.pyx - else Python and
+# other tools (e.g. setuptools) fail to recognize golang/ as Python package.
 from golang._golang cimport *
