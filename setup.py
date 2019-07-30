@@ -159,9 +159,7 @@ setup(
     packages    = find_packages(),
     ext_modules = [
                     Extension('golang._golang',
-                        ['golang/_golang.pyx', 'golang/golang.cpp',
-                         'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp',    # XXX temp here?
-                        ],
+                        ['golang/_golang.pyx', 'golang/golang.cpp'],
                         depends=['golang/golang.h'],
                         # XXX package_data = golang.h _golang.pxd
                         extra_compile_args=['-fsanitize=undefined'],  # XXX debug
@@ -170,7 +168,9 @@ setup(
                         #extra_link_args=['-fsanitize=address'],     # XXX debug
                         language="c++"),
                     Extension('golang._golang_test',
-                        ['golang/_golang_test.pyx'],
+                        ['golang/_golang_test.pyx',
+                         # XXX explain _c _cpp tests
+                         'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp'],
                         depends=['golang/golang.h', 'golang/_golang.pxd'],
                         language="c++"),
                     Extension('golang._internal',   ['golang/_internal.pyx']),
