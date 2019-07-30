@@ -6,6 +6,8 @@
 - gimport to import go123 released to pypi
 - -> cython
 
+- chan_rx + chan_tx
+
 ? `for x in chan`	~ `for x := range chan`
 
 - sync/atomic

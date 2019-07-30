@@ -19,8 +19,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-# XXX golang._golang -> golang ?
-from golang._golang cimport chan, select, _send, _recv, _recv_, _default
+from golang cimport chan, select, _send, _recv, _recv_, _default
 from libc.stdio cimport printf
 
 cdef extern from *:
