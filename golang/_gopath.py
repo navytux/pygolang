@@ -89,5 +89,4 @@ def _gimport(name):
 
 
     # https://stackoverflow.com/a/67692
-    # TODO py3 support
     return imp.load_source(modname, modpath)
