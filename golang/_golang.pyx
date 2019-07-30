@@ -272,6 +272,7 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_t
 
 
 # ---- for py tests ----
+# XXX -> separate module?
 
 from golang._pycompat import im_class
 import six, time

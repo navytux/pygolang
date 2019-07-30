@@ -176,7 +176,6 @@ def bench_chan(b):
 def test_select():
     N = 1000 # times to do repeated select/chan or select/select interactions
 
-#   """
     # non-blocking try send: not ok
     for i in range(N):
         ch = chan()
@@ -185,8 +184,6 @@ def test_select():
                 default,
         )
         assert (_, _rx) == (1, None)
-
-    print('000')
 
     # non-blocking try recv: not ok
     for i in range(N):
@@ -201,8 +198,6 @@ def test_select():
                 default,
         )
         assert (_, _rx) == (1, None)
-
-    print('111')
 
     # non-blocking try send: ok
     ch = chan()
@@ -227,8 +222,6 @@ def test_select():
         assert (_, _rx) == (0, None)
     ch.send('stop')
     done.recv()
-
-    print('222')
 
     # non-blocking try recv: ok
     ch = chan()
@@ -256,8 +249,6 @@ def test_select():
     done.recv()
 
 
-    print('333')
-
     # blocking 2·send
     ch1 = chan()
     ch2 = chan()
@@ -277,8 +268,6 @@ def test_select():
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
-
-    print('444')
 
     # blocking 2·recv
     ch1 = chan()
@@ -300,8 +289,6 @@ def test_select():
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
-    print('555')
-
     # blocking send/recv
     ch1 = chan()
     ch2 = chan()
@@ -322,8 +309,6 @@ def test_select():
     assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
-    print('555+')
-
     # blocking recv/send
     ch1 = chan()
     ch2 = chan()
@@ -342,8 +327,6 @@ def test_select():
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
-
-    print('777')
 
     # blocking send + nil channel
     z = nilchan
@@ -365,10 +348,7 @@ def test_select():
         assert (_, _rx) == (2, None)
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
-#   """
 
-#   """
-    print('888 ?\n'); z = nilchan
 
     # blocking recv + nil channel
     N = 100; import gc
@@ -394,9 +374,6 @@ def test_select():
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
-#   """
-
-    print('999')
 
     # buffered ping-pong
     ch = chan(1)
@@ -408,8 +385,6 @@ def test_select():
         assert _    == (i % 2)
         assert _rx  == (i - 1 if i % 2 else None)
 
-
-    print('aaa')
 
     # select vs select
     # channels are recreated on every iteration.
@@ -451,8 +426,6 @@ def test_select():
         assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
-    print('bbb')
-
     # select vs select
     # channels are shared for all iterations.
     # (this tries to trigger parasitic effects from already performed select)
@@ -493,8 +466,6 @@ def test_select():
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
-
-    print('ccc')
 
 
 

@@ -293,17 +293,6 @@ from ._golang import    \
     _PanicError,            \
     pypanic     as panic
 
-# unbound chan.{send,recv,recv_}
-# XXX kill? (used only in golang_test.py)
-_chan_send  = chan.send
-_chan_recv  = chan.recv
-_chan_recv_ = chan.recv_
-if six.PY2:
-    # on py3 class.func gets the func; on py2 - unbound_method(func)
-    _chan_send  = _chan_send.__func__
-    _chan_recv  = _chan_recv.__func__
-    _chan_recv_ = _chan_recv_.__func__
-
 """
 # _RecvWaiting represents a receiver waiting on a chan.
 class _RecvWaiting(object):
