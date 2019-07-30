@@ -21,23 +21,21 @@ from __future__ import print_function, absolute_import
 
 import os, os.path
 from golang._gopath import gimport
+import pytest
 
-GOPATH_orig = None
-
-def setup_module():
-    # set GOPATH to testdata/src
-    global GOPATH_orig
-    GOPATH_orig = os.environ.get('GOPATH')
+# tgopath sets GOPATH to testdata/src during test execution.
+@pytest.fixture
+def tgopath():
+    gopath = os.environ.get('GOPATH')
     os.environ['GOPATH'] = '%s/testdata' % (os.path.dirname(__file__),)
-
-def teardown_module():
-    if GOPATH_orig is None:
+    yield
+    if gopath is None:
         del os.environ['GOPATH']
     else:
-        os.environ['GOPATH'] = GOPATH_orig
+        os.environ['GOPATH'] = gopath
 
 
-def test_import_module():
+def test_import_module(tgopath):
     hello = gimport('lab.nexedi.com/kirr/hello')
     assert hello.TAG == 'gopath: test: hello.py'
     hello.TAG = 'loaded'
@@ -51,7 +49,7 @@ def test_import_module():
     assert hello.TAG == 'loaded', 'module was reloaded'
 
 
-def test_import_package():
+def test_import_package(tgopath):
     world = gimport('lab.nexedi.com/kirr/world')
     assert world.TAG == 'gopath: test: world/__init__.py'
     world.TAG = 'loaded'
