@@ -161,6 +161,7 @@ setup(
     packages    = find_packages(),
 
     x_dsos      = [DSO('golang.libgolang', ['golang/golang.cpp'],
+                        depends         = ['golang/golang.h'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
                         soversion       = '0.1',
                         # XXX get_python_inc -> setuptools_dso?

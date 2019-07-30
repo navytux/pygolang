@@ -30,6 +30,11 @@ import golang
 from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq, \
         _tRaiseWhenBlocked as tRaiseWhenBlocked
 
+# pyx/c/c++ tests
+from golang import _golang_test
+print(dir(_golang_test))
+1/0
+
 
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
