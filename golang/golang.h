@@ -25,6 +25,8 @@
 
 // ---- C-level API that is always available ----
 
+// XXX annotate with LIBGOLANG_API
+
 #ifdef  __cplusplus
 namespace golang {
 extern "C" {
