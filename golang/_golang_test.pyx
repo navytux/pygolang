@@ -22,6 +22,9 @@
 from golang cimport chan, select, _send, _recv, _recv_, _default
 from libc.stdio cimport printf
 
+# small test that verifies pyx-level channel API.
+# the work of channels themselves is thoroughly excersized in golang_test.py
+
 cdef extern from *:
     ctypedef bint cbool "bool"
 

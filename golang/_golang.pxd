@@ -17,6 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+"""_golang.pyx implements golang.pyx - see __init__.pxd for details"""
 
 from libcpp cimport nullptr_t, nullptr as nil
 

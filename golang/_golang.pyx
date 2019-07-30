@@ -28,6 +28,8 @@
 
 from __future__ import print_function, absolute_import
 
+from golang._pycompat import im_class
+
 from cpython cimport Py_INCREF, Py_DECREF
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
@@ -274,7 +276,6 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_t
 # ---- for py tests ----
 # XXX -> separate module?
 
-from golang._pycompat import im_class
 import six, time
 
 # unbound pychan.{send,recv,recv_}

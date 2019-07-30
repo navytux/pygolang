@@ -41,7 +41,7 @@ import inspect, threading, collections, random, sys
 import decorator
 
 import six
-from golang._pycompat import im_class
+#from golang._pycompat import im_class
 
 from golang._internal import bytepatch
 import opcode
