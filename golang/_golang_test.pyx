@@ -61,6 +61,9 @@ def test_chan_nogil():
 
 # golang_test_c.c
 cdef extern from *:
+    """
+    extern "C" void _test_chan_c();
+    """
     void _test_chan_c() nogil except +_topyexc
 def test_chan_c():
     with nogil:
@@ -68,6 +71,9 @@ def test_chan_c():
 
 # golang_test_cpp.cpp
 cdef extern from *:
+    """
+    extern void _test_chan_cpp();
+    """
     void _test_chan_cpp() nogil except +_topyexc
 def test_chan_cpp():
     1/0
