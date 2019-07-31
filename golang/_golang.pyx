@@ -52,12 +52,15 @@ cpdef pypanic(arg):
 
 # _topyexc converts C-level panic/exc to python panic/exc.
 # (see usage in e.g. *_pyexc functions in "misc")
+# XXX nogil - explain
+#cdef void _topyexc() nogil except *:
 cdef void _topyexc() except *:
     # recover is declared `except +` - if it was another - not panic -
     # exception, it will be converted to py exc by cython automatically.
     arg = recover()
     if arg != NULL:
-        pypanic(arg)
+        #with gil:   # XXX doc why
+            pypanic(arg)
 
 
 # ---- channels -----

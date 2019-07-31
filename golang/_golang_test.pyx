@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# distutils: language=c++
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
@@ -32,7 +33,13 @@ ctypedef struct Point:
     int x
     int y
 
-cdef void _test_chan_nogil() nogil:
+cdef void zzz() nogil except +:
+    makechan[int](1)
+    #printf("hello world\n")
+
+
+
+cdef void __test_chan_nogil() nogil except +_topyexc:
     cdef chan[int]   chi = makechan[int](1)
     cdef chan[Point] chp # nil
     cdef int i, j
@@ -60,9 +67,13 @@ cdef void _test_chan_nogil() nogil:
     if _ == 3:
         printf('default\n')
 
-cpdef test_chan_nogil() except +_topyexc:
+## XXX cannot add `except +_topyexc` to ^^^ __test_chan_nogil
+#cdef void _test_chan_nogil() nogil except +_topyexc:
+#    __test_chan_nogil()
+
+def test_chan_nogil():
     with nogil:
-        _test_chan_nogil()
+        __test_chan_nogil()
 
 # golang_test_c.c
 cdef extern from *:

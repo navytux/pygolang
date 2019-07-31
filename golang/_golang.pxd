@@ -60,6 +60,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
 # XXX do we need to export py* stuff ?
 
 cpdef pypanic(arg)
+#cdef void _topyexc() nogil except *
 cdef void _topyexc() except *
 
 # pychan is chan<object>
