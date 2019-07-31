@@ -53,7 +53,7 @@ cdef void _test_chan_nogil() nogil:
     if _ == 2:
         printf('rx_\n')
     if _ == 3:
-        printf('defaut\n')
+        printf('default\n')
 
 def test_chan_nogil():
     with nogil:
@@ -76,6 +76,5 @@ cdef extern from *:
     """
     void _test_chan_cpp() nogil except +_topyexc
 def test_chan_cpp():
-    1/0
     with nogil:
         _test_chan_cpp()

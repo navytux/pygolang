@@ -30,10 +30,17 @@ import golang
 from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq, \
         _tRaiseWhenBlocked as tRaiseWhenBlocked
 
-# pyx/c/c++ tests
+# pyx/c/c++ tests -> test_pyx_*
 from golang import _golang_test
-print(dir(_golang_test))
-1/0
+for f in dir(_golang_test):
+    if f.startswith('test_'):
+        gf = 'test_pyx_' + f[len('test_'):] # test_chan_nogil -> test_pyx_chan_nogil
+        # define a python function with gf name (if we use f directly pytest
+        # will say "cannot collect 'test_pyx_chan_nogil' because it is not a function")
+        def _(func=getattr(_golang_test, f)):
+            func()
+        _.__name__ = gf
+        globals()[gf] = _
 
 
 def test_go():

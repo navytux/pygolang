@@ -50,5 +50,5 @@ void _test_chan_c(void) {
     if (_ == 2)
         printf("rx_\n");
     if (_ == 3)
-        printf("defaut\n");
+        printf("default\n");
 }

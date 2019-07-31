@@ -19,6 +19,9 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 from setuptools import find_packages
 #from setuptools.extension import Extension
+# setuptools has Library but this days it is not well supported and test for it has been killed
+# https://github.com/pypa/setuptools/commit/654c26f78a30
+# -> use setuptools_dso instead.
 from setuptools_dso import DSO, Extension, setup
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop

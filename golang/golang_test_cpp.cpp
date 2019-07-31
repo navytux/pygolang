@@ -45,5 +45,5 @@ void _test_chan_cpp() {
     if (_ == 2)
         printf("rx_\n");
     if (_ == 3)
-        printf("defaut\n");
+        printf("default\n");
 }

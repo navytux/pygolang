@@ -6,6 +6,7 @@ build/
 
 *.o
 *.so
+*.so.*
 golang/_golang.cpp
 golang/_golang_test.cpp
 golang/_internal.c
