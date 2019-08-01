@@ -37,7 +37,7 @@ void _test_chan_cpp() {
 
     i=+1; chi.send(&i);
     j=-1; chi.recv(&j);
-    if (!(j == i))
+    if (j != i)
         panic("send -> recv != I");
 
     i = 2;
@@ -47,14 +47,15 @@ void _test_chan_cpp() {
         _recv_(chi, &j, &jok),  // 2
         _default,               // 3
     });
+    if (_ != 0)
+        panic("select: selected !0");
 
+    jok = chi.recv_(&j);
+    if (!(j == 2 and jok == true))
+        panic("recv_ != (2, true)");
 
-    if (_ == 0)
-        printf("tx\n");
-    if (_ == 1)
-        printf("rx\n");
-    if (_ == 2)
-        printf("rx_\n");
-    if (_ == 3)
-        printf("default\n");
+    chi.close();
+    jok = chi.recv_(&j);
+    if (!(j == 0 and jok == false))
+        panic("recv_ from closed != (0, false)");
 }

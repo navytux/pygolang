@@ -21,7 +21,6 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 from golang cimport nil, chan, makechan, select, _send, _recv, _recv_, _default, panic, topyexc
-from libc.stdio cimport printf
 
 # small test that verifies pyx-level channel API.
 # the work of channels themselves is thoroughly excersized in golang_test.py
@@ -55,17 +54,15 @@ cdef void _test_chan_nogil() nogil except +topyexc:
         _default,               # 3
     ])
     if _ != 0:
-        panic("select1: selected !0")
+        panic("select: selected !0")
 
     jok = chi.recv_(&j)
     if not (j == 2 and jok == True):
-        printf("j=%d  jok=%d\n", j, jok)
         panic("recv_ != (2, true)")
 
     chi.close()
     jok = chi.recv_(&j)
     if not (j == 0 and jok == False):
-        printf("j=%d  jok=%d\n", j, jok)
         panic("recv_ from closed != (0, false)")
 
 def test_chan_nogil():
