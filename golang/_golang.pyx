@@ -53,6 +53,10 @@ cpdef pypanic(arg):
 # topyexc converts C-level panic/exc to python panic/exc.
 # (see usage in e.g. *_pyexc functions in "misc")
 cdef void topyexc() except *:
+    # TODO use libunwind/libbacktrace/libstacktrace/... to append C-level traceback
+    #      from where it panicked till topyexc user.
+    # TODO install C-level traceback dump as std::terminate handler.
+    #
     # recover_ is declared `except +` - if it was another - not panic -
     # exception, it will be converted to py exc by cython automatically.
     arg = recover_()
