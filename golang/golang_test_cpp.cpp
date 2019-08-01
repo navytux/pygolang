@@ -23,20 +23,31 @@
 #include <stdio.h>
 using namespace golang;
 
-void _test_chan_cpp() {
-    chan<int> a;
-    chan<char[100]> b;
-    int i=1, j; bool jok;
-    char s[100];
+struct Point {
+    int x, y;
+};
 
+void _test_chan_cpp() {
+    chan<int>   chi = makechan<int>(1);
+    chan<Point> chp = makechan<Point>(); chp = NULL;
+
+    int   i, j;
+    Point p;
+    bool  jok;
+
+    i=+1; chi.send(&i);
+    j=-1; chi.recv(&j);
+    if (!(j == i))
+        panic("send -> recv != I");
+
+    i = 2;
     int _ = select({
-        _send(a, &i),           // 0
-        _recv(b, &s),           // 1
-        _recv_(a, &j, &jok),    // 2
+        _send(chi, &i),         // 0
+        _recv(chp, &p),         // 1
+        _recv_(chi, &j, &jok),  // 2
         _default,               // 3
     });
 
-    // XXX select(array) ?
 
     if (_ == 0)
         printf("tx\n");

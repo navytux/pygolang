@@ -49,7 +49,7 @@ cdef void _test_chan_nogil() nogil except +topyexc:
 
     i = 2
     _ = select([
-        _send(chi, &i),         # 0 (wins)
+        _send(chi, &i),         # 0
         _recv(chp, &p),         # 1
         _recv_(chi, &j, &jok),  # 2
         _default,               # 3
@@ -71,6 +71,7 @@ cdef void _test_chan_nogil() nogil except +topyexc:
 def test_chan_nogil():
     with nogil:
         _test_chan_nogil()
+
 
 # golang_test_c.c
 cdef extern from *:
