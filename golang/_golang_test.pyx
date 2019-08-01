@@ -20,7 +20,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang cimport chan, makechan, select, _send, _recv, _recv_, _default, panic, topyexc
+from golang cimport nil, chan, makechan, select, _send, _recv, _recv_, _default, panic, topyexc
 from libc.stdio cimport printf
 
 # small test that verifies pyx-level channel API.
@@ -35,7 +35,9 @@ ctypedef struct Point:
 
 cdef void _test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
-    cdef chan[Point] chp # nil
+    cdef chan[Point] chp = makechan[Point]()
+    chp = nil   # reset to nil
+
     cdef int i, j
     cdef Point p
     cdef cbool jok
