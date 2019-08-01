@@ -33,13 +33,7 @@ ctypedef struct Point:
     int x
     int y
 
-#cdef void zzz() nogil except +:
-#    makechan[int](1)
-#    #printf("hello world\n")
-
-
-
-cdef void __test_chan_nogil() nogil except +topyexc:
+cdef void _test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
     cdef chan[Point] chp # nil
     cdef int i, j
@@ -67,13 +61,9 @@ cdef void __test_chan_nogil() nogil except +topyexc:
     if _ == 3:
         printf('default\n')
 
-## XXX cannot add `except +topyexc` to ^^^ __test_chan_nogil
-#cdef void _test_chan_nogil() nogil except +topyexc:
-#    __test_chan_nogil()
-
 def test_chan_nogil():
     with nogil:
-        __test_chan_nogil()
+        _test_chan_nogil()
 
 # golang_test_c.c
 cdef extern from *:
