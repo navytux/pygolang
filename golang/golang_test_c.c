@@ -26,29 +26,39 @@
 #include "golang.h"
 #include <stdio.h>
 
-// XXX -> common place
-#ifndef ARRAY_SIZE
-# define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
-#endif
+typedef struct Point {
+    int x, y;
+} Point;
 
 void _test_chan_c(void) {
-    _chan *a = NULL, *b = NULL;
-    int tx = 1, arx; bool aok;
-    int rx;
+    _chan *chi = _makechan(sizeof(int),   1);
+    _chan *chp = NULL;
 
+    int   i, j;
+    Point p;
+    bool  jok;
+
+    i=+1; _chansend(chi, &i);
+    j=-1; _chanrecv(chi, &j);
+    if (j != i)
+        panic("send -> recv != I");
+
+    i = 2;
     _selcase sel[4];
-    sel[0]  = _selsend(a, &tx);
-    sel[1]  = _selrecv(b, &rx);
-    sel[2]  = _selrecv_(a, &arx, &aok);
+    sel[0]  = _selsend(chi, &i);
+    sel[1]  = _selrecv(chp, &p);
+    sel[2]  = _selrecv_(chi, &j, &jok);
     sel[3]  = _default;
-    int _ = _chanselect(sel, ARRAY_SIZE(sel));
+    int _ = _chanselect(sel, 4);
+    if (_ != 0)
+        panic("select: selected !0");
 
-    if (_ == 0)
-        printf("tx\n");
-    if (_ == 1)
-        printf("rx\n");
-    if (_ == 2)
-        printf("rx_\n");
-    if (_ == 3)
-        printf("default\n");
+    jok = _chanrecv_(chi, &j);
+    if (!(j == 2 && jok == true))
+        panic("recv_ != (2, true)");
+
+    _chanclose(chi);
+    jok = _chanrecv_(chi, &j);
+    if (!(j == 0 && jok == false))
+        panic("recv_ from closed != (0, false)");
 }

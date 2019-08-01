@@ -51,11 +51,11 @@ void _test_chan_cpp() {
         panic("select: selected !0");
 
     jok = chi.recv_(&j);
-    if (!(j == 2 and jok == true))
+    if (!(j == 2 && jok == true))
         panic("recv_ != (2, true)");
 
     chi.close();
     jok = chi.recv_(&j);
-    if (!(j == 0 and jok == false))
+    if (!(j == 0 && jok == false))
         panic("recv_ from closed != (0, false)");
 }
