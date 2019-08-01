@@ -44,24 +44,29 @@ cdef void _test_chan_nogil() nogil except +topyexc:
 
     i=+1; chi.send(&i)
     j=-1; chi.recv(&j)
-    if j == i:
+    if not (j == i):
         panic("send -> recv != I")
 
+    i = 2
     _ = select([
-        _send(chi, &i),         # 0
+        _send(chi, &i),         # 0 (wins)
         _recv(chp, &p),         # 1
         _recv_(chi, &j, &jok),  # 2
         _default,               # 3
     ])
+    if _ != 0:
+        panic("select1: selected !0")
 
-    if _ == 0:
-        printf('tx\n')
-    if _ == 1:
-        printf('rx\n')
-    if _ == 2:
-        printf('rx_\n')
-    if _ == 3:
-        printf('default\n')
+    jok = chi.recv_(&j)
+    if not (j == 2 and jok == True):
+        printf("j=%d  jok=%d\n", j, jok)
+        panic("recv_ != (2, true)")
+
+    chi.close()
+    jok = chi.recv_(&j)
+    if not (j == 0 and jok == False):
+        printf("j=%d  jok=%d\n", j, jok)
+        panic("recv_ from closed != (0, false)")
 
 def test_chan_nogil():
     with nogil:
