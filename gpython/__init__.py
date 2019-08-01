@@ -175,11 +175,11 @@ def main():
         # XXX provide details
         raise RuntimeError('gevent monkey-patching failed')
 
-#   """
+    """
     # activate importing .pyx modules
     import pyximport
     pyximport.install()
-#   """
+    """
 
     # put go, chan, select, ... into builtin namespace
     import golang
