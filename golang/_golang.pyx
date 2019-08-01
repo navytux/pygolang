@@ -40,7 +40,6 @@ from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
 
-
 # ---- panic ----
 
 cdef class _PanicError(Exception):
@@ -283,6 +282,10 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +to
     return ch.len()
 cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
+
+# ---- gevent integration ----
+from gevent.__semaphore cimport Semaphore
+# XXX ...
 
 
 # ---- for py tests ----
