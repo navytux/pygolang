@@ -50,17 +50,14 @@ cdef class _PanicError(Exception):
 cpdef pypanic(arg):
     raise _PanicError(arg)
 
-# _topyexc converts C-level panic/exc to python panic/exc.
+# topyexc converts C-level panic/exc to python panic/exc.
 # (see usage in e.g. *_pyexc functions in "misc")
-# XXX nogil - explain
-#cdef void _topyexc() nogil except *:
-cdef void _topyexc() except *:
+cdef void topyexc() except *:
     # recover is declared `except +` - if it was another - not panic -
     # exception, it will be converted to py exc by cython automatically.
     arg = recover()
     if arg != NULL:
-        #with gil:   # XXX doc why
-            pypanic(arg)
+        pypanic(arg)
 
 
 # ---- channels -----
@@ -75,7 +72,7 @@ pynilchan = _pynilchan
 # pychan is chan<object>
 cdef class pychan:
     def __cinit__(pych, size=0):
-        pych.ch = makechan[pPyObject](size)
+        pych.ch = makechan_pyobj_pyexc(size)
 
     def __dealloc__(pych):
         # XXX on del: drain buffered channel (to decref sent objects) ?
@@ -264,15 +261,20 @@ def pyselect(*pycasev):
 cdef extern from "golang.h" namespace "golang" nogil:
     int _chanselect(_selcase *casev, int casec)
 
-cdef void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   nogil except +_topyexc:
-    ch.send(_ptx)
-cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +_topyexc:
+cdef nogil:
+    chan[pPyObject] makechan_pyobj_pyexc(unsigned size)    except +topyexc:
+        return makechan[pPyObject](size)
+
+    void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   except +topyexc:
+        ch.send(_ptx)
+
+cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +topyexc:
     return ch.recv_(_prx)
-cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +_topyexc:
+cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +topyexc:
     ch.close()
-cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +_topyexc:
+cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +topyexc:
     return ch.len()
-cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +_topyexc:
+cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
 
 

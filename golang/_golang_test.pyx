@@ -20,7 +20,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang cimport chan, makechan, select, _send, _recv, _recv_, _default, panic, _topyexc
+from golang cimport chan, makechan, select, _send, _recv, _recv_, _default, panic, topyexc
 from libc.stdio cimport printf
 
 # small test that verifies pyx-level channel API.
@@ -33,13 +33,13 @@ ctypedef struct Point:
     int x
     int y
 
-cdef void zzz() nogil except +:
-    makechan[int](1)
-    #printf("hello world\n")
+#cdef void zzz() nogil except +:
+#    makechan[int](1)
+#    #printf("hello world\n")
 
 
 
-cdef void __test_chan_nogil() nogil except +_topyexc:
+cdef void __test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
     cdef chan[Point] chp # nil
     cdef int i, j
@@ -67,8 +67,8 @@ cdef void __test_chan_nogil() nogil except +_topyexc:
     if _ == 3:
         printf('default\n')
 
-## XXX cannot add `except +_topyexc` to ^^^ __test_chan_nogil
-#cdef void _test_chan_nogil() nogil except +_topyexc:
+## XXX cannot add `except +topyexc` to ^^^ __test_chan_nogil
+#cdef void _test_chan_nogil() nogil except +topyexc:
 #    __test_chan_nogil()
 
 def test_chan_nogil():
@@ -80,7 +80,7 @@ cdef extern from *:
     """
     extern "C" void _test_chan_c();
     """
-    void _test_chan_c() nogil except +_topyexc
+    void _test_chan_c() nogil except +topyexc
 def test_chan_c():
     with nogil:
         _test_chan_c()
@@ -90,7 +90,7 @@ cdef extern from *:
     """
     extern void _test_chan_cpp();
     """
-    void _test_chan_cpp() nogil except +_topyexc
+    void _test_chan_cpp() nogil except +topyexc
 def test_chan_cpp():
     with nogil:
         _test_chan_cpp()

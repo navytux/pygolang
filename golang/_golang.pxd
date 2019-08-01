@@ -21,9 +21,19 @@
 
 from libcpp cimport nullptr_t, nullptr as nil
 
+# nogil pyx-level golang API.
+#
+# NOTE even though many functions may panic (= throw C++ exception) nothing is
+# annotated with `except +`. Reason: `f() except +` tells Cython to wrap every
+# call to f with try/catch and convert C++ exception into Python one. And once
+# you have a Python-level exception you are in Python world. However we want
+# nogil golang.pyx API to be usable without Python at all.
+#
+# -> golang.pyx users need to add `except +topyexc` to their functions that are
+# on the edge of Python/nogil world.
 cdef extern from "golang.h" namespace "golang" nogil:
     void panic(const char *)
-    const char *recover() except +                  # XXX kill `except +` here?
+    const char *recover()
 
     struct _chan
     cppclass chan[T]:
@@ -38,7 +48,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
         bint operator!=(nullptr_t)
         void operator=(nullptr_t)
         _chan *_rawchan()
-    chan[T] makechan[T](unsigned size) except +     # XXX kill `except +` here?
+    chan[T] makechan[T](unsigned size)
 
     enum _chanop:
         _CHANSEND
@@ -60,8 +70,7 @@ cdef extern from "golang.h" namespace "golang" nogil:
 # XXX do we need to export py* stuff ?
 
 cpdef pypanic(arg)
-#cdef void _topyexc() nogil except *
-cdef void _topyexc() except *
+cdef void topyexc() except *
 
 # pychan is chan<object>
 from cpython cimport PyObject
