@@ -34,7 +34,7 @@ void _test_chan_c(void) {
     _chan *chi = _makechan(sizeof(int),   1);
     _chan *chp = NULL;
 
-    int   i, j;
+    int   i, j, _;
     Point p;
     bool  jok;
 
@@ -49,7 +49,7 @@ void _test_chan_c(void) {
     sel[1]  = _selrecv(chp, &p);
     sel[2]  = _selrecv_(chi, &j, &jok);
     sel[3]  = _default;
-    int _ = _chanselect(sel, 4);
+    _ = _chanselect(sel, 4);
     if (_ != 0)
         panic("select: selected !0");
 

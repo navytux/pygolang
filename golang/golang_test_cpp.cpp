@@ -31,7 +31,7 @@ void _test_chan_cpp() {
     chan<int>   chi = makechan<int>(1);
     chan<Point> chp = makechan<Point>(); chp = NULL;
 
-    int   i, j;
+    int   i, j, _;
     Point p;
     bool  jok;
 
@@ -41,7 +41,7 @@ void _test_chan_cpp() {
         panic("send -> recv != I");
 
     i = 2;
-    int _ = select({
+    _ = select({
         _send(chi, &i),         // 0
         _recv(chp, &p),         // 1
         _recv_(chi, &j, &jok),  // 2

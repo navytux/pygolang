@@ -128,7 +128,7 @@ namespace golang {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-template<typename T> _selcase _send(chan<T>, const T*);
+template<typename T> _selcase _send(chan<T>, const T*);		// XXX [[nodiscard]] ?
 template<typename T> _selcase _recv(chan<T>, T*);
 template<typename T> _selcase _recv_(chan<T>, T*, bool*);
 
