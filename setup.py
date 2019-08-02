@@ -193,6 +193,7 @@ setup(
 
                     Extension('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
+                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
                         depends=['golang/golang.h']),
 
                     Extension('golang._golang_test',
