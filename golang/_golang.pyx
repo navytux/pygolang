@@ -280,7 +280,7 @@ cdef extern from "golang/golang.h" namespace "golang" nogil:
     void _libgolang_init(const _libgolang_runtime_ops*)
 from cpython cimport PyCapsule_Import
 
-cdef void _init_libgolang():
+cdef void _init_libgolang() except*:
     # detect whether we are running under gevent or OS threads mode
     threadmod = "thread"
     if PY_MAJOR_VERSION >= 3:
