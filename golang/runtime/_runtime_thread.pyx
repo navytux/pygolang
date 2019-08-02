@@ -68,12 +68,13 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
-    _libgolang_runtime_ops thread_ops
+    _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
+            sema_alloc      = sema_alloc,
+            sema_free       = sema_free,
+            sema_acquire    = sema_acquire,
+            sema_release    = sema_release,
+    )
 
-thread_ops.sema_alloc     = sema_alloc      # XXX how to init in one go?
-thread_ops.sema_free      = sema_free
-thread_ops.sema_acquire   = sema_acquire
-thread_ops.sema_release   = sema_release
 
 from cpython cimport PyCapsule_New
 libgolang_runtime_ops = PyCapsule_New(&thread_ops,
