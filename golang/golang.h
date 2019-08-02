@@ -1,5 +1,5 @@
-#ifndef _PYGOLANG_GOLANG_H
-#define _PYGOLANG_GOLANG_H
+#ifndef _NXD_LIBGOLANG_H
+#define _NXD_LIBGOLANG_H
 
 // Copyright (C) 2018-2019  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
@@ -106,6 +106,11 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 
 // _default represents default case for _select.
 extern const _selcase _default;
+
+
+// libgolang runtime initialization
+typedef struct _libgolang_runtime_ops {
+} _libgolang_runtime_ops;
 
 // for testing
 int _tchanrecvqlen(_chan *ch);
@@ -224,4 +229,4 @@ _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
 }   // golang::
 #endif  // __cplusplus
 
-#endif  // _PYGOLANG_GOLANG_H
+#endif  // _NXD_LIBGOLANG_H

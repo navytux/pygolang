@@ -37,9 +37,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if 0
 // for semaphores (need pythread.h but it depends on PyAPI_FUNC from Python.h)
 #include <Python.h>
 #include <pythread.h>
+#endif
 
 // XXX -> better use c.h or ccan/array_size.h ?
 // XXX move list.h into here?
@@ -101,6 +103,7 @@ struct Bug : exception {
 
 // ---- semaphores ----
 
+#if 0
 // init -> PyThread_init_thread (so that there is no concurrent calls to
 // PyThread_init_thread from e.g. PyThread_allocate_lock)
 //
@@ -111,6 +114,7 @@ static struct _init_pythread {
         PyThread_init_thread();
     }
 } _init_pythread;
+#endif
 
 // Sema provides semaphore.
 //

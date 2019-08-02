@@ -25,7 +25,7 @@ from setuptools import find_packages
 from setuptools_dso import DSO, Extension, setup
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
-from distutils import sysconfig
+#from distutils import sysconfig
 from os.path import dirname, join
 import sys, re
 
@@ -166,10 +166,10 @@ setup(
     x_dsos      = [DSO('golang.libgolang', ['golang/golang.cpp'],
                         depends         = ['golang/golang.h'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
-                        soversion       = '0.1',
-                        # XXX get_python_inc -> setuptools_dso?
-                        include_dirs    = [sysconfig.get_python_inc(plat_specific=0),
-                                           sysconfig.get_python_inc(plat_specific=1)])],
+                        soversion       = '0.1')],
+                        # # XXX get_python_inc -> setuptools_dso?
+                        # include_dirs    = [sysconfig.get_python_inc(plat_specific=0),
+                        #                    sysconfig.get_python_inc(plat_specific=1)])],
     ext_modules = [
                     Extension('golang._golang',
                         #['golang/_golang.pyx', 'golang/golang.cpp'],
@@ -182,6 +182,14 @@ setup(
                         #extra_compile_args=['-fsanitize=address'],  # XXX debug
                         #extra_link_args=['-fsanitize=address'],     # XXX debug
                         language="c++"),
+
+                    Extension('golang.runtime._runtime_thread',
+                        ['golang/runtime/_runtime_thread.pyx'],
+                        depends=['golang/golang.h']),
+
+                    Extension('golang.runtime._runtime_gevent',
+                        ['golang/runtime/_runtime_gevent.pyx'],
+                        depends=['golang/golang.h']),
 
                     Extension('golang._golang_test',
                         ['golang/_golang_test.pyx',
