@@ -38,7 +38,8 @@ cdef extern from "pythread.h" nogil:
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
 
-from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema
+from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
+        _libgolang_runtime_flags
 
 cdef nogil:
 
@@ -63,7 +64,7 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
-            flags           = _libgolang_runtime_flags(0),
+            flags           = <_libgolang_runtime_flags>0,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,

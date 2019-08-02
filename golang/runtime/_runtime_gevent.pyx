@@ -83,7 +83,9 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
+            # XXX doc why
             flags           = STACK_DEAD_WHILE_PARKED,
+
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,
