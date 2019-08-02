@@ -38,15 +38,7 @@ cdef extern from "pythread.h" nogil:
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
 
-
-# XXX -> _golang.pxd ?
-cdef extern from "golang/golang.h" nogil:
-    struct _libgolang_sema
-    struct _libgolang_runtime_ops:
-        _libgolang_sema* (*sema_alloc)  ()
-        void             (*sema_free)   (_libgolang_sema*)
-        void             (*sema_acquire)(_libgolang_sema*)
-        void             (*sema_release)(_libgolang_sema*)
+from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema
 
 cdef nogil:
 

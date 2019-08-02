@@ -17,23 +17,12 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
+"""pyx declarations for libgolang bits that are only interesting for runtimes"""
 
-#from gevent.__semaphore cimport Semaphore
-# XXX ...
-
-from golang.runtime._libgolang cimport _libgolang_runtime_ops
-
-cdef nogil:
-
-    # XXX const
-    _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
-            sema_alloc      = NULL, # XXX
-            sema_free       = NULL, # XXX
-            sema_acquire    = NULL, # XXX
-            sema_release    = NULL, # XXX
-    )
-
-from cpython cimport PyCapsule_New
-libgolang_runtime_ops = PyCapsule_New(&gevent_ops,
-        "golang.runtime._runtime_gevent.libgolang_runtime_ops", NULL)
+cdef extern from "golang/golang.h" nogil:
+    struct _libgolang_sema
+    struct _libgolang_runtime_ops:
+        _libgolang_sema* (*sema_alloc)  ()
+        void             (*sema_free)   (_libgolang_sema*)
+        void             (*sema_acquire)(_libgolang_sema*)
+        void             (*sema_release)(_libgolang_sema*)
