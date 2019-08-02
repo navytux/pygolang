@@ -436,8 +436,8 @@ void _chan::send(const void *ptx) {
         if (done)
             return;
 
-        _WaitGroup         g;
-        _RecvSendWaiting   me; me.init(&g, ch);
+        _WaitGroup         g;                       // XXX onstack
+        _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
         me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
         me.ok       = false;
 
@@ -478,8 +478,8 @@ bool _chan::recv_(void *prx) { // -> ok
             return ok;
         }
 
-        _WaitGroup         g;
-        _RecvSendWaiting   me; me.init(&g, ch);
+        _WaitGroup         g;                       // XXX onstack
+        _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
         me.pdata    = prx;
         me.ok       = false;
 
@@ -818,9 +818,9 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 
     // second pass: subscribe and wait on all rx/tx cases
-    _WaitGroup  g;
+    _WaitGroup  g;  // XXX onstack
 
-    // storage for waiters we create    XXX stack-allocate
+    // storage for waiters we create    XXX stack-allocate (if !STACK_DEAD_WHILE_PARKED)
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
     _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
     int               waitc = 0;

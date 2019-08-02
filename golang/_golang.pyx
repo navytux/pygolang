@@ -101,7 +101,7 @@ cdef class pychan:
         try:
             with nogil:
                 _obj = <PyObject *>obj
-                chansend_pyexc(pych.ch, &_obj)      # XXX _obj on stack
+                chansend_pyexc(pych.ch, &_obj)      # XXX _obj onstack
         except _PanicError:
             # the object was not sent - e.g. it was send on a closed channel
             Py_DECREF(obj)
