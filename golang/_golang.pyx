@@ -271,10 +271,6 @@ def pyselect(*pycasev):
 
 # ---- init libgolang runtime ---
 
-# XXX detect gevent and use _runtime_gevent instead
-#from golang.runtime cimport _runtime_thread
-#from golang.runtime import _runtime_thread
-
 cdef extern from "golang/golang.h" namespace "golang" nogil:
     struct _libgolang_runtime_ops
     void _libgolang_init(const _libgolang_runtime_ops*)
@@ -282,6 +278,7 @@ from cpython cimport PyCapsule_Import
 
 cdef void _init_libgolang() except*:
     # detect whether we are running under gevent or OS threads mode
+    # -> use golang.runtime._runtime_(gevent|thread) as libgolang runtime.
     threadmod = "thread"
     if PY_MAJOR_VERSION >= 3:
         threadmod = "_thread"
@@ -293,12 +290,12 @@ cdef void _init_libgolang() except*:
 
     # PyCapsule_Import("golang.X") does not work properly while we are in the
     # process of importing golang (it tries to access "X" attribute of half-created
-    # golang module. -> preimport runtimemod via regular import first.
+    # golang module). -> preimport runtimemod via regular import first.
     __import__(runtimemod)
     cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
             runtimemod + ".libgolang_runtime_ops", 0)
     if runtime_ops == NULL:
-        pypanic("init: %s: NULL libgolang_runtime_ops" % runtimemod)
+        pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
     _libgolang_init(runtime_ops)
 
 

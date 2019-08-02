@@ -19,6 +19,19 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
+#from gevent.__semaphore cimport Semaphore
+# XXX ...
+
 cdef nogil:
 
-    pass
+    # XXX const
+    _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
+            sema_alloc      = NULL, # XXX
+            sema_free       = NULL, # XXX
+            sema_acquire    = NULL, # XXX
+            sema_release    = NULL, # XXX
+    )
+
+from cpython cimport PyCapsule_New
+libgolang_runtime_ops = PyCapsule_New(&gevent_ops,
+        "golang.runtime._runtime_gevent.libgolang_runtime_ops", NULL)
