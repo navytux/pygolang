@@ -101,7 +101,7 @@ cdef class pychan:
         try:
             with nogil:
                 _obj = <PyObject *>obj
-                chansend_pyexc(pych.ch, &_obj)
+                chansend_pyexc(pych.ch, &_obj)      # XXX _obj on stack
         except _PanicError:
             # the object was not sent - e.g. it was send on a closed channel
             Py_DECREF(obj)
@@ -119,7 +119,7 @@ cdef class pychan:
         cdef bint ok
 
         with nogil:
-            ok = chanrecv__pyexc(pych.ch, &_rx)
+            ok = chanrecv__pyexc(pych.ch, &_rx)     # XXX _rx onstack
 
         if not ok:
             return (None, ok)
@@ -232,7 +232,7 @@ def pyselect(*pycasev):
 
             pych = recv.__self__
             if commaok:
-                casev[i] = _recv_(pych.ch, &_rx, &rxok)
+                casev[i] = _recv_(pych.ch, &_rx, &rxok)         # XXX _rx* onstack
             else:
                 casev[i] = _recv(pych.ch, &_rx)
 

@@ -37,12 +37,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if 0
-// for semaphores (need pythread.h but it depends on PyAPI_FUNC from Python.h)
-#include <Python.h>
-#include <pythread.h>
-#endif
-
 // XXX -> better use c.h or ccan/array_size.h ?
 // XXX move list.h into here?
 #ifndef ARRAY_SIZE
@@ -166,7 +160,6 @@ private:
 
 // with_lock mimics `with mu` from python.
 #define with_lock(mu) std::lock_guard<Mutex> _with_lock_ ## __COUNTER__ (mu)
-//typedef std::lock_guard<Mutex> with_lock;
 
 // defer(f) mimics defer from golang.
 // XXX f is called at end of current scope, not function.
@@ -418,7 +411,6 @@ void _chan::decref() {
 
     // refcnt=0 -> free the channel
 //  printf("chan %p -> dealloc\n", ch);
-//  panic("ZZZ");
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch));
     free(ch);
