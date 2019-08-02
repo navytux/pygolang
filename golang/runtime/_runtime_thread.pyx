@@ -25,7 +25,8 @@
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
-from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT_LOCK
+from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT_LOCK, \
+        PyThread_type_lock
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
@@ -37,6 +38,9 @@ cdef extern from "pythread.h" nogil:
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
 
+
+cdef extern from "golang.h" nogil:
+    struct _libgolang_sema
 
 cdef nogil:
 
@@ -54,6 +58,6 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_acquire_lock(pysema, WAIT_LOCK)
 
-    void sema_release(_libgolang_sema *pysema):
+    void sema_release(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
