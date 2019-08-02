@@ -68,6 +68,7 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
+    # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
