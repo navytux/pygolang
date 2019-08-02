@@ -323,13 +323,14 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +to
 # ---- for py tests ----
 # XXX -> separate module?
 
-import six, time
+from cpython cimport PY_MAJOR_VERSION
+import time
 
 # unbound pychan.{send,recv,recv_}
 _pychan_send  = pychan.send
 _pychan_recv  = pychan.recv
 _pychan_recv_ = pychan.recv_
-if six.PY2:
+if PY_MAJOR_VERSION == 2:
     # on py3 class.func gets the func; on py2 - unbound_method(func)
     _pychan_send  = _pychan_send.__func__
     _pychan_recv  = _pychan_recv.__func__
