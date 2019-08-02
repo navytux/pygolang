@@ -271,9 +271,6 @@ def pyselect(*pycasev):
 
 # ---- init libgolang runtime ---
 
-#from gevent.__semaphore cimport Semaphore
-# XXX ...
-
 # XXX detect gevent and use _runtime_gevent instead
 #from golang.runtime cimport _runtime_thread
 #from golang.runtime import _runtime_thread
@@ -284,7 +281,16 @@ cdef extern from "golang/golang.h" namespace "golang" nogil:
 from cpython cimport PyCapsule_Import
 
 cdef void _init_libgolang():
-    runtimemod = "golang.runtime." + "_runtime_thread"
+    # detect whether we are running under gevent or OS threads mode
+    threadmod = "thread"
+    if PY_MAJOR_VERSION >= 3:
+        threadmod = "_thread"
+    t = __import__(threadmod)
+    runtime = "thread"
+    if "gevent" in t.start_new_thread.__module__:
+        runtime = "gevent"
+    runtimemod = "golang.runtime." + "_runtime_" + runtime
+
     # PyCapsule_Import("golang.X") does not work properly while we are in the
     # process of importing golang (it tries to access "X" attribute of half-created
     # golang module. -> preimport runtimemod via regular import first.
