@@ -290,7 +290,15 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +to
 
 # XXX detect gevent and use _runtime_gevent instead
 #from golang.runtime cimport _runtime_thread
-from golang.runtime import _runtime_thread
+#from golang.runtime import _runtime_thread
+cdef extern from "golang/golang.h" nogil:
+    struct _libgolang_runtime_ops
+    void _libgolang_init(const _libgolang_runtime_ops*)
+from cpython cimport PyCapsule_Import
+runtimemod = "golang.runtime." + "_runtime_thread"
+cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
+        runtimemod + ".libgolang_runtime_ops", 0)
+_libgolang_init(runtime_ops)
 
 
 

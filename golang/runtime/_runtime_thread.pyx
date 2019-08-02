@@ -39,8 +39,14 @@ cdef extern from "pythread.h" nogil:
     void PyThread_free_lock(PyThread_type_lock)
 
 
-cdef extern from "golang.h" nogil:
+# XXX -> _golang.pxd
+cdef extern from "golang/golang.h" nogil:
     struct _libgolang_sema
+    struct _libgolang_runtime_ops:
+        _libgolang_sema* (*sema_alloc)  ()
+        void             (*sema_free)   (_libgolang_sema*)
+        void             (*sema_acquire)(_libgolang_sema*)
+        void             (*sema_release)(_libgolang_sema*)
 
 cdef nogil:
 
@@ -61,3 +67,13 @@ cdef nogil:
     void sema_release(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
+
+    const _libgolang_runtime_ops thread_ops
+        .sema_alloc     = sema_alloc
+        .sema_free      = sema_free
+        .sema_acquire   = sema_acquire
+        .sema_release   = sema_release
+
+from cpython cimport PyCapsule_New
+libgolang_runtime_ops = PyCapsule_New(&thread_ops,
+        "golang.runtime._runtime_thread.libgolang_runtime_ops", NULL)

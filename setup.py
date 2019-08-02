@@ -163,6 +163,7 @@ setup(
 
     packages    = find_packages(),
 
+    headers     = ['golang/golang.h'],
     x_dsos      = [DSO('golang.libgolang', ['golang/golang.cpp'],
                         depends         = ['golang/golang.h'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
@@ -185,7 +186,9 @@ setup(
 
                     Extension('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx'],
-                        depends=['golang/golang.h']),
+                        depends=['golang/golang.h'],
+                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
+                        ),
 
                     Extension('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
