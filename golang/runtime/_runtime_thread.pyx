@@ -39,7 +39,7 @@ cdef extern from "pythread.h" nogil:
     void PyThread_free_lock(PyThread_type_lock)
 
 
-# XXX -> _golang.pxd
+# XXX -> _golang.pxd ?
 cdef extern from "golang/golang.h" nogil:
     struct _libgolang_sema
     struct _libgolang_runtime_ops:
@@ -68,11 +68,12 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
-    const _libgolang_runtime_ops thread_ops
-        .sema_alloc     = sema_alloc
-        .sema_free      = sema_free
-        .sema_acquire   = sema_acquire
-        .sema_release   = sema_release
+    _libgolang_runtime_ops thread_ops
+
+thread_ops.sema_alloc     = sema_alloc      # XXX how to init in one go?
+thread_ops.sema_free      = sema_free
+thread_ops.sema_acquire   = sema_acquire
+thread_ops.sema_release   = sema_release
 
 from cpython cimport PyCapsule_New
 libgolang_runtime_ops = PyCapsule_New(&thread_ops,
