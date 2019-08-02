@@ -42,6 +42,28 @@ from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
 
+
+# ---- init libgolang runtime ---
+#from gevent.__semaphore cimport Semaphore
+# XXX ...
+
+# XXX detect gevent and use _runtime_gevent instead
+#from golang.runtime cimport _runtime_thread
+#from golang.runtime import _runtime_thread
+cdef extern from "golang/golang.h" namespace "golang" nogil:
+    struct _libgolang_runtime_ops
+    void _libgolang_init(const _libgolang_runtime_ops*)
+from cpython cimport PyCapsule_Import
+runtimemod = "golang.runtime." + "_runtime_thread"
+__import__(runtimemod)  # XXX temp
+cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
+        runtimemod + ".libgolang_runtime_opsZZZ", 0)
+if runtime_ops == NULL:
+    pypanic("init: %s: NULL libgolang_runtime_ops" % runtimemod)
+_libgolang_init(runtime_ops)
+
+
+
 # ---- panic ----
 
 cdef class _PanicError(Exception):
@@ -284,24 +306,6 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +to
     return ch.len()
 cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
-
-# ---- init libgolang runtime ---
-# XXX place?
-#from gevent.__semaphore cimport Semaphore
-# XXX ...
-
-# XXX detect gevent and use _runtime_gevent instead
-#from golang.runtime cimport _runtime_thread
-#from golang.runtime import _runtime_thread
-cdef extern from "golang/golang.h" namespace "golang" nogil:
-    struct _libgolang_runtime_ops
-    void _libgolang_init(const _libgolang_runtime_ops*)
-from cpython cimport PyCapsule_Import
-runtimemod = "golang.runtime." + "_runtime_thread"
-cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
-        runtimemod + ".libgolang_runtime_ops", 0)
-_libgolang_init(runtime_ops)
-
 
 
 
