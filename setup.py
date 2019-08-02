@@ -182,6 +182,7 @@ setup(
                         #extra_link_args=['-fsanitize=undefined'],     # XXX debug
                         #extra_compile_args=['-fsanitize=address'],  # XXX debug
                         #extra_link_args=['-fsanitize=address'],     # XXX debug
+                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
                         language="c++"),
 
                     Extension('golang.runtime._runtime_thread',

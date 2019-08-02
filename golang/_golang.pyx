@@ -26,6 +26,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_golang.pyx provides Python interface to golang.{h,cpp}"""
 
+# XXX golang/golang.h or just golang.h ?
+
 from __future__ import print_function, absolute_import
 
 from golang._pycompat import im_class
@@ -264,7 +266,7 @@ def pyselect(*pycasev):
 
 # ---- misc ----
 
-cdef extern from "golang.h" namespace "golang" nogil:
+cdef extern from "golang/golang.h" namespace "golang" nogil:
     int _chanselect(_selcase *casev, int casec)
 
 cdef nogil:
@@ -291,7 +293,7 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +to
 # XXX detect gevent and use _runtime_gevent instead
 #from golang.runtime cimport _runtime_thread
 #from golang.runtime import _runtime_thread
-cdef extern from "golang/golang.h" nogil:
+cdef extern from "golang/golang.h" namespace "golang" nogil:
     struct _libgolang_runtime_ops
     void _libgolang_init(const _libgolang_runtime_ops*)
 from cpython cimport PyCapsule_Import
