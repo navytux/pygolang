@@ -55,9 +55,12 @@ cdef extern from "golang/golang.h" namespace "golang" nogil:
     void _libgolang_init(const _libgolang_runtime_ops*)
 from cpython cimport PyCapsule_Import
 runtimemod = "golang.runtime." + "_runtime_thread"
-__import__(runtimemod)  # XXX temp
+# PyCapsule_Import("golang.X") does not work properly while we are in the
+# process of importing golang (it tries to access "X" attribute of half-created
+# golang module. -> preimport runtimemod via regular import first.
+__import__(runtimemod)
 cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
-        runtimemod + ".libgolang_runtime_opsZZZ", 0)
+        runtimemod + ".libgolang_runtime_ops", 0)
 if runtime_ops == NULL:
     pypanic("init: %s: NULL libgolang_runtime_ops" % runtimemod)
 _libgolang_init(runtime_ops)

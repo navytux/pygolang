@@ -175,7 +175,7 @@ setup(
                     Extension('golang._golang',
                         #['golang/_golang.pyx', 'golang/golang.cpp'],
                         ['golang/_golang.pyx'],
-                        depends=['golang/golang.h'],
+                        depends= ['golang/golang.h'],
                         dsos   = ['golang.libgolang'],  # XXX setuptools adds lib prefix
                         # XXX package_data = golang.h _golang.pxd
                         #extra_compile_args=['-fsanitize=undefined'],  # XXX debug
