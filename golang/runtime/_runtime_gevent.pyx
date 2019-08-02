@@ -29,16 +29,24 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
 
 cdef nogil:
 
+    # XXX better panic with pyexc object and detect that at recover side
+
     _libgolang_sema* sema_alloc():
         with gil:
             pygsema = Semaphore()
             Py_INCREF(pygsema)
             return <_libgolang_sema*>pygsema
+        # libgolang checks for NULL return
 
-    void sema_free(_libgolang_sema *gsema):
+    bint _sema_free(_libgolang_sema *gsema):
         with gil:
             pygsema = <Semaphore>gsema
             Py_DECREF(pygsema)
+            return True
+    void sema_free(_libgolang_sema *gsema):
+        ok = _sema_free(gsema)
+        if not ok:
+            panic("pygsema: free: failed")
 
     bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
@@ -54,7 +62,7 @@ cdef nogil:
         with gil:
             pygsema = <Semaphore>gsema
             pygsema.release()
-        return True
+            return True
     void sema_release(_libgolang_sema *gsema):
         ok = _sema_release(gsema)
         if not ok:
