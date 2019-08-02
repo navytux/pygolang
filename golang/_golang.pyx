@@ -30,6 +30,9 @@
 
 from __future__ import print_function, absolute_import
 
+# init libgolang runtime early
+_init_libgolang()
+
 from golang._pycompat import im_class
 
 from cpython cimport Py_INCREF, Py_DECREF
@@ -42,28 +45,6 @@ from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
 
-
-# ---- init libgolang runtime ---
-#from gevent.__semaphore cimport Semaphore
-# XXX ...
-
-# XXX detect gevent and use _runtime_gevent instead
-#from golang.runtime cimport _runtime_thread
-#from golang.runtime import _runtime_thread
-cdef extern from "golang/golang.h" namespace "golang" nogil:
-    struct _libgolang_runtime_ops
-    void _libgolang_init(const _libgolang_runtime_ops*)
-from cpython cimport PyCapsule_Import
-runtimemod = "golang.runtime." + "_runtime_thread"
-# PyCapsule_Import("golang.X") does not work properly while we are in the
-# process of importing golang (it tries to access "X" attribute of half-created
-# golang module. -> preimport runtimemod via regular import first.
-__import__(runtimemod)
-cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
-        runtimemod + ".libgolang_runtime_ops", 0)
-if runtime_ops == NULL:
-    pypanic("init: %s: NULL libgolang_runtime_ops" % runtimemod)
-_libgolang_init(runtime_ops)
 
 
 
@@ -287,6 +268,33 @@ def pyselect(*pycasev):
         return selected, (rx, rxok)
     else:
         return selected, rx
+
+# ---- init libgolang runtime ---
+
+#from gevent.__semaphore cimport Semaphore
+# XXX ...
+
+# XXX detect gevent and use _runtime_gevent instead
+#from golang.runtime cimport _runtime_thread
+#from golang.runtime import _runtime_thread
+
+cdef extern from "golang/golang.h" namespace "golang" nogil:
+    struct _libgolang_runtime_ops
+    void _libgolang_init(const _libgolang_runtime_ops*)
+from cpython cimport PyCapsule_Import
+
+cdef void _init_libgolang():
+    runtimemod = "golang.runtime." + "_runtime_thread"
+    # PyCapsule_Import("golang.X") does not work properly while we are in the
+    # process of importing golang (it tries to access "X" attribute of half-created
+    # golang module. -> preimport runtimemod via regular import first.
+    __import__(runtimemod)
+    cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
+            runtimemod + ".libgolang_runtime_ops", 0)
+    if runtime_ops == NULL:
+        pypanic("init: %s: NULL libgolang_runtime_ops" % runtimemod)
+    _libgolang_init(runtime_ops)
+
 
 
 # ---- misc ----
