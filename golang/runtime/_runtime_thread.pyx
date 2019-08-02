@@ -60,6 +60,7 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
+
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
             sema_alloc      = sema_alloc,
@@ -67,7 +68,6 @@ cdef nogil:
             sema_acquire    = sema_acquire,
             sema_release    = sema_release,
     )
-
 
 from cpython cimport PyCapsule_New
 libgolang_runtime_ops = PyCapsule_New(&thread_ops,

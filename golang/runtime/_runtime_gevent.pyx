@@ -19,19 +19,43 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
-from gevent.__semaphore cimport Semaphore
-# XXX ...
+# XXX 2 words about what we do/use gevent semaphores
 
-from golang.runtime._libgolang cimport _libgolang_runtime_ops
+from gevent.__semaphore cimport Semaphore
+from cpython cimport Py_INCREF, Py_DECREF
+
+from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema
 
 cdef nogil:
 
+    _libgolang_sema* sema_alloc():
+        with gil:
+            pygsema = Semaphore()
+            Py_INCREF(pygsema)
+            return <_libgolang_sema*>pygsema
+
+    void sema_free(_libgolang_sema *gsema):
+        with gil:
+            pygsema = <Semaphore>gsema
+            Py_DECREF(pygsema)
+
+    void sema_acquire(_libgolang_sema *gsema):
+        with gil:
+            pygsema = <Semaphore>gsema
+            pygsema.acquire()
+
+    void sema_release(_libgolang_sema *gsema):
+        with gil:
+            pygsema = <Semaphore>gsema
+            pygsema.release()
+
+
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
-            sema_alloc      = NULL, # XXX
-            sema_free       = NULL, # XXX
-            sema_acquire    = NULL, # XXX
-            sema_release    = NULL, # XXX
+            sema_alloc      = sema_alloc,
+            sema_free       = sema_free,
+            sema_acquire    = sema_acquire,
+            sema_release    = sema_release,
     )
 
 from cpython cimport PyCapsule_New
