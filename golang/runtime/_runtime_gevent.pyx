@@ -19,7 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
-#from gevent.__semaphore cimport Semaphore
+from gevent.__semaphore cimport Semaphore
 # XXX ...
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops

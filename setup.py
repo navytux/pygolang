@@ -17,8 +17,8 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+
 from setuptools import find_packages
-#from setuptools.extension import Extension
 # setuptools has Library but this days it is not well supported and test for it has been killed
 # https://github.com/pypa/setuptools/commit/654c26f78a30
 # -> use setuptools_dso instead.
@@ -143,6 +143,14 @@ class develop(XInstallGPython, _develop):
         _develop.install_egg_scripts(self, dist)
         assert self.gpython_installed == 1
 
+# Ext ...  XXX
+def Ext(name, srcv, **kw):
+    # prepend -I<top> so that e.g. golang/golang.h is founc
+    incv = kw.get('include_dirs', [])
+    incv.insert(0, dirname(__file__))
+    kw['include_dirs'] = incv
+
+    return Extension(name, srcv, **kw)
 
 setup(
     name        = 'pygolang',
@@ -152,7 +160,11 @@ setup(
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
     url         = 'https://lab.nexedi.com/kirr/pygolang',
-    project_urls= {},   # XXX
+    project_urls= {
+        'Bug Tracker':   'https://lab.nexedi.com/kirr/pygolang/issues',
+        'Source Code':   'https://lab.nexedi.com/kirr/pygolang',
+        'Documentation': 'https://pypi.org/project/pygolang',
+    },
     license     = 'GPLv3+ with wide exception for Open-Source',
     #   license_file= 'COPYING',        XXX gives warning "unknown distro option"
     author      = 'Kirill Smelkov',
@@ -168,48 +180,38 @@ setup(
                         depends         = ['golang/golang.h'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
                         soversion       = '0.1')],
-                        # # XXX get_python_inc -> setuptools_dso?
-                        # include_dirs    = [sysconfig.get_python_inc(plat_specific=0),
-                        #                    sysconfig.get_python_inc(plat_specific=1)])],
     ext_modules = [
-                    Extension('golang._golang',
-                        #['golang/_golang.pyx', 'golang/golang.cpp'],
-                        ['golang/_golang.pyx'],
+                    Ext('golang._golang', ['golang/_golang.pyx'],
                         depends= ['golang/golang.h'],
                         dsos   = ['golang.libgolang'],  # XXX setuptools adds lib prefix
-                        # XXX package_data = golang.h _golang.pxd
-                        #extra_compile_args=['-fsanitize=undefined'],  # XXX debug
-                        #extra_link_args=['-fsanitize=undefined'],     # XXX debug
-                        #extra_compile_args=['-fsanitize=address'],  # XXX debug
-                        #extra_link_args=['-fsanitize=address'],     # XXX debug
-                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
+                        # XXX package_data = _golang.pxd
                         language="c++"),
 
-                    Extension('golang.runtime._runtime_thread',
+                    Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx'],
                         depends=['golang/golang.h'],
-                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
                         ),
 
-                    Extension('golang.runtime._runtime_gevent',
+                    Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
-                        include_dirs=['.'],     # XXX so that golang/golang.h is found XXX -> top?
                         depends=['golang/golang.h']),
 
-                    Extension('golang._golang_test',
+                    Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
                          # XXX explain _c _cpp tests
                          'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp'],
                         depends=['golang/golang.h', 'golang/_golang.pxd'],
                         dsos   = ['golang.libgolang'],
                         language="c++"),
-                    Extension('golang._internal',   ['golang/_internal.pyx']),
+
+                    Ext('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',
     include_package_data = True,
 
     # XXX setup_requires = ['setuptools_dso']
     # https://github.com/mdavidsaver/p4p/issues/20
+    # XXX cython -> setup_requires
     install_requires = ['gevent', 'six', 'decorator', 'cython'],
 
     extras_require = {
