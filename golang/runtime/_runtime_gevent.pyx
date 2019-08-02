@@ -28,6 +28,7 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
         panic
 
 from libc.stdio cimport printf  # XXX temp
+import traceback
 
 cdef nogil:
 
@@ -56,7 +57,12 @@ cdef nogil:
         with gil:
             pygsema = <Semaphore>gsema
             printf('pygsema %p: acquire\tcounter=%d\n', <void*>pygsema, pygsema.counter)
-            pygsema.acquire()
+            try:
+                pygsema.acquire()
+            except:
+                printf('\nFAILED  %p: acquire\n\n', <void*>pygsema)
+                #traceback.print_exc()
+                raise
             return True
     void sema_acquire(_libgolang_sema *gsema):
         ok = _sema_acquire(gsema)

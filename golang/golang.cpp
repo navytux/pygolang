@@ -114,19 +114,6 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
 
 // ---- semaphores ----
 
-#if 0
-// init -> PyThread_init_thread (so that there is no concurrent calls to
-// PyThread_init_thread from e.g. PyThread_allocate_lock)
-//
-// XXX -> explicit call from golang -> and detect gevent'ed environment from there.
-// XXX place
-static struct _init_pythread {
-    _init_pythread() {
-        PyThread_init_thread();
-    }
-} _init_pythread;
-#endif
-
 // Sema provides semaphore.
 struct Sema {
     _libgolang_sema *_gsema;
@@ -348,6 +335,7 @@ void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
+    printf("group %p: wakeup\tg.which=%p\n", group, group->which);
     group->_sema.release();
 }
 
@@ -464,11 +452,14 @@ void _chan::send(const void *ptx) {
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
     ch->_mu.unlock();
 
-    //printf("send: -> g.wait()...\n");
+    printf("send: -> g.wait()...\n");
     g.wait();
-    //printf("send: -> woken up\n");
-    if (g.which != &me)
+    printf("send: -> woken up\n");
+    if (g.which != &me) {
+        printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", &g, g.which, &me);
+        printf("     g.sema.gsema: %p\n", g._sema._gsema);
         bug("chansend: g.which != me");
+    }
     if (!me.ok)
         panic("send on closed channel");
 }
@@ -487,10 +478,11 @@ bool _chanrecv_(_chan *ch, void *prx) {
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
 
+    printf("recv\n");
     ch->_mu.lock();
         bool ok, done = ch->_tryrecv(prx, &ok);
         if (done) {
-            //printf("recv: -> tryrecv done; ok=%i\n", ok);
+            printf("recv: -> tryrecv done; ok=%i\n", ok);
             return ok;
         }
 
@@ -502,11 +494,11 @@ bool _chan::recv_(void *prx) { // -> ok
         list_add_tail(&me.in_rxtxq, &ch->_recvq);
     ch->_mu.unlock();
 
-    //printf("recv: -> g.wait()...\n");
+    printf("recv: -> g.wait()...\n");
     g.wait();
     if (g.which != &me)
         bug("chanrecv: g.which != me");
-    //printf("recv: -> woken up;  ok=%i\n", me.ok);
+    printf("recv: -> woken up;  ok=%i\n", me.ok);
     return me.ok;
 }
 
