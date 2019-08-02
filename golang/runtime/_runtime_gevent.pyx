@@ -25,6 +25,7 @@ from gevent.__semaphore cimport Semaphore
 from cpython cimport Py_INCREF, Py_DECREF
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema
+from golang cimport panic
 
 cdef nogil:
 
@@ -39,10 +40,16 @@ cdef nogil:
             pygsema = <Semaphore>gsema
             Py_DECREF(pygsema)
 
-    void sema_acquire(_libgolang_sema *gsema):
+    bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
             pygsema = <Semaphore>gsema
             pygsema.acquire()
+            return True
+
+    void sema_acquire(_libgolang_sema *gsema):
+        ok = _sema_acquire(gsema)
+        if not ok:
+            panic("pygsema: acquire: failed")
 
     void sema_release(_libgolang_sema *gsema):
         with gil:

@@ -31,7 +31,7 @@ from libcpp cimport nullptr_t, nullptr as nil
 #
 # -> golang.pyx users need to add `except +topyexc` to their functions that are
 # on the edge of Python/nogil world.
-cdef extern from "golang.h" namespace "golang" nogil:
+cdef extern from "golang/golang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover()
 
