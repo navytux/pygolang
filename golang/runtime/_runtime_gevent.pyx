@@ -25,7 +25,7 @@ from gevent.__semaphore cimport Semaphore
 from cpython cimport Py_INCREF, Py_DECREF
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
-        panic
+        STACK_DEAD_WHILE_PARKED, panic
 
 from libc.stdio cimport printf  # XXX temp
 import traceback
@@ -83,6 +83,7 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
+            flags           = STACK_DEAD_WHILE_PARKED,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,

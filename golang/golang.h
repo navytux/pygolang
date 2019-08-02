@@ -110,7 +110,17 @@ extern const _selcase _default;
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use
 typedef struct _libgolang_sema _libgolang_sema;
+typedef enum _libgolang_runtime_flags {
+    // it is not safe to access goroutine's stack memory while the goroutine is parked.
+    //
+    // for example gevent/greenlet/stackless use it because they copy g's stack
+    // to heap on park and back on unpark. This way if objects on g's stack
+    // were accessed while g was parked it would be memory of another g's stack.
+    STACK_DEAD_WHILE_PARKED = 1,
+} _libgolang_runtime_flags;
 typedef struct _libgolang_runtime_ops {
+    _libgolang_runtime_flags    flags;
+
     // sema_alloc should allocate a semaphore.
     // if allocation fails it must return NULL.
     _libgolang_sema* (*sema_alloc)(void);

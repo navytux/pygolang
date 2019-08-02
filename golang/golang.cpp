@@ -431,6 +431,9 @@ void _chansend(_chan *ch, const void *ptx) {
 void _chan::send(const void *ptx) {
     _chan *ch = this;
 
+    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
+        panic("chansend: TODO: STACK_DEAD_WHILE_PARKED");
+
     ch->_mu.lock();
         bool done = ch->_trysend(ptx);
         if (done)
@@ -469,6 +472,9 @@ bool _chanrecv_(_chan *ch, void *prx) {
 }
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
+
+    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
+        panic("chanrecv: TODO: STACK_DEAD_WHILE_PARKED");
 
     printf("recv\n");
     ch->_mu.lock();
@@ -819,6 +825,9 @@ int _chanselect(const _selcase *casev, int casec) {
 
     // second pass: subscribe and wait on all rx/tx cases
     _WaitGroup  g;  // XXX onstack
+
+    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
+        panic("select: TODO: STACK_DEAD_WHILE_PARKED");
 
     // storage for waiters we create    XXX stack-allocate (if !STACK_DEAD_WHILE_PARKED)
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
