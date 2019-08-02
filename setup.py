@@ -25,8 +25,8 @@ from setuptools import find_packages
 from setuptools_dso import DSO, Extension, setup
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
-#from distutils import sysconfig
-from os.path import dirname, join
+import sysconfig
+from os.path import dirname, join, exists
 import sys, re
 
 # read file content
@@ -143,13 +143,21 @@ class develop(XInstallGPython, _develop):
         _develop.install_egg_scripts(self, dist)
         assert self.gpython_installed == 1
 
-# Ext ...  XXX
+
+# Ext creates Extension with common settings.
 def Ext(name, srcv, **kw):
     # prepend -I<top> so that e.g. golang/golang.h is founc
     incv = kw.get('include_dirs', [])
-    incv.insert(0, dirname(__file__))
-    kw['include_dirs'] = incv
+    incv.insert(0, '.')
 
+    # workaround pip bug that for virtualenv case headers are installed into
+    # not-searched include path. https://github.com/pypa/pip/issues/4610
+    # (without this e.g. "greenlet/greenlet.h" is not found)
+    venv_inc = join(sys.prefix, 'include', 'site', 'python' + sysconfig.get_python_version())
+    if exists(venv_inc):
+        incv.append(venv_inc)
+
+    kw['include_dirs'] = incv
     return Extension(name, srcv, **kw)
 
 setup(
