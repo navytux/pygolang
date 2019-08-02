@@ -202,6 +202,7 @@ setup(
 
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
+                        dsos    = ['golang.libgolang'], # XXX for panic
                         depends=['golang/golang.h']),
 
                     Ext('golang._golang_test',

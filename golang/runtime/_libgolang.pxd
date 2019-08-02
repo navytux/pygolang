@@ -26,3 +26,7 @@ cdef extern from "golang/golang.h" nogil:
         void             (*sema_free)   (_libgolang_sema*)
         void             (*sema_acquire)(_libgolang_sema*)
         void             (*sema_release)(_libgolang_sema*)
+
+    # XXX better take from golang.pxd, but there it is declared in `namespace
+    # "golang"` which fails for C-mode compiles.
+    void panic(const char *)
