@@ -283,9 +283,16 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +to
 cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
 
-# ---- gevent integration ----
-from gevent.__semaphore cimport Semaphore
+# ---- init libgolang runtime ---
+# XXX place?
+#from gevent.__semaphore cimport Semaphore
 # XXX ...
+
+# XXX detect gevent and use _runtime_gevent instead
+#from golang.runtime cimport _runtime_thread
+from golang.runtime import _runtime_thread
+
+
 
 
 # ---- for py tests ----
