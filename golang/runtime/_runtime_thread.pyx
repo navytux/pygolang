@@ -24,6 +24,7 @@
 # from covering different systems.
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
+# NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT_LOCK
 
 # make sure python threading is initialized, so that there is no concurrent
@@ -32,7 +33,6 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT
 # This allows us to treat PyThread_allocate_lock as nogil.
 from cpython.pythread cimport PyThread_init_thread
 PyThread_init_thread()
-
 cdef extern from "pythread.h" nogil:
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
@@ -40,13 +40,11 @@ cdef extern from "pythread.h" nogil:
 
 cdef nogil:
 
-    xxx* sema_alloc():
+    _libgolang_sema* sema_alloc():
         # python calls it "lock", but it is actually a semaphore.
         # and in particular can be released by thread different from thread that acquired it.
         pysema = PyThread_allocate_lock()
-        if pysame == NULL:
-            panic("pysema: alloc failed")
-        return <xxx *>pysema
+        return <_libgolang *>pysema # NULL is ok - libgolang expects it
 
     void sema_free(xxx *pysema):
         PyThread_free_lock(pysema)

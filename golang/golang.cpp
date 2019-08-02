@@ -100,6 +100,17 @@ struct Bug : exception {
     throw Bug(msg);
 }
 
+// ---- runtime ----
+
+// initially NULL to crash if runtime was not initialized
+static const _libgolang_runtime_ops *_runtime = NULL;
+
+void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
+    if (_runtime != NULL) // XXX better check atomically
+        panic("libgolang: double init");
+    _runtime = runtime_ops;
+}
+
 
 // ---- semaphores ----
 
@@ -117,18 +128,8 @@ static struct _init_pythread {
 #endif
 
 // Sema provides semaphore.
-//
-// Reuse Python semaphore implementation for portability. In Python semaphores
-// do not depend on GIL and by reusing the implementation we can offload us
-// from covering different systems.
-//
-// On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
-//
-// XXX recheck gevent case
 struct Sema {
-    // python calls it "lock", but it is actually a semaphore.
-    // and in particular can be released by thread different from thread that acquired it.
-    PyThread_type_lock _pysema;
+    _libgolang_sema *_gsema;
 
     Sema();
     ~Sema();
@@ -142,26 +143,26 @@ private:
 Sema::Sema() {
     Sema *sema = this;
 
-    sema->_pysema = PyThread_allocate_lock();
-    if (!sema->_pysema)
+    sema->_gsema = _runtime->sema_alloc();
+    if (!sema->_gsema)
         panic("sema: alloc failed");
 }
 
 Sema::~Sema() {
     Sema *sema = this;
 
-    PyThread_free_lock(sema->_pysema);
-    sema->_pysema = NULL;
+    _runtime->sema_free(sema->_gsema);
+    sema->_gsema = NULL;
 }
 
 void Sema::acquire() {
     Sema *sema = this;
-    PyThread_acquire_lock(sema->_pysema, WAIT_LOCK);
+    _runtime->sema_acquire(sema->_gsema);
 }
 
 void Sema::release() {
     Sema *sema = this;
-    PyThread_release_lock(sema->_pysema);
+    _runtime->sema_release(sema->_gsema);
 }
 
 // Mutex provides mutex.

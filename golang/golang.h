@@ -108,9 +108,25 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 extern const _selcase _default;
 
 
-// libgolang runtime initialization
+// libgolang runtime - the runtime must be initialized before any other libgolang use
+typedef struct _libgolang_sema _libgolang_sema;
 typedef struct _libgolang_runtime_ops {
+    // sema_alloc should allocate a semaphore.
+    // if allocation fails it must return NULL.
+    _libgolang_sema* (*sema_alloc)(void);
+
+    // sema_free should release previously allocated semaphore.
+    // libgolang guarantees to call it only once and only for a semaphore
+    // previously successfully allocated via sema_alloc.
+    void             (*sema_free)   (_libgolang_sema*);
+
+    // sema_acquire/sema_release should acquire/release live semaphore allocated via sema_alloc.
+    void             (*sema_acquire)(_libgolang_sema*);
+    void             (*sema_release)(_libgolang_sema*);
 } _libgolang_runtime_ops;
+
+void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
+
 
 // for testing
 int _tchanrecvqlen(_chan *ch);
