@@ -44,13 +44,16 @@ cdef nogil:
         # python calls it "lock", but it is actually a semaphore.
         # and in particular can be released by thread different from thread that acquired it.
         pysema = PyThread_allocate_lock()
-        return <_libgolang *>pysema # NULL is ok - libgolang expects it
+        return <_libgolang_sema *>pysema # NULL is ok - libgolang expects it
 
-    void sema_free(xxx *pysema):
+    void sema_free(_libgolang_sema *gsema):
+        pysema = <PyThread_type_lock>gsema
         PyThread_free_lock(pysema)
 
-    void sema_acquire(xxx *pysema):
+    void sema_acquire(_libgolang_sema *gsema):
+        pysema = <PyThread_type_lock>gsema
         PyThread_acquire_lock(pysema, WAIT_LOCK)
 
-    void sema_release(xxx *pysema):
-        PyThread_release_lock(sema->_pysema)
+    void sema_release(_libgolang_sema *pysema):
+        pysema = <PyThread_type_lock>gsema
+        PyThread_release_lock(pysema)
