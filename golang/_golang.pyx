@@ -35,7 +35,7 @@ from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
-    int Py_REFCNT(object o)     # XXX temp?
+    #int Py_REFCNT(object o)
 
 from libcpp.vector cimport vector
 cdef extern from *:
