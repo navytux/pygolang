@@ -33,6 +33,7 @@
 #include <mutex>        // lock_guard
 #include <functional>   // function
 #include <atomic>
+#include <memory>
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,7 @@ using std::atomic;
 using std::string;
 using std::vector;
 using std::exception;
+using std::unique_ptr;
 
 namespace golang {
 
@@ -431,18 +433,21 @@ void _chansend(_chan *ch, const void *ptx) {
 void _chan::send(const void *ptx) {
     _chan *ch = this;
 
-    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
-        panic("chansend: TODO: STACK_DEAD_WHILE_PARKED");
-
     ch->_mu.lock();
         bool done = ch->_trysend(ptx);
         if (done)
             return;
 
-        _WaitGroup         g;                       // XXX onstack
-        _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
-        me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
-        me.ok       = false;
+        unique_ptr<_WaitGroup>        _g  (new _WaitGroup);         _WaitGroup&        g  = *_g;
+        unique_ptr<_RecvSendWaiting>  _me (new _RecvSendWaiting);   _RecvSendWaiting&  me = *_me;
+        me.init(&g, ch);
+        me.pdata   = (void *)ptx; // we add it to _sendq; the memory will be only read
+        me.ok      = false;
+
+//      _WaitGroup         g;                       // XXX onstack
+//      _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
+//      me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
+//      me.ok       = false;
 
         list_add_tail(&me.in_rxtxq, &ch->_sendq);
     ch->_mu.unlock();
