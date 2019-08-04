@@ -907,6 +907,7 @@ template<> int _chanselect2</*onstack=*/true> (const _selcase *casev, int casec,
 
 template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec, const vector<int>& nv) {
     unique_ptr<_WaitGroup>  g (new _WaitGroup);
+    // XXX alloc casev and chan .tx / .rx to heap
     return __chanselect2(casev, casec, nv, g.get());
 }
 
