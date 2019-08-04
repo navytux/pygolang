@@ -61,7 +61,7 @@ version = _.group(1)
 # uninstall.
 #
 # NOTE in some cases (see below e.g. about bdist_wheel) we accept for gpython
-# to be generated not via XInstallGPython - becuase in those cases pkg_resources
+# to be generated not via XInstallGPython - because in those cases pkg_resources
 # and entry points are not used - just plain `import gpython`.
 class XInstallGPython:
     gpython_installed = 0
@@ -146,7 +146,7 @@ class develop(XInstallGPython, _develop):
 
 # Ext creates Extension with common settings.
 def Ext(name, srcv, **kw):
-    # prepend -I<top> so that e.g. golang/golang.h is founc
+    # prepend -I<top> so that e.g. golang/libgolang.h is found
     incv = kw.get('include_dirs', [])
     incv.insert(0, '.')
 
@@ -183,34 +183,35 @@ setup(
 
     packages    = find_packages(),
 
-    headers     = ['golang/golang.h'],
-    x_dsos      = [DSO('golang.libgolang', ['golang/golang.cpp'],
-                        depends         = ['golang/golang.h'],
+    headers     = ['golang/libgolang.h'],
+    x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
+                        depends         = ['golang/libgolang.h'],
+                        include_dirs    = ['.'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
                         soversion       = '0.1')],
     ext_modules = [
                     Ext('golang._golang', ['golang/_golang.pyx'],
-                        depends= ['golang/golang.h'],
-                        dsos   = ['golang.libgolang'],  # XXX setuptools adds lib prefix
+                        dsos   = ['golang.runtime.libgolang'],  # XXX setuptools adds lib prefix
                         # XXX package_data = _golang.pxd
+                        depends= ['golang/libgolang.h'],
                         language="c++"),
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx'],
-                        depends=['golang/golang.h'],
+                        depends=['golang/libgolang.h'],
                         ),
 
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
-                        dsos    = ['golang.libgolang'], # XXX for panic
-                        depends=['golang/golang.h']),
+                        dsos    = ['golang.runtime.libgolang'], # XXX for panic
+                        depends=['golang/libgolang.h']),
 
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
                          # XXX explain _c _cpp tests
                          'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp'],
-                        depends=['golang/golang.h', 'golang/_golang.pxd'],
-                        dsos   = ['golang.libgolang'],
+                        depends=['golang/libgolang.h', 'golang/_golang.pxd'],
+                        dsos   = ['golang.runtime.libgolang'],
                         language="c++"),
 
                     Ext('golang._internal',   ['golang/_internal.pyx']),

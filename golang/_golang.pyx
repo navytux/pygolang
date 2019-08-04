@@ -2,9 +2,7 @@
 # cython: language_level=2
 # cython: binding=True
 # distutils: language = c++
-# distutils: include_dirs = ../3rdparty/include
-# distutils: sources = golang.cpp
-# distutils: depends = golang.h
+# distutils: depends = libgolang.h
 #
 # Copyright (C) 2018-2019  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -25,8 +23,6 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 """_golang.pyx provides Python interface to golang.{h,cpp}"""
-
-# XXX golang/golang.h or just golang.h ?
 
 from __future__ import print_function, absolute_import
 
@@ -70,7 +66,7 @@ cdef void topyexc() except *:
     if arg != NULL:
         pypanic(arg)
 
-cdef extern from "golang.h" nogil:
+cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
 
 
@@ -124,7 +120,7 @@ cdef class pychan:
         if not ok:
             return (None, ok)
 
-        # we received the object and the channel droped pointer to it.
+        # we received the object and the channel dropped pointer to it.
         rx = <object>_rx
         Py_DECREF(rx)
         return (rx, ok)
@@ -271,7 +267,7 @@ def pyselect(*pycasev):
 
 # ---- init libgolang runtime ---
 
-cdef extern from "golang/golang.h" namespace "golang" nogil:
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     struct _libgolang_runtime_ops
     void _libgolang_init(const _libgolang_runtime_ops*)
 from cpython cimport PyCapsule_Import
@@ -302,7 +298,7 @@ cdef void _init_libgolang() except*:
 
 # ---- misc ----
 
-cdef extern from "golang/golang.h" namespace "golang" nogil:
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _chanselect(_selcase *casev, int casec)
 
 cdef nogil:
@@ -339,7 +335,7 @@ if PY_MAJOR_VERSION == 2:
     _pychan_recv  = _pychan_recv.__func__
     _pychan_recv_ = _pychan_recv_.__func__
 
-cdef extern from "golang.h" namespace "golang" nogil:
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
     int _tchansendqlen(_chan *ch)
     void (*_tblockforever)()

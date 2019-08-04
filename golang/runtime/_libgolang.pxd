@@ -19,7 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """pyx declarations for libgolang bits that are only interesting for runtimes"""
 
-cdef extern from "golang/golang.h" nogil:
+cdef extern from "golang/libgolang.h" nogil:
     struct _libgolang_sema
     enum _libgolang_runtime_flags:
         STACK_DEAD_WHILE_PARKED

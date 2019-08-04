@@ -24,7 +24,7 @@
 // - to provide chan<T> template that can be used as chan[T] in Cython.
 // - because Cython (currently ?) does not allow to add methods to `cdef struct`.
 
-#include "golang.h"
+#include "golang/libgolang.h"
 
 #include <exception>
 #include <string>
@@ -43,7 +43,7 @@
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
-#include "../3rdparty/include/linux/list.h"
+#include "../../3rdparty/include/linux/list.h"
 
 using std::atomic;
 using std::string;

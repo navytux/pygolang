@@ -19,7 +19,7 @@
 
 // Test that excersizes C++-level golang.h API.
 
-#include "golang.h"
+#include "golang/libgolang.h"
 #include <stdio.h>
 using namespace golang;
 

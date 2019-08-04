@@ -23,7 +23,7 @@
 # error "this file must be compiled with C - not C++ - compiler"
 #endif
 
-#include "golang.h"
+#include "golang/libgolang.h"
 #include <stdio.h>
 
 typedef struct Point {
