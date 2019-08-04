@@ -49,6 +49,7 @@ using std::atomic;
 using std::string;
 using std::vector;
 using std::exception;
+using std::bad_alloc;
 using std::unique_ptr;
 
 namespace golang {
@@ -456,11 +457,22 @@ template<> void _chan::_send2</*onstack=*/true> (const void *ptx) {
         __send2(ptx, &g, &me);
 }
 
-template<> void _chan::_send2</*onstack=*/false>(const void *ptx) {
+template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = this;
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
-        // XXX ptx -> onheap (if ptx is on stack)
-        __send2(ptx, g.get(), me.get());
+
+        // ptx stack -> heap (if ptx is on stack)   TODO avoid copy if ptx is !onstack
+        void *ptx_onheap = malloc(ch->_elemsize);
+        if (ptx_onheap == NULL) {
+            ch->_mu.unlock();
+            throw bad_alloc();
+        }
+        memcpy(ptx_onheap, ptx, ch->_elemsize);
+        defer([&]() {
+            free(ptx_onheap);
+        });
+
+        __send2(ptx_onheap, g.get(), me.get());
 }
 
 void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;
@@ -517,11 +529,23 @@ template<> bool _chan::_recv2_</*onstack=*/true> (void *prx) {
         return __recv2_(prx, &g, &me);
 }
 
-template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {
+template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this;
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
-        // XXX prx -> onheap + copy back (if prx is on stack)
-        return __recv2_(prx, g.get(), me.get());
+
+        // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
+        void *prx_onheap = malloc(ch->_elemsize);
+        if (prx_onheap == NULL) {
+            ch->_mu.unlock();
+            throw bad_alloc();
+        }
+        defer([&]() {
+            free(prx_onheap);
+        });
+
+        bool ok = __recv2_(prx_onheap, g.get(), me.get());
+        memcpy(prx, prx_onheap, ch->_elemsize);
+        return ok;
 }
 
 bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;
@@ -888,7 +912,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
     int               waitc = 0;
     if (waitv == NULL)
-        throw std::bad_alloc();
+        throw bad_alloc();
     // on exit: remove all registered waiters from their wait queues.
     defer([&]() {
         for (int i = 0; i < waitc; i++) {
@@ -932,7 +956,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->data;
+                w->pdata = cas->data;   // XXX onstack -> heap (greenlet)
                 w->ok    = false;
                 w->sel_n = n;
 
@@ -955,7 +979,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
                 w->init(g, ch);
                 w->pdata = cas->data;
-                w->ok    = false;
+                w->ok    = false;       // XXX onstack -> heap + copyback   (greenlet)
                 w->sel_n = n;
 
                 list_add_tail(&w->in_rxtxq, &ch->_recvq);
