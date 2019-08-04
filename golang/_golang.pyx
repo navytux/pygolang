@@ -288,8 +288,9 @@ cdef void _init_libgolang() except*:
     # process of importing golang (it tries to access "X" attribute of half-created
     # golang module). -> preimport runtimemod via regular import first.
     __import__(runtimemod)
-    cdef const _libgolang_runtime_ops *runtime_ops = <const _libgolang_runtime_ops*>PyCapsule_Import(
-            runtimemod + ".libgolang_runtime_ops", 0)
+    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8")
+    cdef const _libgolang_runtime_ops *runtime_ops = \
+        <const _libgolang_runtime_ops*>PyCapsule_Import(runtimecaps, 0)
     if runtime_ops == NULL:
         pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
     _libgolang_init(runtime_ops)
