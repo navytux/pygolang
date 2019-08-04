@@ -37,7 +37,7 @@ cdef nogil:
     _libgolang_sema* sema_alloc():
         with gil:
             pygsema = Semaphore()
-            printf('pygsema %p: alloc\tcounter=%d\n', <void*>pygsema, pygsema.counter)
+            #printf('pygsema %p: alloc\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             Py_INCREF(pygsema)
             return <_libgolang_sema*>pygsema
         # libgolang checks for NULL return
@@ -45,7 +45,7 @@ cdef nogil:
     bint _sema_free(_libgolang_sema *gsema):
         with gil:
             pygsema = <Semaphore>gsema
-            printf('pygsema %p: free\tcounter=%d\n', <void*>pygsema, pygsema.counter)
+            #printf('pygsema %p: free\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             Py_DECREF(pygsema)
             return True
     void sema_free(_libgolang_sema *gsema):
@@ -56,7 +56,7 @@ cdef nogil:
     bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
             pygsema = <Semaphore>gsema
-            printf('pygsema %p: acquire\tcounter=%d\n', <void*>pygsema, pygsema.counter)
+            #printf('pygsema %p: acquire\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             try:
                 pygsema.acquire()
             except:
@@ -72,7 +72,7 @@ cdef nogil:
     bint _sema_release(_libgolang_sema *gsema):
         with gil:
             pygsema = <Semaphore>gsema
-            printf('pygsema %p: release\tcounter=%d\n', <void*>pygsema, pygsema.counter)
+            #printf('pygsema %p: release\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             pygsema.release()
             return True
     void sema_release(_libgolang_sema *gsema):

@@ -336,7 +336,7 @@ void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
-    printf("group %p: wakeup\tg.which=%p\n", group, group->which);
+    //printf("group %p: wakeup\tg.which=%p\n", group, group->which);
     group->_sema.release();
 }
 
@@ -483,12 +483,12 @@ void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _ch
         list_add_tail(&me->in_rxtxq, &ch->_sendq);
     ch->_mu.unlock();
 
-    printf("send: -> g.wait()...\n");
+    //printf("send: -> g.wait()...\n");
     g->wait();
-    printf("send: -> woken up\n");
+    //printf("send: -> woken up\n");
     if (g->which != me) {
-        printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", g, g->which, me);
-        printf("     g.sema.gsema: %p\n", g->_sema._gsema);
+        //printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", g, g->which, me);
+        //printf("     g.sema.gsema: %p\n", g->_sema._gsema);
         bug("chansend: g.which != me");
     }
     if (!me->ok)
@@ -514,7 +514,7 @@ bool _chan::recv_(void *prx) { // -> ok
     ch->_mu.lock();
         bool ok, done = ch->_tryrecv(prx, &ok);
         if (done) {
-            printf("recv: -> tryrecv done; ok=%i\n", ok);
+            //printf("recv: -> tryrecv done; ok=%i\n", ok);
             return ok;
         }
 
@@ -555,11 +555,11 @@ bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *c
         list_add_tail(&me->in_rxtxq, &ch->_recvq);
     ch->_mu.unlock();
 
-    printf("recv: -> g.wait()...\n");
+    //printf("recv: -> g.wait()...\n");
     g->wait();
     if (g->which != me)
         bug("chanrecv: g.which != me");
-    printf("recv: -> woken up;  ok=%i\n", me->ok);
+    //printf("recv: -> woken up;  ok=%i\n", me->ok);
     return me->ok;
 }
 
