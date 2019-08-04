@@ -247,7 +247,7 @@ private:
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
 //  list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
-    Sema       _sema;   // used for wakeup (must be semaphore)
+    Sema       _sema;   // used for wakeup
 
     Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
     // on wakeup: sender|receiver -> group:

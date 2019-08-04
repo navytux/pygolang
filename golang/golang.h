@@ -116,7 +116,7 @@ typedef enum _libgolang_runtime_flags {
     // for example gevent/greenlet/stackless use it because they copy g's stack
     // to heap on park and back on unpark. This way if objects on g's stack
     // were accessed while g was parked it would be memory of another g's stack.
-    STACK_DEAD_WHILE_PARKED = 1,
+    STACK_DEAD_WHILE_PARKED = 1,	// XXX -> STACK_SWAPPED_WHILE_PACKED ?
 } _libgolang_runtime_flags;
 typedef struct _libgolang_runtime_ops {
     _libgolang_runtime_flags    flags;
