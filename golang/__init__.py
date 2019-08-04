@@ -102,7 +102,6 @@ def _meth(cls, fcall):
             func_name = f.__name__
         setattr(cls, func_name, f)
 
-        """
         # if `@func(cls) def name` caller already has `name` set, don't override it
         missing = object()
         already = fcall.f_locals.get(func_name, missing)
@@ -111,8 +110,8 @@ def _meth(cls, fcall):
 
         # FIXME try to arrange so that python does not set anything on caller's
         # namespace[func_name]  (currently it sets that to implicitly returned None)
-        """
 
+        """
         # patch caller's bytecode not to do `name = ...` assignment
         bcode = fcall.f_code.co_code
         i = fcall.f_lasti
@@ -174,7 +173,7 @@ def _meth(cls, fcall):
 
         # now it is ok to return - returned None will be popped
         return  'aaa' # returns None
-
+        """
 
     return deco
 
