@@ -5,3 +5,4 @@ recursive-include golang/ *.pxd *.pyx
 recursive-include golang/testdata *.py
 recursive-include golang/testprog *.py
 recursive-include gpython/testdata *.py
+recursive-include 3rdparty/ *.h

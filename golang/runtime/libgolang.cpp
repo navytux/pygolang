@@ -39,11 +39,10 @@
 #include <string.h>
 
 // XXX -> better use c.h or ccan/array_size.h ?
-// XXX move list.h into here?
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
-#include "../../3rdparty/include/linux/list.h"
+#include <linux/list.h>
 
 using std::atomic;
 using std::string;

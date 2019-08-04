@@ -186,7 +186,7 @@ setup(
     headers     = ['golang/libgolang.h'],
     x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
                         depends         = ['golang/libgolang.h'],
-                        include_dirs    = ['.'],
+                        include_dirs    = ['.', '3rdparty/include'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
                         soversion       = '0.1')],
     ext_modules = [
