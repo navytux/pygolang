@@ -33,7 +33,8 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT
 #
 # This allows us to treat PyThread_allocate_lock as nogil.
 from cpython.pythread cimport PyThread_init_thread
-PyThread_init_thread()
+IF not PYPY: # XXX nop on pypy but gives link error
+    PyThread_init_thread()
 cdef extern from "pythread.h" nogil:
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)

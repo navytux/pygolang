@@ -23,10 +23,12 @@
 
 IF not PYPY:
     from gevent.__semaphore cimport Semaphore
+    ctypedef Semaphore PYGSema
 ELSE:
     # on pypy gevent does not compile semaphore.py citing that "there is no
     # greenlet.h on pypy"
     from gevent._semaphore import Semaphore
+    ctypedef object PYGSema
 
 from cpython cimport Py_INCREF, Py_DECREF
 
@@ -50,7 +52,7 @@ cdef nogil:
 
     bint _sema_free(_libgolang_sema *gsema):
         with gil:
-            pygsema = <Semaphore>gsema
+            pygsema = <PYGSema>gsema
             #printf('pygsema %p: free\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             Py_DECREF(pygsema)
             return True
@@ -61,7 +63,7 @@ cdef nogil:
 
     bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
-            pygsema = <Semaphore>gsema
+            pygsema = <PYGSema>gsema
             #printf('pygsema %p: acquire\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             try:
                 pygsema.acquire()
@@ -77,7 +79,7 @@ cdef nogil:
 
     bint _sema_release(_libgolang_sema *gsema):
         with gil:
-            pygsema = <Semaphore>gsema
+            pygsema = <PYGSema>gsema
             #printf('pygsema %p: release\tcounter=%d\n', <void*>pygsema, pygsema.counter)
             pygsema.release()
             return True
