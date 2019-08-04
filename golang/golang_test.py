@@ -74,7 +74,6 @@ def bench_go(b):
 
 # XXX + test for chan bug discovered (too early ch._mu release in _trysend and _tryrecv for buffered)
 def test_chan():
-    """
     print()
     # sync: pre-close vs send/recv
     ch = chan()
@@ -84,11 +83,6 @@ def test_chan():
     assert ch.recv_()   == (None, False)
     with panics("send on closed channel"):  ch.send(0)
     with panics("close of closed channel"): ch.close()
-    """
-
-    ch = None
-    print()
-
 
     # sync: send vs recv
     #N=5
@@ -122,8 +116,6 @@ def test_chan():
         assert ch.recv_() == (None, False)
         #assert ch.recv_() == (None, False)
         print('444')
-
-    return
 
     # sync: close vs send
     ch = chan()

@@ -224,6 +224,8 @@ chan<T> makechan(unsigned size) {
 
 // select, together with _send<T>, _recv<T> and _recv_<T>, provide type-safe
 // wrappers over _chanselect and _selsend/_selrecv/_selrecv_.
+//
+// XXX select({}) example.
 static inline                       // select({case1, case2, case3})
 int select(const std::initializer_list<const _selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());
