@@ -188,7 +188,11 @@ struct _RecvSendWaiting;
 //
 // See chan<T> for type-safe wrapper.
 //
-// _chan is not related to Python runtime and works without GIL.
+// _chan is not related to Python runtime and works without GIL if libgolang
+// runtime works without GIL(*).
+//
+// (*) for example "thread" runtime works without GIL, while "gevent" runtime
+//     acquires GIL on every semaphore acquire.
 struct _chan {
     atomic<int> _refcnt;    // reference counter for _chan object
     unsigned    _cap;       // channel capacity (in elements)
@@ -261,7 +265,6 @@ struct _WaitGroup {
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     const _RecvSendWaiting    *which;
-
 
     _WaitGroup();
     bool try_to_win(_RecvSendWaiting *waiter);
@@ -346,7 +349,7 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
     while (!list_empty(queue)) {
         _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
         list_del_init(&w->in_rxtxq); // _init is important as we can try to remove the waiter
-                                     // second time in select
+                                     // the second time in select.
         // if this waiter can win its group - return it.
         // if not - someone else from its group already has won, and so we anyway have
         // to remove the waiter from the queue.
@@ -432,7 +435,7 @@ void _blockforever();
 // sizeof(*ptx) must be ch._elemsize.
 void _chansend(_chan *ch, const void *ptx) {
     if (ch == NULL)      // NOTE: cannot do this check in _chan::send
-        _blockforever(); // (C++ assumes this is never NULL and optimizes it out)
+        _blockforever(); // (C++ assumes `this` is never NULL and optimizes it out)
     ch->send(ptx);
 }
 template<> void _chan::_send2</*onstack=*/true> (const void *ptx);
