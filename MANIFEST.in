@@ -1,7 +1,7 @@
 include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml
-golang/__init__.pxd
-golang/libgolang.h
-golang/runtime/libgolang.cpp
+include golang/libgolang.h
+include golang/runtime/libgolang.cpp
+recursive-include golang/ *.pxd *.pyx
 recursive-include golang/testdata *.py
 recursive-include golang/testprog *.py
 recursive-include gpython/testdata *.py
