@@ -86,7 +86,8 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
-            # XXX doc why
+            # when greenlet is switched to another, its stack is copied to
+            # heap, and stack of switched-to greenlet is copied back to C stack.
             flags           = STACK_DEAD_WHILE_PARKED,
 
             sema_alloc      = sema_alloc,
