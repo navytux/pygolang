@@ -1,2 +1,2 @@
 [build-system]
-requires = ["setuptools_dso", "cython"]
+requires = ["setuptools_dso", "cython", "gevent"]
