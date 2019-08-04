@@ -21,7 +21,13 @@
 
 # XXX 2 words about what we do/use gevent semaphores
 
-from gevent.__semaphore cimport Semaphore
+IF not PYPY:
+    from gevent.__semaphore cimport Semaphore
+ELSE:
+    # on pypy gevent does not compile semaphore.py citing that "there is no
+    # greenlet.h on pypy"
+    from gevent._semaphore import Semaphore
+
 from cpython cimport Py_INCREF, Py_DECREF
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \

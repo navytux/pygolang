@@ -25,7 +25,7 @@ from setuptools import find_packages
 from setuptools_dso import DSO, Extension, setup
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
-import sysconfig
+import sysconfig, platform
 from os.path import dirname, join, exists
 import sys, re
 
@@ -157,8 +157,18 @@ def Ext(name, srcv, **kw):
     if exists(venv_inc):
         incv.append(venv_inc)
 
+    # provide PYPY define to Cython
+    PYPY = (platform.python_implementation() == 'PyPy')
+    pyxenv = kw.get('cython_compile_time_env', {})
+    pyxenv.setdefault('PYPY', PYPY)
+    kw['cython_compile_time_env'] = pyxenv
+
     kw['include_dirs'] = incv
-    return Extension(name, srcv, **kw)
+    #return Extension(name, srcv, **kw)
+    # XXX hack, because Extension is not Cython.Extension, but setuptools_dso.Extension
+    ext = Extension(name, srcv, **kw)
+    ext.cython_compile_time_env = pyxenv
+    return ext
 
 setup(
     name        = 'pygolang',
