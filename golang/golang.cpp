@@ -178,6 +178,9 @@ private:
 
 // ---- channels -----
 
+struct _WaitGroup;
+struct _RecvSendWaiting;
+
 // _chan is a raw channel with Go semantic.
 //
 // Over raw channel the data is sent/received via elemsize'ed memcpy of void*
@@ -217,9 +220,9 @@ struct _chan {
     void _dataq_popleft(void *prx);
 private:
     _chan(const _chan&);    // don't copy
+    template<bool onstack> bool _recv2_(void *);
+    bool __recv2_(void *, _WaitGroup*, _RecvSendWaiting*);
 };
-
-struct _WaitGroup;
 
 // _RecvSendWaiting represents a receiver/sender waiting on a chan.
 struct _RecvSendWaiting {
@@ -475,13 +478,11 @@ bool _chanrecv_(_chan *ch, void *prx) {
         _blockforever();
     return ch->recv_(prx);
 }
+template<> bool _chan::_recv2_</*onstack=*/true> (void *prx);
+template<> bool _chan::_recv2_</*onstack=*/false>(void *prx);
 bool _chan::recv_(void *prx) { // -> ok
     _chan *ch = this;
 
-    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
-        panic("chanrecv: TODO: STACK_DEAD_WHILE_PARKED");
-
-    printf("recv\n");
     ch->_mu.lock();
         bool ok, done = ch->_tryrecv(prx, &ok);
         if (done) {
@@ -489,20 +490,37 @@ bool _chan::recv_(void *prx) { // -> ok
             return ok;
         }
 
-        _WaitGroup         g;                       // XXX onstack
-        _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
-        me.pdata    = prx;
-        me.ok       = false;
+        return (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
+            ? ch->_recv2_</*onstack=*/false>(prx)
+            : ch->_recv2_</*onstack=*/true> (prx);
+}
 
-        list_add_tail(&me.in_rxtxq, &ch->_recvq);
+template<> bool _chan::_recv2_</*onstack=*/true> (void *prx) {
+        _WaitGroup         g;
+        _RecvSendWaiting   me;
+        return __recv2_(prx, &g, &me);
+}
+
+template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {
+        unique_ptr<_WaitGroup>        g  (new _WaitGroup);
+        unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
+        // XXX prx -> onheap + copy back (e.g. if prx is on stack)?
+        return __recv2_(prx, g.get(), me.get());
+}
+
+bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;
+        me->init(g, ch);
+        me->pdata   = prx;
+        me->ok      = false;
+        list_add_tail(&me->in_rxtxq, &ch->_recvq);
     ch->_mu.unlock();
 
     printf("recv: -> g.wait()...\n");
-    g.wait();
-    if (g.which != &me)
+    g->wait();
+    if (g->which != me)
         bug("chanrecv: g.which != me");
-    printf("recv: -> woken up;  ok=%i\n", me.ok);
-    return me.ok;
+    printf("recv: -> woken up;  ok=%i\n", me->ok);
+    return me->ok;
 }
 
 // recv receives from the channel.
@@ -728,6 +746,10 @@ const _selcase _default = {
 };
 
 static const _RecvSendWaiting _sel_txrx_prepoll_won;
+template<bool onstack> static int _chanselect2(const _selcase *, int, const vector<int>&);
+template<> int _chanselect2</*onstack=*/true> (const _selcase *, int, const vector<int>&);
+template<> int _chanselect2</*onstack=*/false>(const _selcase *, int, const vector<int>&);
+static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*);
 
 // _chanselect executes one ready send or receive channel case.
 //
@@ -829,11 +851,22 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 
     // second pass: subscribe and wait on all rx/tx cases
-    _WaitGroup  g;  // XXX onstack
+    return (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
+        ? _chanselect2</*onstack=*/false>(casev, casec, nv)
+        : _chanselect2</*onstack=*/true> (casev, casec, nv);
+}
 
-    if (_runtime->flags & STACK_DEAD_WHILE_PARKED)
-        panic("select: TODO: STACK_DEAD_WHILE_PARKED");
+template<> int _chanselect2</*onstack=*/true> (const _selcase *casev, int casec, const vector<int>& nv) {
+    _WaitGroup  g;
+    return __chanselect2(casev, casec, nv, &g);
+}
 
+template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec, const vector<int>& nv) {
+    unique_ptr<_WaitGroup>  g (new _WaitGroup);
+    return __chanselect2(casev, casec, nv, g.get());
+}
+
+static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv, _WaitGroup* g) {
     // storage for waiters we create    XXX stack-allocate (if !STACK_DEAD_WHILE_PARKED)
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
     _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
@@ -862,10 +895,10 @@ int _chanselect(const _selcase *casev, int casec) {
             continue;
 
         ch->_mu.lock();
-        with_lock(g._mu); // with, because _trysend may panic
+        with_lock(g->_mu); // with, because _trysend may panic
             // a case that we previously queued already won while we were
             // queing other cases.
-            if (g.which != NULL) {
+            if (g->which != NULL) {
                 ch->_mu.unlock();
                 goto ready;
             }
@@ -874,7 +907,7 @@ int _chanselect(const _selcase *casev, int casec) {
             if (cas->op == _CHANSEND) {
                 bool done = ch->_trysend(cas->data);
                 if (done) {
-                    g.which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
+                    g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     return n;
                 }
 
@@ -882,7 +915,7 @@ int _chanselect(const _selcase *casev, int casec) {
                     bug("select: waitv overflow");
                 _RecvSendWaiting *w = &waitv[waitc++];
 
-                w->init(&g, ch);
+                w->init(g, ch);
                 w->pdata = cas->data;
                 w->ok    = false;
                 w->sel_n = n;
@@ -894,7 +927,7 @@ int _chanselect(const _selcase *casev, int casec) {
             else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
-                    g.which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
+                    g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     if (cas->op == _CHANRECV_)
                         *cas->rxok = ok;
                     return n;
@@ -904,7 +937,7 @@ int _chanselect(const _selcase *casev, int casec) {
                     bug("select: waitv overflow");
                 _RecvSendWaiting *w = &waitv[waitc++];
 
-                w->init(&g, ch);
+                w->init(g, ch);
                 w->pdata = cas->data;
                 w->ok    = false;
                 w->sel_n = n;
@@ -920,12 +953,12 @@ int _chanselect(const _selcase *casev, int casec) {
     }
 
     // wait for a case to become ready
-    g.wait();
+    g->wait();
 ready:
-    if (g.which == &_sel_txrx_prepoll_won)
+    if (g->which == &_sel_txrx_prepoll_won)
         bug("select: woke up with g.which=_sel_txrx_prepoll_won");
 
-    const _RecvSendWaiting *sel = g.which;
+    const _RecvSendWaiting *sel = g->which;
     int selected = sel->sel_n;
     const _selcase *cas = &casev[selected];
     if (cas->op == _CHANSEND) {
