@@ -19,9 +19,9 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_thread.pyx provides libgolang runtime based on OS threads"""
 
-# Reuse Python semaphore implementation for portability. In Python semaphores
-# do not depend on GIL and by reusing the implementation we can offload us
-# from covering different systems.
+# Thread runtime reuses Python semaphore implementation for portability.
+# In Python semaphores do not depend on GIL and by reusing the implementation
+# we can offload us from covering different systems.
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil

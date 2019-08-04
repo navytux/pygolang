@@ -19,7 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
-# XXX 2 words about what we do/use gevent semaphores
+# Gevent runtime uses gevent's semaphores.
+# When sema.acquire() blocks gevent runtime switches to another greenlet.
 
 IF not PYPY:
     from gevent.__semaphore cimport Semaphore
@@ -35,8 +36,7 @@ from cpython cimport Py_INCREF, Py_DECREF
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         STACK_DEAD_WHILE_PARKED, panic
 
-from libc.stdio cimport printf  # XXX temp
-import traceback
+#from libc.stdio cimport printf
 
 cdef nogil:
 
@@ -65,12 +65,7 @@ cdef nogil:
         with gil:
             pygsema = <PYGSema>gsema
             #printf('pygsema %p: acquire\tcounter=%d\n', <void*>pygsema, pygsema.counter)
-            try:
-                pygsema.acquire()
-            except:
-                printf('\nFAILED  %p: acquire\n\n', <void*>pygsema)
-                #traceback.print_exc()
-                raise
+            pygsema.acquire()
             return True
     void sema_acquire(_libgolang_sema *gsema):
         ok = _sema_acquire(gsema)
