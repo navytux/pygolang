@@ -220,6 +220,9 @@ struct _chan {
     void _dataq_popleft(void *prx);
 private:
     _chan(const _chan&);    // don't copy
+
+    template<bool onstack> void _send2 (const void *);
+    void __send2 (const void *, _WaitGroup*, _RecvSendWaiting*);
     template<bool onstack> bool _recv2_(void *);
     bool __recv2_(void *, _WaitGroup*, _RecvSendWaiting*);
 };
@@ -271,7 +274,6 @@ private:
 
 // Default _RecvSendWaiting ctor creates zero-value _RecvSendWaiting.
 // zero value _RecvSendWaiting is invalid and must be initialized via .init before use.
-// XXX place=?
 _RecvSendWaiting::_RecvSendWaiting() {
     _RecvSendWaiting *w = this;
     bzero((void *)w, sizeof(*w));
@@ -433,6 +435,8 @@ void _chansend(_chan *ch, const void *ptx) {
         _blockforever(); // (C++ assumes this is never NULL and optimizes it out)
     ch->send(ptx);
 }
+template<> void _chan::_send2</*onstack=*/true> (const void *ptx);
+template<> void _chan::_send2</*onstack=*/false>(const void *ptx);
 void _chan::send(const void *ptx) {
     _chan *ch = this;
 
@@ -441,29 +445,41 @@ void _chan::send(const void *ptx) {
         if (done)
             return;
 
-        unique_ptr<_WaitGroup>        _g  (new _WaitGroup);         _WaitGroup&        g  = *_g;
-        unique_ptr<_RecvSendWaiting>  _me (new _RecvSendWaiting);   _RecvSendWaiting&  me = *_me;
-        me.init(&g, ch);
-        me.pdata   = (void *)ptx; // we add it to _sendq; the memory will be only read
-        me.ok      = false;
+        (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
+            ? ch->_send2</*onstack=*/false>(ptx)
+            : ch->_send2</*onstack=*/true >(ptx);
+}
 
-//      _WaitGroup         g;                       // XXX onstack
-//      _RecvSendWaiting   me; me.init(&g, ch);     // XXX onstack
-//      me.pdata    = (void *)ptx; // we add it to _sendq; the memory will be only read
-//      me.ok       = false;
+template<> void _chan::_send2</*onstack=*/true> (const void *ptx) {
+        _WaitGroup         g;
+        _RecvSendWaiting   me;
+        __send2(ptx, &g, &me);
+}
 
-        list_add_tail(&me.in_rxtxq, &ch->_sendq);
+template<> void _chan::_send2</*onstack=*/false>(const void *ptx) {
+        unique_ptr<_WaitGroup>        g  (new _WaitGroup);
+        unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
+        // XXX ptx -> onheap (if ptx is on stack)
+        __send2(ptx, g.get(), me.get());
+}
+
+void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;
+        me->init(g, ch);
+        me->pdata   = (void *)ptx; // we add it to _sendq; the memory will be only read
+        me->ok      = false;
+
+        list_add_tail(&me->in_rxtxq, &ch->_sendq);
     ch->_mu.unlock();
 
     printf("send: -> g.wait()...\n");
-    g.wait();
+    g->wait();
     printf("send: -> woken up\n");
-    if (g.which != &me) {
-        printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", &g, g.which, &me);
-        printf("     g.sema.gsema: %p\n", g._sema._gsema);
+    if (g->which != me) {
+        printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", g, g->which, me);
+        printf("     g.sema.gsema: %p\n", g->_sema._gsema);
         bug("chansend: g.which != me");
     }
-    if (!me.ok)
+    if (!me->ok)
         panic("send on closed channel");
 }
 
@@ -504,7 +520,7 @@ template<> bool _chan::_recv2_</*onstack=*/true> (void *prx) {
 template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
-        // XXX prx -> onheap + copy back (e.g. if prx is on stack)?
+        // XXX prx -> onheap + copy back (if prx is on stack)
         return __recv2_(prx, g.get(), me.get());
 }
 
