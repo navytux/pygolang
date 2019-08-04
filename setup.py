@@ -226,7 +226,7 @@ setup(
     install_requires = ['gevent', 'six', 'decorator'],
 
     extras_require = {
-                  'test': ['pytest'],
+                  'test': ['pytest', 'numpy'],      # XXX numpy for t(benchlib)
     },
 
     entry_points= {'console_scripts': [
