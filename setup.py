@@ -221,7 +221,8 @@ setup(
     # XXX setup_requires = ['setuptools_dso']
     # https://github.com/mdavidsaver/p4p/issues/20
     # XXX cython -> setup_requires
-    install_requires = ['gevent', 'six', 'decorator', 'cython', 'setuptools_dso'],
+    #install_requires = ['gevent', 'six', 'decorator', 'cython', 'setuptools_dso'],
+    install_requires = ['gevent', 'six', 'decorator'],
 
     extras_require = {
                   'test': ['pytest'],
