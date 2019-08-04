@@ -31,7 +31,7 @@ _init_libgolang()
 
 from golang._pycompat import im_class
 
-from cpython cimport Py_INCREF, Py_DECREF
+from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
@@ -64,7 +64,10 @@ cdef void topyexc() except *:
     # exception, it will be converted to py exc by cython automatically.
     arg = recover_()
     if arg != NULL:
-        pypanic(arg)
+        pyarg = <bytes>arg
+        if PY_MAJOR_VERSION >= 3:
+            pyarg = pyarg.decode("utf-8")
+        pypanic(pyarg)
 
 cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
@@ -288,7 +291,7 @@ cdef void _init_libgolang() except*:
     # process of importing golang (it tries to access "X" attribute of half-created
     # golang module). -> preimport runtimemod via regular import first.
     __import__(runtimemod)
-    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8")
+    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8") # py3
     cdef const _libgolang_runtime_ops *runtime_ops = \
         <const _libgolang_runtime_ops*>PyCapsule_Import(runtimecaps, 0)
     if runtime_ops == NULL:
@@ -323,7 +326,6 @@ cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +to
 # ---- for py tests ----
 # XXX -> separate module?
 
-from cpython cimport PY_MAJOR_VERSION
 import time
 
 # unbound pychan.{send,recv,recv_}
