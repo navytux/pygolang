@@ -825,6 +825,8 @@ int _chanselect(const _selcase *casev, int casec) {
     if (casec < 0)
         panic("select: casec < 0");
 
+    // FIXME onstack prx/ptx vs STACK_DEAD_WHILE_PARKED
+
     // select promise: if multiple cases are ready - one will be selected randomly
     vector<int> nv(casec); // n -> n(case)      TODO -> caller stack-allocate nv
     for (int i=0; i <casec; i++)
