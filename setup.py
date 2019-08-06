@@ -200,7 +200,7 @@ setup(
                         define_macros   = [('BUILD_LIBGOLANG', None)],
                         soversion       = '0.1')],
     ext_modules = [
-                    Ext('golang._g', ['golang/_g.pyx']),
+                    #Ext('golang._g', ['golang/_g.pyx']),
 
                     Ext('golang._golang', ['golang/_golang.pyx'],
                         dsos   = ['golang.runtime.libgolang'],  # XXX setuptools adds lib prefix

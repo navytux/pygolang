@@ -22,14 +22,14 @@
 # Gevent runtime uses gevent's semaphores.
 # When sema.acquire() blocks gevent runtime switches to another greenlet.
 
-from gevent._greenlet cimport Greenlet
-
 IF not PYPY:
+    from gevent._greenlet cimport Greenlet
     from gevent.__semaphore cimport Semaphore
     ctypedef Semaphore PYGSema
 ELSE:
-    # on pypy gevent does not compile semaphore.py citing that "there is no
-    # greenlet.h on pypy"
+    # on pypy gevent does not compile greenlet.py and semaphore.py citing that
+    # "there is no greenlet.h on pypy"
+    from gevent.greenlet import Greenlet
     from gevent._semaphore import Semaphore
     ctypedef object PYGSema
 
