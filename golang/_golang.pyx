@@ -118,7 +118,7 @@ cdef class pychan:
         cdef bint ok
 
         with nogil:
-            ok = chanrecv__pyexc(pych.ch, &_rx)     # XXX _rx onstack
+            ok = chanrecv__pyexc(pych.ch, &_rx)
 
         if not ok:
             return (None, ok)

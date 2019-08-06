@@ -543,7 +543,7 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-#if 0
+#if 1
         // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
         void *prx_onheap = malloc(ch->_elemsize);
         if (prx_onheap == NULL) {
