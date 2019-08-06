@@ -41,9 +41,9 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
 #from libc.stdio cimport printf
 
 # _goviapy & _togo serve go
-def _goviapy(_togo togo not None):
+def _goviapy(_togo _ not None):
     with nogil:
-        togo.f(togo.arg)
+        _.f(_.arg)
 
 cdef class _togo:
     cdef void (*f)(void *) nogil
@@ -56,10 +56,8 @@ cdef nogil:
 
     bint _go(void (*f)(void *), void *arg):
         with gil:
-            togo = _togo()
-            togo.f   = f
-            togo.arg = arg
-            g = Greenlet(_goviapy, togo)
+            _ = _togo(); _.f = f; _.arg = arg
+            g = Greenlet(_goviapy, _)
             g.start()
             return True
 
