@@ -467,7 +467,7 @@ template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = 
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-#if 1
+#if 0
         // ptx stack -> heap (if ptx is on stack)   TODO avoid copy if ptx is !onstack
         void *ptx_onheap = malloc(ch->_elemsize);
         if (ptx_onheap == NULL) {

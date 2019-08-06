@@ -20,7 +20,7 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang cimport nil, chan, makechan, select, _send, _recv, _recv_, _default, panic, topyexc
+from golang cimport go, chan, makechan, nil, select, _send, _recv, _recv_, _default, panic, topyexc
 
 # small test that verifies pyx-level channel API.
 # the work of channels themselves is thoroughly excersized in golang_test.py
@@ -31,8 +31,6 @@ cdef extern from *:
 ctypedef struct Point:
     int x
     int y
-
-# XXX test for nogil go
 
 cdef void _test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
@@ -70,6 +68,22 @@ cdef void _test_chan_nogil() nogil except +topyexc:
 def test_chan_nogil():
     with nogil:
         _test_chan_nogil()
+
+
+cdef void _work(int *pi, chan[void] done) nogil:
+    pi[0] = 222
+    done.close()
+cdef void _test_go_nogil() nogil except +topyexc:
+    cdef chan[void] done = makechan[void]()
+    cdef int i = 111
+    go(_work, &i, done)
+    done.recv(NULL)
+    if i != 222:
+        panic("after done: i != 222")
+
+def test_go_nogil():
+    with nogil:
+        _test_go_nogil()
 
 
 # runtime/libgolang_test_c.c

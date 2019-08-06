@@ -126,6 +126,12 @@ typedef struct _libgolang_runtime_ops {
     // go should spawn a task (coroutine/thread/...).
     void    (*go)(void (*f)(void *), void *arg);
 
+#if 0   // XXX not now
+    // nonosleep should pause current goroutine for at lease ns nanoseconds.
+    // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
+    void    (*nanosleep)(uint64_t ns);
+#endif
+
     // sema_alloc should allocate a semaphore.
     // if allocation fails it must return NULL.
     _libgolang_sema* (*sema_alloc)(void);
