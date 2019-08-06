@@ -280,12 +280,14 @@ def go(f, *argv, **kw):
     t.daemon = True # leaked goroutines don't prevent program to exit
     t.start()
 """
+# XXX merge into vvv imports
+from ._golang import    \
+    pygo        as go
 
 
 # ---- go + channels ----
 
 from ._golang import    \
-    pygo        as go,      \
     pychan      as chan,    \
     pyselect    as select,  \
     pydefault   as default, \
