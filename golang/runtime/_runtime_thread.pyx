@@ -38,9 +38,9 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
 #
 # This allows us to treat PyThread_allocate_lock & PyThread_start_new_thread as nogil.
-from cpython.pythread cimport PyThread_init_thread
-IF not PYPY: # XXX nop on pypy but gives link error
-    PyThread_init_thread()
+from cpython.ceval cimport PyEval_InitThreads
+#PyThread_init_thread()     # initializes only threading, but _not_ GIL
+PyEval_InitThreads()        # initializes      threading       and  GIL
 cdef extern from "pythread.h" nogil:
     long PyThread_start_new_thread(void (*)(void *), void *)
     PyThread_type_lock PyThread_allocate_lock()

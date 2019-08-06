@@ -19,8 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
-# Gevent runtime uses gevent's semaphores.
-# When sema.acquire() blocks gevent runtime switches to another greenlet.
+# Gevent runtime uses gevent's greenlets and semaphores.
+# When sema.acquire() blocks gevent runtime switches from current to another greenlet.
 
 IF not PYPY:
     from gevent._greenlet cimport Greenlet
