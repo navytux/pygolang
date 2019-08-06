@@ -448,13 +448,9 @@ void _chan::send(const void *ptx) {
         if (done)
             return;
 
-#if 1
         (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
             ? ch->_send2</*onstack=*/false>(ptx)
             : ch->_send2</*onstack=*/true >(ptx);
-#else
-        ch->_send2<true>(ptx);
-#endif
 }
 
 template<> void _chan::_send2</*onstack=*/true> (const void *ptx) {
@@ -467,7 +463,7 @@ template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = 
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-#if 0
+#if 1
         // ptx stack -> heap (if ptx is on stack)   TODO avoid copy if ptx is !onstack
         void *ptx_onheap = malloc(ch->_elemsize);
         if (ptx_onheap == NULL) {

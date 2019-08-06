@@ -558,24 +558,30 @@ def test_chan_vs_stackdeadwhileparked():
 #   """
     def _():
         waitBlocked(ch.recv)
-        ch.send('alpha')
+        def _():
+            ch.send('alpha')
+        usestack_and_call(_)
     go(_)
     def _():
         assert ch.recv() == 'alpha'
     usestack_and_call(_)
 #   """
 
+#   """
     # send
+    done = chan()
     def _():
         waitBlocked(ch.send)
         def _():
             assert ch.recv() == 'beta'
         usestack_and_call(_)
+        done.close()
     go(_)
-    ch.send('beta')
-    #def _():
-    #    ch.send('b')
-    #usestack_and_call(_)
+    def _():
+        ch.send('beta')
+    usestack_and_call(_)
+    done.recv()
+#   """
 
 
 
