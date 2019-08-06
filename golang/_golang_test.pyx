@@ -80,7 +80,7 @@ def test_chan_c():
     with nogil:
         _test_chan_c()
 
-# runtime/libgolang_test_cpp.cpp
+# runtime/libgolang_test.cpp
 cdef extern from *:
     """
     extern void _test_chan_cpp();
