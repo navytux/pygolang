@@ -84,8 +84,13 @@ def test_chan_c():
 cdef extern from *:
     """
     extern void _test_chan_cpp();
+    extern void _test_chan_vs_stackdeadwhileparked();
     """
     void _test_chan_cpp() nogil except +topyexc
+    void _test_chan_vs_stackdeadwhileparked() nogil except +topyexc
 def test_chan_cpp():
     with nogil:
         _test_chan_cpp()
+def test_chan_vs_stackdeadwhileparked():
+    with nogil:
+        _test_chan_vs_stackdeadwhileparked()

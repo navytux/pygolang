@@ -522,6 +522,7 @@ def bench_select(b):
     done.recv()
 
 
+"""
 # verify that send/recv/select correctly route their onstack arguments through onheap proxies.
 # XXX move -> C after `go` is accessible at C level.
 def test_chan_vs_stackdeadwhileparked():
@@ -607,7 +608,7 @@ def test_chan_vs_stackdeadwhileparked():
         assert (_, _rx) == (0, None)
     usestack_and_call(_)
     done.recv()
-
+"""
 
 
 def test_blockforever():

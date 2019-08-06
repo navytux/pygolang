@@ -40,6 +40,8 @@ extern "C" {
 void panic(const char *arg);
 const char *recover(void);
 
+void _go(void (*f)(void *arg), void *arg);
+
 typedef struct _chan _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
 void _chanxincref(_chan *ch);
@@ -152,10 +154,39 @@ extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 
+#include <functional>
+#include <tuple>
 #include <exception>        // bad_alloc & co
 #include <initializer_list>
 
 namespace golang {
+
+// go provides type-safe wraper over _go.
+static inline
+void go(std::function<void(void)> f) {
+    panic("zzz");
+}
+
+template<typename... Argv>
+void go(const std::function<void(Argv...)>& f, Argv... argv) {
+    struct _2run {
+        std::function<void(Argv...)>  f;
+        std::tuple<Argv...>           argv;
+    };
+
+    _2run *hrun = new _2run;
+    hrun->f    = f;
+    hrun->argv = std::tuple<Argv...>(argv...);
+
+    void (*run)(void *) = [](void *_hrun) { // XXX -> use in _go directly
+        _2run *hrun = reinterpret_cast<_2run*>(_hrun);
+        //std::apply(hrun->f, hrun->argv);
+        hrun->f(hrun->argv);
+        delete(hrun);   // XXX -> defer
+    };
+
+    _go(run, hrun);
+}
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
