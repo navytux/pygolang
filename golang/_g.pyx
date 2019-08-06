@@ -19,6 +19,7 @@ PyGreenlet_Import()
 
 from libc.stdint cimport uintptr_t
 from libc.stdio cimport printf
+from libc.string cimport memset
 
 cpdef printg(char *gname):
     cdef greenlet g = PyGreenlet_GetCurrent()
@@ -26,6 +27,6 @@ cpdef printg(char *gname):
 
 
 def call_using_cstack(f):
-    cdef char aaa[128]
+    cdef char aaa[16384]
+    memset(aaa, 0xff, 16384)
     f()
-    return aaa[0]
