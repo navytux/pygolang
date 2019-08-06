@@ -27,7 +27,7 @@ See the following link about Go sync package:
 from __future__ import print_function, absolute_import
 
 import threading, sys
-from golang import go, defer, func, panic
+from golang import go, chan, defer, func, panic
 from golang import context
 
 import six
@@ -56,7 +56,8 @@ class WaitGroup(object):
     def __init__(wg):
         wg._mu      = threading.Lock()
         wg._count   = 0
-        wg._event   = threading.Event()
+#       wg._event   = threading.Event()
+        wg._done    = chan()
 
     def done(wg):
         wg.add(-1)
@@ -69,15 +70,19 @@ class WaitGroup(object):
             if wg._count < 0:
                 panic("sync: negative WaitGroup counter")
             if wg._count == 0:
-                wg._event.set()
-                wg._event = threading.Event()
+                #wg._event.set()
+                #wg._event = threading.Event()
+                wg._done.close()
+                wg._done = chan()
 
     def wait(wg):
         with wg._mu:
             if wg._count == 0:
                 return
-            event = wg._event
-        event.wait()
+#           event = wg._event
+#       event.wait()
+            done = wg._done
+        done.recv()
 
 
 # WorkGroup is a group of goroutines working on a common task.

@@ -37,7 +37,8 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
 
 from golang._gopath import gimport  # make gimport available from golang
 #from golang import strconv          # for b, u
-import inspect, threading, collections, random, sys
+#import inspect, threading, collections, random, sys
+import inspect, sys
 import decorator
 
 import six

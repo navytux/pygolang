@@ -20,6 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
+"""
 from golang.x.perf import benchlib
 from os.path import dirname
 import io
@@ -46,3 +47,4 @@ def _test_benchstat():
     print(fout.getvalue())
 
     assert fout.getvalue() == ok
+"""
