@@ -19,30 +19,43 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_thread.pyx provides libgolang runtime based on OS threads"""
 
-# Thread runtime reuses Python semaphore implementation for portability.
-# In Python semaphores do not depend on GIL and by reusing the implementation
-# we can offload us from covering different systems.
+# Thread runtime reuses C-level Python threadcreate + semaphore implementation
+# for portability. In Python semaphores do not depend on GIL and by reusing
+# the implementation we can offload us from covering different systems.
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
+#
+# Similarly PyThread_start_new_thread - Python's C function function to create
+# new thread - does not depend on GIL. On POSIX, for example, it is small
+# wrapper around pthread_create.
+#
+# XXX review text
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT_LOCK, \
         PyThread_type_lock
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
 #
-# This allows us to treat PyThread_allocate_lock as nogil.
+# This allows us to treat PyThread_allocate_lock & PyThread_start_new_thread as nogil.
 from cpython.pythread cimport PyThread_init_thread
 IF not PYPY: # XXX nop on pypy but gives link error
     PyThread_init_thread()
 cdef extern from "pythread.h" nogil:
+    long PyThread_start_new_thread(void (*)(void *), void *)
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
-        _libgolang_runtime_flags
+        _libgolang_runtime_flags, panic
 
 cdef nogil:
+
+    void go(void (*f)(void *), void *arg):
+        cdef long pythreadid # NOTE py3.7 changed to unsigned long
+        pytid = PyThread_start_new_thread(f, arg)
+        if pytid == -1:
+            panic("pygo: failed")
 
     _libgolang_sema* sema_alloc():
         # python calls it "lock", but it is actually a semaphore.
@@ -66,6 +79,7 @@ cdef nogil:
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
             flags           = <_libgolang_runtime_flags>0,
+            go              = go,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,

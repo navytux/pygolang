@@ -210,13 +210,14 @@ setup(
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx'],
-                        depends=['golang/libgolang.h'],
+                        dsos    = ['golang.runtime.libgolang'], # XXX for panic
+                        depends = ['golang/libgolang.h'],
                         ),
 
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
                         dsos    = ['golang.runtime.libgolang'], # XXX for panic
-                        depends=['golang/libgolang.h']),
+                        depends = ['golang/libgolang.h']),
 
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
