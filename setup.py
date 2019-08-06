@@ -221,7 +221,7 @@ setup(
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
                          # XXX explain _c _cpp tests
-                         'golang/golang_test_c.c', 'golang/golang_test_cpp.cpp'],
+                         'golang/runtime/libgolang_test_c.c', 'golang/runtime/libgolang_test_cpp.cpp'],
                         depends=['golang/libgolang.h', 'golang/_golang.pxd'],
                         dsos   = ['golang.runtime.libgolang'],
                         language="c++"),
