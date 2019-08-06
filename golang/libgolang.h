@@ -162,13 +162,8 @@ extern void (*_tblockforever)(void);
 namespace golang {
 
 // go provides type-safe wraper over _go.
-static inline
-void go(std::function<void(void)> f) {
-    panic("zzz");
-}
-
-template<typename... Argv>
-void go(const std::function<void(Argv...)>& f, Argv... argv) {
+template<typename F, typename... Argv>
+void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     struct _2run {
         std::function<void(Argv...)>  f;
         std::tuple<Argv...>           argv;
