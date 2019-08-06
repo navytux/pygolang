@@ -22,6 +22,7 @@
 #include "golang/libgolang.h"
 #include <stdio.h>
 using namespace golang;
+using std::function;
 
 struct Point {
     int x, y;
@@ -60,6 +61,27 @@ void _test_chan_cpp() {
         panic("recv_ from closed != (0, false)");
 }
 
+// usestack_and_call pushes C-stack down and calls f from that.
+// C-stack pushdown is used to make sure that when f will block and switched
+// to another g, greenlet will save f's C-stack frame onto heap.
+//
+//   ---  ~~~
+//             stack of another g
+//   ---  ~~~
+//
+//    .
+//    .
+//    .
+//
+//    f    ->  heap
+static void usestack_and_call(function<void()> f, int nframes=128) {
+    if (nframes == 0) {
+        f();
+        return;
+    }
+    return usestack_and_call(f, nframes-1);
+}
+
 // verify that send/recv/select correctly route their onstack arguments through onheap proxies.
 void _test_chan_vs_stackdeadwhileparked() {
     // problem: under greenlet g's stack lives on system stack and is swapped as needed
@@ -72,57 +94,37 @@ void _test_chan_vs_stackdeadwhileparked() {
     // to avoid this, send/recv/select create onheap proxies for onstack
     // arguments and use those proxies as actual argument for send/receive.
 
-#if 0
-    // usestack_and_call pushes C-stack down and calls f from that.
-    // C-stack pushdown is used to make sure that when f will block and switched
-    // to another g, greenlet will save f's C-stack frame onto heap.
-    //
-    //   ---  ~~~
-    //             stack of another g
-    //   ---  ~~~
-    //
-    //    .
-    //    .
-    //    .
-    //
-    //    f    ->  heap
-    def usestack_and_call(f, nframes=128):
-        if nframes == 0:
-            return f()
-        return usestack_and_call(f, nframes-1)
-#endif
-
     // recv
     auto ch = makechan<int>();
     go([&]() {
-        //waitBlocked(ch.recv);
-        int tx = 111; ch.send(&tx);
-        //def _():
-        //    ch.send("alpha")
-        //usestack_and_call(_)
+        //waitBlocked(ch.recv);             XXX enable (but fails without it too)
+        usestack_and_call([&]() {
+            int tx = 111; ch.send(&tx);
+        });
     });
-    int rx; ch.recv(&rx);
-    if (rx != 111)
-        panic("recv(111) != 111");
-    //def _():
-    //    assert ch.recv() == "alpha"
-    //usestack_and_call(_)
+    usestack_and_call([&]() {
+        int rx; ch.recv(&rx);
+        if (rx != 111)
+            panic("recv(111) != 111");
+    });
+
+    // send
+    auto done = makechan<void>();
+    go([&]() {
+        //waitBlocked(ch.send)              XXX
+        usestack_and_call([&]() {
+            int rx; ch.recv(&rx);
+            if (rx != 222)
+                panic("recv(222) != 222");
+        });
+        done.close();
+    });
+    usestack_and_call([&]() {
+        int tx = 222; ch.send(&tx);
+    });
+    done.recv(NULL);
 
 #if 0
-    // send
-    done = chan()
-    def _():
-        waitBlocked(ch.send)
-        def _():
-            assert ch.recv() == 'beta'
-        usestack_and_call(_)
-        done.close()
-    go(_)
-    def _():
-        ch.send('beta')
-    usestack_and_call(_)
-    done.recv()
-
     // select(recv)
     def _():
         waitBlocked(ch.recv)
