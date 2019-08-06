@@ -27,6 +27,8 @@ cdef extern from "golang/libgolang.h" nogil:
     struct _libgolang_runtime_ops:
         _libgolang_runtime_flags  flags
 
+        void    (*go)(void (*f)(void *) nogil, void *arg);
+
         _libgolang_sema* (*sema_alloc)  ()
         void             (*sema_free)   (_libgolang_sema*)
         void             (*sema_acquire)(_libgolang_sema*)

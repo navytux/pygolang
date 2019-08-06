@@ -22,6 +22,8 @@
 # Gevent runtime uses gevent's semaphores.
 # When sema.acquire() blocks gevent runtime switches to another greenlet.
 
+from gevent._greenlet cimport Greenlet
+
 IF not PYPY:
     from gevent.__semaphore cimport Semaphore
     ctypedef Semaphore PYGSema
@@ -38,9 +40,34 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
 
 #from libc.stdio cimport printf
 
+# _goviapy & _togo serve go
+def _goviapy(_togo togo not None):
+    with nogil:
+        togo.f(togo.arg)
+
+cdef class _togo:
+    cdef void (*f)(void *) nogil
+    cdef void *arg
+
+
 cdef nogil:
 
     # XXX better panic with pyexc object and detect that at recover side
+
+    bint _go(void (*f)(void *), void *arg):
+        with gil:
+            togo = _togo()
+            togo.f   = f
+            togo.arg = arg
+            g = Greenlet(_goviapy, togo)
+            g.start()
+            return True
+
+    void go(void (*f)(void *), void *arg):
+        ok = _go(f, arg)
+        if not ok:
+            panic("pyggo: failed")
+
 
     _libgolang_sema* sema_alloc():
         with gil:
@@ -90,6 +117,7 @@ cdef nogil:
             # heap, and stack of switched-to greenlet is copied back to C stack.
             flags           = STACK_DEAD_WHILE_PARKED,
 
+            go              = go,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,

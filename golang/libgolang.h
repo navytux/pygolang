@@ -123,6 +123,9 @@ typedef enum _libgolang_runtime_flags {
 typedef struct _libgolang_runtime_ops {
     _libgolang_runtime_flags    flags;
 
+    // go should spawn a task (coroutine/thread/...).
+    void    (*go)(void (*f)(void *), void *arg);
+
     // sema_alloc should allocate a semaphore.
     // if allocation fails it must return NULL.
     _libgolang_sema* (*sema_alloc)(void);
@@ -162,7 +165,7 @@ extern void (*_tblockforever)(void);
 namespace golang {
 
 // go provides type-safe wraper over _go.
-template<typename F, typename... Argv>
+template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
 void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));

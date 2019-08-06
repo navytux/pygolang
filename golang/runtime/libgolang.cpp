@@ -107,6 +107,10 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     _runtime = runtime_ops;
 }
 
+void _go(void (*f)(void *), void *arg) {
+    _runtime->go(f, arg);
+}
+
 
 // ---- semaphores ----
 
