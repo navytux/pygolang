@@ -283,6 +283,7 @@ def go(f, *argv, **kw):
 # XXX merge into vvv imports
 from ._golang import    \
     pygo        as go
+#"""
 
 
 # ---- go + channels ----
