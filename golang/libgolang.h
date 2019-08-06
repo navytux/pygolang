@@ -164,6 +164,15 @@ namespace golang {
 // go provides type-safe wraper over _go.
 template<typename F, typename... Argv>
 void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
+    typedef std::function<void(void)> Frun;
+    Frun *frun = new Frun (std::bind(f, argv...));
+    _go([](void *_frun) {
+        Frun *frun = reinterpret_cast<Frun*>(_frun);
+        (*frun)();
+        delete frun;   // XXX -> defer
+    }, frun);
+
+#if 0
     struct _2run {
         std::function<void(Argv...)>  f;
         std::tuple<Argv...>           argv;
@@ -181,6 +190,7 @@ void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     };
 
     _go(run, hrun);
+#endif
 }
 
 template<typename T> class chan;
