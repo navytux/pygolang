@@ -32,6 +32,8 @@ ctypedef struct Point:
     int x
     int y
 
+# XXX test for nogil go
+
 cdef void _test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
     cdef chan[Point] chp = makechan[Point]()

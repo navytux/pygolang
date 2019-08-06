@@ -35,6 +35,8 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover()
 
+    # XXX go
+
     struct _chan
     cppclass chan[T]:
         chan();

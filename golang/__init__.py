@@ -266,7 +266,7 @@ def defer(f):
 
 
 
-
+"""
 # go spawns lightweight thread.
 #
 # go spawns:
@@ -279,11 +279,13 @@ def go(f, *argv, **kw):
     t = threading.Thread(target=f, args=argv, kwargs=kw)
     t.daemon = True # leaked goroutines don't prevent program to exit
     t.start()
+"""
 
 
-# ---- channels ----
+# ---- go + channels ----
 
 from ._golang import    \
+    pygo        as go,      \
     pychan      as chan,    \
     pyselect    as select,  \
     pydefault   as default, \

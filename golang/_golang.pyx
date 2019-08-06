@@ -73,6 +73,36 @@ cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
 
 
+
+# ---- go ----
+
+cdef class _togo:
+    cdef object f
+    cdef tuple  argv
+    cdef dict   kw
+
+# go spawns lightweight thread.
+#
+# go spawns:
+#
+# - lightweight thread (with    gevent integration), or
+# - full OS thread     (without gevent integration).
+#
+# Use gpython to run Python with integrated gevent, or use gevent directly to do so.
+def pygo(f, *argv, **kw):
+    _ = _togo(); _.f = f; _.argv = argv; _.kw    = kw
+    Py_INCREF(_)    # we transfer 1 ref to _goviac
+    with nogil:
+        _go_pyexc(_goviac, <void*>_)
+
+cdef void _goviac(void *arg) nogil:
+    with gil:
+        _ = <_togo>arg
+        Py_DECREF(_)
+        _.f(*_.argv, **_.kw)
+    # XXX panic on pyexc?
+
+
 # ---- channels -----
 
 # pynilchan is the nil py channel.
@@ -304,7 +334,8 @@ cdef void _init_libgolang() except*:
 # ---- misc ----
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
-    int _chanselect(_selcase *casev, int casec)
+    int  _chanselect(_selcase *casev, int casec)
+    void _go(void (*f)(void *), void *arg)
 
 cdef nogil:
     chan[pPyObject] makechan_pyobj_pyexc(unsigned size)    except +topyexc:
@@ -321,6 +352,8 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +to
     return ch.len()
 cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
+cdef void _go_pyexc(void (*f)(void *) nogil, void *arg)         nogil except +topyexc:
+    _go(f, arg)
 
 
 
