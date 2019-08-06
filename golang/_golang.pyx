@@ -137,6 +137,7 @@ cdef class pychan:
 
     # close closes sending side of the channel.
     def close(pych):
+        # XXX with nogil?
         chanclose_pyexc(pych.ch)
 
     def __len__(pych):
