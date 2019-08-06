@@ -100,7 +100,7 @@ cdef class pychan:
         try:
             with nogil:
                 _obj = <PyObject *>obj
-                chansend_pyexc(pych.ch, &_obj)      # XXX _obj onstack
+                chansend_pyexc(pych.ch, &_obj)
         except _PanicError:
             # the object was not sent - e.g. it was send on a closed channel
             Py_DECREF(obj)
@@ -207,7 +207,7 @@ def pyselect(*pycasev):
             if send.__func__ is not _pychan_send:
                 pypanic("pyselect: send expected: %r" % (send,))
 
-            # quilt ptx through case[1]
+            # wire ptx through case[1]
             p_tx = &(_tcase.ob_item[1])
             tx   = <object>(p_tx[0])
 
@@ -232,7 +232,7 @@ def pyselect(*pycasev):
 
             pych = recv.__self__
             if commaok:
-                casev[i] = _recv_(pych.ch, &_rx, &rxok)         # XXX _rx* onstack
+                casev[i] = _recv_(pych.ch, &_rx, &rxok)
             else:
                 casev[i] = _recv(pych.ch, &_rx)
 

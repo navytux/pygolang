@@ -555,7 +555,6 @@ def test_chan_vs_stackdeadwhileparked():
 
     # recv
     ch = chan()
-#   """
     def _():
         waitBlocked(ch.recv)
         def _():
@@ -565,9 +564,7 @@ def test_chan_vs_stackdeadwhileparked():
     def _():
         assert ch.recv() == 'alpha'
     usestack_and_call(_)
-#   """
 
-#   """
     # send
     done = chan()
     def _():
@@ -581,7 +578,35 @@ def test_chan_vs_stackdeadwhileparked():
         ch.send('beta')
     usestack_and_call(_)
     done.recv()
-#   """
+
+    # select(recv)
+    def _():
+        waitBlocked(ch.recv)
+        def _():
+            ch.send('gamma')
+        usestack_and_call(_)
+    go(_)
+    def _():
+        _, _rx = select(ch.recv)
+        assert (_, _rx) == (0, 'gamma')
+    usestack_and_call(_)
+
+    # select(send)
+    # XXX pyselect always wires ptx via heap object. Thus, until the test is
+    # moved into C, we don't excercise chanselect vs tx of onstack object for real.
+    done = chan()
+    def _():
+        waitBlocked(ch.send)
+        def _():
+            assert ch.recv() == 'delta'
+        usestack_and_call(_)
+        done.close()
+    go(_)
+    def _():
+        _, _rx = select((ch.send, 'delta'))
+        assert (_, _rx) == (0, None)
+    usestack_and_call(_)
+    done.recv()
 
 
 
