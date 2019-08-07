@@ -27,8 +27,8 @@ import os, sys, time, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
-from golang._golang import _waitBlocked as waitBlocked, _lenrecvq as len_recvq, _lensendq as len_sendq, \
-        _tRaiseWhenBlocked as tRaiseWhenBlocked
+from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
+        pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
 # pyx/c/c++ tests -> test_pyx_*
 from golang import _golang_test
@@ -612,7 +612,7 @@ def test_chan_vs_stackdeadwhileparked():
 
 
 def test_blockforever():
-    with tRaiseWhenBlocked():
+    with panicWhenBlocked():
         _test_blockforever()
 
 def _test_blockforever():

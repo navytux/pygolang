@@ -20,10 +20,105 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-from golang cimport go, chan, makechan, nil, select, _send, _recv, _recv_, _default, panic, topyexc
+from __future__ import print_function, absolute_import
 
-# small test that verifies pyx-level channel API.
-# the work of channels themselves is thoroughly excersized in golang_test.py
+from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
+    _recv, _recv_, _default, panic, pypanic, topyexc
+
+# small tests that verifie pyx-level channel API.
+# the work of channels themselves is mostly thoroughly excersized in golang_test.py
+
+import time
+#from cpython cimport PY_MAJOR_VERSION
+#from golang._pycompat import im_class
+
+# # unbound pychan.{send,recv,recv_}
+# _pychan_send  = pychan.send
+# _pychan_recv  = pychan.recv
+# _pychan_recv_ = pychan.recv_
+# if PY_MAJOR_VERSION == 2:
+#     # on py3 class.func gets the func; on py2 - unbound_method(func)
+#     _pychan_send  = _pychan_send.__func__
+#     _pychan_recv  = _pychan_recv.__func__
+#     _pychan_recv_ = _pychan_recv_.__func__
+
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    int _tchanrecvqlen(_chan *ch)
+    int _tchansendqlen(_chan *ch)
+    void (*_tblockforever)()
+
+# pylen_{recv,send}q returns len(_chan._{recv,send}q)
+def pylen_recvq(pychan pych not None): # -> int
+    if pych.ch == nil:
+        raise AssertionError('len(.recvq) on nil channel')
+    return _tchanrecvqlen(pych.ch._rawchan())
+def pylen_sendq(pychan pych not None): # -> int
+    if pych.ch == nil:
+        raise AssertionError('len(.sendq) on nil channel')
+    return _tchansendqlen(pych.ch._rawchan())
+
+# pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
+#
+# For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
+def pywaitBlocked(pychanop):
+    #if im_class(pychanop) is not pychan:
+    if pychanop.__self__.__class__ is not pychan:
+        pypanic("wait blocked: %r is method of a non-chan: %r" % (pychanop, pychanop.__self__.__class__))
+    cdef pychan pych = pychanop.__self__
+    cdef bint recv = False
+    cdef bint send = False
+    #if pychanop.__func__ is _pychan_recv:
+    if pychanop.__name__ == "recv":     # XXX better check PyCFunction directly
+        recv = True
+    #elif pychanop.__func__ is _pychan_send:
+    elif pychanop.__name__ == "send":   # XXX better check PyCFunction directly
+        send = True
+    else:
+        pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
+
+    waitBlocked(pych.ch._rawchan(), recv, send)
+
+
+# waitBlocked waits until either a receive (if rx) or send (if tx) operation
+# blocks waiting on the channel.
+cdef void waitBlocked(_chan *ch, bint rx, bint tx) nogil:
+    if ch == nil:
+        panic("wait blocked: called on nil channel")
+
+    cdef bint deadlock = False
+
+    with gil:
+        t0 = time.time()
+    while 1:
+        if rx and (_tchanrecvqlen(ch) != 0):
+            return
+        if tx and (_tchansendqlen(ch) != 0):
+            return
+
+        with gil:
+            now = time.time()
+            if now-t0 > 10: # waited > 10 seconds - likely deadlock
+                deadload = True
+        if deadlock:
+            panic("deadlock")
+        with gil:
+            time.sleep(0)   # yield to another thread / coroutine
+
+
+# `with pypanicWhenBlocked` hooks into golang _blockforever to raise panic with
+# "t: blocks forever" instead of blocking.
+cdef class pypanicWhenBlocked:
+    def __enter__(t):
+        global _tblockforever
+        _tblockforever = _panicblocked
+        return t
+
+    def __exit__(t, typ, val, tb):
+        _tblockforever = NULL
+
+cdef void _panicblocked() nogil:
+    panic("t: blocks forever")
+
 
 cdef extern from *:
     ctypedef bint cbool "bool"
@@ -84,6 +179,9 @@ cdef void _work(int *pi, chan[void] done) nogil:
 def test_go_nogil():
     with nogil:
         _test_go_nogil()
+
+
+
 
 
 # runtime/libgolang_test_c.c

@@ -23,6 +23,9 @@ from __future__ import print_function, absolute_import
 
 from six import PY2
 
+# XXX kill this
+raise ImportError('kill this')
+
 if PY2:
     def im_class(f):
         return f.im_class

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
-# cython: binding=True
+# XXXXXX: binding=True XXXXX
+# cython: binding=False
 # distutils: language = c++
 # distutils: depends = libgolang.h
 #
@@ -29,7 +30,8 @@ from __future__ import print_function, absolute_import
 # init libgolang runtime early
 _init_libgolang()
 
-from golang._pycompat import im_class
+#from golang._pycompat import im_class
+# XXX im_class(f) = f.__self__.__class__
 
 from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
@@ -254,28 +256,30 @@ def pyselect(*pycasev):
 
     # prepare casev for chanselect
     for i in range(n):
-        case = pycasev[i]
+        pycase = pycasev[i]
         # default
-        if case is pydefault:
+        if pycase is pydefault:
             casev[i] = _default
 
         # send
-        elif type(case) is tuple:
-            if len(case) != 2:
-                pypanic("pyselect: invalid [%d]() case" % len(case))
-            _tcase = <PyTupleObject *>case
+        elif type(pycase) is tuple:
+            if len(pycase) != 2:
+                pypanic("pyselect: invalid [%d]() case" % len(pycase))
+            _tcase = <PyTupleObject *>pycase
 
-            send = <object>(_tcase.ob_item[0])
-            if im_class(send) is not pychan:
-                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
-            if send.__func__ is not _pychan_send:
-                pypanic("pyselect: send expected: %r" % (send,))
+            pysend = <object>(_tcase.ob_item[0])
+            #if im_class(pysend) is not pychan:
+            if pysend.__self__.__class__ is not pychan:
+                pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
+            #if pysend.__func__ is not _pychan_send:
+            if pysend.__name__ != "send":       # XXX better check PyCFunction directly
+                pypanic("pyselect: send expected: %r" % (pysend,))
 
-            # wire ptx through case[1]
+            # wire ptx through pycase[1]
             p_tx = &(_tcase.ob_item[1])
             tx   = <object>(p_tx[0])
 
-            pych = send.__self__
+            pych = pysend.__self__
             # incref tx as if corresponding channel is holding pointer to the object while it is being sent.
             # we'll decref the object if it won't be sent.
             # see pychan.send for details.
@@ -284,17 +288,20 @@ def pyselect(*pycasev):
 
         # recv
         else:
-            recv = case
-            if im_class(recv) is not pychan:
-                pypanic("pyselect: recv on non-chan: %r" % (im_class(recv),))
-            if recv.__func__ is _pychan_recv:
+            pyrecv = pycase
+            #if im_class(pyrecv) is not pychan:
+            if pyrecv.__self__.__class__ is not pychan:
+                pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
+            #if pyrecv.__func__ is _pychan_recv:
+            if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
                 commaok = False
-            elif recv.__func__ is _pychan_recv_:
+            #elif pyrecv.__func__ is _pychan_recv_:
+            elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
                 commaok = True
             else:
-                pypanic("pyselect: recv expected: %r" % (recv,))
+                pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
-            pych = recv.__self__
+            pych = pyrecv.__self__
             if commaok:
                 casev[i] = _recv_(pych.ch, &_rx, &rxok)
             else:
@@ -391,75 +398,7 @@ cdef void _go_pyexc(void (*f)(void *) nogil, void *arg)         nogil except +to
 
 
 
-# ---- for py tests ----
-# XXX -> separate module?
-
-import time
-
-# unbound pychan.{send,recv,recv_}
-_pychan_send  = pychan.send
-_pychan_recv  = pychan.recv
-_pychan_recv_ = pychan.recv_
-if PY_MAJOR_VERSION == 2:
-    # on py3 class.func gets the func; on py2 - unbound_method(func)
-    _pychan_send  = _pychan_send.__func__
-    _pychan_recv  = _pychan_recv.__func__
-    _pychan_recv_ = _pychan_recv_.__func__
-
-cdef extern from "golang/libgolang.h" namespace "golang" nogil:
-    int _tchanrecvqlen(_chan *ch)
-    int _tchansendqlen(_chan *ch)
-    void (*_tblockforever)()
-
-# _len{recv,send}q returns len(_chan._{recv,send}q)
-def _lenrecvq(pychan pych not None): # -> int
-    if pych.ch == nil:
-        raise AssertionError('len(.recvq) on nil channel')
-    return _tchanrecvqlen(pych.ch._rawchan())
-def _lensendq(pychan pych not None): # -> int
-    if pych.ch == nil:
-        raise AssertionError('len(.sendq) on nil channel')
-    return _tchansendqlen(pych.ch._rawchan())
-
-# _waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
-#
-# For example `_waitBlocked(ch.send)` waits till sender blocks waiting on ch.
-def _waitBlocked(chanop):
-    if im_class(chanop) is not pychan:
-        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
-    cdef pychan pych = chanop.__self__
-    cdef bint recv = False
-    cdef bint send = False
-    if chanop.__func__ is _pychan_recv:
-        recv = True
-    elif chanop.__func__ is _pychan_send:
-        send = True
-    else:
-        pypanic("wait blocked: unexpected chan method: %r" % (chanop,))
-
-    if pych.ch == nil:
-        pypanic("wait blocked: called on nil channel")
-
-    t0 = time.time()
-    while 1:
-        if (_lenrecvq(pych) + _lensendq(pych)) != 0:
-            return
-        now = time.time()
-        if now-t0 > 10: # waited > 10 seconds - likely deadlock
-            pypanic("deadlock")
-        time.sleep(0)   # yield to another thread / coroutine
-
-
-# `with _tRaiseWhenBlocked` hooks into golang _blockforever to raise panic with
-# "t: blocks forever" instead of blocking.
-cdef class _tRaiseWhenBlocked:
-    def __enter__(t):
-        global _tblockforever
-        _tblockforever = _raiseblocked
-        return t
-
-    def __exit__(t, typ, val, tb):
-        _tblockforever = NULL
-
-cdef void _raiseblocked() nogil:
-    panic("t: blocks forever")
+#cdef extern from "Python.h":
+#    ctypedef class pycfunc [object PyCFunctionObject]:
+#        # XXX
+#        pass
