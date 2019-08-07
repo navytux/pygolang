@@ -70,9 +70,6 @@ def test_chan_nogil():
         _test_chan_nogil()
 
 
-cdef void _work(int *pi, chan[void] done) nogil:
-    pi[0] = 222
-    done.close()
 cdef void _test_go_nogil() nogil except +topyexc:
     cdef chan[void] done = makechan[void]()
     cdef int i = 111
@@ -80,6 +77,9 @@ cdef void _test_go_nogil() nogil except +topyexc:
     done.recv(NULL)
     if i != 222:
         panic("after done: i != 222")
+cdef void _work(int *pi, chan[void] done) nogil:
+    pi[0] = 222
+    done.close()
 
 def test_go_nogil():
     with nogil:
