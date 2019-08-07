@@ -131,12 +131,28 @@ cdef void _goviac(void *arg) nogil:
     pyts.gilstate_counter -= 1
     PyGILState_Release(gstate)
 
+import sys
 cdef void __goviac(void *arg) nogil:
     with gil:
-        _ = <_togo>arg
-        Py_DECREF(_)
-        _.f(*_.argv, **_.kw)
-    # XXX exception -> exit program with traceback (same as in go)
+        try:
+            _ = <_togo>arg
+            Py_DECREF(_)
+            _.f(*_.argv, **_.kw)
+        except:
+            # ignore exceptions during python interpreter cleanup.
+            # python clears sys and other modules at exit which can result in
+            # arbitrary exceptions in still alive "daemon" threads that go
+            # spawns. Similarly to threading.py(*) we just ignore them.
+            #
+            # if we don'e there could lots of output like "lost sys.stderr"
+            # and/or "sys.excepthook is missing" etc.
+            #
+            # (*) https://github.com/python/cpython/tree/v2.7.16-121-g53639dd55a0/Lib/threading.py#L760-L778
+            #     see also "Technical details" in https://stackoverflow.com/a/12807285/9456786.
+            if sys is None:
+                return
+
+            raise   # XXX exception -> exit program with traceback (same as in go) ?
 
 
 # ---- channels -----
