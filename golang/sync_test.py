@@ -146,9 +146,9 @@ def test_workgroup():
                 l[i] = i+1
                 if i == 0:
                     raise MyError('bbb')
-                if i == 1:
-                    ctx.done().recv()                       # XXX here BAD: wair under me
-                    raise ValueError('ccc') # != MyError
+            if i == 1:
+                ctx.done().recv()
+                raise ValueError('ccc') # != MyError
         def f(ctx, i):
             Iam_f = 0
             _(ctx, i)
@@ -171,7 +171,7 @@ def test_workgroup():
         def _(ctx, i):
             with mu:
                 l[i] = i+1
-                ctx.done().recv()                           # XXX wait under mu
+            ctx.done().recv()
         wg.go(_, i)
     cancel()    # parent cancel - must be propagated into workgroup
     wg.wait()
