@@ -21,6 +21,7 @@
 // See https://www.nexedi.com/licensing for rationale and options.
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 // ---- C-level API that is always available ----
@@ -126,12 +127,6 @@ typedef struct _libgolang_runtime_ops {
     // go should spawn a task (coroutine/thread/...).
     void    (*go)(void (*f)(void *), void *arg);
 
-#if 0   // XXX not now
-    // nonosleep should pause current goroutine for at lease ns nanoseconds.
-    // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
-    void    (*nanosleep)(uint64_t ns);
-#endif
-
     // sema_alloc should allocate a semaphore.
     // if allocation fails it must return NULL.
     _libgolang_sema* (*sema_alloc)(void);
@@ -144,6 +139,10 @@ typedef struct _libgolang_runtime_ops {
     // sema_acquire/sema_release should acquire/release live semaphore allocated via sema_alloc.
     void             (*sema_acquire)(_libgolang_sema*);
     void             (*sema_release)(_libgolang_sema*);
+
+    // nanosleep should pause current goroutine for at least dt nanoseconds.
+    // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
+    void    (*nanosleep)(uint64_t dt);
 } _libgolang_runtime_ops;
 
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
@@ -170,7 +169,7 @@ extern void (*_tblockforever)(void);
 
 namespace golang {
 
-// go provides type-safe wraper over _go.
+// go provides type-safe wrapper over _go.
 template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
 void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
@@ -180,26 +179,6 @@ void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
         (*frun)();
         delete frun;   // XXX -> defer
     }, frun);
-
-#if 0
-    struct _2run {
-        std::function<void(Argv...)>  f;
-        std::tuple<Argv...>           argv;
-    };
-
-    _2run *hrun = new _2run;
-    hrun->f    = f;
-    hrun->argv = std::tuple<Argv...>(argv...);
-
-    void (*run)(void *) = [](void *_hrun) { // XXX -> use in _go directly
-        _2run *hrun = reinterpret_cast<_2run*>(_hrun);
-        //std::apply(hrun->f, hrun->argv);
-        hrun->f(hrun->argv);
-        delete(hrun);   // XXX -> defer
-    };
-
-    _go(run, hrun);
-#endif
 }
 
 template<typename T> class chan;

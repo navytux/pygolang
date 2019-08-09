@@ -19,6 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
 
+from __future__ import print_function, absolute_import
+
 # Gevent runtime uses gevent's greenlets and semaphores.
 # When sema.acquire() blocks gevent runtime switches from current to another greenlet.
 
@@ -32,6 +34,8 @@ ELSE:
     from gevent.greenlet import Greenlet
     from gevent._semaphore import Semaphore
     ctypedef object PYGSema
+
+from gevent import sleep as pygsleep
 
 from cpython cimport Py_INCREF, Py_DECREF
 
@@ -64,7 +68,7 @@ cdef nogil:
     void go(void (*f)(void *), void *arg):
         ok = _go(f, arg)
         if not ok:
-            panic("pyggo: failed")
+            panic("pyxgo: gevent: go: failed")
 
 
     _libgolang_sema* sema_alloc():
@@ -84,7 +88,7 @@ cdef nogil:
     void sema_free(_libgolang_sema *gsema):
         ok = _sema_free(gsema)
         if not ok:
-            panic("pygsema: free: failed")
+            panic("pyxgo: gevent: sema: free: failed")
 
     bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
@@ -95,7 +99,7 @@ cdef nogil:
     void sema_acquire(_libgolang_sema *gsema):
         ok = _sema_acquire(gsema)
         if not ok:
-            panic("pygsema: acquire: failed")
+            panic("pyxgo: gevent: sema: acquire: failed")
 
     bint _sema_release(_libgolang_sema *gsema):
         with gil:
@@ -106,8 +110,18 @@ cdef nogil:
     void sema_release(_libgolang_sema *gsema):
         ok = _sema_release(gsema)
         if not ok:
-            panic("pygsema: release: failed")
+            panic("pyxgo: gevent: sema: release: failed")
 
+
+    bint _nanosleep(uint64_t dt):
+        cdef double dt_s = dt * 1E9
+        with gil:
+            pygsleep(dt_s)
+            return True
+    void nanosleep(uint64_t dt):
+        ok = _nanosleep(dt)
+        if not ok:
+            panic("pyxgo: gevent: sleep: failed")
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(

@@ -21,12 +21,12 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
+from golang import time     # XXX unneeded -> remove
 from pytest import raises
 from os.path import dirname
-import os, sys, time, threading, inspect, subprocess
+import os, sys, threading, inspect, subprocess
 from six.moves import range as xrange
 
-import golang
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
@@ -594,7 +594,7 @@ def test_chan_vs_stackdeadwhileparked():
 
     # select(send)
     # XXX pyselect always wires ptx via heap object. Thus, until the test is
-    # moved into C, we don't excercise chanselect vs tx of onstack object for real.
+    # moved into C, we don't exercise chanselect vs tx of onstack object for real.
     done = chan()
     def _():
         waitBlocked(ch.send)

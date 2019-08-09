@@ -21,8 +21,8 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan
-from golang import sync, context
-import time, threading
+from golang import sync, context, time
+import threading
 from pytest import raises
 from golang.golang_test import panics
 from six.moves import range as xrange

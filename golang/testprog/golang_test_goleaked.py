@@ -22,7 +22,8 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan
-import os, sys, time
+from golang import time
+import os, sys
 
 
 def main():

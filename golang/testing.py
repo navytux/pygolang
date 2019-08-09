@@ -21,7 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
-from time import time
+from golang import time
 from math import ceil, log10
 
 
@@ -44,13 +44,13 @@ class B:
         if self._t_start is not None:
             return
 
-        self._t_start = time()
+        self._t_start = time.now()
 
     def stop_timer(self):
         if self._t_start is None:
             return
 
-        t = time()
+        t = time.now()
         self._t_total += t - self._t_start
         self._t_start = None
 

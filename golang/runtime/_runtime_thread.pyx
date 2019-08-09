@@ -19,6 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_runtime_thread.pyx provides libgolang runtime based on OS threads"""
 
+from __future__ import print_function, absolute_import
+
 # Thread runtime reuses C-level Python threadcreate + semaphore implementation
 # for portability. In Python semaphores do not depend on GIL and by reusing
 # the implementation we can offload us from covering different systems.
@@ -49,6 +51,11 @@ cdef extern from "pythread.h" nogil:
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         _libgolang_runtime_flags, panic
 
+from libc.stdint cimport uint64_t
+# for !posix nanosleep fallback
+import time as pytimemod
+
+
 cdef nogil:
 
     void go(void (*f)(void *), void *arg):
@@ -75,6 +82,12 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
+    void nanosleep(uint64_t dt):
+        # XXX POSIX -> nanosleep syscall
+        cdef double dt_s = dt * 1E9
+        with gil:
+            pytimemod.sleep(dt_s)
+
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
@@ -84,6 +97,7 @@ cdef nogil:
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,
             sema_release    = sema_release,
+            nanosleep       = nanosleep,
     )
 
 from cpython cimport PyCapsule_New

@@ -25,11 +25,11 @@ from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
     _recv, _recv_, _default, panic, pypanic, topyexc
+from golang cimport time
 
 # small tests that verifies pyx-level channel API.
 # the work of channels themselves is exercised thoroughly mostly in golang_test.py
 
-import time
 #from cpython cimport PY_MAJOR_VERSION
 #from golang._pycompat import im_class
 
@@ -88,21 +88,21 @@ cdef void waitBlocked(_chan *ch, bint rx, bint tx) nogil:
 
     cdef bint deadlock = False
 
-    with gil:
-        t0 = time.time()
+    with gil:   # XXX kill gil
+        t0 = time.now()
     while 1:
         if rx and (_tchanrecvqlen(ch) != 0):
             return
         if tx and (_tchansendqlen(ch) != 0):
             return
 
-        with gil:
-            now = time.time()
+        with gil:   # XXX kill gil
+            now = time.now()
             if now-t0 > 10: # waited > 10 seconds - likely deadlock
                 deadload = True
         if deadlock:
             panic("deadlock")
-        with gil:
+        with gil:   # XXX kill gil
             time.sleep(0)   # yield to another thread / coroutine
 
 

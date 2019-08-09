@@ -19,6 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """pyx declarations for libgolang bits that are only interesting for runtimes"""
 
+from libc.stdint cimport uint64_t
+
 cdef extern from "golang/libgolang.h" nogil:
     struct _libgolang_sema
     enum _libgolang_runtime_flags:
@@ -33,6 +35,8 @@ cdef extern from "golang/libgolang.h" nogil:
         void             (*sema_free)   (_libgolang_sema*)
         void             (*sema_acquire)(_libgolang_sema*)
         void             (*sema_release)(_libgolang_sema*)
+
+        void    (*nanosleep)(uint64_t)
 
     # XXX better take from golang.pxd, but there it is declared in `namespace
     # "golang"` which fails for C-mode compiles.
