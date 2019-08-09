@@ -37,6 +37,7 @@ ELSE:
 
 from gevent import sleep as pygsleep
 
+from libc.stdint cimport uint64_t
 from cpython cimport Py_INCREF, Py_DECREF
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
