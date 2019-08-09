@@ -184,6 +184,7 @@ def test_go_nogil():
         _test_go_nogil()
 
 
+"""
 # verify that send/recv/select correctly route their onstack arguments through onheap proxies.
 cdef _test_chan_vs_stackdeadwhileparked() nogil except +topyexc:
     # problem: under greenlet g's stack lives on system stack and is swapped as needed
@@ -229,6 +230,7 @@ cdef _test_chan_vs_stackdeadwhileparked() nogil except +topyexc:
         if rx != 111:
             panic("recv(111) != 111")
     usestack_and_call(_)
+"""
 
 
 
