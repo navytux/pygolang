@@ -23,10 +23,12 @@
 # XXX doc
 cdef double now() nogil:
     # XXX
+    return 0
 
 # XXX doc
 cdef void sleep(double dt) nogil:
     # XXX
+    return
 
 
 def pynow(): # -> t
@@ -43,6 +45,8 @@ pymicrosecond   = microsecond
 pymillisecond   = millisecond
 pyminute        = minute
 pyhour          = hour
+
+from golang cimport topyexc
 
 cdef double now_pyexc()             nogil except +topyexc:
     return now()
