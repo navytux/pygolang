@@ -230,6 +230,7 @@ setup(
                     Ext('golang._time',
                         ['golang/_time.pyx'],
                         depends = ['golang/libgolang.h'],
+                        dsos   = ['golang.runtime.libgolang'],  # XXX needed?
                         language="c++"),
 
                     Ext('golang._internal',   ['golang/_internal.pyx']),

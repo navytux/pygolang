@@ -19,16 +19,15 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """XXX"""   # XXX
 
+from golang cimport panic       # XXX temp
 
 # XXX doc
 cdef double now() nogil:
-    # XXX
-    return 0
+    panic("TODO time.now")
 
 # XXX doc
 cdef void sleep(double dt) nogil:
-    # XXX
-    return
+    panic("TODO.time.sleep")
 
 
 def pynow(): # -> t
