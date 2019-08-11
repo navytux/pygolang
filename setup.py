@@ -229,7 +229,8 @@ setup(
 
                     Ext('golang._time',
                         ['golang/_time.pyx'],
-                        depends = ['golang/libgolang.h']),
+                        depends = ['golang/libgolang.h'],
+                        language="c++"),
 
                     Ext('golang._internal',   ['golang/_internal.pyx']),
                   ],

@@ -20,12 +20,25 @@
 """XXX"""   # XXX
 
 # golang/pyx - the same as std python - represents time as float
-DEF second      = 1.0
-DEF nanosecond  = 1E-9 * second
-DEF microsecond = 1E-6 * second
-DEF millisecond = 1E-3 * second
-DEF minute      = 60   * second
-DEF hour        = 60   * minute
+cdef extern from * nogil:
+    # XXX how to declare/share constants without vvv?
+    """
+    #ifndef _golang_time_pxd_h
+    #define _golang_time_pxd_h
+    # define    golang_time_second      (1.0)
+    # define    golang_time_nanosecond  (1E-9 * golang_time_second)
+    # define    golang_time_microsecond (1E-6 * golang_time_second)
+    # define    golang_time_millisecond (1E-3 * golang_time_second)
+    # define    golang_time_minute      (60   * golang_time_second)
+    # define    golang_time_hour        (60   * golang_time_minute)
+    #endif // _golang_time_pxd_h
+    """
+    const double second         "golang_time_second"
+    const double nanosecond     "golang_time_nanosecond"
+    const double microsecond    "golang_time_microsecond"
+    const double millisecond    "golang_time_millisecond"
+    const double minute         "golang_time_minute"
+    const double hour           "golang_time_hour"
 
 cdef nogil:
     double now()

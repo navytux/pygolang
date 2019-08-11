@@ -30,9 +30,11 @@ from golang cimport time
 # small tests that verifies pyx-level channel API.
 # the work of channels themselves is exercised thoroughly mostly in golang_test.py
 
+# XXX kill
 #from cpython cimport PY_MAJOR_VERSION
 #from golang._pycompat import im_class
 
+# XXX kill
 # # unbound pychan.{send,recv,recv_}
 # _pychan_send  = pychan.send
 # _pychan_recv  = pychan.recv
