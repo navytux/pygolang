@@ -36,7 +36,8 @@ cdef extern from "golang/libgolang.h" nogil:
         void             (*sema_acquire)(_libgolang_sema*)
         void             (*sema_release)(_libgolang_sema*)
 
-        void    (*nanosleep)(uint64_t)
+        void        (*nanosleep)(uint64_t)
+        uint64_t    (*nanotime)()
 
     # XXX better take from golang.pxd, but there it is declared in `namespace
     # "golang"` which fails for C-mode compiles.

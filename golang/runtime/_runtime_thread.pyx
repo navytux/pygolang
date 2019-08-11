@@ -88,6 +88,14 @@ cdef nogil:
         with gil:
             pytimemod.sleep(dt_s)
 
+    uint64_t nanotime():
+        # XXX POSIX -> ... syscall
+        cdef double t_s
+        with gil:
+            t_s = pytimemod.time()  # XXX pyexc -> panic
+        # XXX check for overflow -> panic?
+        return <uint64_t>(t_s * 1E9)
+
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
@@ -98,6 +106,7 @@ cdef nogil:
             sema_acquire    = sema_acquire,
             sema_release    = sema_release,
             nanosleep       = nanosleep,
+            nanotime        = nanotime,
     )
 
 from cpython cimport PyCapsule_New

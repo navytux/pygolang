@@ -124,6 +124,9 @@ cdef nogil:
         if not ok:
             panic("pyxgo: gevent: sleep: failed")
 
+    uint64_t nanotime():
+        panic("TODO gevent.nanotime")
+
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
             # when greenlet is switched to another, its stack is copied to
@@ -135,6 +138,8 @@ cdef nogil:
             sema_free       = sema_free,
             sema_acquire    = sema_acquire,
             sema_release    = sema_release,
+            nanosleep       = nanosleep,
+            nanotime        = nanotime,
     )
 
 from cpython cimport PyCapsule_New

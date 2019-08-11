@@ -119,7 +119,7 @@ typedef enum _libgolang_runtime_flags {
     // for example gevent/greenlet/stackless use it because they copy g's stack
     // to heap on park and back on unpark. This way if objects on g's stack
     // were accessed while g was parked it would be memory of another g's stack.
-    STACK_DEAD_WHILE_PARKED = 1,	// XXX -> STACK_SWAPPED_WHILE_PACKED ?
+    STACK_DEAD_WHILE_PARKED = 1,    // XXX -> STACK_SWAPPED_WHILE_PACKED ?
 } _libgolang_runtime_flags;
 typedef struct _libgolang_runtime_ops {
     _libgolang_runtime_flags    flags;
@@ -142,7 +142,11 @@ typedef struct _libgolang_runtime_ops {
 
     // nanosleep should pause current goroutine for at least dt nanoseconds.
     // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
-    void    (*nanosleep)(uint64_t dt);
+    void        (*nanosleep)(uint64_t dt);
+
+    // nanotime should return current time since EPOCH in nanoseconnds.
+    uint64_t    (*nanotime)(void);
+
 } _libgolang_runtime_ops;
 
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
@@ -183,7 +187,7 @@ void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-template<typename T> _selcase _send(chan<T>, const T*);		// XXX [[nodiscard]] ?
+template<typename T> _selcase _send(chan<T>, const T*);     // XXX [[nodiscard]] ?
 template<typename T> _selcase _recv(chan<T>, T*);
 template<typename T> _selcase _recv_(chan<T>, T*, bool*);
 
