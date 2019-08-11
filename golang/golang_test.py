@@ -21,9 +21,10 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
+from golang import time
 from pytest import raises
 from os.path import dirname
-import os, sys, time, threading, inspect, subprocess
+import os, sys, threading, inspect, subprocess
 from six.moves import range as xrange
 
 import golang
@@ -74,14 +75,14 @@ def waitBlocked(chanop):
     else:
         panic("wait blocked: unexpected chan method: %r" % (chanop,))
 
-    t0 = time.time()
+    t0 = time.now()
     while 1:
         with ch._mu:
             if recv and len(ch._recvq) > 0:
                 return
             if send and len(ch._sendq) > 0:
                 return
-        now = time.time()
+        now = time.now()
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
             panic("deadlock")
         time.sleep(0)   # yield to another thread / coroutine
