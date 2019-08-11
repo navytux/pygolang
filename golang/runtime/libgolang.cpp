@@ -107,8 +107,16 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     _runtime = runtime_ops;
 }
 
-void _go(void (*f)(void *), void *arg) {
+void _taskgo(void (*f)(void *), void *arg) {
     _runtime->go(f, arg);
+}
+
+void _tasknanosleep(uint64_t dt) {
+    _runtime->nanosleep(dt);
+}
+
+uint64_t _nanotime() {
+    return _runtime->nanotime();
 }
 
 

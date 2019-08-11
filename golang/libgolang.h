@@ -41,7 +41,9 @@ extern "C" {
 void panic(const char *arg);
 const char *recover(void);
 
-void _go(void (*f)(void *arg), void *arg);
+void _taskgo(void (*f)(void *arg), void *arg);
+void _tasknanosleep(uint64_t dt);
+uint64_t _nanotime(void);
 
 typedef struct _chan _chan;
 _chan *_makechan(unsigned elemsize, unsigned size);
@@ -173,12 +175,12 @@ extern void (*_tblockforever)(void);
 
 namespace golang {
 
-// go provides type-safe wrapper over _go.
+// go provides type-safe wrapper over _taskgo.
 template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
 void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));
-    _go([](void *_frun) {
+    _taskgo([](void *_frun) {
         Frun *frun = reinterpret_cast<Frun*>(_frun);
         (*frun)();
         delete frun;   // XXX -> defer
@@ -295,6 +297,20 @@ template<typename T>
 _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
+
+namespace time {
+
+// XXX doc
+static inline void nanosleep(uint64_t dt) {
+    _tasknanosleep(dt);
+}
+
+// XXX doc, name=?
+static inline uint64_t nanonow() {
+    return _nanotime();
+}
+
+}   // golang::time::
 
 }   // golang::
 #endif  // __cplusplus

@@ -95,7 +95,7 @@ def pygo(f, *argv, **kw):
     _ = _togo(); _.f = f; _.argv = argv; _.kw    = kw
     Py_INCREF(_)    # we transfer 1 ref to _goviac
     with nogil:
-        _go_pyexc(_goviac, <void*>_)
+        _taskgo_pyexc(_goviac, <void*>_)
 
 cdef extern from "Python.h" nogil:
     ctypedef struct PyThreadState:
@@ -392,7 +392,7 @@ cdef void _init_libgolang() except*:
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int  _chanselect(_selcase *casev, int casec)
-    void _go(void (*f)(void *), void *arg)
+    void _taskgo(void (*f)(void *), void *arg)
 
 cdef nogil:
     chan[pPyObject] makechan_pyobj_pyexc(unsigned size)    except +topyexc:
@@ -409,8 +409,8 @@ cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +to
     return ch.len()
 cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
     return _chanselect(casev, casec)
-cdef void _go_pyexc(void (*f)(void *) nogil, void *arg)         nogil except +topyexc:
-    _go(f, arg)
+cdef void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)     nogil except +topyexc:
+    _taskgo(f, arg)
 
 
 

@@ -19,15 +19,22 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """XXX"""   # XXX
 
-from golang cimport panic       # XXX temp
+from libc.stdint cimport uint64_t
+
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    void     _tasknanosleep(uint64_t dt)
+    uint64_t _nanotime()
 
 # XXX doc
 cdef double now() nogil:
-    panic("TODO time.now")
+    cdef uint64_t t_ns = _nanotime()
+    cdef double t_s = t_ns * 1E-9
+    return t_s
 
 # XXX doc
 cdef void sleep(double dt) nogil:
-    panic("TODO.time.sleep")
+    cdef uint64_t dt_ns = <uint64_t>(dt * 1E9)    # XXX overflow
+    _tasknanosleep(dt_ns)
 
 
 def pynow(): # -> t
