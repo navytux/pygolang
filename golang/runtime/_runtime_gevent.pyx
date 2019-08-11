@@ -115,7 +115,7 @@ cdef nogil:
 
 
     bint _nanosleep(uint64_t dt):
-        cdef double dt_s = dt * 1E9
+        cdef double dt_s = dt * 1E-9
         with gil:
             pygsleep(dt_s)
             return True
