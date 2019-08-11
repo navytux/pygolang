@@ -227,6 +227,10 @@ setup(
                         dsos   = ['golang.runtime.libgolang'],
                         language="c++"),
 
+                    Ext('golang._time',
+                        ['golang/_time.pyx'],
+                        depends = ['golang/libgolang.h']),
+
                     Ext('golang._internal',   ['golang/_internal.pyx']),
                   ],
     platforms   = 'any',

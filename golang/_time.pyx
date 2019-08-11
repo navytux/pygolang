@@ -37,6 +37,13 @@ def pysleep(double dt):
 
 
 # ---- misc ----
+pysecond        = second
+pynanosecond    = nanosecond
+pymicrosecond   = microsecond
+pymillisecond   = millisecond
+pyminute        = minute
+pyhour          = hour
+
 cdef double now_pyexc()             nogil except +topyexc:
     return now()
 cdef void sleep_pyexc(double dt)    nogil except +topyexc:

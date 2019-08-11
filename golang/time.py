@@ -30,17 +30,16 @@ import time as _time
 from golang import go, chan, select, default, nilchan, panic
 import threading
 
-# golang/py - the same as std python - represents time as float
-# XXX -> import from _time
-second      = 1.0
-nanosecond  = 1E-9 * second
-microsecond = 1E-6 * second
-millisecond = 1E-3 * second
-minute      = 60   * second
-hour        = 60   * minute
-
-sleep   = _time.sleep
-now     = _time.time
+from golang._time import \
+    pysecond        as second,      \
+    pynanosecond    as nanosecond,  \
+    pymicrosecond   as microsecond, \
+    pymillisecond   as millisecond, \
+    pyminute        as minute,      \
+    pyhour          as hour,        \
+ \
+    pynow       as now,     \
+    pysleep     as sleep    \
 
 
 # ---- timers ----
