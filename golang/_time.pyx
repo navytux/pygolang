@@ -19,6 +19,25 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """XXX"""   # XXX
 
-cdef nogil:
-    double now()
-    void   sleep(double dt)
+
+# XXX doc
+cdef double now() nogil:
+    # XXX
+
+# XXX doc
+cdef void sleep(double dt) nogil:
+    # XXX
+
+
+def pynow(): # -> t
+    return now_pyexc()
+
+def pysleep(double dt):
+    sleep_pyexc(dt)
+
+
+# ---- misc ----
+cdef double now_pyexc()             nogil except +topyexc:
+    return now()
+cdef void sleep_pyexc(double dt)    nogil except +topyexc:
+    sleep(dt)

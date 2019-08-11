@@ -27,25 +27,6 @@ DEF millisecond = 1E-3 * second
 DEF minute      = 60   * second
 DEF hour        = 60   * minute
 
-
-# XXX doc
-cdef double now() nogil:
-    # XXX
-
-# XXX doc
-cdef void sleep(double dt) nogil:
-    # XXX
-
-
-def pynow(): # -> t
-    return now_pyexc()
-
-def pysleep(double dt):
-    sleep_pyexc(dt)
-
-
-# ---- misc ----
-cdef double now_pyexc()             nogil except +topyexc:
-    return now()
-cdef void sleep_pyexc(double dt)    nogil except +topyexc:
-    sleep(dt)
+cdef nogil:
+    double now()
+    void   sleep(double dt)
