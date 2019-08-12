@@ -53,7 +53,8 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
 
 from libc.stdint cimport uint64_t
 IF POSIX:
-    from posix.time cimport clock_gettime, CLOCK_REALTIME, timespec
+    from posix.time cimport clock_gettime, nanosleep as posix_nanosleep, timespec, CLOCK_REALTIME
+    from libc.errno cimport errno, EINTR
 ELSE:
     # for !posix timing fallback
     import time as pytimemod
@@ -87,11 +88,20 @@ cdef nogil:
         PyThread_release_lock(pysema)
 
     void nanosleep(uint64_t dt):
-        # XXX POSIX -> nanosleep syscall
-        cdef double dt_s = dt * 1E-9
-        with gil:
-            #print('pytimemod.sleep', dt_s)
-            pytimemod.sleep(dt_s)
+        IF POSIX:
+            cdef timespec ts
+            ts.tv_sec  = dt // 1000000000
+            ts.tv_nsec = dt  % 1000000000
+            err = posix_nanosleep(&ts, NULL)
+            if err == -1 and errno == EINTR:
+                err = 0     # XXX ok?
+            if err == -1:
+                panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno?
+        ELSE:
+            cdef double dt_s = dt * 1E-9
+            with gil:
+                #print('pytimemod.sleep', dt_s)
+                pytimemod.sleep(dt_s)
 
     uint64_t nanotime():
         IF POSIX:
