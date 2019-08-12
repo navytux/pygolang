@@ -52,8 +52,12 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
         _libgolang_runtime_flags, panic
 
 from libc.stdint cimport uint64_t
-# for !posix nanosleep fallback
-import time as pytimemod
+IF POSIX:
+    from posix.time cimport clock_gettime, CLOCK_REALTIME, timespec
+ELSE:
+    # for !posix timing fallback
+    import time as pytimemod
+
 
 
 cdef nogil:
@@ -90,12 +94,18 @@ cdef nogil:
             pytimemod.sleep(dt_s)
 
     uint64_t nanotime():
-        # XXX POSIX -> ... syscall
-        cdef double t_s
-        with gil:
-            t_s = pytimemod.time()  # XXX pyexc -> panic
-        # XXX check for overflow -> panic?
-        return <uint64_t>(t_s * 1E9)
+        IF POSIX:
+            cdef timespec ts
+            cdef int err = clock_gettime(CLOCK_REALTIME, &ts)
+            if err == -1:
+                panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno?
+            return ts.tv_sec*1000000000 + ts.tv_nsec    # XXX overflow
+        ELSE:
+            cdef double t_s
+            with gil:
+                t_s = pytimemod.time()  # XXX pyexc -> panic
+            # XXX check for overflow -> panic?
+            return <uint64_t>(t_s * 1E9)
 
 
     # XXX const

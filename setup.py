@@ -157,10 +157,12 @@ def Ext(name, srcv, **kw):
     if exists(venv_inc):
         incv.append(venv_inc)
 
-    # provide PYPY define to Cython
-    PYPY = (platform.python_implementation() == 'PyPy')
+    # provide POSIX/PYPY/... defines to Cython
+    POSIX = ('posix' in sys.builtin_module_names)
+    PYPY  = (platform.python_implementation() == 'PyPy')
     pyxenv = kw.get('cython_compile_time_env', {})
-    pyxenv.setdefault('PYPY', PYPY)
+    pyxenv.setdefault('POSIX',  POSIX)
+    pyxenv.setdefault('PYPY',   PYPY)
     kw['cython_compile_time_env'] = pyxenv
 
     kw['include_dirs'] = incv

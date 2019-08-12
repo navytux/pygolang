@@ -117,7 +117,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // recv
     auto ch = makechan<int>();
     go([&]() {
-        waitBlocked(ch._rawchan(), rx=true);
+        waitBlocked(ch._rawchan(), /*rx=*/true, /*tx=*/0);
         usestack_and_call([&]() {
             int tx = 111; ch.send(&tx);
         });
@@ -131,7 +131,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // send
     auto done = makechan<void>();
     go([&]() {
-        waitBlocked(ch._rawchan(), tx=true);
+        waitBlocked(ch._rawchan(), /*rx=*/0, /*tx=*/true);
         usestack_and_call([&]() {
             int rx; ch.recv(&rx);
             if (rx != 222)
