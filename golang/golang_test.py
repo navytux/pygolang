@@ -522,8 +522,8 @@ def test_blockforever():
 
 def _test_blockforever():
     z = nilchan
-    assert len(z) == 0
-    assert repr(z) == "nilchan"
+    assert len(z) == 0              # XXX place
+    assert repr(z) == "nilchan"     # XXX place
     with panics("t: blocks forever"): z.send(0)
     with panics("t: blocks forever"): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
