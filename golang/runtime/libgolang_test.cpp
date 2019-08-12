@@ -146,6 +146,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     done.recv(NULL);
 
+    return;
 #if 0
     // select(recv)
     def _():
