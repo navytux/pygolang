@@ -30,21 +30,6 @@ from golang cimport time
 # small tests that verifies pyx-level channel API.
 # the work of channels themselves is exercised thoroughly mostly in golang_test.py
 
-# XXX kill
-#from cpython cimport PY_MAJOR_VERSION
-#from golang._pycompat import im_class
-
-# XXX kill
-# # unbound pychan.{send,recv,recv_}
-# _pychan_send  = pychan.send
-# _pychan_recv  = pychan.recv
-# _pychan_recv_ = pychan.recv_
-# if PY_MAJOR_VERSION == 2:
-#     # on py3 class.func gets the func; on py2 - unbound_method(func)
-#     _pychan_send  = _pychan_send.__func__
-#     _pychan_recv  = _pychan_recv.__func__
-#     _pychan_recv_ = _pychan_recv_.__func__
-
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
     int _tchansendqlen(_chan *ch)
@@ -77,10 +62,8 @@ def pywaitBlocked(pychanop):
     cdef pychan pych = pychanop.__self__
     cdef bint recv = False
     cdef bint send = False
-    #if pychanop.__func__ is _pychan_recv:
     if pychanop.__name__ == "recv":     # XXX better check PyCFunction directly
         recv = True
-    #elif pychanop.__func__ is _pychan_send:
     elif pychanop.__name__ == "send":   # XXX better check PyCFunction directly
         send = True
     else:
