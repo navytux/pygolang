@@ -86,7 +86,8 @@ def pywaitBlocked(pychanop):
     else:
         pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
 
-    waitBlocked(pych.ch._rawchan(), recv, send)
+    with nogil:
+        waitBlocked(pych.ch._rawchan(), recv, send)
 
 
 """

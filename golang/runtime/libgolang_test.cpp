@@ -64,11 +64,13 @@ void _test_chan_cpp() {
 // waitBlocked waits until either a receive (if rx) or send (if tx) operation
 // blocks waiting on the channel.
 void waitBlocked(_chan *ch, bool rx, bool tx) {
+//  printf("wait blocked %p  rx=%d  tx=%d\n", ch, rx, tx);
     if (ch == NULL)
         panic("wait blocked: called on nil channel");
 
     double t0 = time::now();
     while (1) {
+//      printf("\t%p  len(rxq): %d  len(txq): %d\n", ch, _tchanrecvqlen(ch), _tchansendqlen(ch));
         if (rx && (_tchanrecvqlen(ch) != 0))
             return;
         if (tx && (_tchansendqlen(ch) != 0))
