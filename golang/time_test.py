@@ -31,10 +31,12 @@ dt = 10*time.millisecond
 def test_now():
     import time as stdtime
     assert stdtime is not time
-    t1 = stdtime.time()
-    t2 = time.now()
-    t3 = stdtime.time()
-    t4 = time.now()
+    def tick(): # cpython 2.7 time.time uses max microsecond precision
+        time.sleep(1*time.microsecond)
+    t1 = stdtime.time() ;   tick()
+    t2 = time.now()     ;   tick()
+    t3 = stdtime.time() ;   tick()
+    t4 = time.now()     ;   tick()
     assert t1 < t2
     assert t2 < t3
     assert t3 < t4
