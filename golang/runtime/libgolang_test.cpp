@@ -142,7 +142,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     go([&]() {
         waitBlocked_TX(ch);
         usestack_and_call([&]() {
-            int rx; ch.recv(&rx);
+            int rx = 0; ch.recv(&rx);
             if (rx != 222)
                 panic("recv(222) != 222");
         });
@@ -153,6 +153,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     done.recv(NULL);
 
+#if 1
     // select(recv)
     go([&]() {
         waitBlocked_RX(ch);
@@ -169,21 +170,27 @@ void _test_chan_vs_stackdeadwhileparked() {
         if (rx != 333)
             panic("select(recv, 333): recv != 333");
     });
+#endif
 
 #if 0
     // select(send)
-    done = chan()
-    def _():
-        waitBlocked(ch.send)
-        def _():
-            assert ch.recv() == 'delta'
-        usestack_and_call(_)
-        done.close()
-    go(_)
-    def _():
-        _, _rx = select((ch.send, 'delta'))
-        assert (_, _rx) == (0, None)
-    usestack_and_call(_)
-    done.recv()
+    done = makechan<void>();
+    go([&]() {
+        waitBlocked_TX(ch);
+        usestack_and_call([&]() {
+            int rx = 0; ch.recv(&rx);
+            printf("RX: %d\n", rx);
+            if (rx != 444)
+                panic("recv(444) != 444");
+        });
+        done.close();
+    });
+    usestack_and_call([&]() {
+        int tx = 444;
+        int _ = select({_send(ch, &tx)});
+        if (_ != 0)
+            panic("select(send, 444): selected !0");
+    });
+    done.recv(NULL);
 #endif
 }
