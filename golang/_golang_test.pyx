@@ -196,56 +196,6 @@ def test_go_nogil():
         _test_go_nogil()
 
 
-"""
-# verify that send/recv/select correctly route their onstack arguments through onheap proxies.
-cdef _test_chan_vs_stackdeadwhileparked() nogil except +topyexc:
-    # problem: under greenlet g's stack lives on system stack and is swapped as needed
-    # onto heap and back on g switch. This way if e.g. recv() is called with
-    # prx pointing to stack, and the stack is later copied to heap and replaced
-    # with stack of another g, the sender, if writing to original prx directly,
-    # will write to stack of different g, and original recv g, after wakeup,
-    # will see unchanged memory - with stack content that was saved to heap.
-    #
-    # to avoid this, send/recv/select create onheap proxies for onstack
-    # arguments and use those proxies as actual argument for send/receive.
-
-    # usestack_and_call pushes C-stack down and calls f from that.
-    # C-stack pushdown is used to make sure that when f will block and switched
-    # to another g, greenlet will save f's C-stack frame onto heap.
-    #
-    #   ---  ~~~
-    #             stack of another g
-    #   ---  ~~~
-    #
-    #    .
-    #    .
-    #    .
-    #
-    #    f    ->  heap
-    def usestack_and_call(f, nframes=128):
-        if nframes == 0:
-            return f()
-        return usestack_and_call(f, nframes-1)
-
-    # recv
-    ch = makechan[int]()
-    def _():
-        waitBlocked(ch._rawchan(), rx=True)
-        def _():
-            cdef int tx = 111
-            ch.send(&tx)
-        usestack_and_call(_)
-    go(_)
-    def _():
-        cdef int rx
-        ch.recv(&rx)
-        if rx != 111:
-            panic("recv(111) != 111")
-    usestack_and_call(_)
-"""
-
-
-
 # runtime/libgolang_test_c.c
 cdef extern from *:
     """

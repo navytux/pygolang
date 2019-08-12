@@ -166,7 +166,7 @@ void _test_chan_vs_stackdeadwhileparked() {
         int _ = select({_recv(ch, &rx)});
         if (_ != 0)
             panic("select(recv, 333): selected !0");
-        printf("\n\nrx: %d\n", rx);
+//      printf("\n\nrx: %d\n", rx);
         if (rx != 333)
             panic("select(recv, 333): recv != 333");
     });
@@ -179,7 +179,7 @@ void _test_chan_vs_stackdeadwhileparked() {
         waitBlocked_TX(ch);
         usestack_and_call([&]() {
             int rx = 0; ch.recv(&rx);
-            printf("RX: %d\n", rx);
+//          printf("RX: %d\n", rx);
             if (rx != 444)
                 panic("recv(444) != 444");
         });
