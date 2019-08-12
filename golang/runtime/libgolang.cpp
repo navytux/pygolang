@@ -929,7 +929,8 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     int i;
     unsigned rxmax=0, txtotal=0;
 
-    // reallocate chan .tx / .rx to heap; make casev adjust
+    // reallocate chan .tx / .rx to heap; adjust casev
+    // XXX avoid doing this if all .tx and .rx are on heap?
     unique_ptr<_selcase[]>  casev_onheap (new _selcase[casec]);
     for (i = 0; i < casec; i++) {
         const _selcase *cas = &casev[i];
@@ -978,7 +979,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     // copy data back to original rx location.
     _selcase *cas = &casev_onheap[selected];
     if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
-        _selcase *cas0 = &casev[selected];
+        const _selcase *cas0 = &casev[selected];
         memcpy(cas0->data, cas->data, cas->ch->_elemsize);
     }
 
