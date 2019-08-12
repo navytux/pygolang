@@ -518,14 +518,9 @@ def bench_select(b):
     done.recv()
 
 
-# BlocksForever is used in "blocks forever" tests where golang._blockforever
-# is patched to raise instead of block.
-class BlocksForever(Exception):
-    pass
-
 def test_blockforever():
     B = golang._blockforever
-    def _(): raise BlocksForever()
+    def _(): panic("t: blocks forever")
     golang._blockforever = _
     try:
         _test_blockforever()
@@ -536,15 +531,15 @@ def _test_blockforever():
     z = nilchan
     assert len(z) == 0
     assert repr(z) == "nilchan"
-    with raises(BlocksForever): z.send(0)
-    with raises(BlocksForever): z.recv()
+    with panics("t: blocks forever"): z.send(0)
+    with panics("t: blocks forever"): z.recv()
     with panics("close of nil channel"): z.close()   # to fully cover nilchan ops
 
     # select{} & nil-channel only
-    with raises(BlocksForever): select()
-    with raises(BlocksForever): select((z.send, 0))
-    with raises(BlocksForever): select(z.recv)
-    with raises(BlocksForever): select((z.send, 1), z.recv)
+    with panics("t: blocks forever"): select()
+    with panics("t: blocks forever"): select((z.send, 0))
+    with panics("t: blocks forever"): select(z.recv)
+    with panics("t: blocks forever"): select((z.send, 1), z.recv)
 
 
 def test_func():
