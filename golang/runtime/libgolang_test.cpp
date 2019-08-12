@@ -172,7 +172,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
 #endif
 
-#if 0
+#if 1
     // select(send)
     done = makechan<void>();
     go([&]() {
