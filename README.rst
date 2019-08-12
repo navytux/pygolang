@@ -1,8 +1,8 @@
-========================================
- Pygolang - Go-like features for Python
-========================================
+===================================================
+ Pygolang - Go-like features for Python and Cython
+===================================================
 
-Package `golang` provides Go-like features for Python:
+Package `golang` provides Go-like features for Python:   XXX +pyx
 
 - `gpython` is Python interpreter with support for lightweight threads.
 - `go` spawns lightweight thread.

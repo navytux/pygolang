@@ -175,7 +175,7 @@ def Ext(name, srcv, **kw):
 setup(
     name        = 'pygolang',
     version     = version,
-    description = 'Go-like features for Python',
+    description = 'Go-like features for Python and Cython',
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',

@@ -4,7 +4,6 @@
      (https://cffi.readthedocs.io/en/latest/embedding.html, http://doc.pypy.org/en/latest/embedding.html)
 - gpython/golang: str/unicode + b/u
 - gimport to import go123 released to pypi
-- -> cython
 
 - chan_rx + chan_tx
 

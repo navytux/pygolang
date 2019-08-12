@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package golang provides Go-like features for Python
+"""Package golang provides Go-like features for Python      XXX +pyx ?
 
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
@@ -37,15 +37,16 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
 
 from golang._gopath import gimport  # make gimport available from golang
 #from golang import strconv          # for b, u
-#import inspect, threading, collections, random, sys
 import inspect, sys
 import decorator
 
 import six
 
+"""
 from golang._internal import bytepatch
 import opcode
 from dis import dis
+"""
 
 # TODO -> use gevent + fallback to !gevent implementation if gevent was not initialized.
 # The following should automatically prefer to use gevent as golang backend:
