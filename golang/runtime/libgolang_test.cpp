@@ -67,17 +67,17 @@ void waitBlocked(_chan *ch, bool rx, bool tx) {
     if (ch == NULL)
         panic("wait blocked: called on nil channel");
 
-    t0 = time.now();
+    double t0 = time::now();
     while (1) {
         if (rx && (_tchanrecvqlen(ch) != 0))
             return;
         if (tx && (_tchansendqlen(ch) != 0))
             return;
 
-        now = time.now();
+        double now = time::now();
         if (now-t0 > 10) // waited > 10 seconds - likely deadlock
             panic("deadlock");
-        time.sleep(0);   // yield to another thread / coroutine
+        time::sleep(0);  // yield to another thread / coroutine
     }
 }
 

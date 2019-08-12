@@ -300,14 +300,17 @@ _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
 
 namespace time {
 
-// XXX doc
-static inline void nanosleep(uint64_t dt) {
-    _tasknanosleep(dt);
+// sleep pauses current goroutine for at least dt seconds.
+static inline void sleep(double dt) {
+    uint64_t dt_ns = dt * 1E9; // XXX overflow
+    _tasknanosleep(dt_ns);
 }
 
-// XXX doc, name=?
-static inline uint64_t nanonow() {
-    return _nanotime();
+// now returns current time in seconds.
+static inline double now() {
+    uint64_t t_ns = _nanotime();
+    double t_s = t_ns * 1E-9;   // XXX overflow
+    return t_s;
 }
 
 }   // golang::time::
