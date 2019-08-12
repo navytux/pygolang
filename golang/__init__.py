@@ -48,19 +48,6 @@ import opcode
 from dis import dis
 """
 
-# TODO -> use gevent + fallback to !gevent implementation if gevent was not initialized.
-# The following should automatically prefer to use gevent as golang backend:
-#
-#   from gevent import monkey; monkey.patch_all()
-#   import golang ...
-#
-# But we should not use gevent by default - using it without its monkey patching
-# does not make lots of sense and monkey patching has to be performed as the
-# first step of a program (i.e. it is not good to put it under `import golang`).
-#
-# We can also provide `gpython` interpreter which does gevent monkey patching
-# and puts everything from golang.__all__ to __builtins__.
-
 
 """
 # panic stops normal execution of current goroutine.
