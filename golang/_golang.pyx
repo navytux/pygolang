@@ -277,10 +277,8 @@ def pyselect(*pycasev):
             _tcase = <PyTupleObject *>pycase
 
             pysend = <object>(_tcase.ob_item[0])
-            #if im_class(pysend) is not pychan:
             if pysend.__self__.__class__ is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
-            #if pysend.__func__ is not _pychan_send:
             if pysend.__name__ != "send":       # XXX better check PyCFunction directly
                 pypanic("pyselect: send expected: %r" % (pysend,))
 
@@ -298,13 +296,10 @@ def pyselect(*pycasev):
         # recv
         else:
             pyrecv = pycase
-            #if im_class(pyrecv) is not pychan:
             if pyrecv.__self__.__class__ is not pychan:
                 pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
-            #if pyrecv.__func__ is _pychan_recv:
             if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
                 commaok = False
-            #elif pyrecv.__func__ is _pychan_recv_:
             elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
                 commaok = True
             else:
