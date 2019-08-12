@@ -1054,7 +1054,7 @@ void _blockforever() {
     bug("_blockforever: woken up");
 }
 
-// ---- for tests ----
+// ---- for tests ----  XXX move -> libgolang_test.cpp ?
 
 
 // _tchanlenrecvqlen returns len(_ch._recvq)

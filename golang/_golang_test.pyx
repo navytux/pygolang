@@ -60,6 +60,13 @@ def pylen_sendq(pychan pych not None): # -> int
         raise AssertionError('len(.sendq) on nil channel')
     return _tchansendqlen(pych.ch._rawchan())
 
+# runtime/libgolang_test.cpp
+cdef extern from *:
+    """
+    extern void waitBlocked(golang::_chan *ch, bool rx, bool tx);
+    """
+    void waitBlocked(_chan *, bint rx, bint tx) nogil except +topyexc
+
 # pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
 #
 # For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
@@ -82,6 +89,7 @@ def pywaitBlocked(pychanop):
     waitBlocked(pych.ch._rawchan(), recv, send)
 
 
+"""
 # waitBlocked waits until either a receive (if rx) or send (if tx) operation
 # blocks waiting on the channel.
 cdef void waitBlocked(_chan *ch, bint rx, bint tx) nogil:
@@ -106,6 +114,7 @@ cdef void waitBlocked(_chan *ch, bint rx, bint tx) nogil:
             panic("deadlock")
         with gil:   # XXX kill gil
             time.sleep(0)   # yield to another thread / coroutine
+"""
 
 
 # `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with

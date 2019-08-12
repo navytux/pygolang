@@ -61,6 +61,26 @@ void _test_chan_cpp() {
         panic("recv_ from closed != (0, false)");
 }
 
+// waitBlocked waits until either a receive (if rx) or send (if tx) operation
+// blocks waiting on the channel.
+void waitBlocked(_chan *ch, bool rx, bool tx) {
+    if (ch == NULL)
+        panic("wait blocked: called on nil channel");
+
+    t0 = time.now();
+    while (1) {
+        if (rx && (_tchanrecvqlen(ch) != 0))
+            return;
+        if (tx && (_tchansendqlen(ch) != 0))
+            return;
+
+        now = time.now();
+        if (now-t0 > 10) // waited > 10 seconds - likely deadlock
+            panic("deadlock");
+        time.sleep(0);   // yield to another thread / coroutine
+    }
+}
+
 // usestack_and_call pushes C-stack down and calls f from that.
 // C-stack pushdown is used to make sure that when f will block and switched
 // to another g, greenlet will save f's C-stack frame onto heap.
@@ -97,7 +117,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // recv
     auto ch = makechan<int>();
     go([&]() {
-        //waitBlocked(ch.recv);             XXX enable (but fails without it too)
+        waitBlocked(ch._rawchan(), rx=true);
         usestack_and_call([&]() {
             int tx = 111; ch.send(&tx);
         });
@@ -111,7 +131,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // send
     auto done = makechan<void>();
     go([&]() {
-        //waitBlocked(ch.send)              XXX
+        waitBlocked(ch._rawchan(), tx=true);
         usestack_and_call([&]() {
             int rx; ch.recv(&rx);
             if (rx != 222)
