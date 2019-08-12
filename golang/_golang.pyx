@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
-# XXXXXX: binding=True XXXXX
 # cython: binding=False
 # distutils: language = c++
 # distutils: depends = libgolang.h
@@ -30,9 +29,6 @@ from __future__ import print_function, absolute_import
 # init libgolang runtime early
 _init_libgolang()
 
-#from golang._pycompat import im_class
-# XXX im_class(f) = f.__self__.__class__
-
 from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
@@ -42,8 +38,6 @@ cdef extern from "Python.h":
 from libcpp.vector cimport vector
 cdef extern from *:
     ctypedef bint cbool "bool"
-
-
 
 
 # ---- panic ----
@@ -73,7 +67,6 @@ cdef void topyexc() except *:
 
 cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
-
 
 
 # ---- go ----
@@ -219,8 +212,8 @@ cdef class pychan:
 
     # close closes sending side of the channel.
     def close(pych):
-        # XXX with nogil?
-        chanclose_pyexc(pych.ch)
+        with nogil:
+            chanclose_pyexc(pych.ch)
 
     def __len__(pych):
         return chanlen_pyexc(pych.ch)
