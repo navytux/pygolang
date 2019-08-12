@@ -56,8 +56,7 @@ class WaitGroup(object):
     def __init__(wg):
         wg._mu      = threading.Lock()
         wg._count   = 0
-#       wg._event   = threading.Event()
-        wg._done    = chan()
+        wg._done    = chan()    # closed & recreated every time ._count drops to 0
 
     def done(wg):
         wg.add(-1)
@@ -70,8 +69,6 @@ class WaitGroup(object):
             if wg._count < 0:
                 panic("sync: negative WaitGroup counter")
             if wg._count == 0:
-                #wg._event.set()
-                #wg._event = threading.Event()
                 wg._done.close()
                 wg._done = chan()
 
@@ -79,8 +76,6 @@ class WaitGroup(object):
         with wg._mu:
             if wg._count == 0:
                 return
-#           event = wg._event
-#       event.wait()
             done = wg._done
         done.recv()
 
