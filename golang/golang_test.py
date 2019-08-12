@@ -207,24 +207,26 @@ def test_select():
 
     # non-blocking try send: not ok
     ch = chan()
-    _, _rx = select(
-            (ch.send, 0),
-            default,
-    )
-    assert (_, _rx) == (1, None)
+    for i in range(N):
+        _, _rx = select(
+                (ch.send, 0),
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
     # non-blocking try recv: not ok
-    _, _rx = select(
-            ch.recv,
-            default,
-    )
-    assert (_, _rx) == (1, None)
+    for i in range(N):
+        _, _rx = select(
+                ch.recv,
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
-    _, _rx = select(
-            ch.recv_,
-            default,
-    )
-    assert (_, _rx) == (1, None)
+        _, _rx = select(
+                ch.recv_,
+                default,
+        )
+        assert (_, _rx) == (1, None)
 
     # non-blocking try send: ok
     ch = chan()
@@ -281,16 +283,22 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        waitBlocked(ch1.send)
-        assert ch1.recv() == 'a'
+        while 1:
+            waitBlocked(ch1.send)
+            x = ch1.recv()
+            if x == 'stop':
+                break
+            assert x == 'a'
         done.close()
     go(_)
 
-    _, _rx = select(
-        (ch1.send, 'a'),
-        (ch2.send, 'b'),
-    )
-    assert (_, _rx) == (0, None)
+    for i in range(N):
+        _, _rx = select(
+            (ch1.send, 'a'),
+            (ch2.send, 'b'),
+        )
+        assert (_, _rx) == (0, None)
+    ch1.send('stop')
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
@@ -301,16 +309,18 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        waitBlocked(ch1.recv)
-        ch1.send('a')
+        for i in range(N):
+            waitBlocked(ch1.recv)
+            ch1.send('a')
         done.close()
     go(_)
 
-    _, _rx = select(
-        ch1.recv,
-        ch2.recv,
-    )
-    assert (_, _rx) == (0, 'a')
+    for i in range(N):
+        _, _rx = select(
+            ch1.recv,
+            ch2.recv,
+        )
+        assert (_, _rx) == (0, 'a')
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
@@ -321,16 +331,22 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        waitBlocked(ch1.send)
-        assert ch1.recv() == 'a'
+        while 1:
+            waitBlocked(ch1.send)
+            x = ch1.recv()
+            if x == 'stop':
+                break
+            assert x == 'a'
         done.close()
     go(_)
 
-    _, _rx = select(
-        (ch1.send, 'a'),
-        ch2.recv,
-    )
-    assert (_, _rx) == (0, None)
+    for i in range(N):
+        _, _rx = select(
+            (ch1.send, 'a'),
+            ch2.recv,
+        )
+        assert (_, _rx) == (0, None)
+    ch1.send('stop')
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
@@ -341,16 +357,18 @@ def test_select():
     ch2 = chan()
     done = chan()
     def _():
-        waitBlocked(ch1.recv)
-        ch1.send('a')
+        for i in range(N):
+            waitBlocked(ch1.recv)
+            ch1.send('a')
         done.close()
     go(_)
 
-    _, _rx = select(
-        ch1.recv,
-        (ch2.send, 'b'),
-    )
-    assert (_, _rx) == (0, 'a')
+    for i in range(N):
+        _, _rx = select(
+            ch1.recv,
+            (ch2.send, 'b'),
+        )
+        assert (_, _rx) == (0, 'a')
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
