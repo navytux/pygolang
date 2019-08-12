@@ -45,11 +45,12 @@
 #include <linux/list.h>
 
 using std::atomic;
-using std::string;
-using std::vector;
-using std::exception;
 using std::bad_alloc;
+using std::exception;
+using std::max;
+using std::string;
 using std::unique_ptr;
+using std::vector;
 
 namespace golang {
 
@@ -847,8 +848,6 @@ int _chanselect(const _selcase *casev, int casec) {
     if (casec < 0)
         panic("select: casec < 0");
 
-    // FIXME onstack prx/ptx vs STACK_DEAD_WHILE_PARKED
-
     // select promise: if multiple cases are ready - one will be selected randomly
     vector<int> nv(casec); // n -> n(case)      TODO -> caller stack-allocate nv
     for (int i=0; i <casec; i++)
@@ -927,8 +926,63 @@ template<> int _chanselect2</*onstack=*/true> (const _selcase *casev, int casec,
 
 template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec, const vector<int>& nv) {
     unique_ptr<_WaitGroup>  g (new _WaitGroup);
-    // XXX alloc casev and chan .tx / .rx to heap
-    return __chanselect2(casev, casec, nv, g.get());
+    int i;
+    unsigned rxmax=0, txtotal=0;
+
+    // reallocate chan .tx / .rx to heap; make casev adjust
+    unique_ptr<_selcase[]>  casev_onheap (new _selcase[casec]);
+    for (i = 0; i < casec; i++) {
+        const _selcase *cas = &casev[i];
+        casev_onheap[i] = *cas;
+        if (cas->ch == NULL) // nil chan
+            continue;
+        if (cas->op == _CHANSEND) {
+            txtotal += cas->ch->_elemsize;
+        }
+        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+            rxmax = max(rxmax, cas->ch->_elemsize);
+        }
+        else {
+            bug("select: XXX"); // XXX
+        }
+    }
+
+    // tx are appended sequentially; all rx go to &rxtxdata[0]
+    char *rxtxdata = (char *)malloc(max(rxmax, txtotal));
+    if (rxtxdata == NULL)
+        throw bad_alloc();
+    defer([&]() {
+        free(rxtxdata);
+    });
+
+    char *ptx = rxtxdata;
+    for (i = 0; i <casec; i++) {
+        _selcase *cas = &casev_onheap[i];
+        if (cas->ch == NULL) // nil chan
+            continue;
+        if (cas->op == _CHANSEND) {
+            memcpy(ptx, cas->data, cas->ch->_elemsize);
+            cas->data = ptx;
+            ptx += cas->ch->_elemsize;
+        }
+        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+            cas->data = rxtxdata;
+        } else {
+            bug("select: XXX"); // XXX
+        }
+    }
+
+    // select ...
+    int selected = __chanselect2(casev_onheap.get(), casec, nv, g.get());
+
+    // copy data back to original rx location.
+    _selcase *cas = &casev_onheap[selected];
+    if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+        _selcase *cas0 = &casev[selected];
+        memcpy(cas0->data, cas->data, cas->ch->_elemsize);
+    }
+
+    return selected;
 }
 
 static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv, _WaitGroup* g) {
@@ -1028,7 +1082,7 @@ ready:
     const _selcase *cas = &casev[selected];
     if (cas->op == _CHANSEND) {
         if (!sel->ok)
-            panic("send on closed channel zzz");    // XXX
+            panic("send on closed channel zzz");    // XXX test
         return selected;
     }
     else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {

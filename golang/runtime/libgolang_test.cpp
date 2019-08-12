@@ -166,7 +166,7 @@ void _test_chan_vs_stackdeadwhileparked() {
         int _ = select({_recv(ch, &rx)});
         if (_ != 0)
             panic("select(recv, 333): selected !0");
-        printf("rx: %d\n", rx);
+        printf("\n\nrx: %d\n", rx);
         if (rx != 333)
             panic("select(recv, 333): recv != 333");
     });
