@@ -21,7 +21,6 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
-from golang import time     # XXX unneeded -> remove
 from pytest import raises
 from os.path import dirname
 import os, sys, threading, inspect, subprocess
@@ -74,7 +73,6 @@ def bench_go(b):
 
 # XXX + test for chan bug discovered (too early ch._mu release in _trysend and _tryrecv for buffered)
 def test_chan():
-    print()
     # sync: pre-close vs send/recv
     ch = chan()
     ch.close()
@@ -104,13 +102,11 @@ def test_chan():
             print('\tccc')
         go(_)
         print('222')
-        time.sleep(1)
         print()
         print('222+')
         assert ch.recv() is a
         print('333')
         #ch.send(b)
-        time.sleep(1)
         print()
         print('333+')
         assert ch.recv_() == (None, False)
@@ -377,7 +373,7 @@ def test_select():
 
 
     # blocking recv + nil channel
-    N = 100; import gc
+    import gc
     for i in range(N):
         #gc.collect()
         ch = chan()
@@ -388,13 +384,11 @@ def test_select():
             done.close()
         go(_)
 
-        #print('\taaa')
         _, _rx = select(
                 z.recv,
                 (z.send, 0),
                 ch.recv,
         )
-        #print('\tbbb')
 
         assert (_, _rx) == (2, 'd')
         done.recv()
