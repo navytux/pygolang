@@ -7,12 +7,6 @@ build/
 *.o
 *.so
 *.so.*
-golang/_golang.cpp
-golang/_golang_test.cpp
-golang/_internal.c
-golang/runtime/_runtime_gevent.c
-golang/runtime/_runtime_thread.c
-golang/_time.cpp
 
 /dist/
 *.egg-info
