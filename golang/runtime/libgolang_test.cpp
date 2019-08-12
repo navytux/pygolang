@@ -83,6 +83,13 @@ void waitBlocked(_chan *ch, bool rx, bool tx) {
     }
 }
 
+template<typename T> void waitBlocked_RX(chan<T> ch) {
+    waitBlocked(ch._rawchan(), /*rx=*/true, /*tx=*/0);
+}
+template<typename T> void waitBlocked_TX(chan<T> ch) {
+    waitBlocked(ch._rawchan(), /*rx=*/0, /*tx=*/true);
+}
+
 // usestack_and_call pushes C-stack down and calls f from that.
 // C-stack pushdown is used to make sure that when f will block and switched
 // to another g, greenlet will save f's C-stack frame onto heap.
@@ -119,7 +126,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // recv
     auto ch = makechan<int>();
     go([&]() {
-        waitBlocked(ch._rawchan(), /*rx=*/true, /*tx=*/0);
+        waitBlocked_RX(ch);
         usestack_and_call([&]() {
             int tx = 111; ch.send(&tx);
         });
@@ -133,7 +140,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     // send
     auto done = makechan<void>();
     go([&]() {
-        waitBlocked(ch._rawchan(), /*rx=*/0, /*tx=*/true);
+        waitBlocked_TX(ch);
         usestack_and_call([&]() {
             int rx; ch.recv(&rx);
             if (rx != 222)
@@ -146,20 +153,23 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     done.recv(NULL);
 
-    return;
-#if 0
     // select(recv)
-    def _():
-        waitBlocked(ch.recv)
-        def _():
-            ch.send('gamma')
-        usestack_and_call(_)
-    go(_)
-    def _():
-        _, _rx = select(ch.recv)
-        assert (_, _rx) == (0, 'gamma')
-    usestack_and_call(_)
+    go([&]() {
+        waitBlocked_RX(ch);
+        usestack_and_call([&]() {
+            int tx = 333; ch.send(&tx);
+        });
+    });
+    usestack_and_call([&]() {
+        int rx;
+        int _ = select({_recv(ch, &rx)});
+        if (_ != 0)
+            panic("select(recv, 333): selected !0");
+        if (rx != 333)
+            panic("select(recv, 333): recv != 333");
+    });
 
+#if 0
     // select(send)
     done = chan()
     def _():
