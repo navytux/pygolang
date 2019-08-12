@@ -49,16 +49,6 @@ from dis import dis
 """
 
 
-"""
-# panic stops normal execution of current goroutine.
-def panic(arg):
-    raise _PanicError(arg)
-
-class _PanicError(Exception):
-    pass
-"""
-
-
 # @func is a necessary decorator for functions for selected golang features to work.
 #
 # For example it is required by defer. Usage:

@@ -90,34 +90,6 @@ def pywaitBlocked(pychanop):
         waitBlocked(pych.ch._rawchan(), recv, send)
 
 
-"""
-# waitBlocked waits until either a receive (if rx) or send (if tx) operation
-# blocks waiting on the channel.
-cdef void waitBlocked(_chan *ch, bint rx, bint tx) nogil:
-    if ch == nil:
-        panic("wait blocked: called on nil channel")
-
-    cdef bint deadlock = False
-
-    with gil:   # XXX kill gil
-        t0 = time.now()
-    while 1:
-        if rx and (_tchanrecvqlen(ch) != 0):
-            return
-        if tx and (_tchansendqlen(ch) != 0):
-            return
-
-        with gil:   # XXX kill gil
-            now = time.now()
-            if now-t0 > 10: # waited > 10 seconds - likely deadlock
-                deadload = True
-        if deadlock:
-            panic("deadlock")
-        with gil:   # XXX kill gil
-            time.sleep(0)   # yield to another thread / coroutine
-"""
-
-
 # `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with
 # "t: blocks forever" instead of blocking.
 cdef class pypanicWhenBlocked:
