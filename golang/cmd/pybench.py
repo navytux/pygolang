@@ -234,6 +234,10 @@ class XTerminalReporter(_pytest_TerminalReporter):
         if not first:
             self._tw.line()
         self.write("pymod: %s" % fspath)
+        # XXX also print py interpreter version:
+        # pyos: ...
+        # pyarch: ...
+        # pyver: ...
 
     def pytest_runtest_logreport(self, report):
         _ =self.config.hook.pytest_report_teststatus(report=report)
