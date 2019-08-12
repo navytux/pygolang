@@ -86,7 +86,7 @@ cdef nogil:
         # XXX POSIX -> nanosleep syscall
         cdef double dt_s = dt * 1E-9
         with gil:
-            print('pytimemod.sleep', dt_s)
+            #print('pytimemod.sleep', dt_s)
             pytimemod.sleep(dt_s)
 
     uint64_t nanotime():
