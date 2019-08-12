@@ -78,14 +78,24 @@ def waitBlocked(chanop):
     t0 = time.now()
     while 1:
         with ch._mu:
-            if recv and len(ch._recvq) > 0:
+            if recv and len_recvq(ch) > 0:
                 return
-            if send and len(ch._sendq) > 0:
+            if send and len_sendq(ch) > 0:
                 return
         now = time.now()
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
             panic("deadlock")
         time.sleep(0)   # yield to another thread / coroutine
+
+# len_{recv,send}q returns len(ch._{recv,send}q)
+def len_recvq(ch):
+    if ch is nilchan:
+        raise AssertionError('len(.recvq) on nil channel')
+    return len(ch._recvq)
+def len_sendq(ch):
+    if ch is nilchan:
+        raise AssertionError('len(.sendq) on nil channel')
+    return len(ch._sendq)
 
 
 def test_chan():
@@ -282,8 +292,8 @@ def test_select():
     )
     assert (_, _rx) == (0, None)
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking 2·recv
@@ -302,8 +312,8 @@ def test_select():
     )
     assert (_, _rx) == (0, 'a')
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking send/recv
@@ -322,8 +332,8 @@ def test_select():
     )
     assert (_, _rx) == (0, None)
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking recv/send
@@ -342,8 +352,8 @@ def test_select():
     )
     assert (_, _rx) == (0, 'a')
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # blocking send + nil channel
@@ -365,7 +375,7 @@ def test_select():
 
         assert (_, _rx) == (2, None)
         done.recv()
-        assert len(ch._sendq) == len(ch._recvq) == 0
+        assert len_sendq(ch) == len_recvq(ch) == 0
 
     # blocking recv + nil channel
     for i in range(N):
@@ -385,7 +395,7 @@ def test_select():
 
         assert (_, _rx) == (2, 'd')
         done.recv()
-        assert len(ch._sendq) == len(ch._recvq) == 0
+        assert len_sendq(ch) == len_recvq(ch) == 0
 
 
     # buffered ping-pong
@@ -435,8 +445,8 @@ def test_select():
         assert (_, _rx) == (1, None)
 
         done.recv()
-        assert len(ch1._sendq) == len(ch1._recvq) == 0
-        assert len(ch2._sendq) == len(ch2._recvq) == 0
+        assert len_sendq(ch1) == len_recvq(ch1) == 0
+        assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
     # select vs select
@@ -477,8 +487,8 @@ def test_select():
         assert (_, _rx) == (1, None)
 
     done.recv()
-    assert len(ch1._sendq) == len(ch1._recvq) == 0
-    assert len(ch2._sendq) == len(ch2._recvq) == 0
+    assert len_sendq(ch1) == len_recvq(ch1) == 0
+    assert len_sendq(ch2) == len_recvq(ch2) == 0
 
 
 # benchmark sync chan send vs recv on select side.
