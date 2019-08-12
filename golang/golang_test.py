@@ -353,7 +353,6 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.send)
-            assert len(z._sendq) == len(z._recvq) == 0
             assert ch.recv() == 'c'
             done.close()
         go(_)
@@ -374,7 +373,6 @@ def test_select():
         done = chan()
         def _():
             waitBlocked(ch.recv)
-            assert len(z._sendq) == len(z._recvq) == 0
             ch.send('d')
             done.close()
         go(_)
