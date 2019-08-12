@@ -42,6 +42,7 @@ from cpython cimport Py_INCREF, Py_DECREF
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         STACK_DEAD_WHILE_PARKED, panic
+from golang.runtime cimport _runtime_thread
 
 #from libc.stdio cimport printf
 
@@ -124,8 +125,6 @@ cdef nogil:
         if not ok:
             panic("pyxgo: gevent: sleep: failed")
 
-    uint64_t nanotime():
-        panic("TODO gevent.nanotime")
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
@@ -139,7 +138,7 @@ cdef nogil:
             sema_acquire    = sema_acquire,
             sema_release    = sema_release,
             nanosleep       = nanosleep,
-            nanotime        = nanotime,
+            nanotime        = _runtime_thread.nanotime, # reuse from _runtime_thread
     )
 
 from cpython cimport PyCapsule_New
