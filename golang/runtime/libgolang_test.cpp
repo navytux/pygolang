@@ -161,10 +161,11 @@ void _test_chan_vs_stackdeadwhileparked() {
         });
     });
     usestack_and_call([&]() {
-        int rx;
+        int rx = 0;
         int _ = select({_recv(ch, &rx)});
         if (_ != 0)
             panic("select(recv, 333): selected !0");
+        printf("rx: %d\n", rx);
         if (rx != 333)
             panic("select(recv, 333): recv != 333");
     });
