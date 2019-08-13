@@ -163,8 +163,18 @@ cdef class pychan:
         pych.ch = makechan_pyobj_pyexc(size)
 
     def __dealloc__(pych):
-        # XXX on del: drain buffered channel (to decref sent objects) ?
+        cdef chan[pPyObject] ch = pych.ch
         pych.ch = nil # does _chanxdecref(ch)
+
+        # on del: drain buffered channel (to decref sent objects)
+        cdef PyObject *_rx
+        while ch.len() != 0:
+            _rx = NULL
+            # XXX could this channel still be connected to outside?
+            # XXX if yes - draining is not correct
+            # XXX -> check ch.refcnt?
+            chanrecv_pyexc(ch, &_rx)
+            Py_DECREF(<object>_rx)
 
     # send sends object to a receiver.
     def send(pych, obj):
@@ -383,22 +393,24 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void _taskgo(void (*f)(void *), void *arg)
 
 cdef nogil:
-    chan[pPyObject] makechan_pyobj_pyexc(unsigned size)    except +topyexc:
+    chan[pPyObject] makechan_pyobj_pyexc(unsigned size)         except +topyexc:
         return makechan[pPyObject](size)
 
-    void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)   except +topyexc:
+    void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)    except +topyexc:
         ch.send(_ptx)
 
-cdef bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)  nogil except +topyexc:
-    return ch.recv_(_prx)
-cdef void chanclose_pyexc(chan[pPyObject] ch)                   nogil except +topyexc:
-    ch.close()
-cdef unsigned chanlen_pyexc(chan[pPyObject] ch)                 nogil except +topyexc:
-    return ch.len()
-cdef int _chanselect_pyexc(const _selcase *casev, int casec)    nogil except +topyexc:
-    return _chanselect(casev, casec)
-cdef void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)     nogil except +topyexc:
-    _taskgo(f, arg)
+    bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)   except +topyexc:
+        return ch.recv_(_prx)
+    void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
+        ch.recv(_prx)
+    void chanclose_pyexc(chan[pPyObject] ch)                    except +topyexc:
+        ch.close()
+    unsigned chanlen_pyexc(chan[pPyObject] ch)                  except +topyexc:
+        return ch.len()
+    int _chanselect_pyexc(const _selcase *casev, int casec)     except +topyexc:
+        return _chanselect(casev, casec)
+    void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)      except +topyexc:
+        _taskgo(f, arg)
 
 
 
