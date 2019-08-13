@@ -412,10 +412,13 @@ class chan(object):
 
             self._dataq.append(obj)
             recv = _dequeWaiter(self._recvq)
-            self._mu.release()
             if recv is not None:
                 rx = self._dataq.popleft()
+                self._mu.release()
                 recv.wakeup(rx, True)
+            else:
+                self._mu.release()
+
             return True
 
     # _tryrecv() -> rx_=(rx, ok), ok
