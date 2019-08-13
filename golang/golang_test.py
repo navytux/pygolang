@@ -25,6 +25,7 @@ from pytest import raises
 from os.path import dirname
 import os, sys, threading, inspect, subprocess
 from six.moves import range as xrange
+import gc, weakref
 
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
@@ -156,6 +157,23 @@ def test_chan():
     assert done.recv() == 'a'
     ch.close()
     assert done.recv() == 'b'
+
+    # buffered: releases objects in buffer on chan gc
+    ch = chan(3)
+    class Obj(object): pass
+    obj1 = Obj(); w1 = weakref.ref(obj1); assert w1() is obj1
+    obj2 = Obj(); w2 = weakref.ref(obj2); assert w2() is obj2
+    ch.send(obj1)
+    ch.send(obj2)
+    del obj1
+    del obj2
+    gc.collect()
+    assert w1() is not None
+    assert w2() is not None
+    ch = None
+    gc.collect()
+    assert w1() is None
+    assert w2() is None
 
 
 # benchmark sync chan send/recv.
