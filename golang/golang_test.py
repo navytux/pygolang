@@ -83,35 +83,16 @@ def test_chan():
     with panics("close of closed channel"): ch.close()
 
     # sync: send vs recv
-    #N=5
-    N=1
-    a = object()
-    b = object()
-    import gc
-    for i in range(N):
-        gc.collect()
-        print()
-        ch = chan()
-        print('111')
-        def _():
-            print('\taaa')
-            ch.send(a)
-            #assert ch.recv() is b
-            print('\tbbb')
-            ch.close()
-            print('\tccc')
-        go(_)
-        print('222')
-        print()
-        print('222+')
-        assert ch.recv() is a
-        print('333')
-        #ch.send(b)
-        print()
-        print('333+')
-        assert ch.recv_() == (None, False)
-        #assert ch.recv_() == (None, False)
-        print('444')
+    ch = chan()
+    def _():
+        ch.send(1)
+        assert ch.recv() == 2
+        ch.close()
+    go(_)
+    assert ch.recv() == 1
+    ch.send(2)
+    assert ch.recv_() == (None, False)
+    assert ch.recv_() == (None, False)
 
     # sync: close vs send
     ch = chan()
@@ -388,11 +369,8 @@ def test_select():
         done.recv()
         assert len_sendq(ch) == len_recvq(ch) == 0
 
-
     # blocking recv + nil channel
-    import gc
     for i in range(N):
-        #gc.collect()
         ch = chan()
         done = chan()
         def _():
