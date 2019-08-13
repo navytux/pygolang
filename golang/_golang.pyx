@@ -91,37 +91,24 @@ def pygo(f, *argv, **kw):
         _taskgo_pyexc(_goviac, <void*>_)
 
 cdef extern from "Python.h" nogil:
-    ctypedef struct PyThreadState:
-        int gilstate_counter
     ctypedef struct PyGILState_STATE:
         pass
-
-    PyThreadState *PyThreadState_Get()
     PyGILState_STATE PyGILState_Ensure()
     void PyGILState_Release(PyGILState_STATE)
 
 cdef void _goviac(void *arg) nogil:
     # create new py thread state and keep it alive while __goviac runs.
-    # just `with gil` is not enough as that translates to PyGILState_Ensure/PyGILState_Release,
-    # and PyGILState_Release doing `pyts.gilstate_counter -= 1` and seeing it drops to 0 deletes pyts.
     #
-    # For `with gil` if exceptions could be raised inside, cython generates
-    # several GIL release/reacquiere calls. This way the thread state will be
-    # deleted on first release and _new_ one - _another_ thread state create on
-    # acquire. All that implicitly with the effect of loosing things associated
-    # with thread state - e.g. current exception.
+    # Just `with gil` is not enough: for `with gil` if exceptions could be
+    # raised inside, cython generates several GIL release/reacquiere calls.
+    # This way the thread state will be deleted on first release and _new_ one
+    # - _another_ thread state create on acquire. All that implicitly with the
+    # effect of loosing things associated with thread state - e.g. current
+    # exception.
     #
-    # -> be explicit and manage pyts->gilstate_counter ourselves.
-    gstate = PyGILState_Ensure()
-    pyts = PyThreadState_Get()
-    pyts.gilstate_counter += 1
-    PyGILState_Release(gstate)
-
+    # -> be explicit and manually keep py thread state alive ourselves.
+    gstate = PyGILState_Ensure() # py thread state will be alive until PyGILState_Release
     __goviac(arg)
-
-    gstate = PyGILState_Ensure()
-    pyts = PyThreadState_Get()
-    pyts.gilstate_counter -= 1
     PyGILState_Release(gstate)
 
 import sys
