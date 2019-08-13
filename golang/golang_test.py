@@ -261,6 +261,68 @@ def test_chan_buf_send_vs_tryrecv_race():
     for i in range(3):
         done.recv()
 
+# test for buffered chan bug when ch._mu was released too early in _tryrecv.
+def test_chan_buf_recv_vs_tryrecv_race():
+    # (see test_chan_buf_send_vs_tryrecv_race for similar problem description)
+    #
+    #   T1(send)          T2(recv)                T3(_trysend)
+    #
+    # send(blocked)
+    #
+    #                ch.mu.lock
+    #                ch.dataq.popleft()
+    #                send = _dequeWaiter(ch._sendq)
+    #                ch.mu.unlock()
+    #
+    #                                           ch.mu.lock
+    #                                           len(ch.dataq) == 0 -> ok to append
+    #
+    #                                           # erroneously succeeds sending while
+    #                                           # it must not
+    #                                           ch.dataq.append(x)
+    #
+    #                ch.dataq.append(send.obj)
+    ch   = chan(1) # buffered
+    done = chan()
+    N = 1000
+
+    # T1: send(blocked)
+    def _():
+        for i in range(1 + N):
+            ch.send(i)
+        done.send(1)
+    go(_)
+
+    trysend_ctl = chan()  # recv <-> _trysend sync
+
+    # T2: recv after send is blocked -> _tryrecv succeeds
+    def _():
+        for i in range(N):
+            waitBlocked(ch.send)        # ch.send() ^^^ entered ch._sendq
+            assert len(ch) == 1         # and 1 element was already buffered
+            trysend_ctl.send('start')   # signal _trysend to start
+            assert ch.recv() == i
+            assert trysend_ctl.recv() == 'done' # wait _trysend to finish
+        done.send(1)
+    go(_)
+
+    # T3: _trysend running in parallel to _tryrecv
+    def _():
+        for i in range(N):
+            assert trysend_ctl.recv() == 'start'
+            _, _rx = select(
+                    (ch.send, 'i%d' % i),   # 0
+                    default,                # 1
+            )
+            assert (_, _rx) == (1, None), ('i%d' % i)
+            trysend_ctl.send('done')
+        done.send(1)
+    go(_)
+
+    for i in range(3):
+        done.recv()
+
+
 # benchmark sync chan send/recv.
 def bench_chan(b):
     ch   = chan()

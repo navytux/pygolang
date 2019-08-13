@@ -433,10 +433,12 @@ class chan(object):
 
             # wakeup a blocked writer, if there is any
             send = _dequeWaiter(self._sendq)
-            self._mu.release()
             if send is not None:
                 self._dataq.append(send.obj)
+                self._mu.release()
                 send.wakeup(True)
+            else:
+                self._mu.release()
 
             return (rx, True), True
 
