@@ -107,7 +107,7 @@ cdef void _goviac(void *arg) nogil:
     # exception.
     #
     # -> be explicit and manually keep py thread state alive ourselves.
-    gstate = PyGILState_Ensure() # py thread state will be alive until PyGILState_Release
+    gstate = PyGILState_Ensure() # py thread state will stay alive until PyGILState_Release
     __goviac(arg)
     PyGILState_Release(gstate)
 
