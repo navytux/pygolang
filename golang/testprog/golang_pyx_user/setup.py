@@ -18,6 +18,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Demo package that links to and uses golang in pyx mode"""
 
+from __future__ import print_function
+
 from setuptools import Extension, setup
 
 
@@ -43,10 +45,10 @@ def find_pkg(pkgname):
 
 golang = find_pkg("golang")
 import sys
-print >> sys.stderr
-print >> sys.stderr, 'golang: %r' % golang
+print(file=sys.stderr)
+print('golang: %r' % golang, file=sys.stderr)
 groot = dirname(golang)
-print >> sys.stderr, 'groot:  %r' % groot
+print('groot:  %r' % groot, file=sys.stderr)
 #1/0
 
 setup(

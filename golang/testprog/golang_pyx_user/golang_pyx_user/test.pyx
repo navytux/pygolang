@@ -24,6 +24,7 @@
 # project can build against golang in pyx mode.
 
 from golang cimport go, chan, makechan, topyexc
+from libc.stdio cimport printf
 
 cdef nogil:
 
@@ -35,11 +36,13 @@ cdef nogil:
         cdef chan[int] ch = makechan[int]()
         cdef int i
         for i in range(3):
-            go(worker, i, 4)
+            go(worker, ch, i, 4)
 
         cdef int rx
         for i in range(3):
             ch.recv(&rx)
+
+        printf("test.pyx: OK\n")
 
 def main():
     _main()

@@ -54,7 +54,11 @@ def test_pyx_user():
     # XXX copy to tmp first?
     # XXX stdout=None stderr=None - to see debug output
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
-    # XXX run built test
+
+    # run built test
+    _ = pyrun(["-c", "from golang_pyx_user import test; test.main()"], cwd=pyxuser)
+    assert _ == "ZZZ"
+
 
 
 # benchmark go+join a thread/coroutine.
