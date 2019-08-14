@@ -20,7 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
-import sys, os, golang, subprocess
+import sys, os, golang
 from golang import b
 from golang.golang_test import pyrun
 from six import PY2

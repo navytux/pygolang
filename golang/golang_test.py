@@ -23,7 +23,8 @@ from __future__ import print_function, absolute_import
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from pytest import raises
 from os.path import dirname
-import os, sys, threading, inspect, subprocess
+import os, sys, threading, inspect
+from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
 
@@ -988,7 +989,6 @@ def bench_defer(b):
 
 # pyrun runs `sys.executable argv... <stdin` and returns its output.
 def pyrun(argv, stdin=None, **kw):
-    from subprocess import Popen, PIPE
     argv = [sys.executable] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
