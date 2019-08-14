@@ -476,7 +476,6 @@ template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = 
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-#if 1
         // ptx stack -> heap (if ptx is on stack)   TODO avoid copy if ptx is !onstack
         void *ptx_onheap = malloc(ch->_elemsize);
         if (ptx_onheap == NULL) {
@@ -489,9 +488,6 @@ template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = 
         });
 
         __send2(ptx_onheap, g.get(), me.get());
-#else
-        __send2(ptx, g.get(), me.get());
-#endif
 }
 
 void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;
@@ -552,7 +548,6 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-#if 1
         // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
         void *prx_onheap = malloc(ch->_elemsize);
         if (prx_onheap == NULL) {
@@ -566,9 +561,6 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
         bool ok = __recv2_(prx_onheap, g.get(), me.get());
         memcpy(prx, prx_onheap, ch->_elemsize);
         return ok;
-#else
-        return __recv2_(prx, g.get(), me.get());
-#endif
 }
 
 bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *ch = this;

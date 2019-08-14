@@ -153,7 +153,6 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     done.recv(NULL);
 
-#if 1
     // select(recv)
     go([&]() {
         waitBlocked_RX(ch);
@@ -170,9 +169,7 @@ void _test_chan_vs_stackdeadwhileparked() {
         if (rx != 333)
             panic("select(recv, 333): recv != 333");
     });
-#endif
 
-#if 1
     // select(send)
     done = makechan<void>();
     go([&]() {
@@ -192,5 +189,4 @@ void _test_chan_vs_stackdeadwhileparked() {
             panic("select(send, 444): selected !0");
     });
     done.recv(NULL);
-#endif
 }
