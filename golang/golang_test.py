@@ -52,7 +52,8 @@ def test_go_leaked():
 def test_pyx_user():
     pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
     # XXX copy to tmp first?
-    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser)
+    # XXX stdout=None stderr=None - to see debug output
+    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
     # XXX run built test
 
 
@@ -993,7 +994,7 @@ def bench_defer(b):
 # ---- misc ----
 
 # pyrun runs `sys.executable argv... <stdin` and returns its output.
-def pyrun(argv, stdin=None, **kw):
+def pyrun(argv, stdin=None, stdout=PIPE, stderr=PIPE, **kw):
     argv = [sys.executable] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
@@ -1008,7 +1009,7 @@ def pyrun(argv, stdin=None, **kw):
         pathv.append(envpath)
     env['PYTHONPATH'] = ':'.join(pathv)
 
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, env=env, **kw)
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
     if p.returncode:
         raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))

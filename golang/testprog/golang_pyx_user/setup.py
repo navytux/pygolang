@@ -20,10 +20,40 @@
 
 from setuptools import Extension, setup
 
+
+
+import pkgutil
+from distutils.errors import DistutilsError
+class BuildError(DistutilsError):
+    pass
+from os.path import dirname
+
+# find_pkg returns path to specified package.
+# e.g. find_pkg("golang") -> /path/to/pygolang/golang
+# XXX error -> what?
+def find_pkg(pkgname):
+    pkg = pkgutil.get_loader(pkgname)
+    # XXX can also raise ImportError for pkgname with '.' inside
+    if pkg is None: # package not found
+        raise BuildError("package %r not found" % (pkgname,))
+    path = pkg.get_filename()
+    if path.endswith("__init__.py"):
+        path = dirname(path) # .../pygolang/golang/__init__.py -> .../pygolang/golang
+    return path
+
+golang = find_pkg("golang")
+import sys
+print >> sys.stderr
+print >> sys.stderr, 'golang: %r' % golang
+groot = dirname(golang)
+print >> sys.stderr, 'groot:  %r' % groot
+#1/0
+
 setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',
 
     ext_modules = [Extension('golang_pyx_user.test', ['golang_pyx_user/test.pyx'],
+                   include_dirs=[groot],
                    language='c++')],
 )

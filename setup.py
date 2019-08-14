@@ -195,7 +195,9 @@ setup(
 
     packages    = find_packages(),
 
-    headers     = ['golang/libgolang.h'],
+    # XXX don't install headers - use them directly from installed package
+    #headers     = ['golang/libgolang.h'],
+
     x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
                         depends         = ['golang/libgolang.h'],
                         include_dirs    = ['.', '3rdparty/include'],
