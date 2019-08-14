@@ -69,23 +69,6 @@ def pyrun(argv, stdin=None, **kw):
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
     # to test process termination exit there.
-
-    """
-    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
-    # script will succeed on `import golang` when running in-tree.
-    dir_golang = dirname(__file__)  #     .../pygolang/golang
-    dir_top    = dir_golang + '/..' # ~>  .../pygolang
-    pathv = [dir_top]
-    env = os.environ.copy()
-    envpath = env.get('PYTHONPATH')
-    if envpath is not None:
-        pathv.append(envpath)
-    env['PYTHONPATH'] = ':'.join(pathv)
-    """
-
-    ## XXX -> pyrun ? (from gpython_test.py)
-    #subprocess.check_call([sys.executable, dir_golang + "/testprog/golang_test_goleaked.py"],
-    #        env=env)
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 
