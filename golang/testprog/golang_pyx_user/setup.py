@@ -16,6 +16,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+"""Demo package that links to and uses golang in pyx mode"""
 
 from setuptools import Extension, setup
 

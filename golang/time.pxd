@@ -19,5 +19,5 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """XXX"""   # XXX
 
-# redirect `cimport golang.time` -> `cimport golang._time` (see __init__.pxd for details)
+# redirect `cimport golang.time` -> `cimport golang._time` (see __init__.pxd for rationale)
 from golang._time cimport *

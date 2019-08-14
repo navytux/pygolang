@@ -21,14 +21,14 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+# small tests that verifies pyx-level channel API.
+# the work of channels themselves is exercised thoroughly mostly in golang_test.py
+
 from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
     _recv, _recv_, _default, panic, pypanic, topyexc
 from golang cimport time
-
-# small tests that verifies pyx-level channel API.
-# the work of channels themselves is exercised thoroughly mostly in golang_test.py
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
