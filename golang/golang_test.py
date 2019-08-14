@@ -57,7 +57,7 @@ def test_pyx_user():
 
     # run built test
     _ = pyrun(["-c", "from pyxuser import test; test.main()"], cwd=pyxuser)
-    assert _ == "ZZZ"
+    assert _ == "test.pyx: OK\n"
 
 
 
