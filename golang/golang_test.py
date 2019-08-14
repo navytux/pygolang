@@ -43,29 +43,6 @@ for f in dir(_golang_test):
         globals()[gf] = _
 
 
-# pyrun runs `sys.executable argv... <stdin` and returns its output.
-def pyrun(argv, stdin=None, **kw):
-    from subprocess import Popen, PIPE
-    argv = [sys.executable] + argv
-
-    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
-    # script will succeed on `import golang` when running in-tree.
-    kw = kw.copy()
-    dir_golang = dirname(__file__)  #     .../pygolang/golang
-    dir_top    = dir_golang + '/..' # ~>  .../pygolang
-    pathv = [dir_top]
-    env = kw.pop('env', os.environ.copy())
-    envpath = env.get('PYTHONPATH')
-    if envpath is not None:
-        pathv.append(envpath)
-    env['PYTHONPATH'] = ':'.join(pathv)
-
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, env=env, **kw)
-    stdout, stderr = p.communicate(stdin)
-    if p.returncode:
-        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
-    return stdout
-
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
     # to test process termination exit there.
@@ -1008,6 +985,29 @@ def bench_defer(b):
 
 
 # ---- misc ----
+
+# pyrun runs `sys.executable argv... <stdin` and returns its output.
+def pyrun(argv, stdin=None, **kw):
+    from subprocess import Popen, PIPE
+    argv = [sys.executable] + argv
+
+    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
+    # script will succeed on `import golang` when running in-tree.
+    kw = kw.copy()
+    dir_golang = dirname(__file__)  #     .../pygolang/golang
+    dir_top    = dir_golang + '/..' # ~>  .../pygolang
+    pathv = [dir_top]
+    env = kw.pop('env', os.environ.copy())
+    envpath = env.get('PYTHONPATH')
+    if envpath is not None:
+        pathv.append(envpath)
+    env['PYTHONPATH'] = ':'.join(pathv)
+
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, env=env, **kw)
+    stdout, stderr = p.communicate(stdin)
+    if p.returncode:
+        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
+    return stdout
 
 # panics is similar to pytest.raises and asserts that wrapped code panics with arg.
 class panics:
