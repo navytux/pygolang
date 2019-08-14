@@ -49,10 +49,12 @@ for f in dir(_golang_test):
 def test_go_leaked():
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
+# XXX -> golang.pyx.build_test.py ?
 def test_pyx_user():
     pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
     # XXX copy to tmp first?
     # XXX stdout=None stderr=None - to see debug output
+    # XXX always rebuild?
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
 
     # run built test

@@ -52,6 +52,8 @@ groot = dirname(golang)
 print('groot:  %r' % groot, file=sys.stderr)
 #1/0
 
+# XXX ^^^ -> golang.pyx.build
+
 setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',

@@ -247,7 +247,11 @@ setup(
     extras_require = {
                   'test': ['pytest',
                            'numpy',    # XXX numpy for t(benchlib)
-                           'cython',   # for testprog/golang_pyx_user/
+
+                           # for testprog/golang_pyx_user/
+                           # XXX move -> pygolang[build] ?
+                           'cython',
+                           'setuptools_dso',
                           ],
     },
 
