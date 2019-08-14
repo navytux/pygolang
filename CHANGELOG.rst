@@ -6,7 +6,7 @@ Pygolang change history
 
 XXX
 
-This release is dedicated to |Вера Павловна Супрун|_.
+This release is dedicated to the memory of |Вера Павловна Супрун|_.
 
 .. |Вера Павловна Супрун| replace:: *Вера Павловна Супрун*
 .. _Вера Павловна Супрун: https://navytux.spb.ru/%D0%A2%D1%91%D1%82%D1%8F%20%D0%92%D0%B5%D1%80%D0%B0.pdf#page=3
