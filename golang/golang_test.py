@@ -56,7 +56,7 @@ def test_pyx_user():
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
 
     # run built test
-    _ = pyrun(["-c", "from golang_pyx_user import test; test.main()"], cwd=pyxuser)
+    _ = pyrun(["-c", "from pyxuser import test; test.main()"], cwd=pyxuser)
     assert _ == "ZZZ"
 
 

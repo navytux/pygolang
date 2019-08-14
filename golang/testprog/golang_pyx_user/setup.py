@@ -20,7 +20,8 @@
 
 from __future__ import print_function
 
-from setuptools import Extension, setup
+#from setuptools import Extension, setup
+from setuptools_dso import Extension, setup
 
 
 
@@ -55,7 +56,8 @@ setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',
 
-    ext_modules = [Extension('golang_pyx_user.test', ['golang_pyx_user/test.pyx'],
+    ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx'],
                    include_dirs=[groot],
+                   dsos    = ['golang.runtime.libgolang'],
                    language='c++')],
 )
