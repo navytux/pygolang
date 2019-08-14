@@ -1,3 +1,6 @@
+# cython: language_level=2
+# distutils: language=c++
+#
 # Copyright (C) 2019  Nexedi SA and Contributors.
 #                     Kirill Smelkov <kirr@nexedi.com>
 #
@@ -25,15 +28,18 @@ from golang cimport go, chan, makechan, topyexc
 cdef nogil:
 
     void worker(chan[int] ch, int i, int j):
-        ch.send(i*j)
+        cdef int tx = i*j
+        ch.send(&tx)
 
     void _main() except +topyexc:
         cdef chan[int] ch = makechan[int]()
         cdef int i
         for i in range(3):
             go(worker, i, 4)
+
+        cdef int rx
         for i in range(3):
-            ch.recv()
+            ch.recv(&rx)
 
 def main():
     _main()

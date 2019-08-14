@@ -44,11 +44,16 @@ for f in dir(_golang_test):
         globals()[gf] = _
 
 
-def test_go():
-    # leaked goroutine behaviour check: done in separate process because we need
-    # to test process termination exit there.
+# leaked goroutine behaviour check: done in separate process because we need
+# to test process termination exit there.
+def test_go_leaked():
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
+def test_pyx_user():
+    pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
+    # XXX copy to tmp first?
+    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser)
+    # XXX run built test
 
 
 # benchmark go+join a thread/coroutine.

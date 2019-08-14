@@ -187,6 +187,8 @@ void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     }, frun);
 }
 
+// XXX `tx=i*j; send(&tx)` -> `send(i*j)` (pass by reference) ?
+// XXX what with recv?
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
 template<typename T> _selcase _send(chan<T>, const T*);     // XXX [[nodiscard]] ?
