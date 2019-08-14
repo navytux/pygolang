@@ -240,14 +240,13 @@ setup(
     platforms   = 'any',
     include_package_data = True,
 
-    # XXX setup_requires = ['setuptools_dso']
-    # https://github.com/mdavidsaver/p4p/issues/20
-    # XXX cython -> setup_requires
-    #install_requires = ['gevent', 'six', 'decorator', 'cython', 'setuptools_dso'],
     install_requires = ['gevent', 'six', 'decorator'],
 
     extras_require = {
-                  'test': ['pytest', 'numpy'],      # XXX numpy for t(benchlib)
+                  'test': ['pytest',
+                           'numpy',    # XXX numpy for t(benchlib)
+                           'cython',   # for testprog/golang_pyx_user/
+                          ],
     },
 
     entry_points= {'console_scripts': [
