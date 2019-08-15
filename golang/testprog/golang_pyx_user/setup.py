@@ -52,7 +52,7 @@ groot = dirname(golang)
 print('groot:  %r' % groot, file=sys.stderr)
 #1/0
 
-# XXX ^^^ -> golang.pyx.build
+# XXX ^^^ -> golang.pyx.build .cimport()  XXX or .import() ?
 
 setup(
     name        = 'golang_pyx_user',

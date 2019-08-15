@@ -153,6 +153,8 @@ def Ext(name, srcv, **kw):
     # workaround pip bug that for virtualenv case headers are installed into
     # not-searched include path. https://github.com/pypa/pip/issues/4610
     # (without this e.g. "greenlet/greenlet.h" is not found)
+    #
+    # XXX -> better build.import("greenlet") -> include_dirs ?
     venv_inc = join(sys.prefix, 'include', 'site', 'python' + sysconfig.get_python_version())
     if exists(venv_inc):
         incv.append(venv_inc)
@@ -234,7 +236,7 @@ setup(
                     Ext('golang._time',
                         ['golang/_time.pyx'],
                         depends = ['golang/libgolang.h'],
-                        dsos   = ['golang.runtime.libgolang'],  # XXX needed?
+                        dsos   = ['golang.runtime.libgolang'],
                         language="c++"),
 
                     Ext('golang._internal',   ['golang/_internal.pyx']),
