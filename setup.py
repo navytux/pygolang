@@ -202,7 +202,7 @@ setup(
                         depends         = ['golang/libgolang.h'],
                         include_dirs    = ['.', '3rdparty/include'],
                         define_macros   = [('BUILD_LIBGOLANG', None)],
-                        soversion       = '0.1')],
+                        soversion       = '0.1')],  # XXX take soversion from version?
     ext_modules = [
                     #Ext('golang._g', ['golang/_g.pyx']),
 

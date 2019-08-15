@@ -26,7 +26,7 @@
 
 // ---- C-level API that is always available ----
 
-// XXX annotate with LIBGOLANG_API
+// XXX annotate with LIBGOLANG_API (from https://gcc.gnu.org/wiki/Visibility)
 
 #ifdef  __cplusplus
 namespace golang {
