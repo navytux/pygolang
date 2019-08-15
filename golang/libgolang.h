@@ -24,9 +24,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// ---- C-level API that is always available ----
+// DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
+#if defined _WIN32 || defined __CYGWIN__
+  #ifdef BUILDING_LIBGOLANG
+    #define LIBGOLANG_API __declspec(dllexport)
+  #else
+    #define LIBGOLANG_API __declspec(dllimport)
+  #endif
+#elif __GNUC__ >= 4
+    #define LIBGOLANG_API __attribute__ ((visibility ("default")))
+#else
+    #define LIBGOLANG_API
+#endif
 
-// XXX annotate with LIBGOLANG_API (from https://gcc.gnu.org/wiki/Visibility)
+
+// ---- C-level API that is always available ----
 
 #ifdef  __cplusplus
 namespace golang {
@@ -38,23 +50,23 @@ extern "C" {
 #else
     _Noreturn
 #endif
-void panic(const char *arg);
-const char *recover(void);
+LIBGOLANG_API void panic(const char *arg);
+LIBGOLANG_API const char *recover(void);
 
-void _taskgo(void (*f)(void *arg), void *arg);
-void _tasknanosleep(uint64_t dt);
-uint64_t _nanotime(void);
+LIBGOLANG_API void _taskgo(void (*f)(void *arg), void *arg);
+LIBGOLANG_API void _tasknanosleep(uint64_t dt);
+LIBGOLANG_API uint64_t _nanotime(void);
 
 typedef struct _chan _chan;
-_chan *_makechan(unsigned elemsize, unsigned size);
-void _chanxincref(_chan *ch);
-void _chanxdecref(_chan *ch);
-void _chansend(_chan *ch, const void *ptx);
-void _chanrecv(_chan *ch, void *prx);
-bool _chanrecv_(_chan *ch, void *prx);
-void _chanclose(_chan *ch);
-unsigned _chanlen(_chan *ch);
-unsigned _chancap(_chan *ch);
+LIBGOLANG_API _chan *_makechan(unsigned elemsize, unsigned size);
+LIBGOLANG_API void _chanxincref(_chan *ch);
+LIBGOLANG_API void _chanxdecref(_chan *ch);
+LIBGOLANG_API void _chansend(_chan *ch, const void *ptx);
+LIBGOLANG_API void _chanrecv(_chan *ch, void *prx);
+LIBGOLANG_API bool _chanrecv_(_chan *ch, void *prx);
+LIBGOLANG_API void _chanclose(_chan *ch);
+LIBGOLANG_API unsigned _chanlen(_chan *ch);
+LIBGOLANG_API unsigned _chancap(_chan *ch);
 
 enum _chanop {
     _CHANSEND   = 0,
@@ -71,7 +83,7 @@ typedef struct _selcase {
     bool            *rxok;  // chanrecv_: where to save ok; otherwise not used
 } _selcase;
 
-int _chanselect(const _selcase *casev, int casec);
+LIBGOLANG_API int _chanselect(const _selcase *casev, int casec);
 
 // _selsend creates `_chansend(ch, ptx)` case for _chanselect.
 static inline
@@ -110,7 +122,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 }
 
 // _default represents default case for _select.
-extern const _selcase _default;
+extern LIBGOLANG_API const _selcase _default;
 
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use
@@ -151,13 +163,13 @@ typedef struct _libgolang_runtime_ops {
 
 } _libgolang_runtime_ops;
 
-void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
+LIBGOLANG_API void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
 
 
 // for testing
-int _tchanrecvqlen(_chan *ch);
-int _tchansendqlen(_chan *ch);
-extern void (*_tblockforever)(void);
+LIBGOLANG_API int _tchanrecvqlen(_chan *ch);
+LIBGOLANG_API int _tchansendqlen(_chan *ch);
+LIBGOLANG_API extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 }}
@@ -177,7 +189,7 @@ namespace golang {
 
 // go provides type-safe wrapper over _taskgo.
 template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
-void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
+inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));
     _taskgo([](void *_frun) {
@@ -246,7 +258,7 @@ private:
     static chan<T> __make(unsigned elemsize, unsigned size);
 };
 
-template<typename T>
+template<typename T> inline
 chan<T> chan<T>::__make(unsigned elemsize, unsigned size) {
     chan<T> ch;
     ch._ch = _makechan(elemsize, size);
@@ -256,7 +268,7 @@ chan<T> chan<T>::__make(unsigned elemsize, unsigned size) {
 }
 
 // makechan<T> makes new chan<T> with capacity=size.
-template<typename T>
+template<typename T> static inline
 chan<T> makechan(unsigned size) {
     return chan<T>::__make(sizeof(T), size);
 }
@@ -283,19 +295,19 @@ int select(const _selcase (&casev)[N]) {
 }
 
 // _send<T> creates `ch<T>.send(ptx)` case for select.
-template<typename T>
+template<typename T> inline
 _selcase _send(chan<T> ch, const T *ptx) {
     return _selsend(ch._ch, ptx);
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.
-template<typename T>
+template<typename T> inline
 _selcase _recv(chan<T> ch, T *prx) {
     return _selrecv(ch._ch, prx);
 }
 
 // _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
-template<typename T>
+template<typename T> inline
 _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
