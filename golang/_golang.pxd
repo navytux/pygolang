@@ -35,7 +35,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover()
 
-    void go(...)    # typecheckin is done by C
+    void go(...)    # typechecking is done by C
 
     struct _chan
     cppclass chan[T]:
