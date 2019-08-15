@@ -54,15 +54,14 @@ def test_pyx_user():
     pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
     # XXX copy to tmp first?
     # XXX stdout=None stderr=None - to see debug output
-    # XXX always rebuild?
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
 
     # run built test.
     _ = pyrun(["-c",
-        # XXX `import golang` is a hack: it _golang.so -> libgolang.so and this way
-        # dynamic linker already has libgolang.so DSO for all further imports. If
-        # we don't, current state of setuptools_dos, is that `import pyxuser.test`
-        # will fail finding libgolang.so.
+        # XXX `import golang` is a hack: it dynamically loads _golang.so -> libgolang.so,
+        # and this way dynamic linker already has libgolang.so DSO found and in
+        # memory for all further imports. If we don't, current state of setuptools_dso
+        # is that `import pyxuser.test` will fail finding libgolang.so.
         "import golang;" +
         "from pyxuser import test; test.main()"], cwd=pyxuser)
     assert _ == "test.pyx: OK\n"
