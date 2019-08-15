@@ -189,7 +189,7 @@ namespace golang {
 
 // go provides type-safe wrapper over _taskgo.
 template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
-inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
+static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));
     _taskgo([](void *_frun) {
