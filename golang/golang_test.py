@@ -64,7 +64,7 @@ def test_pyx_user():
         # is that `import pyxuser.test` will fail finding libgolang.so.
         "import golang;" +
         "from pyxuser import test; test.main()"], cwd=pyxuser)
-    assert _ == "test.pyx: OK\n"
+    assert _ == b"test.pyx: OK\n"
 
 
 
