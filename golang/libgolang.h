@@ -289,6 +289,7 @@ template<typename T> static inline
 chan<T> makechan(unsigned size) {
     chan<T> ch;
     unsigned elemsize = std::is_empty<T>::value ? 0 : sizeof(T);
+    //printf("makechan<%s>  elemsize=%d\n", typeid(T).name(), elemsize);
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
