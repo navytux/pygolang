@@ -288,8 +288,12 @@ chan<void> makechan(unsigned size) {
 template<typename T> static inline
 chan<T> makechan(unsigned size) {
     chan<T> ch;
-    unsigned elemsize = std::is_empty<T>::value ? 0 : sizeof(T);
+    unsigned elemsize = std::is_empty<T>::value
+        ? 0          // eg struct{} for which sizeof() gives 1
+        : sizeof(T);
     //printf("makechan<%s>  elemsize=%d\n", typeid(T).name(), elemsize);
+    if (!std::is_trivially_copyable<T>::value)
+        panic("TODO chan<T>: T is copy is not trivial");
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
