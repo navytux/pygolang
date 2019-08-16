@@ -29,8 +29,9 @@ from libc.stdio cimport printf
 cdef nogil:
 
     void worker(chan[int] ch, int i, int j):
-        cdef int tx = i*j
-        ch.send(&tx)
+        #cdef int tx = i*j
+        #ch.send(&tx)
+        ch.send(i*j)
 
     void _main() except +topyexc:
         cdef chan[int] ch = makechan[int]()
@@ -38,9 +39,11 @@ cdef nogil:
         for i in range(3):
             go(worker, ch, i, 4)
 
-        cdef int rx
         for i in range(3):
-            ch.recv(&rx)
+            ch.recv()
+
+        #ch.close()
+        #_, ok = ch.recv_()
 
         printf("test.pyx: OK\n")
 

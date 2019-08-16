@@ -160,7 +160,8 @@ cdef class pychan:
             # XXX could this channel still be connected to outside?
             # XXX if yes - draining is not correct
             # XXX -> check ch.refcnt?
-            chanrecv_pyexc(ch, &_rx)
+            #chanrecv_pyexc(ch, &_rx)
+            _rx = chanrecv_pyexc(ch)
             Py_DECREF(<object>_rx)
 
     # send sends object to a receiver.
@@ -172,7 +173,8 @@ cdef class pychan:
         try:
             with nogil:
                 _obj = <PyObject *>obj
-                chansend_pyexc(pych.ch, &_obj)
+                #chansend_pyexc(pych.ch, &_obj)
+                chansend_pyexc(pych.ch, _obj)   # XXX just use <PyObject *>obj
         except _PanicError:
             # the object was not sent - e.g. it was send on a closed channel
             Py_DECREF(obj)
@@ -383,13 +385,17 @@ cdef nogil:
     chan[pPyObject] makechan_pyobj_pyexc(unsigned size)         except +topyexc:
         return makechan[pPyObject](size)
 
-    void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)    except +topyexc:
-        ch.send(_ptx)
+    #void chansend_pyexc(chan[pPyObject] ch, PyObject **_ptx)    except +topyexc:
+    #    ch.send(_ptx)
+    void chansend_pyexc(chan[pPyObject] ch, PyObject *_tx)      except +topyexc:
+        ch.send(_tx)
 
     bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)   except +topyexc:
         return ch.recv_(_prx)
-    void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
-        ch.recv(_prx)
+    #void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
+    #    ch.recv(_prx)
+    PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:
+        return ch.recv()
     void chanclose_pyexc(chan[pPyObject] ch)                    except +topyexc:
         ch.close()
     unsigned chanlen_pyexc(chan[pPyObject] ch)                  except +topyexc:

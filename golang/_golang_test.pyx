@@ -27,7 +27,7 @@
 from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
-    _recv, _recv_, _default, panic, pypanic, topyexc
+    _recv, _recv_, _default, structZ, panic, pypanic, topyexc
 from golang cimport time
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
@@ -105,8 +105,8 @@ cdef void _test_chan_nogil() nogil except +topyexc:
     cdef Point p
     cdef cbool jok
 
-    i=+1; chi.send(&i)
-    j=-1; chi.recv(&j)
+    i=+1; chi.send(i)
+    j=-1; j = chi.recv()
     if not (j == i):
         panic("send -> recv != I")
 
@@ -136,13 +136,14 @@ def test_chan_nogil():
 
 # small test to verify pyx(nogil) go.
 cdef void _test_go_nogil() nogil except +topyexc:
-    cdef chan[void] done = makechan[void]()
+    cdef chan[structZ] done = makechan[structZ]()
     cdef int i = 111
     go(_work, &i, done)
-    done.recv(NULL)
+    #done.recv(NULL)
+    done.recv()
     if i != 222:
         panic("after done: i != 222")
-cdef void _work(int *pi, chan[void] done) nogil:
+cdef void _work(int *pi, chan[structZ] done) nogil:
     pi[0] = 222
     done.close()
 

@@ -36,8 +36,10 @@ void _test_chan_cpp() {
     Point p;
     bool  jok;
 
-    i=+1; chi.send(&i);
-    j=-1; chi.recv(&j);
+    //i=+1; chi.send(&i);
+    //j=-1; chi.recv(&j);
+    i=+1; chi.send(i);
+    j=-1; j = chi.recv();
     if (j != i)
         panic("send -> recv != I");
 
@@ -128,36 +130,42 @@ void _test_chan_vs_stackdeadwhileparked() {
     go([&]() {
         waitBlocked_RX(ch);
         usestack_and_call([&]() {
-            int tx = 111; ch.send(&tx);
+            //int tx = 111; ch.send(&tx);
+            ch.send(111);
         });
     });
     usestack_and_call([&]() {
-        int rx; ch.recv(&rx);
+        //int rx; ch.recv(&rx);
+        int rx = ch.recv();
         if (rx != 111)
             panic("recv(111) != 111");
     });
 
     // send
-    auto done = makechan<void>();
+    auto done = makechan<structZ>();
     go([&]() {
         waitBlocked_TX(ch);
         usestack_and_call([&]() {
-            int rx = 0; ch.recv(&rx);
+            //int rx = 0; ch.recv(&rx);
+            int rx = ch.recv();
             if (rx != 222)
                 panic("recv(222) != 222");
         });
         done.close();
     });
     usestack_and_call([&]() {
-        int tx = 222; ch.send(&tx);
+        //int tx = 222; ch.send(&tx);
+        ch.send(222);
     });
-    done.recv(NULL);
+    //done.recv(NULL);
+    done.recv();
 
     // select(recv)
     go([&]() {
         waitBlocked_RX(ch);
         usestack_and_call([&]() {
-            int tx = 333; ch.send(&tx);
+            //int tx = 333; ch.send(&tx);
+            ch.send(333);
         });
     });
     usestack_and_call([&]() {
@@ -171,11 +179,12 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
 
     // select(send)
-    done = makechan<void>();
+    done = makechan<structZ>();
     go([&]() {
         waitBlocked_TX(ch);
         usestack_and_call([&]() {
-            int rx = 0; ch.recv(&rx);
+            //int rx = 0; ch.recv(&rx);
+            int rx = ch.recv();
 //          printf("RX: %d\n", rx);
             if (rx != 444)
                 panic("recv(444) != 444");
@@ -188,5 +197,6 @@ void _test_chan_vs_stackdeadwhileparked() {
         if (_ != 0)
             panic("select(send, 444): selected !0");
     });
-    done.recv(NULL);
+    //done.recv(NULL);
+    done.recv();
 }

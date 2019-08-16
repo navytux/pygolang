@@ -180,10 +180,11 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 
-#include <functional>
-#include <tuple>
 #include <exception>        // bad_alloc & co
+#include <functional>
 #include <initializer_list>
+#include <tuple>
+#include <type_traits>
 
 namespace golang {
 
@@ -199,8 +200,6 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     }, frun);
 }
 
-// XXX `tx=i*j; send(&tx)` -> `send(i*j)` (pass by reference) ?
-// XXX what with recv?
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
 template<typename T> _selcase _send(chan<T>, const T*);     // XXX [[nodiscard]] ?
@@ -237,8 +236,12 @@ public:
         return *this;
     }
 
-    void send(const T *ptx)     { _chansend(_ch, ptx);          }
-    void recv(T *prx)           { _chanrecv(_ch, prx);          }
+    // XXX `tx=i*j; send(&tx)` -> `send(i*j)` (pass by reference) ?
+    //void send(const T *ptx)     { _chansend(_ch, ptx);          }
+    //void recv(T *prx)           { _chanrecv(_ch, prx);          }
+    //bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
+    void send(const T &ptx)     { _chansend(_ch, &ptx);          }
+    T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
     bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
@@ -254,10 +257,11 @@ public:
     friend _selcase _recv<T>(chan<T>, T*);
     friend _selcase _recv_<T>(chan<T>, T*, bool*);
 
-private:
-    static chan<T> __make(unsigned elemsize, unsigned size);
+//private:
+//    static chan<T> __make(unsigned elemsize, unsigned size);
 };
 
+#if 0
 template<typename T> inline
 chan<T> chan<T>::__make(unsigned elemsize, unsigned size) {
     chan<T> ch;
@@ -278,7 +282,24 @@ template<> inline
 chan<void> makechan(unsigned size) {
     return chan<void>::__make(0/* _not_ sizeof(void) which = 1*/, size);
 }
+#endif
 
+// makechan<T> makes new chan<T> with capacity=size.
+template<typename T> static inline
+chan<T> makechan(unsigned size) {
+    chan<T> ch;
+    unsigned elemsize = std::is_empty<T>::value ? 0 : sizeof(T);
+    ch._ch = _makechan(elemsize, size);
+    if (ch._ch == NULL)
+        throw std::bad_alloc();
+    return ch;
+}
+
+// structZ is struct{}.
+//
+// it's a workaround for e.g. makechan<struct{}> giving
+// "error: types may not be defined in template arguments".
+struct structZ{};
 
 // select, together with _send<T>, _recv<T> and _recv_<T>, provide type-safe
 // wrappers over _chanselect and _selsend/_selrecv/_selrecv_.

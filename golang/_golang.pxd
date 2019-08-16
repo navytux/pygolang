@@ -40,8 +40,11 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     struct _chan
     cppclass chan[T]:
         chan();
-        void send(T *ptx)
-        void recv(T *prx)
+        #void send(T *ptx)
+        #void recv(T *prx)
+        #bint recv_(T *prx)
+        void send(T)
+        T recv()
         bint recv_(T *prx)
         void close()
         unsigned len()
@@ -51,6 +54,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         void operator=(nullptr_t)
         _chan *_rawchan()
     chan[T] makechan[T](unsigned size)
+
+    struct structZ:
+        pass
 
     enum _chanop:
         _CHANSEND
@@ -67,6 +73,15 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     _selcase _recv[T](chan[T] ch, T* prx)
     _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
     const _selcase _default
+
+
+# # structZ is typedef for struct{}
+# cdef extern from * nogil:
+#     """
+#     struct structZ {};
+#     """
+#     struct structZ:
+#         pass
 
 
 # ---- python bits ----
