@@ -292,8 +292,11 @@ chan<T> makechan(unsigned size) {
         ? 0          // eg struct{} for which sizeof() gives 1
         : sizeof(T);
     //printf("makechan<%s>  elemsize=%d\n", typeid(T).name(), elemsize);
+#if 0
     if (!std::is_trivially_copyable<T>::value)
-        panic("TODO chan<T>: T is copy is not trivial");
+        panic("TODO chan<T>: T copy is not trivial");
+#endif
+    static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
