@@ -42,8 +42,8 @@ cdef nogil:
         for i in range(3):
             ch.recv()
 
-        #ch.close()
-        #_, ok = ch.recv_()
+        ch.close()
+        _, ok = ch.recv_()
 
         printf("test.pyx: OK\n")
 

@@ -191,8 +191,12 @@ cdef class pychan:
         cdef PyObject *_rx = NULL
         cdef bint ok
 
+        cdef (PyObject*, bint) zzz  # XXX temp
         with nogil:
-            ok = chanrecv__pyexc(pych.ch, &_rx)
+            #ok = chanrecv__pyexc(pych.ch, &_rx)
+            _rx, ok = chanrecv__pyexc(pych.ch)
+            #zzz = chanrecv__pyexc(pych.ch)      # XXX temp
+            #_rx, ok = zzz
 
         if not ok:
             return (None, ok)
@@ -204,7 +208,7 @@ cdef class pychan:
 
     # recv receives from the channel.
     def recv(pych): # -> rx
-        rx, _ = pych.recv_()
+        rx, _ = pych.recv_()    # XXX call recv_ via C
 #       print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
 #       time.sleep(1)
         return rx
@@ -390,8 +394,19 @@ cdef nogil:
     void chansend_pyexc(chan[pPyObject] ch, PyObject *_tx)      except +topyexc:
         ch.send(_tx)
 
-    bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)   except +topyexc:
-        return ch.recv_(_prx)
+    #bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)   except +topyexc:
+    #    return ch.recv_(_prx)
+    (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
+        #return ch.recv_()
+        cdef PyObject* _rx
+        cdef bint ok
+        cdef (PyObject*, bint) _
+        #_rx, ok = ch.recv_()
+        _ = ch.recv_()
+        (_rx, ok) = _
+        #_rx = _.first
+        #ok  = _.second
+        return <PyObject*>_rx, ok # XXX else "Cannot assign type 'T' to 'PyObject *'"
     #void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
     #    ch.recv(_prx)
     PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:

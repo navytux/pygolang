@@ -183,8 +183,9 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #include <exception>        // bad_alloc & co
 #include <functional>
 #include <initializer_list>
-#include <tuple>
+//#include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace golang {
 
@@ -245,7 +246,10 @@ public:
     //bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
-    bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
+    //std::tuple<T,bool> recv_()  { T rx; bool ok = _chanrecv_(_ch, &rx);
+    //                              return std::make_tuple(rx, ok);  }
+    std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
+                                  return std::make_pair(rx, ok);  }
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
     unsigned cap()              { return _chancap(_ch);         }
@@ -328,19 +332,19 @@ int select(const _selcase (&casev)[N]) {
 
 // _send<T> creates `ch<T>.send(ptx)` case for select.
 template<typename T> inline
-_selcase _send(chan<T> ch, const T *ptx) {
+_selcase _send(chan<T> ch, const T *ptx) {      // XXX pass chan by ref
     return _selsend(ch._ch, ptx);
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.
 template<typename T> inline
-_selcase _recv(chan<T> ch, T *prx) {
+_selcase _recv(chan<T> ch, T *prx) {            // XXX ref
     return _selrecv(ch._ch, prx);
 }
 
 // _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
 template<typename T> inline
-_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
+_selcase _recv_(chan<T> ch, T *prx, bool *pok) {    // XXX ref
     return _selrecv_(ch._ch, prx, pok);
 }
 

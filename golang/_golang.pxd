@@ -20,6 +20,7 @@
 """_golang.pyx implements golang.pyx - see __init__.pxd for details"""
 
 from libcpp cimport nullptr_t, nullptr as nil
+from libcpp.utility cimport pair    # XXX recheck if needed
 
 # nogil pyx-level golang API.
 #
@@ -43,9 +44,10 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         #void send(T *ptx)
         #void recv(T *prx)
         #bint recv_(T *prx)
-        void send(T)
+        void send(const T&)
         T recv()
-        bint recv_(T *prx)
+        #(T, bint) recv_()
+        pair[T, bint] recv_()
         void close()
         unsigned len()
         unsigned cap()
@@ -69,9 +71,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
     int select(_selcase casev[])
 
-    _selcase _send[T](chan[T] ch, const T *ptx)
-    _selcase _recv[T](chan[T] ch, T* prx)
-    _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)
+    _selcase _send[T](chan[T] ch, const T *ptx)         # XXX ch by ref ?
+    _selcase _recv[T](chan[T] ch, T* prx)               # XXX ch by ref ?
+    _selcase _recv_[T](chan[T] ch, T* prx, bint *pok)   # XXX ch by ref ?
     const _selcase _default
 
 
