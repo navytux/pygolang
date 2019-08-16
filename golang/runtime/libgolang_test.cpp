@@ -62,8 +62,8 @@ void _test_chan_cpp() {
     if (!(j == 0 && jok == false))
         panic("recv_ from closed != (0, false)");
 
-    chan<chan<int>> zzz = NULL;
-    chan<chan<int>> qqq = makechan<chan<int>>();
+    // XXX chan<chan> is currently TODO
+    //chan<chan<int>> zzz;
 }
 
 // waitBlocked waits until either a receive (if rx) or send (if tx) operation

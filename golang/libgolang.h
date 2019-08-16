@@ -236,7 +236,10 @@ public:
         return *this;
     }
 
-    // XXX `tx=i*j; send(&tx)` -> `send(i*j)` (pass by reference) ?
+    // _chan does plain memcpy to copy elements.
+    // TODO allow all types (e.g. element=chan itself)
+    static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
+
     //void send(const T *ptx)     { _chansend(_ch, ptx);          }
     //void recv(T *prx)           { _chanrecv(_ch, prx);          }
     //bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
@@ -296,7 +299,7 @@ chan<T> makechan(unsigned size) {
     if (!std::is_trivially_copyable<T>::value)
         panic("TODO chan<T>: T copy is not trivial");
 #endif
-    static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
+//  static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
