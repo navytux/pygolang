@@ -128,12 +128,13 @@ extern LIBGOLANG_API const _selcase _default;
 // libgolang runtime - the runtime must be initialized before any other libgolang use
 typedef struct _libgolang_sema _libgolang_sema;
 typedef enum _libgolang_runtime_flags {
-    // it is not safe to access goroutine's stack memory while the goroutine is parked.
+    // STACK_DEAD_WHILE_PARKED indicates that it is not safe to access
+    // goroutine's stack memory while the goroutine is parked.
     //
     // for example gevent/greenlet/stackless use it because they copy g's stack
     // to heap on park and back on unpark. This way if objects on g's stack
     // were accessed while g was parked it would be memory of another g's stack.
-    STACK_DEAD_WHILE_PARKED = 1,    // XXX -> STACK_SWAPPED_WHILE_PACKED ?
+    STACK_DEAD_WHILE_PARKED = 1,
 } _libgolang_runtime_flags;
 typedef struct _libgolang_runtime_ops {
     _libgolang_runtime_flags    flags;
@@ -183,7 +184,6 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #include <exception>        // bad_alloc & co
 #include <functional>
 #include <initializer_list>
-//#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -238,7 +238,7 @@ public:
     }
 
     // _chan does plain memcpy to copy elements.
-    // TODO allow all types (e.g. element=chan itself)
+    // TODO allow all types (e.g. element=chan )
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
     //void send(const T *ptx)     { _chansend(_ch, ptx);          }
@@ -246,10 +246,8 @@ public:
     //bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
     void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
-    //std::tuple<T,bool> recv_()  { T rx; bool ok = _chanrecv_(_ch, &rx);
-    //                              return std::make_tuple(rx, ok);  }
     std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
-                                  return std::make_pair(rx, ok);  }
+                                  return std::make_pair(rx, ok); }
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
     unsigned cap()              { return _chancap(_ch);         }
@@ -299,11 +297,6 @@ chan<T> makechan(unsigned size) {
         ? 0          // eg struct{} for which sizeof() gives 1
         : sizeof(T);
     //printf("makechan<%s>  elemsize=%d\n", typeid(T).name(), elemsize);
-#if 0
-    if (!std::is_trivially_copyable<T>::value)
-        panic("TODO chan<T>: T copy is not trivial");
-#endif
-//  static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
