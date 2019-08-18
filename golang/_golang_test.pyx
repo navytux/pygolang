@@ -96,6 +96,11 @@ ctypedef struct Point:
     int x
     int y
 
+# TODO kill this and teach Cython to coerce pair[X,Y] -> (X,Y)
+cdef (int, bint) recv_(chan[int] ch) nogil:
+    _ = ch.recv_()
+    return (_.first, _.second)
+
 cdef void _test_chan_nogil() nogil except +topyexc:
     cdef chan[int]   chi = makechan[int](1)
     cdef chan[Point] chp = makechan[Point]()
@@ -120,12 +125,12 @@ cdef void _test_chan_nogil() nogil except +topyexc:
     if _ != 0:
         panic("select: selected !0")
 
-    jok = chi.recv_(&j)
+    j, jok = recv_(chi)
     if not (j == 2 and jok == True):
         panic("recv_ != (2, true)")
 
     chi.close()
-    jok = chi.recv_(&j)
+    j, jok = recv_(chi)
     if not (j == 0 and jok == False):
         panic("recv_ from closed != (0, false)")
 
