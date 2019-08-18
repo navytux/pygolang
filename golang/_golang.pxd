@@ -20,7 +20,7 @@
 """_golang.pyx implements golang.pyx - see __init__.pxd for details"""
 
 from libcpp cimport nullptr_t, nullptr as nil
-from libcpp.utility cimport pair    # XXX recheck if needed
+from libcpp.utility cimport pair
 
 # nogil pyx-level golang API.
 #

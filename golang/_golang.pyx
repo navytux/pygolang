@@ -397,16 +397,8 @@ cdef nogil:
     #bint chanrecv__pyexc(chan[pPyObject] ch, PyObject **_prx)   except +topyexc:
     #    return ch.recv_(_prx)
     (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
-        #return ch.recv_()
-        cdef PyObject* _rx
-        cdef bint ok
-        cdef (PyObject*, bint) _
-        #_rx, ok = ch.recv_()
         _ = ch.recv_()
-        (_rx, ok) = _
-        #_rx = _.first
-        #ok  = _.second
-        return <PyObject*>_rx, ok # XXX else "Cannot assign type 'T' to 'PyObject *'"
+        return (_.first, _.second)  # TODO teach cython to coerce pair[X,Y] -> (X,Y)
     #void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
     #    ch.recv(_prx)
     PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:
