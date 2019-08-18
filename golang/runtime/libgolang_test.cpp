@@ -21,8 +21,11 @@
 
 #include "golang/libgolang.h"
 #include <stdio.h>
+#include <tuple>
 using namespace golang;
 using std::function;
+using std::tie;
+
 
 struct Point {
     int x, y;
@@ -53,12 +56,12 @@ void _test_chan_cpp() {
     if (_ != 0)
         panic("select: selected !0");
 
-    jok = chi.recv_(&j);
+    tie(j, jok) = chi.recv_();
     if (!(j == 2 && jok == true))
         panic("recv_ != (2, true)");
 
     chi.close();
-    jok = chi.recv_(&j);
+    tie(j, jok) = chi.recv_();
     if (!(j == 0 && jok == false))
         panic("recv_ from closed != (0, false)");
 

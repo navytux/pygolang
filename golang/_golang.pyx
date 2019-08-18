@@ -398,7 +398,7 @@ cdef nogil:
     #    return ch.recv_(_prx)
     (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
         _ = ch.recv_()
-        return (_.first, _.second)  # TODO teach cython to coerce pair[X,Y] -> (X,Y)
+        return (_.first, _.second)  # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
     #void chanrecv_pyexc(chan[pPyObject] ch, PyObject **_prx)    except +topyexc:
     #    ch.recv(_prx)
     PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:
