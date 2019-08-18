@@ -29,8 +29,6 @@ from libc.stdio cimport printf
 cdef nogil:
 
     void worker(chan[int] ch, int i, int j):
-        #cdef int tx = i*j
-        #ch.send(&tx)
         ch.send(i*j)
 
     void _main() except +topyexc:
