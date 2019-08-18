@@ -20,8 +20,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-# use a bit of golang.pyx nogil features, mainly to verify that external
-# project can build against golang in pyx mode.
+# Small program that uses a bit of golang.pyx nogil features, mainly to verify
+# that external project can build against golang in pyx mode.
 
 from golang cimport go, chan, makechan, topyexc
 from libc.stdio cimport printf
@@ -43,7 +43,8 @@ cdef nogil:
             ch.recv()
 
         ch.close()
-        _, ok = ch.recv_()
+        #_, ok = ch.recv_()     # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
+        ch.recv_()
 
         printf("test.pyx: OK\n")
 
