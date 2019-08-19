@@ -40,9 +40,6 @@ cdef extern from * nogil:
     const double minute         "golang_time_minute"
     const double hour           "golang_time_hour"
 
-#cdef nogil:
-#    double now()
-#    void   sleep(double dt)
 
 cdef extern from "golang/libgolang.h" namespace "golang::time" nogil:
     void   sleep(double dt)
