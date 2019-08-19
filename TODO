@@ -6,6 +6,7 @@
 - gimport to import go123 released to pypi
 
 - chan_rx + chan_tx
+- chanZ ?
 
 ? `for x in chan`	~ `for x := range chan`
 
