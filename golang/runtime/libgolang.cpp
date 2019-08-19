@@ -255,7 +255,6 @@ struct _RecvSendWaiting {
     _chan       *chan;  // channel receiver/sender is waiting on
 
     list_head   in_rxtxq; // in recv or send queue of the channel (_chan._recvq|_sendq -> _)
-//  list_head   in_group; // in wait group (_WaitGroup.waitq -> _)
 
     // recv: on wakeup: sender|closer -> receiver
     // send: ptr-to data to send
@@ -276,7 +275,6 @@ private:
 //
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
-//  list_head  waitq;   // waiters of this group (_ -> _RecvSendWaiting.in_group)
     Sema       _sema;   // used for wakeup
 
     Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
@@ -308,16 +306,13 @@ void _RecvSendWaiting::init(_WaitGroup *group, _chan *ch) {
     w->group = group;
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
-//  INIT_LIST_HEAD(&w->in_group);
     w->pdata = NULL;
     w->ok    = false;
     w->sel_n = -1;
-//  list_add_tail(&w->in_group, &group->waitq);
 }
 
 _WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
-//  INIT_LIST_HEAD(&group->waitq);
     group->_sema.acquire();
     group->which = NULL;
 }
@@ -356,7 +351,6 @@ void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
-    //printf("group %p: wakeup\tg.which=%p\n", group, group->which);
     group->_sema.release();
 }
 
@@ -817,31 +811,10 @@ static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*)
 // if no case is ready and default case was provided, select chooses default.
 // if no case is ready and default was not provided, select blocks until one case becomes ready.
 //
-// returns: selected case number and receive info (None if send case was selected).
+// returns: selected case number.
 //
-// example:
-//
-//   _, _rx = select(
-//       ch1.recv,           # 0
-//       ch2.recv_,          # 1
-//       (ch2.send, obj2),   # 2
-//       default,            # 3
-//   )
-//   if _ == 0:
-//       # _rx is what was received from ch1
-//       ...
-//   if _ == 1:
-//       # _rx is (rx, ok) of what was received from ch2
-//       ...
-//   if _ == 2:
-//       # we know obj2 was sent to ch2
-//       ...
-//   if _ == 3:
-//       # default case
-//       ...
-//
-// XXX update ^^^
-// XXX casev is not modified and can be used for next _chanselect calls.
+// See `select` documentation for user-friendly usage.
+// NOTE casev is not modified and can be used for next _chanselect calls.
 int _chanselect(const _selcase *casev, int casec) {
     if (casec < 0)
         panic("select: casec < 0");
