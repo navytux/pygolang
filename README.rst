@@ -2,7 +2,7 @@
  Pygolang - Go-like features for Python and Cython
 ===================================================
 
-Package `golang` provides Go-like features for Python:   XXX +pyx
+Package `golang` provides Go-like features for Python:
 
 - `gpython` is Python interpreter with support for lightweight threads.
 - `go` spawns lightweight thread.
@@ -10,6 +10,19 @@ Package `golang` provides Go-like features for Python:   XXX +pyx
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
+
+Package `golang.pyx` provides__ similar features for Cython/nogil.
+
+__ `Cython/nogil mode`_
+
+.. .. For Cython/nogil `golang.pyx` package with similar features is also provided__.
+.. .. This allows to take advantage of multicore CPU without being limited by GIL.
+.. ..
+.. .. Besides Python, Cython/nogil `golang.pyx` package with similar features is also provided__.
+.. .. This allows to take advantage of multicore CPU without being limited by GIL.
+.. ..
+.. .. __ `Cython/nogil mode`_
+.. .. __ `Cython/nogil mode`_
 
 Additional packages and utilities are also provided__ to close other gaps
 between Python and Go environments.
@@ -19,6 +32,10 @@ __ `Additional packages and utilities`_
 See also appendix for `History of Python concurrency`__.
 
 __ `Appendix I. History of Python concurrency`_
+
+
+.. contents::
+   :depth: 1
 
 
 GPython
@@ -148,6 +165,7 @@ practically natively modelled with `try`/`except`.
 If `defer` is used, the function that uses it must be wrapped with `@func`
 decorator.
 
+
 Import
 ------
 
@@ -167,6 +185,13 @@ will import either
 - `lab.nexedi.com/kirr/go123/xnet/lonet/__init__.py`
 
 located in `src/` under `$GOPATH`.
+
+
+Cython/nogil mode
+-----------------
+
+XXX
+
 
 --------
 
