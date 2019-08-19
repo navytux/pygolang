@@ -21,20 +21,21 @@
 
 from libc.stdint cimport uint64_t
 
-cdef extern from "golang/libgolang.h" namespace "golang" nogil:
-    void     _tasknanosleep(uint64_t dt)
-    uint64_t _nanotime()
-
-# now returns current time in seconds.
-cdef double now() nogil:
-    cdef uint64_t t_ns = _nanotime()
-    cdef double t_s = t_ns * 1E-9
-    return t_s
-
-# sleep pauses current goroutine for at least dt seconds.
-cdef void sleep(double dt) nogil:
-    cdef uint64_t dt_ns = <uint64_t>(dt * 1E9)    # XXX overflow
-    _tasknanosleep(dt_ns)
+#    void     _tasknanosleep(uint64_t dt)
+#    uint64_t _nanotime()
+#
+## now returns current time in seconds.
+## XXX -> golang::time::now ?
+#cdef double now() nogil:
+#    cdef uint64_t t_ns = _nanotime()
+#    cdef double t_s = t_ns * 1E-9
+#    return t_s
+#
+## sleep pauses current goroutine for at least dt seconds.
+## XXX -> golang::time::sleep ?
+#cdef void sleep(double dt) nogil:
+#    cdef uint64_t dt_ns = <uint64_t>(dt * 1E9)    # XXX overflow
+#    _tasknanosleep(dt_ns)
 
 
 def pynow(): # -> t

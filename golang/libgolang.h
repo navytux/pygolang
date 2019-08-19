@@ -340,11 +340,7 @@ namespace time {
 LIBGOLANG_API void sleep(double dt);
 
 // now returns current time in seconds.
-static inline double now() {
-    uint64_t t_ns = _nanotime();
-    double t_s = t_ns * 1E-9;   // XXX overflow
-    return t_s;
-}
+LIBGOLANG_API double now();
 
 }   // golang::time::
 

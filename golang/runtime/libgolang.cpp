@@ -1145,4 +1145,10 @@ void sleep(double dt) {
     _tasknanosleep(dt_ns);
 }
 
+double now() {
+    uint64_t t_ns = _nanotime();
+    double t_s = t_ns * 1E-9;   // XXX overflow
+    return t_s;
+}
+
 }}  // golang::time::
