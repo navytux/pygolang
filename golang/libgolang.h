@@ -272,9 +272,9 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-template<typename T> [[nodiscard]] _selcase _send(chan<T>, const T*);
-template<typename T> [[nodiscard]] _selcase _recv(chan<T>, T* = NULL);  // XXX test
-template<typename T> [[nodiscard]] _selcase _recv_(chan<T>, T*, bool*);
+template<typename T> [[nodiscard]] _selcase _send(const chan<T>&, const T*);
+template<typename T> [[nodiscard]] _selcase _recv(const chan<T>&, T* = NULL);  // XXX test
+template<typename T> [[nodiscard]] _selcase _recv_(const chan<T>&, T*, bool*);
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -327,9 +327,9 @@ public:
     // for testing
     _chan *_rawchan()           { return _ch;   }
 
-    friend _selcase _send<T>(chan<T>, const T*);
-    friend _selcase _recv<T>(chan<T>, T*);
-    friend _selcase _recv_<T>(chan<T>, T*, bool*);
+    friend _selcase _send<T>(const chan<T>&, const T*);
+    friend _selcase _recv<T>(const chan<T>&, T*);
+    friend _selcase _recv_<T>(const chan<T>&, T*, bool*);
 };
 
 // makechan<T> makes new chan<T> with capacity=size.
@@ -374,19 +374,19 @@ int select(const _selcase (&casev)[N]) {
 
 // _send<T> creates `ch<T>.send(*ptx)` case for select.
 template<typename T> inline
-_selcase _send(chan<T> ch, const T *ptx) {
+_selcase _send(const chan<T> &ch, const T *ptx) {
     return _selsend(ch._ch, ptx);
 }
 
 // _recv<T> creates `*prx = ch<T>.recv()` case for select.
 template<typename T> inline
-_selcase _recv(chan<T> ch, T *prx) {
+_selcase _recv(const chan<T> &ch, T *prx) {
     return _selrecv(ch._ch, prx);
 }
 
 // _recv_<T> creates `[*prx, *pok] = ch.recv_()` case for select.
 template<typename T> inline
-_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
+_selcase _recv_(const chan<T> &ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
 
