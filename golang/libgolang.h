@@ -203,9 +203,9 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-template<typename T> _selcase _send(chan<T>, const T*);     // XXX [[nodiscard]] ?
-template<typename T> _selcase _recv(chan<T>, T*);
-template<typename T> _selcase _recv_(chan<T>, T*, bool*);
+template<typename T> [[nodiscard]] _selcase _send(chan<T>, const T*);
+template<typename T> [[nodiscard]] _selcase _recv(chan<T>, T*);
+template<typename T> [[nodiscard]] _selcase _recv_(chan<T>, T*, bool*);
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -261,33 +261,7 @@ public:
     friend _selcase _send<T>(chan<T>, const T*);
     friend _selcase _recv<T>(chan<T>, T*);
     friend _selcase _recv_<T>(chan<T>, T*, bool*);
-
-//private:
-//    static chan<T> __make(unsigned elemsize, unsigned size);
 };
-
-#if 0
-template<typename T> inline
-chan<T> chan<T>::__make(unsigned elemsize, unsigned size) {
-    chan<T> ch;
-    ch._ch = _makechan(elemsize, size);
-    if (ch._ch == NULL)
-        throw std::bad_alloc();
-    return ch;
-}
-
-// makechan<T> makes new chan<T> with capacity=size.
-template<typename T> static inline
-chan<T> makechan(unsigned size) {
-    return chan<T>::__make(sizeof(T), size);
-}
-
-// makechan<void> makes new channel whose elements are empty.
-template<> inline
-chan<void> makechan(unsigned size) {
-    return chan<void>::__make(0/* _not_ sizeof(void) which = 1*/, size);
-}
-#endif
 
 // makechan<T> makes new chan<T> with capacity=size.
 template<typename T> static inline
