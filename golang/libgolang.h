@@ -242,6 +242,7 @@ public:
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
     // TODO also support `ch << v`, `v << ch`, `v, ok << ch`
+    // XXX  however C++ does not allow e.g. `<< ch`
     void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
     std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
