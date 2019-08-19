@@ -1077,8 +1077,7 @@ void _blockforever() {
     bug("_blockforever: woken up");
 }
 
-// ---- for tests ----  XXX move -> libgolang_test.cpp ?
-
+// ---- for tests ----
 
 // _tchanlenrecvqlen returns len(_ch._recvq)
 int _tchanrecvqlen(_chan *_ch) {
@@ -1104,7 +1103,9 @@ int _tchansendqlen(_chan *_ch) {
 
 }   // golang::
 
-// golang::time::
+
+// ---- golang::time:: ----
+
 namespace golang {
 namespace time {
 
