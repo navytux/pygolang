@@ -17,6 +17,9 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// Library Libgolang provides Go-like features for C and C++.
+// See libgolang.h for library overview.
+
 // Pygolang C part: provides runtime implementation of panic, channels, etc.
 //
 // C++ (not C) is used:
