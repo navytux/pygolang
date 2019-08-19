@@ -217,7 +217,7 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
 template<typename T> [[nodiscard]] _selcase _send(chan<T>, const T*);
-template<typename T> [[nodiscard]] _selcase _recv(chan<T>, T* = NULL);
+template<typename T> [[nodiscard]] _selcase _recv(chan<T>, T* = NULL);  // XXX test
 template<typename T> [[nodiscard]] _selcase _recv_(chan<T>, T*, bool*);
 
 // chan<T> provides type-safe wrapper over _chan.
@@ -226,7 +226,7 @@ class chan {
     _chan *_ch;
 
 public:
-    chan() { _ch = NULL; } // nil channel if not initialized
+    chan() { _ch = NULL; } // nil channel if not explicitly initialized
     friend chan<T> makechan<T>(unsigned size);
     ~chan() { _chanxdecref(_ch); _ch = NULL; }
 
@@ -281,7 +281,7 @@ template<typename T> static inline
 chan<T> makechan(unsigned size) {
     chan<T> ch;
     unsigned elemsize = std::is_empty<T>::value
-        ? 0          // eg struct{} for which sizeof() gives 1
+        ? 0          // eg struct{} for which sizeof() gives 1 - *not* 0
         : sizeof(T);
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
@@ -316,19 +316,19 @@ int select(const _selcase (&casev)[N]) {
     return _chanselect(&casev[0], N);
 }
 
-// _send<T> creates `ch<T>.send(ptx)` case for select.
+// _send<T> creates `ch<T>.send(*ptx)` case for select.
 template<typename T> inline
 _selcase _send(chan<T> ch, const T *ptx) {
     return _selsend(ch._ch, ptx);
 }
 
-// _recv<T> creates `ch<T>.recv(prx)` case for select.
+// _recv<T> creates `*prx = ch<T>.recv()` case for select.
 template<typename T> inline
 _selcase _recv(chan<T> ch, T *prx) {
     return _selrecv(ch._ch, prx);
 }
 
-// _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
+// _recv_<T> creates `[*prx, *pok] = ch.recv_()` case for select.
 template<typename T> inline
 _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
@@ -337,10 +337,7 @@ _selcase _recv_(chan<T> ch, T *prx, bool *pok) {
 namespace time {
 
 // sleep pauses current goroutine for at least dt seconds.
-static inline void sleep(double dt) {
-    uint64_t dt_ns = dt * 1E9; // XXX overflow
-    _tasknanosleep(dt_ns);
-}
+LIBGOLANG_API void sleep(double dt);
 
 // now returns current time in seconds.
 static inline double now() {

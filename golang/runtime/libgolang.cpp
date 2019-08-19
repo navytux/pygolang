@@ -26,14 +26,15 @@
 
 #include "golang/libgolang.h"
 
-#include <exception>
-#include <string>
 #include <algorithm>
-#include <random>
-#include <mutex>        // lock_guard
-#include <functional>   // function
 #include <atomic>
+#include <exception>
+#include <functional>   // function
+#include <limits>
 #include <memory>
+#include <mutex>        // lock_guard
+#include <random>
+#include <string>
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,7 @@ using std::atomic;
 using std::bad_alloc;
 using std::exception;
 using std::max;
+using std::numeric_limits;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -1128,3 +1130,19 @@ int _tchansendqlen(_chan *_ch) {
 }
 
 }   // golang::
+
+// golang::time::
+namespace golang {
+namespace time {
+
+void sleep(double dt) {
+    if (dt <= 0)
+        dt = 0;
+    dt *= 1E9; // s -> ns
+    if (dt > numeric_limits<uint64_t>::max())
+        panic("sleep: time overflow");
+    uint64_t dt_ns = dt;
+    _tasknanosleep(dt_ns);
+}
+
+}}  // golang::time::
