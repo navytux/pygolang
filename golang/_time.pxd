@@ -17,7 +17,12 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""XXX"""   # XXX
+"""Package time mirrors Go package time.
+
+See the following link about Go time package:
+
+    https://golang.org/pkg/time
+"""
 
 # golang/pyx - the same as std python - represents time as float
 cdef extern from * nogil:

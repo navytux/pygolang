@@ -22,7 +22,10 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_golang.pyx provides Python interface to golang.{h,cpp}"""
+"""_golang.pyx provides Python interface to libgolang.{h,cpp}
+
+See _golang.pxd for package overview.
+"""
 
 from __future__ import print_function, absolute_import
 

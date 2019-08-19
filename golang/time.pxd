@@ -17,7 +17,10 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""XXX"""   # XXX
+"""Package time mirrors Go package time.
+
+See _time.pxd for package documentation.
+"""
 
 # redirect `cimport golang.time` -> `cimport golang._time` (see __init__.pxd for rationale)
 from golang._time cimport *
