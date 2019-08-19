@@ -22,7 +22,7 @@
 from __future__ import print_function, absolute_import
 
 # Gevent runtime uses gevent's greenlets and semaphores.
-# When sema.acquire() blocks gevent runtime switches from current to another greenlet.
+# When sema.acquire() blocks, gevent switches us from current to another greenlet.
 
 IF not PYPY:
     from gevent._greenlet cimport Greenlet

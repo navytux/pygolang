@@ -31,10 +31,8 @@ from __future__ import print_function, absolute_import
 # Similarly PyThread_start_new_thread - Python's C function function to create
 # new thread - does not depend on GIL. On POSIX, for example, it is small
 # wrapper around pthread_create.
-#
-# XXX review text
-from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, WAIT_LOCK, \
-        PyThread_type_lock
+from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
+        PyThread_type_lock, WAIT_LOCK
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
