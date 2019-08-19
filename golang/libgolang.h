@@ -22,16 +22,61 @@
 
 // Library libgolang provides Go-like features for C and C++.
 //
-// C-level API
+// Library libgolang provides goroutines, channels with Go semantic and other
+// accompanying features. The library consists of high-level type-safe C++ API,
+// and low-level unsafe C API. The low-level C API was inspired by Libtask[1]
+// and Plan9/Libthread[2].
 //
-// XXX based on libtask and libthread from Plan9
+// The primary motivation for libgolang is to serve as runtime for golang.pyx -
+// - Cython part of Pygolang project. However libgolang is independent of
+// Python and should be possible to use in standalone C/C++ projects.
+//
+// Description of Libgolang API follows:
 //
 //
 // C++-level API
 //
+//  - `go` spawns task.
+//  - `chan<T>`, and `select` provide channels with Go semantic.
+//  - `sleep` pauses current task.
+//
+// For example:
+//
+//      chan<int> ch = makechan<int>(); // create new channel
+//      go(worker, ch, 1);              // spawn worker(chan<int>, int)
+//      ch.send(1)
+//      j = ch.recv()
+//
+//      _ = select({
+//          _default,       // 0
+//          _send(ch, &i),  // 1
+//          _recv(ch, &j),  // 2
+//      });
+//      if (_ == 0)
+//          // default case selected
+//      if (_ == 1)
+//          // case 1 selected: i sent to ch
+//      if (_ == 2)
+//          // case 2 selected: j received from ch
+//
+// - panic
+// - time
+//
+//
+// C-level API
+//
+// - _taskgo/_tasknanosleep / _nanotime
+//
+//
+//
+// Runtimes
+//
 // XXX runtimes.
-// XXX libgolang is used as runtime for golang.pyx.
+//
 // XXX overview
+//
+// [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
+// [2] http://9p.io/magic/man2html/2/thread.
 
 #include <stddef.h>
 #include <stdint.h>
