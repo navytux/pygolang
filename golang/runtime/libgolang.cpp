@@ -1051,7 +1051,7 @@ ready:
     const _selcase *cas = &casev[selected];
     if (cas->op == _CHANSEND) {
         if (!sel->ok)
-            panic("send on closed channel zzz");    // XXX test
+            panic("send on closed channel");
         return selected;
     }
     else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
