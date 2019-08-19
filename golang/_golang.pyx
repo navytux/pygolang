@@ -33,7 +33,6 @@ from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
-    #int Py_REFCNT(object o)
 
 from libcpp.vector cimport vector
 cdef extern from *:
@@ -168,20 +167,17 @@ cdef class pychan:
     def send(pych, obj):
         # increment obj reference count - until received the channel is holding pointer to the object.
         Py_INCREF(obj)
-#       print('send %x  refcnt=%d' % (id(obj), Py_REFCNT(obj)))
 
         try:
             with nogil:
-                _obj = <PyObject *>obj
+                #_obj = <PyObject *>obj
                 #chansend_pyexc(pych.ch, &_obj)
-                chansend_pyexc(pych.ch, _obj)   # XXX just use <PyObject *>obj
+                #chansend_pyexc(pych.ch, _obj)   # XXX just use <PyObject *>obj
+                chansend_pyexc(pych.ch, <PyObject *>obj)
         except _PanicError:
             # the object was not sent - e.g. it was send on a closed channel
             Py_DECREF(obj)
             raise
-
-#       time.sleep(0.5)
-#       print('\tsend wokeup  refcnt=%d' % Py_REFCNT(obj))
 
     # recv_ is "comma-ok" version of recv.
     #
@@ -191,12 +187,8 @@ cdef class pychan:
         cdef PyObject *_rx = NULL
         cdef bint ok
 
-        cdef (PyObject*, bint) zzz  # XXX temp
         with nogil:
-            #ok = chanrecv__pyexc(pych.ch, &_rx)
             _rx, ok = chanrecv__pyexc(pych.ch)
-            #zzz = chanrecv__pyexc(pych.ch)      # XXX temp
-            #_rx, ok = zzz
 
         if not ok:
             return (None, ok)
@@ -208,9 +200,7 @@ cdef class pychan:
 
     # recv receives from the channel.
     def recv(pych): # -> rx
-        rx, _ = pych.recv_()    # XXX call recv_ via C
-#       print('recv %x  refcnt=%d' % (id(rx), Py_REFCNT(rx)))
-#       time.sleep(1)
+        rx, _ = pych.recv_()    # XXX call recv_ via C  XXX
         return rx
 
     # close closes sending side of the channel.
