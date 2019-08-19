@@ -43,7 +43,6 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         chan();
         void send(const T&)
         T recv()
-        #(T, bint) recv_()
         pair[T, bint] recv_()
         void close()
         unsigned len()
