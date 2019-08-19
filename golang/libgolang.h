@@ -75,7 +75,7 @@ enum _chanop {
     _DEFAULT    = 3,
 };
 
-// _selcase represents one _select case.
+// _selcase represents one select case.
 typedef struct _selcase {
     _chan           *ch;    // channel
     enum _chanop    op;     // chansend/chanrecv/chanrecv_/default
@@ -241,13 +241,12 @@ public:
     // TODO allow all types (e.g. element=chan )
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
-    //void send(const T *ptx)     { _chansend(_ch, ptx);          }
-    //void recv(T *prx)           { _chanrecv(_ch, prx);          }
-    //bool recv_(T *prx)          { return _chanrecv_(_ch, prx);  }
+    // TODO also support `ch << v`, `v << ch`, `v, ok << ch`
     void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
     std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
                                   return std::make_pair(rx, ok); }
+
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
     unsigned cap()              { return _chancap(_ch);         }
@@ -270,7 +269,6 @@ chan<T> makechan(unsigned size) {
     unsigned elemsize = std::is_empty<T>::value
         ? 0          // eg struct{} for which sizeof() gives 1
         : sizeof(T);
-    //printf("makechan<%s>  elemsize=%d\n", typeid(T).name(), elemsize);
     ch._ch = _makechan(elemsize, size);
     if (ch._ch == NULL)
         throw std::bad_alloc();
@@ -286,7 +284,14 @@ struct structZ{};
 // select, together with _send<T>, _recv<T> and _recv_<T>, provide type-safe
 // wrappers over _chanselect and _selsend/_selrecv/_selrecv_.
 //
-// XXX select({}) example.
+// Usage example:
+//
+//   _ = select({
+//       _recv(ch1, &v),        # 0
+//       _recv_(ch2, &v, &ok),  # 1
+//       _send(ch2, &v),        # 2
+//       _default,              # 3
+//   })
 static inline                       // select({case1, case2, case3})
 int select(const std::initializer_list<const _selcase> &casev) {
     return _chanselect(casev.begin(), casev.size());

@@ -39,8 +39,6 @@ void _test_chan_cpp() {
     Point p;
     bool  jok;
 
-    //i=+1; chi.send(&i);
-    //j=-1; chi.recv(&j);
     i=+1; chi.send(i);
     j=-1; j = chi.recv();
     if (j != i)
