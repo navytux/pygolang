@@ -27,6 +27,21 @@ from golang.golang_test import panics
 # all timer tests operate in dt units
 dt = 10*time.millisecond
 
+# test_now verifies that time.now is correct.
+def test_now():
+    import time as stdtime
+    assert stdtime is not time
+    def tick(): # cpython 2.7 time.time uses max microsecond precision
+        time.sleep(1*time.microsecond)
+    t1 = stdtime.time() ;   tick()
+    t2 = time.now()     ;   tick()
+    t3 = stdtime.time() ;   tick()
+    t4 = time.now()     ;   tick()
+    assert t1 < t2
+    assert t2 < t3
+    assert t3 < t4
+
+
 # test_timer verifies that Timer/Ticker fire as expected.
 def test_timer():
     # start timers at x5, x7 and x11 intervals an verify that the timers fire
