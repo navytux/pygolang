@@ -31,8 +31,7 @@
 // - Cython part of Pygolang project. However Libgolang is independent of
 // Python and should be possible to use in standalone C/C++ projects.
 //
-// Description of Libgolang API follows:
-//
+// Brief description of Libgolang API follows:
 //
 // C++-level API
 //
@@ -83,8 +82,8 @@
 //  - "thread" - a runtime that is based on OS threads, and
 //  - "gevent" - a runtime that is based on greenlet and gevent.
 //
-// Once again, Libgolang itself is independent from Python and other runtimes are
-// possible.
+// Once again, Libgolang itself is independent from Python, and other runtimes
+// are possible.
 //
 //
 // [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
