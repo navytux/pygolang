@@ -74,7 +74,18 @@
 //
 // Runtimes
 //
-// XXX runtimes.
+// Libgolang, before being used, must be initialized with particular runtime
+// plugin, which tailors Libgolang to particular execution environment. See
+// `_libgolang_init` and `_libgolang_runtime_ops` for description of a runtime.
+//
+// Pygolang - the parent project of Libgolang - comes with two Libgolang runtimes:
+//
+//  - "thread" - a runtime that is based on OS threads, and
+//  - "gevent" - a runtime that is based on greenlet and gevent.
+//
+// Once again, Libgolang itself is independent from Python and other runtimes are
+// possible.
+//
 //
 // [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
 // [2] http://9p.io/magic/man2html/2/thread.
