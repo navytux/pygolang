@@ -144,7 +144,6 @@ cdef void _test_go_nogil() nogil except +topyexc:
     cdef chan[structZ] done = makechan[structZ]()
     cdef int i = 111
     go(_work, &i, done)
-    #done.recv(NULL)
     done.recv()
     if i != 222:
         panic("after done: i != 222")
