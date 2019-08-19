@@ -20,6 +20,19 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
+// Library libgolang provides Go-like features for C and C++.
+//
+// C-level API
+//
+// XXX based on libtask and libthread from Plan9
+//
+//
+// C++-level API
+//
+// XXX runtimes.
+// XXX libgolang is used as runtime for golang.pyx.
+// XXX overview
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -71,7 +84,7 @@ LIBGOLANG_API unsigned _chancap(_chan *ch);
 enum _chanop {
     _CHANSEND   = 0,
     _CHANRECV   = 1,
-    _CHANRECV_  = 2,
+    _CHANRECV_  = 2,    // XXX kill?
     _DEFAULT    = 3,
 };
 
@@ -125,7 +138,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 extern LIBGOLANG_API const _selcase _default;
 
 
-// libgolang runtime - the runtime must be initialized before any other libgolang use
+// libgolang runtime - the runtime must be initialized before any other libgolang use.
 typedef struct _libgolang_sema _libgolang_sema;
 typedef enum _libgolang_runtime_flags {
     // STACK_DEAD_WHILE_PARKED indicates that it is not safe to access
@@ -190,7 +203,7 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 namespace golang {
 
 // go provides type-safe wrapper over _taskgo.
-template<typename F, typename... Argv>  // XXX F -> function<void(Argv...)>
+template<typename F, typename... Argv>  // F ~ function<void(Argv...)>
 static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));

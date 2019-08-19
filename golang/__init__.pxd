@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package golang.pyx provides Go-like features for Cython and runtime for golang.py
+"""Package golang.pyx provides Go-like features for Cython and runtime for golang.py.
 
 Channels
 --------
