@@ -1140,14 +1140,14 @@ void sleep(double dt) {
         dt = 0;
     dt *= 1E9; // s -> ns
     if (dt > numeric_limits<uint64_t>::max())
-        panic("sleep: time overflow");
+        panic("sleep: dt overflow");
     uint64_t dt_ns = dt;
     _tasknanosleep(dt_ns);
 }
 
 double now() {
     uint64_t t_ns = _nanotime();
-    double t_s = t_ns * 1E-9;   // XXX overflow
+    double t_s = t_ns * 1E-9;   // no overflow possible
     return t_s;
 }
 
