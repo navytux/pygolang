@@ -197,7 +197,7 @@ cdef class pychan:
 
     # recv receives from the channel.
     def recv(pych): # -> rx
-        rx, _ = pych.recv_()    # XXX call recv_ via C  XXX
+        rx, _ = pych.recv_()    # TODO call recv_ via C
         return rx
 
     # close closes sending side of the channel.
