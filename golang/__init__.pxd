@@ -19,6 +19,8 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package golang.pyx provides Go-like features for Cython and runtime for golang.py.
 
+XXX nogil in title?
+
 Channels
 --------
 
@@ -36,6 +38,9 @@ Panic + recover
 ---------------
 
 XXX
+
+See README for thorough overview.
+See also package goang.py which provides similar functionality for Python.
 """
 
 # redirect `cimport golang` -> `cimport golang._golang`
