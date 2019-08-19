@@ -41,7 +41,7 @@ cdef nogil:
             ch.recv()
 
         ch.close()
-        #_, ok = ch.recv_()     # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
+        #_, ok = ch.recv_() # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
         ch.recv_()
 
         printf("test.pyx: OK\n")

@@ -20,9 +20,7 @@
 
 from __future__ import print_function
 
-#from setuptools import Extension, setup
 from setuptools_dso import Extension, setup
-
 
 
 import pkgutil
