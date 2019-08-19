@@ -407,7 +407,6 @@ void _chan::incref() {
     _chan *ch = this;
 
     int refcnt_was = ch->_refcnt.fetch_add(+1);
-//  printf("chan %p incref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
     if (refcnt_was < 1)
         panic("chan: incref: refcnt was < 1");
 }
@@ -425,14 +424,12 @@ void _chan::decref() {
     _chan *ch = this;
 
     int refcnt_was = ch->_refcnt.fetch_add(-1);
-//  printf("chan %p decref: %d -> %d\n", ch, refcnt_was, ch->_refcnt.load());
     if (refcnt_was < 1)
         panic("chan: decref: refcnt was < 1");
     if (refcnt_was != 1)
         return;
 
     // refcnt=0 -> free the channel
-//  printf("chan %p -> dealloc\n", ch);
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch) + ch->_cap*ch->_elemsize);
     free(ch);
@@ -497,14 +494,9 @@ void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _ch
         list_add_tail(&me->in_rxtxq, &ch->_sendq);
     ch->_mu.unlock();
 
-    //printf("send: -> g.wait()...\n");
     g->wait();
-    //printf("send: -> woken up\n");
-    if (g->which != me) {
-        //printf("BUG: chansend: g %p: g.which (%p) != me (%p)\n", g, g->which, me);
-        //printf("     g.sema.gsema: %p\n", g->_sema._gsema);
+    if (g->which != me)
         bug("chansend: g.which != me");
-    }
     if (!me->ok)
         panic("send on closed channel");
 }
@@ -527,10 +519,8 @@ bool _chan::recv_(void *prx) { // -> ok
 
     ch->_mu.lock();
         bool ok, done = ch->_tryrecv(prx, &ok);
-        if (done) {
-            //printf("recv: -> tryrecv done; ok=%i\n", ok);
+        if (done)
             return ok;
-        }
 
         return (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
             ? ch->_recv2_</*onstack=*/false>(prx)
@@ -569,11 +559,9 @@ bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *c
         list_add_tail(&me->in_rxtxq, &ch->_recvq);
     ch->_mu.unlock();
 
-    //printf("recv: -> g.wait()...\n");
     g->wait();
     if (g->which != me)
         bug("chanrecv: g.which != me");
-    //printf("recv: -> woken up;  ok=%i\n", me->ok);
     return me->ok;
 }
 
@@ -813,7 +801,16 @@ static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*)
 //
 // returns: selected case number.
 //
-// See `select` documentation for user-friendly usage.
+// For example:
+//
+//      _selcase sel[4];
+//      sel[0]  = _selsend(chi, &i);
+//      sel[1]  = _selrecv(chp, &p);
+//      sel[2]  = _selrecv_(chi, &j, &jok);
+//      sel[3]  = _default;
+//      _ = _chanselect(sel, 4);
+//
+// See `select` documentation for user-friendly wrapper.
 // NOTE casev is not modified and can be used for next _chanselect calls.
 int _chanselect(const _selcase *casev, int casec) {
     if (casec < 0)
@@ -1007,7 +1004,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->data;   // XXX onstack -> heap (greenlet)
+                w->pdata = cas->data;
                 w->ok    = false;
                 w->sel_n = n;
 
@@ -1030,7 +1027,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
                 w->init(g, ch);
                 w->pdata = cas->data;
-                w->ok    = false;       // XXX onstack -> heap + copyback   (greenlet)
+                w->ok    = false;
                 w->sel_n = n;
 
                 list_add_tail(&w->in_rxtxq, &ch->_recvq);
