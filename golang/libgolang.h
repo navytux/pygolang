@@ -299,19 +299,19 @@ int select(const _selcase (&casev)[N]) {
 
 // _send<T> creates `ch<T>.send(ptx)` case for select.
 template<typename T> inline
-_selcase _send(chan<T> ch, const T *ptx) {      // XXX pass chan by ref
+_selcase _send(chan<T> ch, const T *ptx) {
     return _selsend(ch._ch, ptx);
 }
 
 // _recv<T> creates `ch<T>.recv(prx)` case for select.
 template<typename T> inline
-_selcase _recv(chan<T> ch, T *prx) {            // XXX ref
+_selcase _recv(chan<T> ch, T *prx) {
     return _selrecv(ch._ch, prx);
 }
 
 // _recv_<T> creates `*pok = ch.recv_(prx)` case for select.
 template<typename T> inline
-_selcase _recv_(chan<T> ch, T *prx, bool *pok) {    // XXX ref
+_selcase _recv_(chan<T> ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
 
