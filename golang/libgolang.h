@@ -20,15 +20,15 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Library libgolang provides Go-like features for C and C++.
+// Library Libgolang provides Go-like features for C and C++.
 //
-// Library libgolang provides goroutines, channels with Go semantic and other
+// Library Libgolang provides goroutines, channels with Go semantic and other
 // accompanying features. The library consists of high-level type-safe C++ API,
 // and low-level unsafe C API. The low-level C API was inspired by Libtask[1]
 // and Plan9/Libthread[2].
 //
-// The primary motivation for libgolang is to serve as runtime for golang.pyx -
-// - Cython part of Pygolang project. However libgolang is independent of
+// The primary motivation for Libgolang is to serve as runtime for golang.pyx -
+// - Cython part of Pygolang project. However Libgolang is independent of
 // Python and should be possible to use in standalone C/C++ projects.
 //
 // Description of Libgolang API follows:
@@ -36,7 +36,7 @@
 //
 // C++-level API
 //
-//  - `go` spawns task.
+//  - `go` spawns new task.
 //  - `chan<T>`, and `select` provide channels with Go semantic.
 //  - `sleep` pauses current task.
 //
@@ -59,21 +59,22 @@
 //      if (_ == 2)
 //          // case 2 selected: j received from ch
 //
-// - panic
-// - time
+//      if (<bug condition>)
+//          panic("bug");
 //
 //
 // C-level API
 //
-// - _taskgo/_tasknanosleep / _nanotime
-//
+//  - `_taskgo` spawns new task.
+//  - `_makechan` creates raw channel with Go semantic.
+//  - `_chansend` and `_chanrecv` send/receive over raw channel.
+//  - `_chanselect`, `_selsend`, `_selrecv`, ... provide raw select functionality.
+//  - `tasknanosleep` pauses current task.
 //
 //
 // Runtimes
 //
 // XXX runtimes.
-//
-// XXX overview
 //
 // [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
 // [2] http://9p.io/magic/man2html/2/thread.
