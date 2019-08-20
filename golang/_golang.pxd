@@ -17,9 +17,32 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_golang.pyx implements golang.pyx - see __init__.pxd for package overview"""
+"""Package golang.pyx provides Go-like features for Cython/nogil and runtime for golang.py.
 
-# XXX no -> doc in _golang.pxd
+Cython/nogil API
+----------------
+
+- `go` spawns lightweight thread.
+- `chan[T]` and `select` provide C-level channels with Go semantic.
+- `panic` stops normal execution of current goroutine by throwing a C-level exception.
+
+Everything in Cython/nogil API do not depend on Python runtime and in
+particular can be used in nogil code.
+
+See README for thorough overview.
+See libgolang.h for API details.
+See also package golang.py which provides similar functionality for Python.
+
+
+Golang.py runtime
+-----------------
+
+In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
+
+- Python-level channels are represented by pychan + pyselect.
+- Python-level panic is represented by pypanic.
+"""
+
 
 from libcpp cimport nullptr_t, nullptr as nil
 from libcpp.utility cimport pair
