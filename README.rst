@@ -185,7 +185,7 @@ Cython package `golang` provides *nogil* API with goroutines, channels and
 other features that mirror corresponding Python package.
 Cython API is not only faster compared to Python version, but also, due to
 *nogil* property, allows to build concurrent systems without limitations
-imposed by Python's GIL while still programming in Python-like language.
+imposed by Python's GIL, while still programming in Python-like language.
 Brief description if Cython/nogil API follows:
 
 `go` spawns new task - a coroutine, or thread, depending on activated runtime.
@@ -241,6 +241,8 @@ can be used to multiplex on several channels. For example::
 XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
 XXX `_recv_` -> kill
 
+XXX `panic`, `topyexc` ? `recover`
+XXX `testprog/golang_pyx_user`.
 
 --------
 
