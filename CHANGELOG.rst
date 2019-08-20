@@ -26,24 +26,25 @@ Pygolang change history
 
   __ XXX
 
-- Improve test to more thoroughly excersize implementation (verify more, more
-  coverage, ... XXX)
+- Improve tests to more excersize the implementation more thoroughly in many
+  places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
-  - `*_test: Verify panic argument`
-  - `Test that len(nilchan) == 0`
-  - `time: Test for now`
-  - `golang: Run all select tests "more thoroughly`
-  - `golang: Test that buffered channel releases objects from buffer on chan GC`
-  - `golang: Add test for blocked select(send|recv) vs close`
+  __ test: Verify panic argument
+  __ Test that len(nilchan) == 0
+  __ time: Test for now
+  __ golang: Run all select tests "more thoroughly
+  __ golang: Test that buffered channel releases objects from buffer on chan GC
+  __ golang: Add test for blocked select(send|recv) vs close
 
 - ? `*: Use golang.time universally`
 
 - Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
-  This removes ... XXX and speed up `sync.WorkGroup` a bit (commit__).
+  This removes relience on outside semaphore-like implementation and speed up
+  `sync.WorkGroup` a bit (commit__).   XXX
 
   __ sync: threading.Event -> chan
 
-- Fix races in buffered channel send and receive (`commit 1`__, 2__).
+- Fix race bugs in buffered channel send and receive (`commit 1`__, 2__).
 
   __ golang: Fix race in chan._trysend
   __ golang: Fix race in chan._tryrecv
