@@ -194,41 +194,53 @@ Use `makechan[T]` to create new channel, and `chan[T].recv`, `chan[T].send`,
 `chan[T].close` for communication. `nil` stands for the nil channel. `select`
 can be used to multiplex on several channels. For example::
 
-    ch1 = chan()    # synchronous channel
-    ch2 = chan(3)   # channel with buffer of size 3
+   cdef nogil:
+      struct Point:
+         int x
+         int y
 
-    def _():
-        ch1.send('a')
-        ch2.send('b')
-    go(_)
+      void worker(chan[int] chi, chan[Point] chp):
+         chi.send(1)
+         chp.send(Point(3,4))
 
-    ch1.recv()      # will give 'a'
-    ch2.recv_()     # will give ('b', True)
+      void myfunc():
+         cdef chan[int]   chi = makechan[int]()       # synchronous channel of integers
+         cdef chan[Point] chp = makechan[Point](3)    # channel with buffer of size 3 and Point elements
 
-    ch2 = nilchan   # rebind ch2 to nil channel
-    _, _rx = select(
-        ch1.recv,           # 0
-        ch1.recv_,          # 1
-        (ch1.send, obj),    # 2
-        ch2.recv,           # 3
-        default,            # 4
-    )
-    if _ == 0:
-        # _rx is what was received from ch1
-        ...
-    if _ == 1:
-        # _rx is (rx, ok) of what was received from ch1
-        ...
-    if _ == 2:
-        # we know obj was sent to ch1
-        ...
-    if _ == 3:
-        # this case will be never selected because
-        # send/recv on nil channel block forever.
-        ...
-    if _ == 4:
-        # default case
-        ...
+         go(worker, chi, chp)
+
+         i     = chi.recv()   # will give 1
+         p, ok = chp.recv_()  # will give (Point(2,3), True)
+
+         ch2 = nil      # rebind ch2 to nil channel
+         _ = select(
+             _recv(chi, &i),        # 0
+             _recv_(chi, &i, &ok),  # 1
+             _send(chi, &j),        # 2
+             _recv(chp, &p),        # 3
+             _default,              # 4
+         )
+         if _ == 0:
+             # i is what was received from chi
+             ...
+         if _ == 1:
+             # (i, ok) is what was received from chi
+             ...
+         if _ == 2:
+             # we know j was sent to chi
+             ...
+         if _ == 3:
+             # this case will be never selected because
+             # send/recv on nil channel block forever.
+             ...
+         if _ == 4:
+             # default case
+             ...
+
+
+XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
+XXX `_recv_` -> kill
+
 
 --------
 
