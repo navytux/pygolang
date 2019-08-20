@@ -298,7 +298,7 @@ def pyselect(*pycasev):
 
             pych = pyrecv.__self__
             if commaok:
-                casev[i] = _recv_(pych.ch, &_rx, &rxok)
+                casev[i] = _recv(pych.ch, &_rx, &rxok)
             else:
                 casev[i] = _recv(pych.ch, &_rx)
 
@@ -320,9 +320,9 @@ def pyselect(*pycasev):
     if op == _CHANSEND:
         return selected, None
 
-    if not (op == _CHANRECV or op == _CHANRECV_):
+    if op != _CHANRECV:
         raise AssertionError("pyselect: chanselect returned with bad op")
-    commaok = (op == _CHANRECV_)
+    commaok = (casev[selected].rxok != NULL)
     # we received NULL or the object; if it is object, corresponding channel
     # dropped pointer to it (see pychan.recv_ for details).
     cdef object rx = None

@@ -50,7 +50,7 @@ void _test_chan_cpp() {
         _recv(done),            // 0
         _send(chi, &i),         // 1
         _recv(chp, &p),         // 2
-        _recv_(chi, &j, &jok),  // 3
+        _recv(chi, &j, &jok),   // 3
         _default,               // 4
     });
     if (_ != 1)

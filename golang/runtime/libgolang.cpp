@@ -851,13 +851,13 @@ int _chanselect(const _selcase *casev, int casec) {
         }
 
         // recv
-        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+        else if (cas->op == _CHANRECV) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
                     bool ok, done = ch->_tryrecv(cas->data, &ok);
                     if (done) {
-                        if (cas->op == _CHANRECV_)
+                        if (cas->rxok != NULL)
                             *cas->rxok = ok;
                         return n;
                     }
@@ -908,7 +908,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
         if (cas->op == _CHANSEND) {
             txtotal += cas->ch->_elemsize;
         }
-        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+        else if (cas->op == _CHANRECV) {
             rxmax = max(rxmax, cas->ch->_elemsize);
         }
         else {
@@ -934,7 +934,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
             cas->data = ptx;
             ptx += cas->ch->_elemsize;
         }
-        else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+        else if (cas->op == _CHANRECV) {
             cas->data = rxtxdata;
         } else {
             bug("select: XXX"); // XXX
@@ -946,7 +946,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
 
     // copy data back to original rx location.
     _selcase *cas = &casev_onheap[selected];
-    if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+    if (cas->op == _CHANRECV) {
         const _selcase *cas0 = &casev[selected];
         memcpy(cas0->data, cas->data, cas->ch->_elemsize);
     }
@@ -1012,11 +1012,11 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             }
 
             // recv
-            else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
+            else if (cas->op == _CHANRECV) {
                 bool ok, done = ch->_tryrecv(cas->data, &ok);
                 if (done) {
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
-                    if (cas->op == _CHANRECV_)
+                    if (cas->rxok != NULL)
                         *cas->rxok = ok;
                     return n;
                 }
@@ -1054,8 +1054,8 @@ ready:
             panic("send on closed channel");
         return selected;
     }
-    else if (cas->op == _CHANRECV || cas->op == _CHANRECV_) {
-        if (cas->op == _CHANRECV_)
+    else if (cas->op == _CHANRECV) {
+        if (cas->rxok != NULL)
             *cas->rxok = sel->ok;
         return selected;
     }

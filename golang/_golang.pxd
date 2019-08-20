@@ -55,6 +55,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         cbool operator!=(nullptr_t)
         void operator=(nullptr_t)
         _chan *_rawchan()
+    chan[T] makechan[T]()
     chan[T] makechan[T](unsigned size)
 
     struct structZ:
@@ -63,17 +64,21 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     enum _chanop:
         _CHANSEND
         _CHANRECV
-        _CHANRECV_
+#       _CHANRECV_
         _DEFAULT
     struct _selcase:
         _chanop op
         void    *data
+        cbool   *rxok
 
     int select(_selcase casev[])
 
     _selcase _send[T](const chan[T] &ch, const T *ptx)
+    _selcase _recv[T](const chan[T] &ch)
     _selcase _recv[T](const chan[T] &ch, T* prx)
-    _selcase _recv_[T](const chan[T] &ch, T* prx, cbool *pok)
+    _selcase _recv[T](const chan[T] &ch, T* prx, cbool *pok)
+#   _selcase _recv[T](const chan[T] &ch, T* prx=*, cbool *pok=*)
+#   _selcase _recv_[T](const chan[T] &ch, T* prx, cbool *pok)
     const _selcase default "golang::_default"
 
 
