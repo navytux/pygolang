@@ -282,8 +282,6 @@ def pyselect(*pycasev):
             # we'll decref the object if it won't be sent.
             # see pychan.send for details.
             Py_INCREF(tx)
-#           casev[i] = _send(pych.ch, <pPyObject *>p_tx)
-#           casev[i] = pych.ch.sends(<pPyObject *>p_tx)
             casev[i] = pych.ch.sends(p_tx)
 
         # recv
