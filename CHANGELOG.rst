@@ -4,6 +4,23 @@ Pygolang change history
 0.0.3 (2019-08-XX)
 ~~~~~~~~~~~~~~~~~~
 
+- Provide Cython/nogil API with goroutines and channels. Cython API is not only
+  faster compared to Python version, but also, due to *nogil* property, allows to
+  build concurrent systems without limitations imposed by Python's GIL.
+  This work was motivated by wendelin.core__ v2, which, due to its design,
+  would deadlock if it tries to take the GIL in its pinner thread.
+  Implementation of Python-level goroutines and channels becomes tiny wrapper
+  around Cython/nogil API. This brings in nice ~5x speedup even to Python-level
+  `golang.py` package.
+  (`commit 1`__, 2__, ...)
+
+  .. XXX recheck 5x
+
+  __ https://pypi.org/project/wendelin.core
+  __ XXX
+  __ XXX
+
+
 XXX
 
 This release is dedicated to the memory of |Вера Павловна Супрун|_.
