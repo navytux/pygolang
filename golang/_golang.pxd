@@ -81,10 +81,6 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
     int select(_selcase casev[])
 
-#   _selcase _send[T](const chan[T] &ch, const T *ptx)
-#   _selcase recv[T](const chan[T] &ch)
-#   _selcase recv[T](const chan[T] &ch, T* prx)
-#   _selcase recv[T](const chan[T] &ch, T* prx, cbool *pok)
     const _selcase default "golang::_default"
 
 

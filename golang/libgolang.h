@@ -271,38 +271,34 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-//template<typename T> [[nodiscard]] _selcase _send(const chan<T>&, const T*);
-//template<typename T> [[nodiscard]] _selcase recv(const chan<T>&, T* = NULL, bool* = NULL);  // XXX test
 
 // chan<T> provides type-safe wrapper over _chan.
 //
 // chan<T> is automatically reference-counted and is safe to use from multiple
 // goroutines simultaneously.
-//
-// XXX inline or not inline?
 template<typename T>
 class chan {
     _chan *_ch;
 
 public:
-    chan() { _ch = NULL; } // nil channel if not explicitly initialized
+    inline chan() { _ch = NULL; } // nil channel if not explicitly initialized
     friend chan<T> makechan<T>(unsigned size);
-    ~chan() { _chanxdecref(_ch); _ch = NULL; }
+    inline ~chan() { _chanxdecref(_ch); _ch = NULL; }
 
     // = nil
-    chan(nullptr_t) { _ch = NULL; }
-    chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = NULL; return *this; }
+    inline chan(nullptr_t) { _ch = NULL; }
+    inline chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = NULL; return *this; }
     // copy
-    chan(const chan& from) { _ch = from._ch; _chanxincref(_ch); }
-    chan& operator=(const chan& from) {
+    inline chan(const chan& from) { _ch = from._ch; _chanxincref(_ch); }
+    inline chan& operator=(const chan& from) {
         if (this != &from) {
             _chanxdecref(_ch); _ch = from._ch; _chanxincref(_ch);
         }
         return *this;
     }
     // move
-    chan(chan&& from) { _ch = from._ch; from._ch = NULL; }
-    chan& operator=(chan&& from) {
+    inline chan(chan&& from) { _ch = from._ch; from._ch = NULL; }
+    inline chan& operator=(chan&& from) {
         if (this != &from) {
             _chanxdecref(_ch); _ch = from._ch; from._ch = NULL;
         }
@@ -314,10 +310,10 @@ public:
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
     // send/recv
-    void send(const T &ptx)     { _chansend(_ch, &ptx);          }
-    T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
-    std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
-                                  return std::make_pair(rx, ok); }
+    inline void send(const T &ptx)     { _chansend(_ch, &ptx);          }
+    inline T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
+    inline std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
+                                         return std::make_pair(rx, ok); }
     // send/recv in select
 
     // ch.sends creates `ch.send(*ptx)` case for select.
@@ -331,12 +327,12 @@ public:
         return _selrecv_(_ch, prx, pok);
     }
 
-    void close()                { _chanclose(_ch);              }
-    unsigned len()              { return _chanlen(_ch);         }
-    unsigned cap()              { return _chancap(_ch);         }
+    inline void close()                { _chanclose(_ch);              }
+    inline unsigned len()              { return _chanlen(_ch);         }
+    inline unsigned cap()              { return _chancap(_ch);         }
 
-    bool operator==(nullptr_t)  { return (_ch == NULL); }
-    bool operator!=(nullptr_t)  { return (_ch != NULL); }
+    inline bool operator==(nullptr_t)  { return (_ch == NULL); }
+    inline bool operator!=(nullptr_t)  { return (_ch != NULL); }
 
     // for testing
     _chan *_rawchan()           { return _ch;   }
@@ -382,22 +378,6 @@ int select(const _selcase (&casev)[N]) {
     return _chanselect(&casev[0], N);
 }
 
-#if 0
-// _send<T> creates `ch<T>.send(*ptx)` case for select.
-template<typename T> inline
-_selcase _send(const chan<T> &ch, const T *ptx) {
-    return _selsend(ch._ch, ptx);
-}
-
-// recv<T> creates `*prx = ch<T>.recv()` case for select.
-//
-// if pok is provided the case is created for `[*prx, *pok] = ch<T>.recv_()`
-// if both prx and pok are ommitted the case is reduced to `ch<T>.recv()`.
-template<typename T> inline
-_selcase recv(const chan<T> &ch, T *prx, bool *pok) {
-    return _selrecv_(ch._ch, prx, pok);
-}
-#endif
 
 namespace time {
 
