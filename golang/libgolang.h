@@ -140,7 +140,6 @@ LIBGOLANG_API unsigned _chancap(_chan *ch);
 enum _chanop {
     _CHANSEND   = 0,
     _CHANRECV   = 1,
-//  _CHANRECV_  = 2,    // XXX kill?
     _DEFAULT    = 3,
 };
 
@@ -183,7 +182,6 @@ static inline
 _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
     _selcase _ = {
         .ch     = ch,
-//      .op     = _CHANRECV_,
         .op     = _CHANRECV,
         .data   = prx,
         .rxok   = pok,
@@ -275,7 +273,6 @@ template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
 template<typename T> [[nodiscard]] _selcase _send(const chan<T>&, const T*);
 template<typename T> [[nodiscard]] _selcase _recv(const chan<T>&, T* = NULL, bool* = NULL);  // XXX test
-//template<typename T> [[nodiscard]] _selcase _recv_(const chan<T>&, T*, bool*);
 
 // chan<T> provides type-safe wrapper over _chan.
 template<typename T>
@@ -330,7 +327,6 @@ public:
 
     friend _selcase _send<T>(const chan<T>&, const T*);
     friend _selcase _recv<T>(const chan<T>&, T*, bool*);
-//  friend _selcase _recv_<T>(const chan<T>&, T*, bool*);
 };
 
 // makechan<T> makes new chan<T> with capacity=size.
@@ -388,13 +384,6 @@ _selcase _recv(const chan<T> &ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
 
-#if 0
-// _recv_<T> creates `[*prx, *pok] = ch.recv_()` case for select.
-template<typename T> inline
-_selcase _recv_(const chan<T> &ch, T *prx, bool *pok) {
-    return _selrecv_(ch._ch, prx, pok);
-}
-#endif
 
 namespace time {
 

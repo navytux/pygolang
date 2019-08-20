@@ -221,7 +221,7 @@ can be used to multiplex on several channels. For example::
          cdef int j = 33
          _ = select([
              _recv(chi, &i),        # 0
-             _recv_(chi, &i, &ok),  # 1
+             _recv(chi, &i, &ok),   # 1
              _send(chi, &j),        # 2
              _recv(chp, &p),        # 3
              default,               # 4
@@ -244,7 +244,6 @@ can be used to multiplex on several channels. For example::
              ...
 
 XXX `_recv` -> `recv`, `_send` -> `send`
-XXX `_recv_` -> kill
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to

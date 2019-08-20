@@ -64,7 +64,6 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     enum _chanop:
         _CHANSEND
         _CHANRECV
-#       _CHANRECV_
         _DEFAULT
     struct _selcase:
         _chanop op
@@ -77,8 +76,6 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     _selcase _recv[T](const chan[T] &ch)
     _selcase _recv[T](const chan[T] &ch, T* prx)
     _selcase _recv[T](const chan[T] &ch, T* prx, cbool *pok)
-#   _selcase _recv[T](const chan[T] &ch, T* prx=*, cbool *pok=*)
-#   _selcase _recv_[T](const chan[T] &ch, T* prx, cbool *pok)
     const _selcase default "golang::_default"
 
 
