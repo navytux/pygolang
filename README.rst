@@ -13,19 +13,10 @@ Package `golang` provides Go-like features for Python:
 
 Package `golang.pyx` provides__ similar features for Cython/nogil.
 
-__ `Cython/nogil mode`_
-
-.. .. For Cython/nogil `golang.pyx` package with similar features is also provided__.
-.. .. This allows to take advantage of multicore CPU without being limited by GIL.
-.. ..
-.. .. Besides Python, Cython/nogil `golang.pyx` package with similar features is also provided__.
-.. .. This allows to take advantage of multicore CPU without being limited by GIL.
-.. ..
-.. .. __ `Cython/nogil mode`_
-.. .. __ `Cython/nogil mode`_
+__ `Cython/nogil API`_
 
 Additional packages and utilities are also provided__ to close other gaps
-between Python and Go environments.
+between Python/Cython and Go environments.
 
 __ `Additional packages and utilities`_
 
@@ -187,10 +178,21 @@ will import either
 located in `src/` under `$GOPATH`.
 
 
-Cython/nogil mode
------------------
+Cython/nogil API
+----------------
 
-XXX
+For Cython/nogil `golang.pyx` package with similar features is also provided.
+This allows to take advantage of multicore CPU without being limited by GIL.
+XXX while still programming in Python-like language.
+
+.. .. For Cython/nogil `golang.pyx` package with similar features is also provided__.
+.. .. This allows to take advantage of multicore CPU without being limited by GIL.
+.. ..
+.. .. Besides Python, Cython/nogil `golang.pyx` package with similar features is also provided__.
+.. .. This allows to take advantage of multicore CPU without being limited by GIL.
+.. ..
+.. .. __ `Cython/nogil mode`_
+.. .. __ `Cython/nogil mode`_
 
 
 --------
@@ -199,7 +201,7 @@ Additional packages and utilities
 ---------------------------------
 
 The following additional packages and utilities are also provided to close gaps
-between Python and Go environments:
+between Python/Cython and Go environments:
 
 .. contents::
    :local:
