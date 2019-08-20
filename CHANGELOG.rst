@@ -11,7 +11,7 @@ Pygolang change history
   would deadlock if it tries to take the GIL in its pinner thread.
   Implementation of Python-level goroutines and channels becomes tiny wrapper
   around Cython/nogil API. This brings in nice ~5x speedup even to Python-level
-  `golang.py` package.
+  `golang` package.
   (`commit 1`__, 2__, ...)
 
   .. XXX recheck 5x
@@ -20,6 +20,46 @@ Pygolang change history
   __ XXX
   __ XXX
 
+- Speedup `sync.WorkGroup` ...
+
+- Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
+
+  __ XXX
+
+- Improve test to more thoroughly excersize implementation (verify more, more
+  coverage, ... XXX)
+
+  - `*_test: Verify panic argument`
+  - `Test that len(nilchan) == 0`
+  - `time: Test for now`
+  - `golang: Run all select tests "more thoroughly`
+  - `golang: Test that buffered channel releases objects from buffer on chan GC`
+  - `golang: Add test for blocked select(send|recv) vs close`
+
+- ? `*: Use golang.time universally`
+
+- Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
+  This removes ... XXX and speed up `sync.WorkGroup` a bit (commit__).
+
+  __ sync: threading.Event -> chan
+
+- Fix races in buffered channel send and receive (`commit 1`__, 2__).
+
+  __ golang: Fix race in chan._trysend
+  __ golang: Fix race in chan._tryrecv
+
+- Fix `sync.WorkGroup` to propagate all exception types, not only those derived
+  from Exception (commit__).
+
+  __ XXX
+
+- Fix deadlock in `sync.WorkGroup` tests (commit__).
+
+  __ sync.WorkGroup: Fix deadlock thinko in tests
+
+- Fix `@func(cls) def name` not to override `name` in calling context (commit__).
+
+  __ XXX
 
 XXX
 
