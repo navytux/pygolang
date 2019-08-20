@@ -19,35 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package golang.pyx provides Go-like features for Cython/nogil and runtime for golang.py.
 
-- `go` spawns lightweight thread.
-- `chan[T]` and `select` provide C-level channels with Go semantic.
-- `panic` XXX
-
-C-level channels do not depend on Python runtime and in particular can be used
-in nogil code.
-
-
-
-Channels
---------
-
-Python-level channels, represented by pychan + pyselect
-
-Cython-level channels, represented by chan[T] + select do not depend on Python
-runtime and can be used in nogil code.
-
-XXX
-
-from golang cimport chan, select, XXX
-
-
-Panic + recover
----------------
-
-XXX
-
-See README for thorough overview.
-See also package golang.py which provides similar functionality for Python.
+See _golang.pxd for package documentation.
 """
 
 # redirect `cimport golang` -> `cimport golang._golang`
