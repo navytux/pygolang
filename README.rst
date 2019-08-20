@@ -214,7 +214,7 @@ can be used to multiplex on several channels. For example::
          go(worker, chi, chp)
 
          i = chi.recv()    # will give 1
-         p = chp.recv()    # will give Point(2,3)
+         p = chp.recv()    # will give Point(3,4)
 
          chp = nil         # rebind chp to nil channel
          cdef cbool ok
