@@ -218,7 +218,7 @@ can be used to multiplex on several channels. For example::
 
          chp = nil         # rebind chp to nil channel
          cdef cbool ok
-         cdef int  j = 33
+         cdef int j = 33
          _ = select([
              _recv(chi, &i),        # 0
              _recv_(chi, &i, &ok),  # 1
@@ -243,6 +243,9 @@ can be used to multiplex on several channels. For example::
              # default case
              ...
 
+XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
+XXX `_recv_` -> kill
+
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to
 Python-level exceptions with `topyexc`. For example::
@@ -258,9 +261,6 @@ Python-level exceptions with `topyexc`. For example::
    def pydo_something():
       with nogil:
          do_something()
-
-XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
-XXX `_recv_` -> kill
 
 See |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in Cython/nogil mode.
 
