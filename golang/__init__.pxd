@@ -17,9 +17,16 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package golang.pyx provides Go-like features for Cython and runtime for golang.py.
+"""Package golang.pyx provides Go-like features for Cython/nogil and runtime for golang.py.
 
-XXX nogil in title?
+- `go` spawns lightweight thread.
+- `chan[T]` and `select` provide C-level channels with Go semantic.
+- `panic` XXX
+
+C-level channels do not depend on Python runtime and in particular can be used
+in nogil code.
+
+
 
 Channels
 --------
@@ -40,7 +47,7 @@ Panic + recover
 XXX
 
 See README for thorough overview.
-See also package goang.py which provides similar functionality for Python.
+See also package golang.py which provides similar functionality for Python.
 """
 
 # redirect `cimport golang` -> `cimport golang._golang`
