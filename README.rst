@@ -224,7 +224,7 @@ can be used to multiplex on several channels. For example::
              _recv_(chi, &i, &ok),  # 1
              _send(chi, &j),        # 2
              _recv(chp, &p),        # 3
-             _default,              # 4
+             default,               # 4
          ])
          if _ == 0:
              # i is what was received from chi
@@ -243,7 +243,7 @@ can be used to multiplex on several channels. For example::
              # default case
              ...
 
-XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
+XXX `_recv` -> `recv`, `_send` -> `send`
 XXX `_recv_` -> kill
 
 `panic` stops normal execution of current goroutine by throwing a C-level

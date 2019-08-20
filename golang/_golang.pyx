@@ -38,8 +38,6 @@ cdef extern from "Python.h":
         PyObject **ob_item
 
 from libcpp.vector cimport vector
-cdef extern from *:
-    ctypedef bint cbool "bool"
 
 
 # ---- panic ----
@@ -261,7 +259,7 @@ def pyselect(*pycasev):
         pycase = pycasev[i]
         # default
         if pycase is pydefault:
-            casev[i] = _default
+            casev[i] = default
 
         # send
         elif type(pycase) is tuple:

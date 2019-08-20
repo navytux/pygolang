@@ -74,7 +74,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     _selcase _send[T](const chan[T] &ch, const T *ptx)
     _selcase _recv[T](const chan[T] &ch, T* prx)
     _selcase _recv_[T](const chan[T] &ch, T* prx, cbool *pok)
-    const _selcase _default
+    const _selcase default "golang::_default"
 
 
 # ---- python bits ----
