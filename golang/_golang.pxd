@@ -69,10 +69,11 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     cppclass chan[T]:
         chan();
 
-        # send/recv
+        # send/recv/close
         void send(const T&)
         T recv()
         pair[T, cbool] recv_()
+        void close()
 
         # send/recv in select
         _selcase sends(const T *ptx)
@@ -80,7 +81,6 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _selcase recvs(T* prx)
         _selcase recvs(T* prx, cbool *pok)
 
-        void close()
         unsigned len()
         unsigned cap()
         cbool operator==(nullptr_t)
@@ -101,10 +101,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _chanop op
         void    *data
         cbool   *rxok
+    const _selcase default "golang::_default"
 
     int select(_selcase casev[])
-
-    const _selcase default "golang::_default"
 
 
 # ---- python bits ----

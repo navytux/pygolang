@@ -309,11 +309,13 @@ public:
     // TODO allow all types (e.g. element=chan )
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
-    // send/recv
+    // send/recv/close
     inline void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     inline T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
     inline std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
                                          return std::make_pair(rx, ok); }
+    inline void close()                { _chanclose(_ch);              }
+
     // send/recv in select
 
     // ch.sends creates `ch.send(*ptx)` case for select.
@@ -327,7 +329,6 @@ public:
         return _selrecv_(_ch, prx, pok);
     }
 
-    inline void close()                { _chanclose(_ch);              }
     inline unsigned len()              { return _chanlen(_ch);         }
     inline unsigned cap()              { return _chancap(_ch);         }
 
