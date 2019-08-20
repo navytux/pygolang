@@ -47,10 +47,10 @@ void _test_chan_cpp() {
 
     i = 2;
     _ = select({
-        _recv(done),            // 0
-        _send(chi, &i),         // 1
-        _recv(chp, &p),         // 2
-        _recv(chi, &j, &jok),   // 3
+        done.recvs(),           // 0
+        chi.sends(&i),          // 1
+        chp.recvs(&p),          // 2
+        chi.recvs(&j, &jok),    // 3
         _default,               // 4
     });
     if (_ != 1)
@@ -168,7 +168,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     usestack_and_call([&]() {
         int rx = 0;
-        int _ = select({_recv(ch, &rx)});
+        int _ = select({ch.recvs(&rx)});
         if (_ != 0)
             panic("select(recv, 333): selected !0");
         if (rx != 333)
@@ -188,7 +188,7 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     usestack_and_call([&]() {
         int tx = 444;
-        int _ = select({_send(ch, &tx)});
+        int _ = select({ch.sends(&tx)});
         if (_ != 0)
             panic("select(send, 444): selected !0");
     });

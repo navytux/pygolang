@@ -220,10 +220,10 @@ can be used to multiplex on several channels. For example::
          cdef cbool ok
          cdef int j = 33
          _ = select([
-             _recv(chi, &i),        # 0
-             _recv(chi, &i, &ok),   # 1
-             _send(chi, &j),        # 2
-             _recv(chp, &p),        # 3
+             chi.recvs(&i)          # 0
+             chi.recvs(&i, &ok),    # 1
+             chi.sends(&j),         # 2
+             chp.recvs(&p),         # 3
              default,               # 4
          ])
          if _ == 0:
@@ -242,8 +242,6 @@ can be used to multiplex on several channels. For example::
          if _ == 4:
              # default case
              ...
-
-XXX `_recv` -> `recv`, `_send` -> `send`
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to

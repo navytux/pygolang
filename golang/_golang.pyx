@@ -282,7 +282,9 @@ def pyselect(*pycasev):
             # we'll decref the object if it won't be sent.
             # see pychan.send for details.
             Py_INCREF(tx)
-            casev[i] = _send(pych.ch, <pPyObject *>p_tx)
+#           casev[i] = _send(pych.ch, <pPyObject *>p_tx)
+#           casev[i] = pych.ch.sends(<pPyObject *>p_tx)
+            casev[i] = pych.ch.sends(p_tx)
 
         # recv
         else:
@@ -298,9 +300,9 @@ def pyselect(*pycasev):
 
             pych = pyrecv.__self__
             if commaok:
-                casev[i] = _recv(pych.ch, &_rx, &rxok)
+                casev[i] = pych.ch.recvs(&_rx, &rxok)
             else:
-                casev[i] = _recv(pych.ch, &_rx)
+                casev[i] = pych.ch.recvs(&_rx)
 
     with nogil:
         selected = _chanselect_pyexc(&casev[0], casev.size())

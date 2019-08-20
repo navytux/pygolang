@@ -26,8 +26,8 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
-    _recv, default, structZ, panic, pypanic, topyexc, cbool
+from golang cimport go, chan, _chan, makechan, pychan, nil, select, \
+    default, structZ, panic, pypanic, topyexc, cbool
 from golang cimport time
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
@@ -113,10 +113,10 @@ cdef void _test_chan_nogil() nogil except +topyexc:
         panic("send -> recv != I")
 
     i = 2
-    _ = select([
-        _send(chi, &i),         # 0
-        _recv(chp, &p),         # 1
-        _recv(chi, &j, &jok),   # 2
+    _=select([
+        chi.sends(&i),          # 0
+        chp.recvs(&p),          # 1
+        chi.recvs(&j, &jok),    # 2
         default,                # 3
     ])
     if _ != 0:

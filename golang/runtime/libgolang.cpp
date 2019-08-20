@@ -630,7 +630,7 @@ bool _chan::_trysend(const void *ptx) { // -> done
 // if !done - returns with ._mu still being held.
 //
 // if !done - (*prx, *pok) are left unmodified.
-// FIXME support prx=NULL (e.g. _recv(done))
+// FIXME support prx=NULL (e.g. recv(done))
 bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     _chan *ch = this;
 

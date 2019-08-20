@@ -45,9 +45,18 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     struct _chan
     cppclass chan[T]:
         chan();
+
+        # send/recv
         void send(const T&)
         T recv()
         pair[T, cbool] recv_()
+
+        # send/recv in select
+        _selcase sends(const T *ptx)
+        _selcase recvs()
+        _selcase recvs(T* prx)
+        _selcase recvs(T* prx, cbool *pok)
+
         void close()
         unsigned len()
         unsigned cap()
@@ -72,10 +81,10 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
     int select(_selcase casev[])
 
-    _selcase _send[T](const chan[T] &ch, const T *ptx)
-    _selcase _recv[T](const chan[T] &ch)
-    _selcase _recv[T](const chan[T] &ch, T* prx)
-    _selcase _recv[T](const chan[T] &ch, T* prx, cbool *pok)
+#   _selcase _send[T](const chan[T] &ch, const T *ptx)
+#   _selcase recv[T](const chan[T] &ch)
+#   _selcase recv[T](const chan[T] &ch, T* prx)
+#   _selcase recv[T](const chan[T] &ch, T* prx, cbool *pok)
     const _selcase default "golang::_default"
 
 

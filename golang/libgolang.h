@@ -48,8 +48,8 @@
 //
 //      _ = select({
 //          _default,       // 0
-//          _send(ch, &i),  // 1
-//          _recv(ch, &j),  // 2
+//          ch.sends(&i),   // 1
+//          ch.recvs(&j),   // 2
 //      });
 //      if (_ == 0)
 //          // default case selected
@@ -138,9 +138,9 @@ LIBGOLANG_API unsigned _chanlen(_chan *ch);
 LIBGOLANG_API unsigned _chancap(_chan *ch);
 
 enum _chanop {
-    _CHANSEND   = 0,
-    _CHANRECV   = 1,
-    _DEFAULT    = 3,
+    _DEFAULT    = 0,    // XXX ok to have as 0? XXX -> better !0 to catch bugs?
+    _CHANSEND   = 1,
+    _CHANRECV   = 2,
 };
 
 // _selcase represents one select case.
@@ -271,10 +271,15 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> chan<T> makechan(unsigned size=0);
-template<typename T> [[nodiscard]] _selcase _send(const chan<T>&, const T*);
-template<typename T> [[nodiscard]] _selcase _recv(const chan<T>&, T* = NULL, bool* = NULL);  // XXX test
+//template<typename T> [[nodiscard]] _selcase _send(const chan<T>&, const T*);
+//template<typename T> [[nodiscard]] _selcase recv(const chan<T>&, T* = NULL, bool* = NULL);  // XXX test
 
 // chan<T> provides type-safe wrapper over _chan.
+//
+// chan<T> is automatically reference-counted and is safe to use from multiple
+// goroutines simultaneously.
+//
+// XXX inline or not inline?
 template<typename T>
 class chan {
     _chan *_ch;
@@ -308,12 +313,23 @@ public:
     // TODO allow all types (e.g. element=chan )
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
-    // XXX also support `ch << v`? However the C++ does not allow the
-    // following: `v = <<ch`, `v, ok = <<ch`, `<< ch`.
+    // send/recv
     void send(const T &ptx)     { _chansend(_ch, &ptx);          }
     T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
     std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
                                   return std::make_pair(rx, ok); }
+    // send/recv in select
+
+    // ch.sends creates `ch.send(*ptx)` case for select.
+    [[nodiscard]] inline _selcase sends(const T *ptx) { return _selsend(_ch, ptx); }
+
+    // ch.recvs creates `*prx = ch.recv()` case for select.
+    //
+    // if pok is provided the case is created for `[*prx, *pok] = ch.recv_()`
+    // if both prx and pok are ommitted the case is reduced to `ch.recv()`.
+    [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) {
+        return _selrecv_(_ch, prx, pok);
+    }
 
     void close()                { _chanclose(_ch);              }
     unsigned len()              { return _chanlen(_ch);         }
@@ -324,9 +340,6 @@ public:
 
     // for testing
     _chan *_rawchan()           { return _ch;   }
-
-    friend _selcase _send<T>(const chan<T>&, const T*);
-    friend _selcase _recv<T>(const chan<T>&, T*, bool*);
 };
 
 // makechan<T> makes new chan<T> with capacity=size.
@@ -348,16 +361,16 @@ chan<T> makechan(unsigned size) {
 // "error: types may not be defined in template arguments".
 struct structZ{};
 
-// select, together with _send<T> and _recv<T>, provide type-safe
+// select, together with chan<T>.sends and chan<T>.recvs, provide type-safe
 // wrappers over _chanselect and _selsend/_selrecv/_selrecv_.
 //
 // Usage example:
 //
 //   _ = select({
-//       _recv(ch1, &v),        # 0
-//       _recv(ch2, &v, &ok),	# 1
-//       _send(ch2, &v),        # 2
-//       _default,              # 3
+//       ch1.recvs(&v),         // 0
+//       ch2.recvs(&v, &ok),    // 1
+//       ch2.sends(&v),         // 2
+//       _default,              // 3
 //   })
 static inline                       // select({case1, case2, case3})
 int select(const std::initializer_list<const _selcase> &casev) {
@@ -369,21 +382,22 @@ int select(const _selcase (&casev)[N]) {
     return _chanselect(&casev[0], N);
 }
 
+#if 0
 // _send<T> creates `ch<T>.send(*ptx)` case for select.
 template<typename T> inline
 _selcase _send(const chan<T> &ch, const T *ptx) {
     return _selsend(ch._ch, ptx);
 }
 
-// _recv<T> creates `*prx = ch<T>.recv()` case for select.
+// recv<T> creates `*prx = ch<T>.recv()` case for select.
 //
 // if pok is provided the case is created for `[*prx, *pok] = ch<T>.recv_()`
 // if both prx and pok are ommitted the case is reduced to `ch<T>.recv()`.
 template<typename T> inline
-_selcase _recv(const chan<T> &ch, T *prx, bool *pok) {
+_selcase recv(const chan<T> &ch, T *prx, bool *pok) {
     return _selrecv_(ch._ch, prx, pok);
 }
-
+#endif
 
 namespace time {
 
