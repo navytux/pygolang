@@ -186,7 +186,49 @@ other features that mirror corresponding Python package.
 Cython API is not only faster compared to Python version, but also, due to
 *nogil* property, allows to build concurrent systems without limitations
 imposed by Python's GIL while still programming in Python-like language.
+Brief description if Cython/nogil API follows:
 
+`go` spawns new task - a coroutine, or thread, depending on activated runtime.
+`chan[T]` represents a channel with Go semantic and `T` elements.
+Use `makechan[T]` to create new channel, and `chan[T].recv`, `chan[T].send`,
+`chan[T].close` for communication. `nil` stands for the nil channel. `select`
+can be used to multiplex on several channels. For example::
+
+    ch1 = chan()    # synchronous channel
+    ch2 = chan(3)   # channel with buffer of size 3
+
+    def _():
+        ch1.send('a')
+        ch2.send('b')
+    go(_)
+
+    ch1.recv()      # will give 'a'
+    ch2.recv_()     # will give ('b', True)
+
+    ch2 = nilchan   # rebind ch2 to nil channel
+    _, _rx = select(
+        ch1.recv,           # 0
+        ch1.recv_,          # 1
+        (ch1.send, obj),    # 2
+        ch2.recv,           # 3
+        default,            # 4
+    )
+    if _ == 0:
+        # _rx is what was received from ch1
+        ...
+    if _ == 1:
+        # _rx is (rx, ok) of what was received from ch1
+        ...
+    if _ == 2:
+        # we know obj was sent to ch1
+        ...
+    if _ == 3:
+        # this case will be never selected because
+        # send/recv on nil channel block forever.
+        ...
+    if _ == 4:
+        # default case
+        ...
 
 --------
 
