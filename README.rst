@@ -181,18 +181,11 @@ located in `src/` under `$GOPATH`.
 Cython/nogil API
 ----------------
 
-For Cython/nogil `golang.pyx` package with similar features is also provided.
-This allows to take advantage of multicore CPU without being limited by GIL.
-XXX while still programming in Python-like language.
-
-.. .. For Cython/nogil `golang.pyx` package with similar features is also provided__.
-.. .. This allows to take advantage of multicore CPU without being limited by GIL.
-.. ..
-.. .. Besides Python, Cython/nogil `golang.pyx` package with similar features is also provided__.
-.. .. This allows to take advantage of multicore CPU without being limited by GIL.
-.. ..
-.. .. __ `Cython/nogil mode`_
-.. .. __ `Cython/nogil mode`_
+Cython package `golang` provides *nogil* API with goroutines, channels and
+other features that mirror corresponding Python package.
+Cython API is not only faster compared to Python version, but also, due to
+*nogil* property, allows to build concurrent systems without limitations
+imposed by Python's GIL while still programming in Python-like language.
 
 
 --------
