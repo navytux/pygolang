@@ -185,7 +185,7 @@ Cython package `golang` provides *nogil* API with goroutines, channels and
 other features that mirror corresponding Python package. Cython API is not only
 faster compared to Python version, but also, due to *nogil* property, allows to
 build concurrent systems without limitations imposed by Python's GIL. All that
-while still programming in Python-like language. Brief description if
+while still programming in Python-like language. Brief description of
 Cython/nogil API follows:
 
 `go` spawns new task - a coroutine, or thread, depending on activated runtime.
@@ -201,7 +201,11 @@ can be used to multiplex on several channels. For example::
 
       void worker(chan[int] chi, chan[Point] chp):
          chi.send(1)
-         chp.send(Point(3,4))
+
+         cdef Point p
+         p.x = 3
+         p.y = 4
+         chp.send(p)
 
       void myfunc():
          cdef chan[int]   chi = makechan[int]()       # synchronous channel of integers
@@ -213,7 +217,7 @@ can be used to multiplex on several channels. For example::
          p = chp.recv()    # will give Point(2,3)
 
          chp = nil         # rebind chp to nil channel
-         cdef bint ok
+         cdef cbool ok
          cdef int  j = 33
          _ = select([
              _recv(chi, &i),        # 0
@@ -239,11 +243,25 @@ can be used to multiplex on several channels. For example::
              # default case
              ...
 
+`panic` stops normal execution of current goroutine by throwing a C-level
+exception. On Python/C boundaries C-level exceptions have to be converted to
+Python-level exceptions with `topyexc`. For example::
+
+   cdef void _do_something() nogil:
+      ...
+      panic("bug")   # hit a bug
+
+   # do_something is called by Python code - it is thus on Python/C boundary
+   cdef void do_something() nogil except +topyexc:
+      _do_something()
+
+   def pydo_something():
+      with nogil:
+         do_something()
 
 XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
 XXX `_recv_` -> kill
 
-XXX `panic`, `topyexc` ? `recover`
 XXX `testprog/golang_pyx_user`.
 
 --------

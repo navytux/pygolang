@@ -23,6 +23,8 @@
 
 from libcpp cimport nullptr_t, nullptr as nil
 from libcpp.utility cimport pair
+cdef extern from *:
+    ctypedef bint cbool "bool"
 
 # nogil pyx-level golang API.
 #
@@ -45,12 +47,12 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         chan();
         void send(const T&)
         T recv()
-        pair[T, bint] recv_()
+        pair[T, cbool] recv_()
         void close()
         unsigned len()
         unsigned cap()
-        bint operator==(nullptr_t)
-        bint operator!=(nullptr_t)
+        cbool operator==(nullptr_t)
+        cbool operator!=(nullptr_t)
         void operator=(nullptr_t)
         _chan *_rawchan()
     chan[T] makechan[T](unsigned size)
@@ -71,7 +73,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
     _selcase _send[T](const chan[T] &ch, const T *ptx)
     _selcase _recv[T](const chan[T] &ch, T* prx)
-    _selcase _recv_[T](const chan[T] &ch, T* prx, bint *pok)
+    _selcase _recv_[T](const chan[T] &ch, T* prx, cbool *pok)
     const _selcase _default
 
 

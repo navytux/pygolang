@@ -27,7 +27,7 @@
 from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, _send,  \
-    _recv, _recv_, _default, structZ, panic, pypanic, topyexc
+    _recv, _recv_, _default, structZ, panic, pypanic, topyexc, cbool
 from golang cimport time
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
@@ -89,15 +89,12 @@ cdef void _panicblocked() nogil:
 
 
 # small test to verify pyx(nogil) channels.
-cdef extern from *:
-    ctypedef bint cbool "bool"
-
 ctypedef struct Point:
     int x
     int y
 
 # TODO kill this and teach Cython to coerce pair[X,Y] -> (X,Y)
-cdef (int, bint) recv_(chan[int] ch) nogil:
+cdef (int, cbool) recv_(chan[int] ch) nogil:
     _ = ch.recv_()
     return (_.first, _.second)
 
