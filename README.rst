@@ -261,10 +261,21 @@ Python-level exceptions with `topyexc`. For example::
       with nogil:
          do_something()
 
-See |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in Cython/nogil mode.
+
+See |libgolang.h|_ and |golang.pxd|_ for details of the API.
+See also |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in
+Cython/nogil mode.
+
+.. |libgolang.h| replace:: `libgolang.h`
+.. _libgolang.h: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/libgolang.h
+
+.. |golang.pxd| replace:: `golang.pxd`
+.. _golang.pxd: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/_golang.pxd
 
 .. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
-.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/testprog/golang_pyx_user
+.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/testprog/golang_pyx_user
+
+.. XXX sha1 -> master
 
 --------
 
