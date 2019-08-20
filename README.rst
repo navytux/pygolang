@@ -209,17 +209,19 @@ can be used to multiplex on several channels. For example::
 
          go(worker, chi, chp)
 
-         i     = chi.recv()   # will give 1
-         p, ok = chp.recv_()  # will give (Point(2,3), True)
+         i = chi.recv()    # will give 1
+         p = chp.recv()    # will give Point(2,3)
 
-         ch2 = nil      # rebind ch2 to nil channel
-         _ = select(
+         chp = nil         # rebind chp to nil channel
+         cdef bint ok
+         cdef int  j = 33
+         _ = select([
              _recv(chi, &i),        # 0
              _recv_(chi, &i, &ok),  # 1
              _send(chi, &j),        # 2
              _recv(chp, &p),        # 3
              _default,              # 4
-         )
+         ])
          if _ == 0:
              # i is what was received from chi
              ...
