@@ -160,7 +160,6 @@ cdef class pychan:
             # XXX could this channel still be connected to outside?
             # XXX if yes - draining is not correct
             # XXX -> check ch.refcnt?
-            #chanrecv_pyexc(ch, &_rx)
             _rx = chanrecv_pyexc(ch)
             Py_DECREF(<object>_rx)
 

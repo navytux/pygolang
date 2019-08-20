@@ -83,10 +83,12 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
         unsigned len()
         unsigned cap()
+
         cbool operator==(nullptr_t)
         cbool operator!=(nullptr_t)
         void operator=(nullptr_t)
         _chan *_rawchan()
+
     chan[T] makechan[T]()
     chan[T] makechan[T](unsigned size)
 

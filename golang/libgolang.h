@@ -138,9 +138,9 @@ LIBGOLANG_API unsigned _chanlen(_chan *ch);
 LIBGOLANG_API unsigned _chancap(_chan *ch);
 
 enum _chanop {
-    _DEFAULT    = 0,    // XXX ok to have as 0? XXX -> better !0 to catch bugs?
-    _CHANSEND   = 1,
-    _CHANRECV   = 2,
+    _CHANSEND   = 0,
+    _CHANRECV   = 1,
+    _DEFAULT    = 2,
 };
 
 // _selcase represents one select case.
@@ -189,7 +189,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
     return _;
 }
 
-// _default represents default case for _select.
+// _default represents default case for _chanselect.
 extern LIBGOLANG_API const _selcase _default;
 
 
