@@ -262,7 +262,10 @@ Python-level exceptions with `topyexc`. For example::
 XXX `_recv` -> `recv`, `_send` -> `send`, `_default` -> `default`.
 XXX `_recv_` -> kill
 
-XXX `testprog/golang_pyx_user`.
+See |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in Cython/nogil mode.
+
+.. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
+.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/testprog/golang_pyx_user
 
 --------
 
