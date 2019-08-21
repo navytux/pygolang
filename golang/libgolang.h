@@ -36,8 +36,10 @@
 // C++-level API
 //
 //  - `go` spawns new task.
-//  - `chan<T>`, and `select` provide channels with Go semantic.
+//  - `chan<T>`, and `select` provide channels with Go semantic and automatic
+//    lifetime management.
 //  - `sleep` pauses current task.
+//  - `panic` throws exception that represent C-level panic.
 //
 // For example:
 //
@@ -109,6 +111,7 @@
 
 
 // ---- C-level API that is always available ----
+// (most of the functions are documented in libgolang.cpp)
 
 #ifdef  __cplusplus
 namespace golang {
