@@ -51,7 +51,7 @@ cdef extern from "pythread.h" nogil:
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         _libgolang_runtime_flags, panic
 
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint64_t, UINT64_MAX
 IF POSIX:
     from posix.time cimport clock_gettime, nanosleep as posix_nanosleep, timespec, CLOCK_REALTIME
     from libc.errno cimport errno, EINTR
@@ -59,6 +59,8 @@ ELSE:
     # for !posix timing fallback
     import time as pytimemod
 
+DEF i1E9 = 1000000000
+#           987654321
 
 cdef nogil:
 
@@ -88,8 +90,8 @@ cdef nogil:
     IF POSIX:
         void nanosleep(uint64_t dt):
             cdef timespec ts
-            ts.tv_sec  = dt // 1000000000
-            ts.tv_nsec = dt  % 1000000000
+            ts.tv_sec  = dt // i1E9
+            ts.tv_nsec = dt  % i1E9
             err = posix_nanosleep(&ts, NULL)
             if err == -1 and errno == EINTR:
                 err = 0     # XXX ok?
@@ -97,7 +99,7 @@ cdef nogil:
                 panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno
     ELSE:
         bint _nanosleep(uint64_t dt):
-            cdef double dt_s = dt * 1E-9
+            cdef double dt_s = dt * 1E-9 # no overflow possible
             with gil:
                 pytimemod.sleep(dt_s)
                 return True
@@ -112,14 +114,20 @@ cdef nogil:
             cdef int err = clock_gettime(CLOCK_REALTIME, &ts)
             if err == -1:
                 panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno
-            return ts.tv_sec*1000000000 + ts.tv_nsec    # XXX overflow
+            if not (0 <= ts.tv_sec and (0 <= ts.tv_nsec <= i1E9)):
+                panic("pyxgo: thread: nanotime: clock_gettime -> invalid")
+            if ts.tv_sec > (UINT64_MAX / i1E9 - 1):
+                panic("pyxgo: thread: nanotime: clock_gettime -> overflow")
+            return ts.tv_sec*i1E9 + ts.tv_nsec
     ELSE:
         (uint64_t, bint) _nanotime():
             cdef double t_s
             with gil:
                 t_s = pytimemod.time()
-                # XXX check for overflow -> panic
-                return <uint64_t>(t_s * 1E9), True
+            t_ns = t_s * 1E9
+            if t_ns > UINT64_MAX:
+                panic("pyxgo: thread: nanotime: time overflow")
+            return <uint64_t>t_ns, True
         uint64_t nanotime():
             t, ok = _nanotime()
             if not ok:
