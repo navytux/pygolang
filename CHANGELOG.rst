@@ -10,8 +10,8 @@ Pygolang change history
   This work was motivated by wendelin.core__ v2, which, due to its design,
   would deadlock if it tries to take the GIL in its pinner thread.
   Implementation of Python-level goroutines and channels becomes tiny wrapper
-  around Cython/nogil API. This brings in nice ~5x speedup even to Python-level
-  `golang` package.
+  around Cython/nogil API. This brings in nice ~5x speedup to Python-level
+  `golang` package along the way.
   (`commit 1`__, 2__, ...)
 
   .. XXX recheck 5x
@@ -28,7 +28,7 @@ Pygolang change history
 
   __ golang: Add benchmarks for chan, select, @func and defer
 
-- Improve tests to more excersize the implementation more thoroughly in many
+- Improve tests to excersize the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
   __ test: Verify panic argument
@@ -41,7 +41,7 @@ Pygolang change history
 - ? `*: Use golang.time universally`
 
 - Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
-  This removes relience on outside semaphore-like implementation and speed up
+  This removes relience on outside semaphore-like implementation and speeds up
   `sync.WorkGroup` a bit (commit__).   XXX
 
   __ sync: threading.Event -> chan
@@ -64,9 +64,12 @@ Pygolang change history
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/924a808c
 
-.. class:: align-center
+.. .. class:: align-center
+..
 
-*This release is dedicated to the memory of* |Вера Павловна Супрун|_.
+.. |_| unicode:: 0xA0   .. nbsp
+
+|_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_|  *This release is dedicated to the memory of* |Вера Павловна Супрун|_.
 
 .. |Вера Павловна Супрун| replace:: *Вера Павловна Супрун*
 .. _Вера Павловна Супрун: https://navytux.spb.ru/%D0%A2%D1%91%D1%82%D1%8F%20%D0%92%D0%B5%D1%80%D0%B0.pdf#page=3
