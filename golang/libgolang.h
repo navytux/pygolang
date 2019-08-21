@@ -66,6 +66,7 @@
 //
 //  - `_taskgo` spawns new task.
 //  - `_makechan` creates raw channel with Go semantic.
+//  - `_chanxincref` and `_chanxdecref` manage channel lifetime.
 //  - `_chansend` and `_chanrecv` send/receive over raw channel.
 //  - `_chanselect`, `_selsend`, `_selrecv`, ... provide raw select functionality.
 //  - `tasknanosleep` pauses current task.
@@ -89,9 +90,9 @@
 // [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
 // [2] http://9p.io/magic/man2html/2/thread.
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
@@ -249,23 +250,24 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 
-#include <exception>        // bad_alloc & co
+#include <exception>
 #include <functional>
 #include <initializer_list>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
 namespace golang {
 
 // go provides type-safe wrapper over _taskgo.
-template<typename F, typename... Argv>  // F ~ function<void(Argv...)>
+template<typename F, typename... Argv>  // F = std::function<void(Argv...)>
 static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
     typedef std::function<void(void)> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));
     _taskgo([](void *_frun) {
-        Frun *frun = reinterpret_cast<Frun*>(_frun);
+        std::unique_ptr<Frun> frun (reinterpret_cast<Frun*>(_frun));
         (*frun)();
-        delete frun;   // XXX -> defer
+        // frun deleted here on normal exit or panic.
     }, frun);
 }
 

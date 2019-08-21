@@ -985,7 +985,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
         ch->_mu.lock();
         with_lock(g->_mu); // with, because _trysend may panic
             // a case that we previously queued already won while we were
-            // queing other cases.
+            // queuing other cases.
             if (g->which != NULL) {
                 ch->_mu.unlock();
                 goto ready;
