@@ -94,7 +94,7 @@ cdef nogil:
             ts.tv_nsec = dt  % i1E9
             err = posix_nanosleep(&ts, NULL)
             if err == -1 and errno == EINTR:
-                err = 0     # XXX ok?
+                err = 0 # XXX ok?
             if err == -1:
                 panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno
     ELSE:
@@ -113,7 +113,7 @@ cdef nogil:
             cdef timespec ts
             cdef int err = clock_gettime(CLOCK_REALTIME, &ts)
             if err == -1:
-                panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno
+                panic("pyxgo: thread: nanotime: clock_gettime failed") # XXX +errno
             if not (0 <= ts.tv_sec and (0 <= ts.tv_nsec <= i1E9)):
                 panic("pyxgo: thread: nanotime: clock_gettime -> invalid")
             if ts.tv_sec > (UINT64_MAX / i1E9 - 1):
