@@ -360,8 +360,8 @@ void _WaitGroup::wakeup() {
 _RecvSendWaiting *_dequeWaiter(list_head *queue) {
     while (!list_empty(queue)) {
         _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
-        list_del_init(&w->in_rxtxq); // _init is important as we can try to remove the waiter
-                                     // the second time in select.
+        list_del_init(&w->in_rxtxq); // _init is important as we can try to remove the
+                                     // waiter the second time in select.
         // if this waiter can win its group - return it.
         // if not - someone else from its group already has won, and so we anyway have
         // to remove the waiter from the queue.
@@ -506,7 +506,7 @@ void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _ch
 // ok is true - if receive was delivered by a successful send.
 // ok is false - if receive is due to channel being closed and empty.
 //
-// sizeof(*prx) must be ch._elemsize | prx=NULL.    XXX do we need prx=NULL ?
+// sizeof(*prx) must be ch._elemsize | prx=NULL.
 bool _chanrecv_(_chan *ch, void *prx) {
     if (ch == NULL)
         _blockforever();
@@ -536,6 +536,9 @@ template<> bool _chan::_recv2_</*onstack=*/true> (void *prx) {
 template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this;
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
+
+        if (prx == NULL)
+            return __recv2_(prx, g.get(), me.get());
 
         // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
         void *prx_onheap = malloc(ch->_elemsize);
@@ -567,8 +570,12 @@ bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *c
 
 // recv receives from the channel.
 //
-// received value is put into *prx.
-void _chanrecv(_chan *ch, void *prx) { ch->recv(prx); }
+// if prx != NULL received value is put into *prx.
+void _chanrecv(_chan *ch, void *prx) {
+    if (ch == NULL)
+        _blockforever();
+    ch->recv(prx);
+}
 void _chan::recv(void *prx) {
     _chan *ch = this;
     (void)ch->recv_(prx);
