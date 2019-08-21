@@ -823,7 +823,7 @@ static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*)
 //      sel[3]  = _default;
 //      _ = _chanselect(sel, 4);
 //
-// See `select` documentation for user-friendly wrapper.
+// See `select` for user-friendly wrapper.
 // NOTE casev is not modified and can be used for next _chanselect calls.
 int _chanselect(const _selcase *casev, int casec) {
     if (casec < 0)
@@ -925,7 +925,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
             rxmax = max(rxmax, cas->ch->_elemsize);
         }
         else {
-            bug("select: XXX"); // XXX
+            bug("select: invalid op  ; _chanselect2: !onstack: A");
         }
     }
 
@@ -950,7 +950,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
         else if (cas->op == _CHANRECV) {
             cas->data = rxtxdata;
         } else {
-            bug("select: XXX"); // XXX
+            bug("select: invalid op  ; _chanselect2: !onstack: B");
         }
     }
 
@@ -961,7 +961,8 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     _selcase *cas = &casev_onheap[selected];
     if (cas->op == _CHANRECV) {
         const _selcase *cas0 = &casev[selected];
-        memcpy(cas0->data, cas->data, cas->ch->_elemsize);
+        if (cas0->data != NULL)
+            memcpy(cas0->data, cas->data, cas->ch->_elemsize);
     }
 
     return selected;
