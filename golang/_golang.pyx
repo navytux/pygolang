@@ -102,7 +102,7 @@ cdef void _goviac(void *arg) nogil:
     # create new py thread state and keep it alive while __goviac runs.
     #
     # Just `with gil` is not enough: for `with gil` if exceptions could be
-    # raised inside, cython generates several GIL release/reacquiere calls.
+    # raised inside, cython generates several GIL release/reacquire calls.
     # This way the thread state will be deleted on first release and _new_ one
     # - _another_ thread state create on acquire. All that implicitly with the
     # effect of loosing things associated with thread state - e.g. current
