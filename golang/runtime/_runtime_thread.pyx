@@ -104,21 +104,27 @@ cdef nogil:
         void nanosleep(uint64_t dt):
             ok = _nanosleep(dt)
             if not ok:
-                panic("pyxgo: thread: pynanosleep failed")
+                panic("pyxgo: thread: nanosleep: pytime.sleep failed")
 
-    uint64_t nanotime():
-        IF POSIX:
+    IF POSIX:
+        uint64_t nanotime():
             cdef timespec ts
             cdef int err = clock_gettime(CLOCK_REALTIME, &ts)
             if err == -1:
                 panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno
             return ts.tv_sec*1000000000 + ts.tv_nsec    # XXX overflow
-        ELSE:
+    ELSE:
+        (uint64_t, bint) _nanotime():
             cdef double t_s
             with gil:
-                t_s = pytimemod.time()  # XXX pyexc -> panic
-            # XXX check for overflow -> panic
-            return <uint64_t>(t_s * 1E9)
+                t_s = pytimemod.time()
+                # XXX check for overflow -> panic
+                return <uint64_t>(t_s * 1E9), True
+        uint64_t nanotime():
+            t, ok = _nanotime()
+            if not ok:
+                panic("pyxgo: thread: nanotime: pytime.time failed")
+            return t
 
 
     # XXX const
