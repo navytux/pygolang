@@ -583,7 +583,7 @@ void _chan::recv(void *prx) {
 }
 
 
-// _trysend(ch, obj) -> done
+// _trysend(ch, *ptx) -> done
 //
 // must be called with ._mu held.
 // if done or panic - returns with ._mu released.
@@ -630,14 +630,14 @@ bool _chan::_trysend(const void *ptx) { // -> done
 }
 
 
-// _tryrecv() -> rx_=(rx, ok), done
+// _tryrecv() -> (*prx, *pok), done
 //
 // must be called with ._mu held.
 // if done or panic - returns with ._mu released.
 // if !done - returns with ._mu still being held.
 //
 // if !done - (*prx, *pok) are left unmodified.
-// FIXME support prx=NULL (e.g. recv(done))
+// if prx=NULL received value is not copied into *prx.
 bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     _chan *ch = this;
 
@@ -664,7 +664,8 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     // closed
     if (ch->_closed) {
         ch->_mu.unlock();
-        memset(prx, 0, ch->_elemsize);
+        if (prx != NULL)
+            memset(prx, 0, ch->_elemsize);
         *pok = false;
         return true;
     }
@@ -675,7 +676,8 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
         return false;
 
     ch->_mu.unlock();
-    memcpy(prx, send->pdata, ch->_elemsize);
+    if (prx != NULL)
+        memcpy(prx, send->pdata, ch->_elemsize);
     *pok = true;
     // XXX vvv was send.wakeup(true)
     send->ok = true;
@@ -771,6 +773,7 @@ void _chan::_dataq_append(const void *ptx) {
 
 // _dataq_popleft pops oldest element from ch._dataq into *prx.
 // called with ch._mu locked.
+// if prx=NULL the element is popped, but not copied anywhere.
 void _chan::_dataq_popleft(void *prx) {
     _chan *ch = this;
 
@@ -779,7 +782,8 @@ void _chan::_dataq_popleft(void *prx) {
     if (ch->_dataq_r >= ch->_cap)
         bug("chan: dataq.popleft: r >= cap");
 
-    memcpy(prx, &((char *)(ch+1))[ch->_dataq_r * ch->_elemsize], ch->_elemsize);
+    if (prx != NULL)
+        memcpy(prx, &((char *)(ch+1))[ch->_dataq_r * ch->_elemsize], ch->_elemsize);
     ch->_dataq_r++; ch->_dataq_r %= ch->_cap;
     ch->_dataq_n--;
 }
