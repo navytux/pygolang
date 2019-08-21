@@ -20,14 +20,6 @@ Pygolang change history
   __ XXX
   __ XXX
 
-- Speedup `sync.WorkGroup` ... (commit__).
-
-  __ sync.Workgroup: Don't use @func at runtime
-
-- Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
-
-  __ golang: Add benchmarks for chan, select, @func and defer
-
 - Improve tests to excersize the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
@@ -37,14 +29,6 @@ Pygolang change history
   __ golang: Run all select tests "more thoroughly
   __ golang: Test that buffered channel releases objects from buffer on chan GC
   __ golang: Add test for blocked select(send|recv) vs close
-
-- ? `*: Use golang.time universally`
-
-- Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
-  This removes relience on outside semaphore-like implementation and speeds up
-  `sync.WorkGroup` a bit (commit__).   XXX
-
-  __ sync: threading.Event -> chan
 
 - Fix race bugs in buffered channel send and receive (`commit 1`__, 2__).
 
@@ -63,6 +47,22 @@ Pygolang change history
 - Fix `@func(cls) def name` not to override `name` in calling context (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/924a808c
+
+- Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
+  This removes relience on outside semaphore+waitlist code and speeds up
+  `sync.WorkGroup` along the way (commit__).
+
+  __ sync: threading.Event -> chan
+
+- Speedup `sync.WorkGroup` ... (commit__).
+
+  __ sync.Workgroup: Don't use @func at runtime
+
+- Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
+
+  __ golang: Add benchmarks for chan, select, @func and defer
+
+- ? `*: Use golang.time universally`
 
 .. |_| unicode:: 0xA0   .. nbsp
 
