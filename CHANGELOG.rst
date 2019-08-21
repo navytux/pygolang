@@ -35,11 +35,6 @@ Pygolang change history
   __ golang: Fix race in chan._trysend
   __ golang: Fix race in chan._tryrecv
 
-- Fix `sync.WorkGroup` to propagate all exception types, not only those derived
-  from `Exception` (commit__).
-
-  __ https://lab.nexedi.com/kirr/pygolang/commit/79aab7df
-
 - Fix deadlock in `sync.WorkGroup` tests (commit__).
 
   __ sync.WorkGroup: Fix deadlock thinko in tests
@@ -47,6 +42,11 @@ Pygolang change history
 - Fix `@func(cls) def name` not to override `name` in calling context (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/924a808c
+
+- Fix `sync.WorkGroup` to propagate all exception types, not only those derived
+  from `Exception` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/79aab7df
 
 - Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
   This removes relience on outside semaphore+waitlist code and speeds up
@@ -64,6 +64,7 @@ Pygolang change history
 
 - ? `*: Use golang.time universally`
 
+.. readme_renderer/pypi don't support `.. class:: align-center`
 .. |_| unicode:: 0xA0   .. nbsp
 
 |_| |_| |_| |_| |_| |_| |_| |_| *This release is dedicated to the memory of* |Вера Павловна Супрун|_.
