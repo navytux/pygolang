@@ -26,7 +26,6 @@ See the following link about Go time package:
 
 from __future__ import print_function, absolute_import
 
-import time as _time
 from golang import go, chan, select, default, nilchan, panic
 import threading
 
