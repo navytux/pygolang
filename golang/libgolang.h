@@ -312,11 +312,11 @@ public:
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
     // send/recv/close
-    inline void send(const T &ptx)     { _chansend(_ch, &ptx);          }
-    inline T recv()                    { T rx; _chanrecv(_ch, &rx); return rx; }
+    inline void send(const T &ptx)     { _chansend(_ch, &ptx);                  }
+    inline T recv()                    { T rx; _chanrecv(_ch, &rx); return rx;  }
     inline std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
-                                         return std::make_pair(rx, ok); }
-    inline void close()                { _chanclose(_ch);              }
+                                         return std::make_pair(rx, ok);         }
+    inline void close()                { _chanclose(_ch);                       }
 
     // send/recv in select
 
@@ -325,15 +325,17 @@ public:
 
     // ch.recvs creates `*prx = ch.recv()` case for select.
     //
-    // if pok is provided the case is created for `[*prx, *pok] = ch.recv_()`
+    // if pok is provided the case is extended to `[*prx, *pok] = ch.recv_()`
     // if both prx and pok are omitted the case is reduced to `ch.recv()`.
     [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) {
         return _selrecv_(_ch, prx, pok);
     }
 
+    // length/capacity
     inline unsigned len()              { return _chanlen(_ch);         }
     inline unsigned cap()              { return _chancap(_ch);         }
 
+    // compare wrt nil
     inline bool operator==(nullptr_t)  { return (_ch == NULL); }
     inline bool operator!=(nullptr_t)  { return (_ch != NULL); }
 

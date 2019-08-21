@@ -23,7 +23,7 @@ Cython/nogil API
 ----------------
 
 - `go` spawns lightweight thread.
-- `chan[T]` and `select` provide C-level channels with Go semantic.
+- `chan[T]`, `makechan[T]` and `select` provide C-level channels with Go semantic.
 - `panic` stops normal execution of current goroutine by throwing a C-level exception.
 
 Everything in Cython/nogil API do not depend on Python runtime and in
@@ -81,12 +81,16 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _selcase recvs(T* prx)
         _selcase recvs(T* prx, cbool *pok)
 
+        # length/capacity
         unsigned len()
         unsigned cap()
 
+        # compare wrt nil; =nil
         cbool operator==(nullptr_t)
         cbool operator!=(nullptr_t)
         void operator=(nullptr_t)
+
+        # for tests
         _chan *_rawchan()
 
     chan[T] makechan[T]()
