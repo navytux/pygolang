@@ -22,5 +22,5 @@
 See _time.pxd for package documentation.
 """
 
-# redirect `cimport golang.time` -> `cimport golang._time` (see __init__.pxd for rationale)
+# redirect cimport: golang.time -> golang._time (see __init__.pxd for rationale)
 from golang._time cimport *

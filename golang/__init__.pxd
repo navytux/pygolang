@@ -22,7 +22,7 @@
 See _golang.pxd for package documentation.
 """
 
-# redirect `cimport golang` -> `cimport golang._golang`
+# redirect cimport: golang -> golang._golang
 #
 # we do this because we cannot put pyx code into __init__.pyx - else Python and
 # other tools (e.g. setuptools) fail to recognize golang/ as Python package.
