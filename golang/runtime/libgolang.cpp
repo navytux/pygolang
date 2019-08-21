@@ -42,7 +42,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// XXX -> better use c.h or ccan/array_size.h ?
+// linux/list.h needs ARRAY_SIZE    XXX -> better use c.h or ccan/array_size.h ?
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
