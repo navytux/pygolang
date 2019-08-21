@@ -267,6 +267,7 @@ struct _RecvSendWaiting {
 
     _RecvSendWaiting();
     void init(_WaitGroup *group, _chan *ch);
+    void wakeup(bool ok);
 private:
     _RecvSendWaiting(const _RecvSendWaiting&);  // don't copy
 };
@@ -309,6 +310,13 @@ void _RecvSendWaiting::init(_WaitGroup *group, _chan *ch) {
     w->pdata = NULL;
     w->ok    = false;
     w->sel_n = -1;
+}
+
+// wakeup notifies waiting receiver/sender that corresponding operation completed.
+void _RecvSendWaiting::wakeup(bool ok) {
+    _RecvSendWaiting *w = this;
+    w->ok = ok;
+    w->group->wakeup();
 }
 
 _WaitGroup::_WaitGroup() {
@@ -603,11 +611,9 @@ bool _chan::_trysend(const void *ptx) { // -> done
             return false;
 
         ch->_mu.unlock();
-        // XXX vvv was recv->wakeup(ptx, true);
         if (recv->pdata != NULL)
             memcpy(recv->pdata, ptx, ch->_elemsize);
-        recv->ok = true;
-        recv->group->wakeup();
+        recv->wakeup(/*ok=*/true);
         return true;
     }
     // buffered channel
@@ -620,9 +626,7 @@ bool _chan::_trysend(const void *ptx) { // -> done
         if (recv != NULL) {
             ch->_dataq_popleft(recv->pdata);
             ch->_mu.unlock();
-            // XXX was recv.wakeup(rx, true)
-            recv->ok = true;
-            recv->group->wakeup();
+            recv->wakeup(/*ok=*/true);
         } else {
             ch->_mu.unlock();
         }
@@ -652,9 +656,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
         if (send != NULL) {
             ch->_dataq_append(send->pdata);
             ch->_mu.unlock();
-            // XXX was send.wakeup(true)
-            send->ok = true;
-            send->group->wakeup();
+            send->wakeup(/*ok=*/true);
         } else {
             ch->_mu.unlock();
         }
@@ -680,9 +682,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     if (prx != NULL)
         memcpy(prx, send->pdata, ch->_elemsize);
     *pok = true;
-    // XXX vvv was send.wakeup(true)
-    send->ok = true;
-    send->group->wakeup();
+    send->wakeup(/*ok=*/true);
     return true;
 }
 
@@ -709,11 +709,9 @@ void _chan::close() {
                 break;
 
             ch->_mu.unlock();
-            // XXX was recv.wakeup(None, false)
             if (recv->pdata != NULL)
                 memset(recv->pdata, 0, ch->_elemsize);
-            recv->ok = false;
-            recv->group->wakeup();
+            recv->wakeup(/*ok=*/false);
             ch->_mu.lock();
         }
 
@@ -724,9 +722,7 @@ void _chan::close() {
                 break;
 
             ch->_mu.unlock();
-            // XXX was send.wakeup(false)
-            send->ok = false;
-            send->group->wakeup();
+            send->wakeup(/*ok=*/false);
             ch->_mu.lock();
         }
     ch->_mu.unlock();
