@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_runtime_thread.pyx provides libgolang runtime based on OS threads"""
+"""_runtime_thread.pyx provides libgolang runtime based on OS threads."""
 
 from __future__ import print_function, absolute_import
 
@@ -26,11 +26,12 @@ from __future__ import print_function, absolute_import
 # the implementation we can offload us from covering different systems.
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
-# NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 #
 # Similarly PyThread_start_new_thread - Python's C function function to create
 # new thread - does not depend on GIL. On POSIX, for example, it is small
 # wrapper around pthread_create.
+#
+# NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
         PyThread_type_lock, WAIT_LOCK
 

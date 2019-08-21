@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets"""
+"""_runtime_gevent.pyx provides libgolang runtime based on gevent greenlets."""
 
 from __future__ import print_function, absolute_import
 

@@ -159,7 +159,7 @@ def Ext(name, srcv, **kw):
     if exists(venv_inc):
         incv.append(venv_inc)
 
-    # provide POSIX/PYPY/... defines to Cython
+    # provide POSIX/PYPY/... defines to Cython      XXX -> golang.pyx.build
     POSIX = ('posix' in sys.builtin_module_names)
     PYPY  = (platform.python_implementation() == 'PyPy')
     pyxenv = kw.get('cython_compile_time_env', {})
