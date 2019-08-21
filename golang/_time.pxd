@@ -26,7 +26,7 @@ See the following link about Go time package:
 
 # golang/pyx - the same as std python - represents time as float
 cdef extern from * nogil:
-    # XXX how to declare/share constants without vvv?
+    # XXX how to declare/share constants without C verbatim?
     """
     #ifndef _golang_time_pxd_h
     #define _golang_time_pxd_h
