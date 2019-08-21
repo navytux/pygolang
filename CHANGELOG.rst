@@ -4,13 +4,6 @@ Pygolang change history
 0.0.3 (2019-08-XX)
 ~~~~~~~~~~~~~~~~~~
 
-.. class:: align-center
-
-*Dedicated to the memory of* |Вера Павловна Супрун|_.
-
-.. |Вера Павловна Супрун| replace:: *Вера Павловна Супрун*
-.. _Вера Павловна Супрун: https://navytux.spb.ru/%D0%A2%D1%91%D1%82%D1%8F%20%D0%92%D0%B5%D1%80%D0%B0.pdf#page=3
-
 - Provide Cython/nogil API with goroutines and channels. Cython API is not only
   faster compared to Python version, but also, due to *nogil* property, allows to
   build concurrent systems without limitations imposed by Python's GIL.
@@ -70,6 +63,14 @@ Pygolang change history
 - Fix `@func(cls) def name` not to override `name` in calling context (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/924a808c
+
+.. .. class:: align-center
+..
+
+   *This release is dedicated to the memory of* |Вера Павловна Супрун|_.
+
+.. |Вера Павловна Супрун| replace:: *Вера Павловна Супрун*
+.. _Вера Павловна Супрун: https://navytux.spb.ru/%D0%A2%D1%91%D1%82%D1%8F%20%D0%92%D0%B5%D1%80%D0%B0.pdf#page=3
 
 
 0.0.2 (2019-05-16)

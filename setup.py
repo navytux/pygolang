@@ -170,6 +170,8 @@ def Ext(name, srcv, **kw):
     kw['include_dirs'] = incv
     #return Extension(name, srcv, **kw)
     # XXX hack, because Extension is not Cython.Extension, but setuptools_dso.Extension
+    # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
+    pyxenv = kw.pop('cython_compile_time_env')
     ext = Extension(name, srcv, **kw)
     ext.cython_compile_time_env = pyxenv
     return ext
