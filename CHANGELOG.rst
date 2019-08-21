@@ -10,8 +10,8 @@ Pygolang change history
   This work was motivated by wendelin.core__ v2, which, due to its design,
   would deadlock if it tries to take the GIL in its pinner thread.
   Implementation of Python-level goroutines and channels becomes tiny wrapper
-  around Cython/nogil API. This brings in nice ~5x speedup to Python-level
-  `golang` package along the way.
+  around Cython/nogil API. This brings in ~5x speedup to Python-level `golang`
+  package along the way.
   (`commit 1`__, 2__, ...)
 
   .. XXX recheck 5x
