@@ -64,9 +64,6 @@ Pygolang change history
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/924a808c
 
-.. .. class:: align-center
-..
-
 .. |_| unicode:: 0xA0   .. nbsp
 
 |_| |_| |_| |_| |_| |_| |_| |_| *This release is dedicated to the memory of* |Вера Павловна Супрун|_.
