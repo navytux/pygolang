@@ -39,6 +39,7 @@ from gevent import sleep as pygsleep
 
 from libc.stdint cimport uint64_t
 from cpython cimport Py_INCREF, Py_DECREF
+from cython cimport final
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         STACK_DEAD_WHILE_PARKED, panic
@@ -50,6 +51,7 @@ def _goviapy(_togo _ not None):
     with nogil:
         _.f(_.arg)
 
+@final
 cdef class _togo:
     cdef void (*f)(void *) nogil
     cdef void *arg

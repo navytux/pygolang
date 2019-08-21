@@ -38,10 +38,11 @@ cdef extern from "Python.h":
         PyObject **ob_item
 
 from libcpp.vector cimport vector
-
+from cython cimport final
 
 # ---- panic ----
 
+@final
 cdef class _PanicError(Exception):
     pass
 
@@ -71,6 +72,7 @@ cdef extern from "golang/libgolang.h" nogil:
 
 # ---- go ----
 
+@final
 cdef class _togo:
     cdef object f
     cdef tuple  argv
@@ -145,6 +147,7 @@ _pynilchan.ch = chan[pPyObject]()  # = NULL
 pynilchan = _pynilchan
 
 # pychan is chan<object>
+@final
 cdef class pychan:
     def __cinit__(pych, size=0):
         pych.ch = makechan_pyobj_pyexc(size)
