@@ -20,7 +20,7 @@ Pygolang change history
   __ XXX
   __ XXX
 
-- Improve tests to excersize the implementation more thoroughly in many
+- Improve tests to exercise the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/773d8fb2  test: Verify panic argument
@@ -49,7 +49,7 @@ Pygolang change history
   __ https://lab.nexedi.com/kirr/pygolang/commit/79aab7df
 
 - Replace `threading.Event` with `chan` in `sync.WorkGroup` implementation.
-  This removes relience on outside semaphore+waitlist code and speeds up
+  This removes reliance on outside semaphore+waitlist code and speeds up
   `sync.WorkGroup` along the way (commit__).
 
   __ sync: threading.Event -> chan

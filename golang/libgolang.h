@@ -227,7 +227,7 @@ typedef struct _libgolang_runtime_ops {
     // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
     void        (*nanosleep)(uint64_t dt);
 
-    // nanotime should return current time since EPOCH in nanoseconnds.
+    // nanotime should return current time since EPOCH in nanoseconds.
     uint64_t    (*nanotime)(void);
 
 } _libgolang_runtime_ops;
@@ -324,7 +324,7 @@ public:
     // ch.recvs creates `*prx = ch.recv()` case for select.
     //
     // if pok is provided the case is created for `[*prx, *pok] = ch.recv_()`
-    // if both prx and pok are ommitted the case is reduced to `ch.recv()`.
+    // if both prx and pok are omitted the case is reduced to `ch.recv()`.
     [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) {
         return _selrecv_(_ch, prx, pok);
     }
