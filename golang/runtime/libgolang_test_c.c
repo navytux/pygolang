@@ -31,8 +31,9 @@ typedef struct Point {
 } Point;
 
 void _test_chan_c(void) {
-    _chan *chi = _makechan(sizeof(int),   1);
-    _chan *chp = NULL;
+    _chan *done = _makechan(0, 0);
+    _chan *chi  = _makechan(sizeof(int), 1);
+    _chan *chp  = NULL;
 
     int   i, j, _;
     Point p;
@@ -44,14 +45,15 @@ void _test_chan_c(void) {
         panic("send -> recv != I");
 
     i = 2;
-    _selcase sel[4];
-    sel[0]  = _selsend(chi, &i);
-    sel[1]  = _selrecv(chp, &p);
-    sel[2]  = _selrecv_(chi, &j, &jok);
-    sel[3]  = _default;
-    _ = _chanselect(sel, 4);
-    if (_ != 0)
-        panic("select: selected !0");
+    _selcase sel[5];
+    sel[0]  = _selrecv(done, NULL);
+    sel[1]  = _selsend(chi, &i);
+    sel[2]  = _selrecv(chp, &p);
+    sel[3]  = _selrecv_(chi, &j, &jok);
+    sel[4]  = _default;
+    _ = _chanselect(sel, 5);
+    if (_ != 1)
+        panic("select: selected !1");
 
     jok = _chanrecv_(chi, &j);
     if (!(j == 2 && jok == true))
@@ -61,4 +63,8 @@ void _test_chan_c(void) {
     jok = _chanrecv_(chi, &j);
     if (!(j == 0 && jok == false))
         panic("recv_ from closed != (0, false)");
+
+    _chanxdecref(done);
+    _chanxdecref(chi);
+    _chanxdecref(chp);
 }

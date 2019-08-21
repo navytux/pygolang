@@ -33,8 +33,8 @@ struct Point {
 
 void _test_chan_cpp() {
     chan<structZ> done = makechan<structZ>();
-    chan<int>     chi = makechan<int>(1);
-    chan<Point>   chp = makechan<Point>(); chp = NULL;
+    chan<int>     chi  = makechan<int>(1);
+    chan<Point>   chp  = makechan<Point>(); chp = NULL;
 
     int   i, j, _;
     Point p;
