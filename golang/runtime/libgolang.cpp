@@ -256,7 +256,7 @@ struct _RecvSendWaiting {
 
     list_head   in_rxtxq; // in recv or send queue of the channel (_chan._recvq|_sendq -> _)
 
-    // recv: on wakeup: sender|closer -> receiver
+    // recv: on wakeup: sender|closer -> receiver; NULL means "don't copy received value"
     // send: ptr-to data to send
     void    *pdata;
     // on wakeup: whether recv/send succeeded  (send fails on close)
@@ -604,7 +604,8 @@ bool _chan::_trysend(const void *ptx) { // -> done
 
         ch->_mu.unlock();
         // XXX vvv was recv->wakeup(ptx, true);
-        memcpy(recv->pdata, ptx, ch->_elemsize);
+        if (recv->pdata != NULL)
+            memcpy(recv->pdata, ptx, ch->_elemsize);
         recv->ok = true;
         recv->group->wakeup();
         return true;
@@ -709,7 +710,8 @@ void _chan::close() {
 
             ch->_mu.unlock();
             // XXX was recv.wakeup(None, false)
-            memset(recv->pdata, 0, ch->_elemsize);
+            if (recv->pdata != NULL)
+                memset(recv->pdata, 0, ch->_elemsize);
             recv->ok = false;
             recv->group->wakeup();
             ch->_mu.lock();
