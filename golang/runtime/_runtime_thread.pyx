@@ -43,6 +43,7 @@ from cpython.ceval cimport PyEval_InitThreads
 #PyThread_init_thread()     # initializes only threading, but _not_ GIL
 PyEval_InitThreads()        # initializes      threading       and  GIL
 cdef extern from "pythread.h" nogil:
+    # NOTE py3.7 changed to `unsigned long PyThread_start_new_thread ...`
     long PyThread_start_new_thread(void (*)(void *), void *)
     PyThread_type_lock PyThread_allocate_lock()
     void PyThread_free_lock(PyThread_type_lock)
@@ -59,11 +60,9 @@ ELSE:
     import time as pytimemod
 
 
-
 cdef nogil:
 
     void go(void (*f)(void *), void *arg):
-        cdef long pythreadid # NOTE py3.7 changed to unsigned long
         pytid = PyThread_start_new_thread(f, arg)
         if pytid == -1:
             panic("pygo: failed")
@@ -86,8 +85,8 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
 
-    void nanosleep(uint64_t dt):
-        IF POSIX:
+    IF POSIX:
+        void nanosleep(uint64_t dt):
             cdef timespec ts
             ts.tv_sec  = dt // 1000000000
             ts.tv_nsec = dt  % 1000000000
@@ -95,25 +94,30 @@ cdef nogil:
             if err == -1 and errno == EINTR:
                 err = 0     # XXX ok?
             if err == -1:
-                panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno?
-        ELSE:
+                panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno
+    ELSE:
+        bint _nanosleep(uint64_t dt):
             cdef double dt_s = dt * 1E-9
             with gil:
-                #print('pytimemod.sleep', dt_s)
                 pytimemod.sleep(dt_s)
+                return True
+        void nanosleep(uint64_t dt):
+            ok = _nanosleep(dt)
+            if not ok:
+                panic("pyxgo: thread: pynanosleep failed")
 
     uint64_t nanotime():
         IF POSIX:
             cdef timespec ts
             cdef int err = clock_gettime(CLOCK_REALTIME, &ts)
             if err == -1:
-                panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno?
+                panic("pyxgo: thread: nanotime: clock_gettime failed")  # XXX +errno
             return ts.tv_sec*1000000000 + ts.tv_nsec    # XXX overflow
         ELSE:
             cdef double t_s
             with gil:
                 t_s = pytimemod.time()  # XXX pyexc -> panic
-            # XXX check for overflow -> panic?
+            # XXX check for overflow -> panic
             return <uint64_t>(t_s * 1E9)
 
 
