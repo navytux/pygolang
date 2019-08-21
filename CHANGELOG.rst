@@ -23,7 +23,7 @@ Pygolang change history
 - Improve tests to excersize the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
-  __ test: Verify panic argument
+  __ https://lab.nexedi.com/kirr/pygolang/commit/773d8fb2  test: Verify panic argument
   __ Test that len(nilchan) == 0
   __ time: Test for now
   __ golang: Run all select tests "more thoroughly
@@ -36,9 +36,9 @@ Pygolang change history
   __ golang: Fix race in chan._tryrecv
 
 - Fix `sync.WorkGroup` to propagate all exception types, not only those derived
-  from Exception (commit__).
+  from `Exception` (commit__).
 
-  __ XXX
+  __ https://lab.nexedi.com/kirr/pygolang/commit/79aab7df
 
 - Fix deadlock in `sync.WorkGroup` tests (commit__).
 
@@ -54,13 +54,13 @@ Pygolang change history
 
   __ sync: threading.Event -> chan
 
-- Speedup `sync.WorkGroup` ... (commit__).
+- Speedup `sync.WorkGroup` by not using `@func` at runtime (commit__).
 
-  __ sync.Workgroup: Don't use @func at runtime
+  __ https://lab.nexedi.com/kirr/pygolang/commit/94c6160b
 
 - Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
 
-  __ golang: Add benchmarks for chan, select, @func and defer
+  __ https://lab.nexedi.com/kirr/pygolang/commit/3c55ca59
 
 - ? `*: Use golang.time universally`
 
