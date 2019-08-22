@@ -159,11 +159,10 @@ cdef class pychan:
         # on del: drain buffered channel (to decref sent objects)
         cdef PyObject *_rx
         while ch.len() != 0:
-            _rx = NULL
             # XXX could this channel still be connected to outside?
             # XXX if yes - draining is not correct
             # XXX -> check ch.refcnt?
-            _rx = chanrecv_pyexc(ch)
+            _rx = chanrecv_pyexc(ch)        # XXX pyexc -> ?
             Py_DECREF(<object>_rx)
 
     # send sends object to a receiver.
