@@ -398,10 +398,3 @@ cdef nogil:
 
     void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)      except +topyexc:
         _taskgo(f, arg)
-
-
-
-#cdef extern from "Python.h":
-#    ctypedef class pycfunc [object PyCFunctionObject]:
-#        # XXX
-#        pass
