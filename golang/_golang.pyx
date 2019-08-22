@@ -143,7 +143,7 @@ cdef void __goviac(void *arg) nogil:
 #
 # On nil channel: send/recv block forever; close panics.
 cdef pychan _pynilchan = pychan()
-_pynilchan.ch = chan[pPyObject]()  # = NULL
+_pynilchan.ch = chan[pPyObject]()   # = NULL
 pynilchan = _pynilchan
 
 # pychan is chan<object>
