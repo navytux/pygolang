@@ -252,7 +252,7 @@ def pyselect(*pycasev):
     cdef int i, n = len(pycasev), selected
     cdef vector[_selcase] casev = vector[_selcase](n)
     cdef pychan pych
-    cdef pPyObject _rx = NULL # all select recvs are setup to receive into _rx
+    cdef PyObject *_rx = NULL # all select recvs are setup to receive into _rx
     cdef cbool rxok = False   # (its ok as only one receive will be actually executed)
     cdef bint commaok = False # init: silence "used not initialized" warning
 
