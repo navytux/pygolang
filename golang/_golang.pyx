@@ -254,7 +254,6 @@ def pyselect(*pycasev):
     cdef pychan pych
     cdef PyObject *_rx = NULL # all select recvs are setup to receive into _rx
     cdef cbool rxok = False   # (its ok as only one receive will be actually executed)
-    cdef bint commaok = False # init: silence "used not initialized" warning
 
     # prepare casev for chanselect
     for i in range(n):
@@ -272,6 +271,8 @@ def pyselect(*pycasev):
             pysend = <object>(_tcase.ob_item[0])
             if pysend.__self__.__class__ is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
+            pych = pysend.__self__
+
             if pysend.__name__ != "send":       # XXX better check PyCFunction directly
                 pypanic("pyselect: send expected: %r" % (pysend,))
 
@@ -279,7 +280,6 @@ def pyselect(*pycasev):
             p_tx = &(_tcase.ob_item[1])
             tx   = <object>(p_tx[0])
 
-            pych = pysend.__self__
             # incref tx as if corresponding channel is holding pointer to the object while it is being sent.
             # we'll decref the object if it won't be sent.
             # see pychan.send for details.
@@ -291,18 +291,14 @@ def pyselect(*pycasev):
             pyrecv = pycase
             if pyrecv.__self__.__class__ is not pychan:
                 pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
-            if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
-                commaok = False
-            elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
-                commaok = True
-            else:
-                pypanic("pyselect: recv expected: %r" % (pyrecv,))
-
             pych = pyrecv.__self__
-            if commaok:
+
+            if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
+                casev[i] = pych.ch.recvs(&_rx)
+            elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
                 casev[i] = pych.ch.recvs(&_rx, &rxok)
             else:
-                casev[i] = pych.ch.recvs(&_rx)
+                pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
     with nogil:
         selected = _chanselect_pyexc(&casev[0], casev.size())   # XXX except -> decref
@@ -324,7 +320,6 @@ def pyselect(*pycasev):
 
     if op != _CHANRECV:
         raise AssertionError("pyselect: chanselect returned with bad op")
-    commaok = (casev[selected].rxok != NULL)
     # we received NULL or the object; if it is object, corresponding channel
     # dropped pointer to it (see pychan.recv_ for details).
     cdef object rx = None
@@ -332,7 +327,7 @@ def pyselect(*pycasev):
         rx = <object>_rx
         Py_DECREF(rx)
 
-    if commaok:
+    if casev[selected].rxok != NULL:
         return selected, (rx, rxok)
     else:
         return selected, rx
