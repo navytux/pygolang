@@ -183,6 +183,7 @@ def Ext(name, srcv, **kw):
 #   ...
 #   + generate e.g. pyx = join(pyx/*)
 #   all = join ^^^
+# XXX find_packages -> init as empty?
 
 setup(
     name        = 'pygolang',
