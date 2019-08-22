@@ -170,10 +170,16 @@ cdef class pychan:
 
         cdef PyObject *_rx
         while ch.len() != 0:
-            _rx = chanrecv_pyexc(ch)        # XXX pyexc -> ?
+            # NOTE *not* chanrecv_pyexc(ch):
+            # - recv must not block and must not panic as we verified that we
+            #   are the only holder of the channel and that ch buffer is not empty.
+            # - even if recv panics, we cannot convert that panic to python
+            #   exception in __dealloc__. So if it really panics - let the
+            #   panic make it and crash the process similarly to Py_FatalError above.
+            _rx = ch.recv()
             Py_DECREF(<object>_rx)
 
-        # ch is decref'ed automaticlly at return
+        # ch is decref'ed automatically at return
 
 
     # send sends object to a receiver.
@@ -394,9 +400,6 @@ cdef nogil:
     (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
         _ = ch.recv_()
         return (_.first, _.second)  # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
-
-    PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:
-        return ch.recv()
 
     void chanclose_pyexc(chan[pPyObject] ch)                    except +topyexc:
         ch.close()
