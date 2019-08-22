@@ -228,6 +228,7 @@ struct _chan {
 
     void incref();
     void decref();
+    int  refcnt();
 
     void send(const void *ptx);
     bool recv_(void *prx);
@@ -441,6 +442,18 @@ void _chan::decref() {
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch) + ch->_cap*ch->_elemsize);
     free(ch);
+}
+
+// _chanrefcnt returns current reference counter of the channel.
+//
+// NOTE if returned refcnt is > 1, the caller, due to concurrent execution of
+// other goroutines, cannot generally assume that the reference counter won't change.
+int _chanrefcnt(_chan *ch) {
+    return ch->refcnt();
+}
+int _chan::refcnt() {
+    _chan *ch = this;
+    return ch->_refcnt;
 }
 
 

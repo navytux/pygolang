@@ -134,6 +134,7 @@ typedef struct _chan _chan;
 LIBGOLANG_API _chan *_makechan(unsigned elemsize, unsigned size);
 LIBGOLANG_API void _chanxincref(_chan *ch);
 LIBGOLANG_API void _chanxdecref(_chan *ch);
+LIBGOLANG_API int  _chanrefcnt(_chan *ch);
 LIBGOLANG_API void _chansend(_chan *ch, const void *ptx);
 LIBGOLANG_API void _chanrecv(_chan *ch, void *prx);
 LIBGOLANG_API bool _chanrecv_(_chan *ch, void *prx);
@@ -342,8 +343,12 @@ public:
     inline bool operator==(nullptr_t)  { return (_ch == NULL); }
     inline bool operator!=(nullptr_t)  { return (_ch != NULL); }
 
+    // compare wrt chan
+    inline bool operator==(const chan<T>& ch2)	{ return (_ch == ch2._ch); }
+    inline bool operator!=(const chan<T>& ch2)  { return (_ch != ch2._ch); }
+
     // for testing
-    _chan *_rawchan()           { return _ch;   }
+    inline _chan *_rawchan()           { return _ch; }
 };
 
 // makechan<T> makes new chan<T> with capacity=size.

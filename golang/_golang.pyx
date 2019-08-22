@@ -36,9 +36,12 @@ from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
         PyObject **ob_item
+    void Py_FatalError(const char *msg)
 
 from libcpp.vector cimport vector
 from cython cimport final
+
+import sys
 
 # ---- panic ----
 
@@ -113,7 +116,6 @@ cdef void _goviac(void *arg) nogil:
     __goviac(arg)
     PyGILState_Release(gstate)
 
-import sys
 cdef void __goviac(void *arg) nogil:
     with gil:
         try:
@@ -153,17 +155,26 @@ cdef class pychan:
         pych.ch = makechan_pyobj_pyexc(size)
 
     def __dealloc__(pych):
+        # on del: drain buffered channel to decref sent objects.
+        # verify that the channel is not connected anywhere outside us.
+        # (if it was present also somewhere else - draining would be incorrect)
+        if pych.ch == nil:
+            return
+        cdef int refcnt = _chanrefcnt(pych.ch._rawchan())
+        if refcnt != 1:
+            # cannot raise py-level exception in __dealloc__
+            Py_FatalError("pychan.__dealloc__: chan.refcnt=%d ; must be =1" % refcnt)
+
         cdef chan[pPyObject] ch = pych.ch
         pych.ch = nil # does _chanxdecref(ch)
 
-        # on del: drain buffered channel (to decref sent objects)
         cdef PyObject *_rx
         while ch.len() != 0:
-            # XXX could this channel still be connected to outside?
-            # XXX if yes - draining is not correct
-            # XXX -> check ch.refcnt?
             _rx = chanrecv_pyexc(ch)        # XXX pyexc -> ?
             Py_DECREF(<object>_rx)
+
+        # ch is decref'ed automaticlly at return
+
 
     # send sends object to a receiver.
     def send(pych, obj):
@@ -368,6 +379,7 @@ cdef void _init_libgolang() except*:
 # ---- misc ----
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    int  _chanrefcnt(_chan *ch)
     int  _chanselect(_selcase *casev, int casec)
     void _taskgo(void (*f)(void *), void *arg)
 

@@ -166,11 +166,16 @@ def test_chan_c():
 # runtime/libgolang_test.cpp
 cdef extern from *:
     """
+    extern void _test_chan_cpp_refcount();
     extern void _test_chan_cpp();
     extern void _test_chan_vs_stackdeadwhileparked();
     """
+    void _test_chan_cpp_refcount() nogil except +topyexc
     void _test_chan_cpp() nogil except +topyexc
     void _test_chan_vs_stackdeadwhileparked() nogil except +topyexc
+def test_chan_cpp_refcount():
+    with nogil:
+        _test_chan_cpp_refcount()
 def test_chan_cpp():
     with nogil:
         _test_chan_cpp()

@@ -22,11 +22,86 @@
 #include "golang/libgolang.h"
 #include <stdio.h>
 #include <tuple>
+#include <utility>
 using namespace golang;
 using std::function;
+using std::move;
 using std::tie;
 
+#define __STR(X)  #X
+#define STR(X)    __STR(X)
+#define ASSERT(COND) do {   \
+    if (!(COND))            \
+        panic(__FILE__ ":" STR(__LINE__) " assert `" #COND "` failed"); \
+} while(0)
 
+// verify chan<T> automatic reference counting.
+void _test_chan_cpp_refcount() {
+    chan<int> ch;
+    ASSERT(ch == NULL);
+    ASSERT(!(ch != NULL));
+    ASSERT(ch._rawchan() == NULL);
+
+    ch = makechan<int>();
+    ASSERT(!(ch == NULL));
+    ASSERT(ch != NULL);
+    ASSERT(ch._rawchan() != NULL);
+    _chan *_ch = ch._rawchan();
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // copy ctor
+    {
+        chan<int> ch2(ch);
+        ASSERT(ch2._rawchan() == _ch);
+        ASSERT(_chanrefcnt(_ch) == 2);
+        ASSERT(ch2 == ch);
+        ASSERT(!(ch2 != ch));
+        // ch2 goes out of scope, decref'ing via ~chan
+    }
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // copy =
+    {
+        chan<int> ch2;
+        ASSERT(ch2 == NULL);
+        ASSERT(ch2._rawchan() == NULL);
+
+        ch2 = ch;
+        ASSERT(ch2._rawchan() == _ch);
+        ASSERT(_chanrefcnt(_ch) == 2);
+        ASSERT(ch2 == ch);
+        ASSERT(!(ch2 != ch));
+
+        ch2 = NULL;
+        ASSERT(ch2 == NULL);
+        ASSERT(ch2._rawchan() == NULL);
+        ASSERT(_chanrefcnt(_ch) == 1);
+        ASSERT(!(ch2 == ch));
+        ASSERT(ch2 != ch);
+    }
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // move ctor
+    chan<int> ch2(move(ch));
+    ASSERT(ch == NULL);
+    ASSERT(ch._rawchan() == NULL);
+    ASSERT(ch2 != NULL);
+    ASSERT(ch2._rawchan() == _ch);
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // move =
+    ch = move(ch2);
+    ASSERT(ch != NULL);
+    ASSERT(ch._rawchan() == _ch);
+    ASSERT(ch2 == NULL);
+    ASSERT(ch2._rawchan() == NULL);
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // ch goes out of scope and destroys raw channel
+}
+
+
+// verify chan<T> IO.
 struct Point {
     int x, y;
 };
