@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package _internal provides unsafe bits that are internally used by package golang"""
+"""Package _internal provides unsafe bits that are internally used by package golang."""
 
 from libc.stdio cimport printf
 

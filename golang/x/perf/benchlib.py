@@ -18,7 +18,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""benchlib - module to load & work with data in Go benchmark format
+"""benchlib - module to load & work with data in Go benchmark format.
 
 https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 """

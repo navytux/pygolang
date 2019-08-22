@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_time.pyx implements time.pyx - see _time.pxd for package overview"""
+"""_time.pyx implements time.pyx - see _time.pxd for package overview."""
 
 def pynow(): # -> t
     return now_pyexc()

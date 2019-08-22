@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""pyx declarations for libgolang bits that are only interesting for runtimes"""
+"""pyx declarations for libgolang bits that are only interesting for runtimes."""
 
 from libc.stdint cimport uint64_t
 
