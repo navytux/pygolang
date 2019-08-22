@@ -20,44 +20,15 @@
 
 from __future__ import print_function
 
-from setuptools_dso import Extension, setup
+from golang.pyx.build import Extension, setup   # XXX need to import setup too?
 
-
-import pkgutil
-from distutils.errors import DistutilsError
-class BuildError(DistutilsError):
-    pass
-from os.path import dirname
-
-# find_pkg returns path to specified package.
-# e.g. find_pkg("golang") -> /path/to/pygolang/golang
-# XXX error -> what?
-def find_pkg(pkgname):
-    pkg = pkgutil.get_loader(pkgname)
-    # XXX can also raise ImportError for pkgname with '.' inside
-    if pkg is None: # package not found
-        raise BuildError("package %r not found" % (pkgname,))
-    path = pkg.get_filename()
-    if path.endswith("__init__.py"):
-        path = dirname(path) # .../pygolang/golang/__init__.py -> .../pygolang/golang
-    return path
-
-golang = find_pkg("golang")
-import sys
-print(file=sys.stderr)
-print('golang: %r' % golang, file=sys.stderr)
-groot = dirname(golang)
-print('groot:  %r' % groot, file=sys.stderr)
-#1/0
-
-# XXX ^^^ -> golang.pyx.build .cimport()  XXX or .import() ?
 
 setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',
 
-    ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx'],
-                   include_dirs=[groot],
-                   dsos    = ['golang.runtime.libgolang'],
-                   language='c++')],
+    ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx']],
+#                  include_dirs=[groot],
+#                  dsos    = ['golang.runtime.libgolang'],
+#                  language='c++')],
 )
