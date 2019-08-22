@@ -376,21 +376,29 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void _taskgo(void (*f)(void *), void *arg)
 
 cdef nogil:
+
     chan[pPyObject] makechan_pyobj_pyexc(unsigned size)         except +topyexc:
         return makechan[pPyObject](size)
+
     void chansend_pyexc(chan[pPyObject] ch, PyObject *_tx)      except +topyexc:
         ch.send(_tx)
+
     (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
         _ = ch.recv_()
         return (_.first, _.second)  # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
+
     PyObject* chanrecv_pyexc(chan[pPyObject] ch)                except +topyexc:
         return ch.recv()
+
     void chanclose_pyexc(chan[pPyObject] ch)                    except +topyexc:
         ch.close()
+
     unsigned chanlen_pyexc(chan[pPyObject] ch)                  except +topyexc:
         return ch.len()
+
     int _chanselect_pyexc(const _selcase *casev, int casec)     except +topyexc:
         return _chanselect(casev, casec)
+
     void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)      except +topyexc:
         _taskgo(f, arg)
 
