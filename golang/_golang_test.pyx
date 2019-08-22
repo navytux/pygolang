@@ -56,7 +56,6 @@ cdef extern from *:
 #
 # For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
 def pywaitBlocked(pychanop):
-    #if im_class(pychanop) is not pychan:
     if pychanop.__self__.__class__ is not pychan:
         pypanic("wait blocked: %r is method of a non-chan: %r" % (pychanop, pychanop.__self__.__class__))
     cdef pychan pych = pychanop.__self__
@@ -99,8 +98,9 @@ cdef (int, cbool) recv_(chan[int] ch) nogil:
     return (_.first, _.second)
 
 cdef void _test_chan_nogil() nogil except +topyexc:
-    cdef chan[int]   chi = makechan[int](1)
-    cdef chan[Point] chp = makechan[Point]()
+    cdef chan[structZ] done = makechan[structZ]()
+    cdef chan[int]     chi  = makechan[int](1)
+    cdef chan[Point]   chp  = makechan[Point]()
     chp = nil   # reset to nil
 
     cdef int i, j
@@ -114,13 +114,14 @@ cdef void _test_chan_nogil() nogil except +topyexc:
 
     i = 2
     _=select([
-        chi.sends(&i),          # 0
-        chp.recvs(&p),          # 1
-        chi.recvs(&j, &jok),    # 2
-        default,                # 3
+        done.recvs(),           # 0
+        chi.sends(&i),          # 1
+        chp.recvs(&p),          # 2
+        chi.recvs(&j, &jok),    # 3
+        default,                # 4
     ])
-    if _ != 0:
-        panic("select: selected !0")
+    if _ != 1:
+        panic("select: selected !1")
 
     j, jok = recv_(chi)
     if not (j == 2 and jok == True):
