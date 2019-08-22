@@ -72,12 +72,6 @@ cdef extern from "golang/libgolang.h" nogil:
 
 # ---- go ----
 
-@final
-cdef class _togo:
-    cdef object f
-    cdef tuple  argv
-    cdef dict   kw
-
 # go spawns lightweight thread.
 #
 # go spawns:
@@ -92,6 +86,12 @@ def pygo(f, *argv, **kw):
     with nogil:
         _taskgo_pyexc(_goviac, <void*>_)
 
+@final
+cdef class _togo:
+    cdef object f
+    cdef tuple  argv
+    cdef dict   kw
+
 cdef extern from "Python.h" nogil:
     ctypedef struct PyGILState_STATE:
         pass
@@ -104,8 +104,8 @@ cdef void _goviac(void *arg) nogil:
     # Just `with gil` is not enough: for `with gil` if exceptions could be
     # raised inside, cython generates several GIL release/reacquire calls.
     # This way the thread state will be deleted on first release and _new_ one
-    # - _another_ thread state create on acquire. All that implicitly with the
-    # effect of loosing things associated with thread state - e.g. current
+    # - _another_ thread state - create on acquire. All that implicitly with
+    # the effect of loosing things associated with thread state - e.g. current
     # exception.
     #
     # -> be explicit and manually keep py thread state alive ourselves.
