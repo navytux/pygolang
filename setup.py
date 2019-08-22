@@ -176,6 +176,14 @@ def Ext(name, srcv, **kw):
     ext.cython_compile_time_env = pyxenv
     return ext
 
+# XXX extra require
+#   cmd/pybench         pytest
+#   pyx/build           setuptools_dso
+#   x/perf/benchlib     numpy
+#   ...
+#   + generate e.g. pyx = join(pyx/*)
+#   all = join ^^^
+
 setup(
     name        = 'pygolang',
     version     = version,
@@ -208,37 +216,35 @@ setup(
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
                         soversion       = '0.1')],  # XXX take soversion from version?
     ext_modules = [
-                    #Ext('golang._g', ['golang/_g.pyx']),
-
                     Ext('golang._golang', ['golang/_golang.pyx'],
-                        dsos   = ['golang.runtime.libgolang'],  # XXX setuptools adds lib prefix
-                        # XXX package_data = _golang.pxd
-                        depends= ['golang/libgolang.h'],
+                        dsos    = ['golang.runtime.libgolang'],
+                        # XXX package_data = _golang.pxd ?
+                        depends = ['golang/libgolang.h'],
                         language="c++"),
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx'],
-                        dsos    = ['golang.runtime.libgolang'], # XXX for panic
+                        dsos    = ['golang.runtime.libgolang'],
                         depends = ['golang/libgolang.h'],
                         ),
 
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
-                        dsos    = ['golang.runtime.libgolang'], # XXX for panic
+                        dsos    = ['golang.runtime.libgolang'],
                         depends = ['golang/libgolang.h']),
 
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
-                         # XXX explain _c _cpp tests
-                         'golang/runtime/libgolang_test_c.c', 'golang/runtime/libgolang_test.cpp'],
-                        depends=['golang/libgolang.h', 'golang/_golang.pxd'],
-                        dsos   = ['golang.runtime.libgolang'],
+                         'golang/runtime/libgolang_test_c.c',
+                         'golang/runtime/libgolang_test.cpp'],
+                        dsos    = ['golang.runtime.libgolang'],
+                        depends = ['golang/libgolang.h', 'golang/_golang.pxd'],
                         language="c++"),
 
                     Ext('golang._time',
                         ['golang/_time.pyx'],
+                        dsos    = ['golang.runtime.libgolang'],
                         depends = ['golang/libgolang.h'],
-                        dsos   = ['golang.runtime.libgolang'],
                         language="c++"),
 
                     Ext('golang._internal',   ['golang/_internal.pyx']),
