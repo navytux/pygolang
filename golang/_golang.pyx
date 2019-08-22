@@ -174,8 +174,8 @@ cdef class pychan:
         try:
             with nogil:
                 chansend_pyexc(pych.ch, <PyObject *>obj)
-        except _PanicError:
-            # the object was not sent - e.g. it was send on a closed channel
+        except: # not only _PanicError as send can also throw e.g. bad_alloc
+            # the object was not sent - e.g. it was "send on a closed channel"
             Py_DECREF(obj)
             raise
 
@@ -305,7 +305,7 @@ def pyselect(*pycasev):
                 casev[i] = pych.ch.recvs(&_rx)
 
     with nogil:
-        selected = _chanselect_pyexc(&casev[0], casev.size())
+        selected = _chanselect_pyexc(&casev[0], casev.size())   # XXX except -> decref
 
     # decref not sent tx (see ^^^ send prepare)
     for i in range(n):
