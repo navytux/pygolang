@@ -300,16 +300,18 @@ def pyselect(*pycasev):
             else:
                 pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
-    with nogil:
-        selected = _chanselect_pyexc(&casev[0], casev.size())   # XXX except -> decref
-
-    # decref not sent tx (see ^^^ send prepare)
-    for i in range(n):
-        if casev[i].op == _CHANSEND and (i != selected):
-            p_tx = <PyObject **>casev[i].data
-            _tx  = p_tx[0]
-            tx   = <object>_tx
-            Py_DECREF(tx)
+    selected = -1
+    try:
+        with nogil:
+            selected = _chanselect_pyexc(&casev[0], casev.size())
+    finally:
+        # decref not sent tx (see ^^^ send prepare)
+        for i in range(n):
+            if casev[i].op == _CHANSEND and (i != selected):
+                p_tx = <PyObject **>casev[i].data
+                _tx  = p_tx[0]
+                tx   = <object>_tx
+                Py_DECREF(tx)
 
     # return what was selected
     cdef _chanop op = casev[selected].op
