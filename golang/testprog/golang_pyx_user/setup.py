@@ -27,7 +27,7 @@ setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',
 
-    ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx']],
+    ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx'])],
 #                  include_dirs=[groot],
 #                  dsos    = ['golang.runtime.libgolang'],
 #                  language='c++')],
