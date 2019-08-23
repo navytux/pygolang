@@ -1,6 +1,6 @@
-========================================
- Pygolang - Go-like features for Python
-========================================
+===================================================
+ Pygolang - Go-like features for Python and Cython
+===================================================
 
 Package `golang` provides Go-like features for Python:
 
@@ -11,8 +11,12 @@ Package `golang` provides Go-like features for Python:
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
+Package `golang.pyx` provides__ similar features for Cython/nogil.
+
+__ `Cython/nogil API`_
+
 Additional packages and utilities are also provided__ to close other gaps
-between Python and Go environments.
+between Python/Cython and Go environments.
 
 __ `Additional packages and utilities`_
 
@@ -162,13 +166,54 @@ will import either
 
 located in `src/` under `$GOPATH`.
 
+
+Cython/nogil API
+----------------
+
+Cython package `golang` provides *nogil* API with
+features that mirror corresponding Python package. Cython API is not only
+faster compared to Python version, but also, due to *nogil* property, allows to
+build concurrent systems without limitations imposed by Python's GIL. All that
+while still programming in Python-like language. Brief description of
+Cython/nogil API follows:
+
+`panic` stops normal execution of current goroutine by throwing a C-level
+exception. On Python/C boundaries C-level exceptions have to be converted to
+Python-level exceptions with `topyexc`. For example::
+
+   cdef void _do_something() nogil:
+      ...
+      panic("bug")   # hit a bug
+
+   # do_something is called by Python code - it is thus on Python/C boundary
+   cdef void do_something() nogil except +topyexc:
+      _do_something()
+
+   def pydo_something():
+      with nogil:
+         do_something()
+
+
+See |libgolang.h|_ and |golang.pxd|_ for details of the API.
+See also |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in
+Cython/nogil mode.
+
+.. |libgolang.h| replace:: `libgolang.h`
+.. _libgolang.h: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/libgolang.h
+
+.. |golang.pxd| replace:: `golang.pxd`
+.. _golang.pxd: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_golang.pxd
+
+.. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
+.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/pyx/testprog/golang_pyx_user
+
 --------
 
 Additional packages and utilities
 ---------------------------------
 
 The following additional packages and utilities are also provided to close gaps
-between Python and Go environments:
+between Python/Cython and Go environments:
 
 .. contents::
    :local:

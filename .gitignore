@@ -6,6 +6,10 @@ build/
 
 *.o
 *.so
+*.so.*
+*.dylib
+*.dll
+*.pyd
 
 /dist/
 *.egg-info

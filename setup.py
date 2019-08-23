@@ -17,11 +17,29 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-from setuptools import setup, find_packages
+
+from setuptools import find_packages
+# setuptools has Library but this days it is not well supported and test for it
+# has been killed https://github.com/pypa/setuptools/commit/654c26f78a30
+# -> use setuptools_dso instead.
+from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
 from os.path import dirname, join
 import sys, re
+
+# reuse golang.pyx.build to build pygolang extensions.
+# we have to be careful and inject synthetic golang package in order to be
+# able to import golang.pyx.build without built/working golang.
+import imp, pkgutil
+golang = imp.new_module('golang')
+golang.__package__ = 'golang'
+golang.__path__    = ['golang']
+golang.__file__    = 'golang/__init__.py'
+golang.__loader__  = pkgutil.ImpLoader('golang', None, 'golang/__init__.py',
+                                       [None, None, imp.PY_SOURCE])
+sys.modules['golang'] = golang
+from golang.pyx.build import setup, Extension as Ext
 
 # read file content
 def readfile(path):
@@ -141,6 +159,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.2'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -158,7 +177,7 @@ for k in sorted(R.keys()):
 setup(
     name        = 'pygolang',
     version     = version,
-    description = 'Go-like features for Python',
+    description = 'Go-like features for Python and Cython',
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
@@ -167,9 +186,21 @@ setup(
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
 
-    keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
+    keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent cython nogil GIL',
 
     packages    = find_packages(),
+
+    x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
+                        depends         = ['golang/libgolang.h'],
+                        include_dirs    = ['.'],
+                        define_macros   = [('BUILDING_LIBGOLANG', None)],
+                        extra_compile_args = ['-std=c++11'],
+                        soversion       = '0.1')],
+    ext_modules = [
+                    Ext('golang._golang',
+                        ['golang/_golang.pyx']),
+                  ],
+
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator'],

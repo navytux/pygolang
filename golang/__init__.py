@@ -26,6 +26,7 @@
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 See README for thorough overview.
+See also package golang.pyx which provides similar functionality for Cython nogil.
 """
 
 from __future__ import print_function, absolute_import
@@ -42,12 +43,9 @@ import six
 from golang._pycompat import im_class
 
 
-# panic stops normal execution of current goroutine.
-def panic(arg):
-    raise _PanicError(arg)
-
-class _PanicError(Exception):
-    pass
+from ._golang import    \
+    _PanicError,            \
+    pypanic     as panic
 
 
 # @func is a necessary decorator for functions for selected golang features to work.
