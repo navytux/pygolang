@@ -199,8 +199,15 @@ setup(
     ext_modules = [
                     Ext('golang._golang',
                         ['golang/_golang.pyx']),
-                  ],
 
+                    Ext('golang.runtime._runtime_thread',
+                        ['golang/runtime/_runtime_thread.pyx'],
+                        language = "c"),
+
+                    Ext('golang.runtime._runtime_gevent',
+                        ['golang/runtime/_runtime_gevent.pyx'],
+                        language = 'c'),
+                  ],
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator'],

@@ -43,6 +43,20 @@
 //
 //
 // C-level API
+//
+// Runtimes
+//
+// Libgolang, before being used, must be initialized with particular runtime
+// plugin, which tailors Libgolang to particular execution environment. See
+// `_libgolang_init` and `_libgolang_runtime_ops` for description of a runtime.
+//
+// Pygolang - the parent project of Libgolang - comes with two Libgolang runtimes:
+//
+//  - "thread" - a runtime that is based on OS threads, and
+//  - "gevent" - a runtime that is based on greenlet and gevent.
+//
+// Once again, Libgolang itself is independent from Python, and other runtimes
+// are possible.
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -77,6 +91,14 @@ extern "C" {
 #endif
 LIBGOLANG_API void panic(const char *arg);
 LIBGOLANG_API const char *recover(void);
+
+
+// libgolang runtime - the runtime must be initialized before any other libgolang use.
+typedef struct _libgolang_runtime_ops {
+} _libgolang_runtime_ops;
+
+LIBGOLANG_API void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
+
 
 #ifdef __cplusplus
 }}

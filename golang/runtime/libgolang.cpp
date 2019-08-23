@@ -78,4 +78,15 @@ struct Bug : exception {
     throw Bug(msg);
 }
 
+// ---- runtime ----
+
+// initially NULL to crash if runtime was not initialized
+static const _libgolang_runtime_ops *_runtime = NULL;
+
+void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
+    if (_runtime != NULL) // XXX better check atomically
+        panic("libgolang: double init");
+    _runtime = runtime_ops;
+}
+
 }   // golang::

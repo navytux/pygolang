@@ -28,6 +28,9 @@ See _golang.pxd for package overview.
 
 from __future__ import print_function, absolute_import
 
+# init libgolang runtime early
+_init_libgolang()
+
 from cpython cimport PY_MAJOR_VERSION
 from cython cimport final
 
@@ -59,3 +62,34 @@ cdef void topyexc() except *:
 
 cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
+
+
+# ---- init libgolang runtime ---
+
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    struct _libgolang_runtime_ops
+    void _libgolang_init(const _libgolang_runtime_ops*)
+from cpython cimport PyCapsule_Import
+
+cdef void _init_libgolang() except*:
+    # detect whether we are running under gevent or OS threads mode
+    # -> use golang.runtime._runtime_(gevent|thread) as libgolang runtime.
+    threadmod = "thread"
+    if PY_MAJOR_VERSION >= 3:
+        threadmod = "_thread"
+    t = __import__(threadmod)
+    runtime = "thread"
+    if "gevent" in t.start_new_thread.__module__:
+        runtime = "gevent"
+    runtimemod = "golang.runtime." + "_runtime_" + runtime
+
+    # PyCapsule_Import("golang.X") does not work properly while we are in the
+    # process of importing golang (it tries to access "X" attribute of half-created
+    # golang module). -> preimport runtimemod via regular import first.
+    __import__(runtimemod)
+    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8") # py3
+    cdef const _libgolang_runtime_ops *runtime_ops = \
+        <const _libgolang_runtime_ops*>PyCapsule_Import(runtimecaps, 0)
+    if runtime_ops == NULL:
+        pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
+    _libgolang_init(runtime_ops)
