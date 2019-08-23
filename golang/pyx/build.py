@@ -55,7 +55,7 @@ def _pyimport(pkgname):  # -> _PyPkg
     pkg = pkgutil.get_loader(pkgname)
     # XXX can also raise ImportError for pkgname with '.' inside
     if pkg is None: # package not found
-        raise BuildError("package %r not found" % (pkgname,))
+        raise Error("package %r not found" % (pkgname,))
     path = pkg.get_filename()
     if path.endswith("__init__.py"):
         path = dirname(path) # .../pygolang/golang/__init__.py -> .../pygolang/golang
