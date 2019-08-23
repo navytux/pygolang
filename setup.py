@@ -34,8 +34,9 @@ import sys, re
 # able to import golang.pyx.build without built golang.
 import imp
 golang = sys.modules['golang'] = imp.new_module('golang')
-#golang.__package__ = 'golang'
+golang.__package__ = 'golang'
 golang.__path__    = ['golang']
+golang.__file__    = 'golang/__init__.py'
 from golang.pyx.build import Extension as Ext   # XXX + setup
 
 # read file content

@@ -46,7 +46,7 @@ class BuildError(DistutilsError):
 class _PyPkg:
     # .name - full package name, e.g. "golang.time"
     # .path - filesystem path of the package
-    #         (file for module, directory for pkg/__init__.py)  XXX
+    #         (file for module, directory for pkg/__init__.py)  XXX path or pkgdir?
     pass
 
 # _pyimport finds specified python package and returns information about it.
@@ -81,7 +81,7 @@ def Extension(name, sources, **kw):
 
     # prepend -I<pygolang> so that e.g. golang/libgolang.h is found
     incv = kw.get('include_dirs', [])[:]
-    incv.insert(0, pygo.pkgdir)     # XXX path or pkgdir?
+    incv.insert(0, pygo)
     kw['include_dirs'] = incv
 
     # link with libgolang runtime
@@ -95,9 +95,9 @@ def Extension(name, sources, **kw):
     # some depends to workaround a bit lack of proper dependency management in
     # setuptools/distutils.
     dependv = kw.get('depends', [])[:]
-    dependv.append('%s/golang/libgolang.h'  % pygo.pkgdir)
-    dependv.append('%s/golang/_golang.pxd'  % pygo.pkgdir)
-    dependv.append('%s/golang/__init__.pxd' % pygo.pkgdir)
+    dependv.append('%s/golang/libgolang.h'  % pygo)
+    dependv.append('%s/golang/_golang.pxd'  % pygo)
+    dependv.append('%s/golang/__init__.pxd' % pygo)
     kw['depends'] = dependv
 
     # workaround pip bug that for virtualenv case headers are installed into
