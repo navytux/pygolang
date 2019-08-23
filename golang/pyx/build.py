@@ -81,6 +81,8 @@ def setup(**kw):
 def Extension(name, sources, **kw):
     gopkg = _pyimport("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
+    if pygo == '':
+        pygo = '.'
 
     kw = kw.copy()
 
