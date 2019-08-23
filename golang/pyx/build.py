@@ -32,13 +32,15 @@ Usage example::
     )
 """
 
+# pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
-import pkgutil
+import sys, pkgutil, platform, sysconfig
+from os.path import dirname, join, exists
+
 from distutils.errors import DistutilsError
 class BuildError(DistutilsError):
     pass
-from os.path import dirname
 
 # _PyPkg provides information about 1 py package.
 class _PyPkg:
@@ -93,9 +95,9 @@ def Extension(name, sources, **kw):
     # some depends to workaround a bit lack of proper dependency management in
     # setuptools/distutils.
     dependv = kw.get('depends', [])[:]
-    dependv.append('%s/golang/libgolang.h' % pygo.pkgdir)
-    dependv.append('%s/golang/_golang.pxd' % ptgo.pkgdir)
-    dependv.append('%s/golang/__init__.pxd' % ptgo.pkgdir)
+    dependv.append('%s/golang/libgolang.h'  % pygo.pkgdir)
+    dependv.append('%s/golang/_golang.pxd'  % pygo.pkgdir)
+    dependv.append('%s/golang/__init__.pxd' % pygo.pkgdir)
     kw['depends'] = dependv
 
     # workaround pip bug that for virtualenv case headers are installed into
@@ -117,7 +119,7 @@ def Extension(name, sources, **kw):
     # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
     #ext = setuptools_dso.Extension(name, sources, **kw)
     pyxenv = kw.pop('cython_compile_time_env')
-    ext = Extension(name, srcv, **kw)
+    ext = setuptools_dso.Extension(name, sources, **kw)
     ext.cython_compile_time_env = pyxenv
 
     return ext
