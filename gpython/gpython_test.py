@@ -21,6 +21,7 @@
 from __future__ import print_function, absolute_import
 
 import sys, os, golang
+from golang.golang_test import pyrun
 from six import PY2
 from six.moves import builtins
 import pytest
@@ -83,16 +84,6 @@ def test_gevent_activated():
     if sys.hexversion >= 0x03070000: # >= 3.7.0
         assert patched('queue')
 
-
-# pyrun runs `sys.executable argv... <stdin` and returns its output.
-def pyrun(argv, stdin=None, **kw):
-    from subprocess import Popen, PIPE
-    argv = [sys.executable] + argv
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, **kw)
-    stdout, stderr = p.communicate(stdin)
-    if p.returncode:
-        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
-    return stdout
 
 @gpython_only
 def test_executable():

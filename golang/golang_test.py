@@ -25,6 +25,7 @@ from golang import time
 from pytest import raises
 from os.path import dirname
 import os, sys, threading, inspect, subprocess
+from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
 
@@ -1015,6 +1016,15 @@ def bench_defer(b):
 
 
 # ---- misc ----
+
+# pyrun runs `sys.executable argv... <stdin` and returns its output.
+def pyrun(argv, stdin=None, **kw):
+    argv = [sys.executable] + argv
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=PIPE, stderr=PIPE, **kw)
+    stdout, stderr = p.communicate(stdin)
+    if p.returncode:
+        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
+    return stdout
 
 # panics is similar to pytest.raises and asserts that wrapped code panics with arg.
 class panics:
