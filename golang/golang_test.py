@@ -33,9 +33,9 @@ import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
-def test_go():
-    # leaked goroutine behaviour check: done in separate process because we need
-    # to test process termination exit there.
+# leaked goroutine behaviour check: done in separate process because we need
+# to test process termination exit there.
+def test_go_leaked():
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
