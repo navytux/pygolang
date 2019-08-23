@@ -191,7 +191,7 @@ def Ext(name, srcv, **kw):
 
 # XXX extra require
 #   cmd/pybench         pytest
-#   pyx/build           cython, setuptools_dso >= 1.2
+#   pyx/build           cython, setuptools_dso >= 1.2, setuptools, wheel
 #   x/perf/benchlib     numpy
 #   ...
 #   + generate e.g. pyx = join(pyx/*)
@@ -217,7 +217,7 @@ setup(
     author_email= 'kirr@nexedi.com',
 
     # XXX + stackless
-    keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent',
+    keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent cython nogil GIL',
 
     packages    = find_packages(),
 
