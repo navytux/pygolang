@@ -22,7 +22,7 @@ from setuptools import find_packages
 # setuptools has Library but this days it is not well supported and test for it
 # has been killed https://github.com/pypa/setuptools/commit/654c26f78a30
 # -> use setuptools_dso instead.
-from setuptools_dso import DSO, setup
+from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
 #import sysconfig, platform
@@ -37,7 +37,7 @@ golang = sys.modules['golang'] = imp.new_module('golang')
 golang.__package__ = 'golang'
 golang.__path__    = ['golang']
 golang.__file__    = 'golang/__init__.py'
-from golang.pyx.build import Extension as Ext   # XXX + setup
+from golang.pyx.build import setup, Extension as Ext
 
 # read file content
 def readfile(path):
@@ -246,7 +246,9 @@ setup(
                     Ext('golang._time',
                         ['golang/_time.pyx']),
 
-                    Ext('golang._internal',   ['golang/_internal.pyx']),
+                    Ext('golang._internal',
+                        ['golang/_internal.pyx'],
+                        language = 'c'),
                   ],
     platforms   = 'any',
     include_package_data = True,

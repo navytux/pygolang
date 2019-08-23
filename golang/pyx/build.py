@@ -18,11 +18,9 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package build provides infrastructure to build Cython Pygolang-based packages.
 
-XXX
+Use `setup` and `Extension` to build packages. For example::
 
-Usage example::
-
-    from golang.pyx.build import Extension, setup   # XXX setup too?
+    from golang.pyx.build import setup, Extension
 
     setup(
         name        = 'mypkg',
@@ -64,6 +62,10 @@ def _pyimport(pkgname):  # -> _PyPkg
     pypkg.name = pkgname
     pypkg.path = path
     return pypkg
+
+# setup should be used instead of setuptools.setup
+def setup(**kw):
+    return setuptools_dso.setup(**kw)
 
 # Extension should be used to build extensions that use pygolang.
 #
