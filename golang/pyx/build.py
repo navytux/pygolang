@@ -30,6 +30,8 @@ Use `setup` and `Extension` to build packages. For example::
     )
 """
 
+from __future__ import print_function, absolute_import
+
 # pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
