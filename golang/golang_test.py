@@ -47,6 +47,7 @@ for f in dir(_golang_test):
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
+    # XXX stdout !PIPE
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
@@ -1002,7 +1003,7 @@ def bench_defer(b):
 # ---- misc ----
 
 # pyrun runs `sys.executable argv... <stdin` and returns its output.
-def pyrun(argv, stdin=None, stdout=PIPE, stderr=PIPE, **kw):
+def pyrun(argv, stdin=None, stdout=PIPE, **kw):
     argv = [sys.executable] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
@@ -1017,10 +1018,10 @@ def pyrun(argv, stdin=None, stdout=PIPE, stderr=PIPE, **kw):
         pathv.append(envpath)
     env['PYTHONPATH'] = ':'.join(pathv)
 
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
-    stdout, stderr = p.communicate(stdin)
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, env=env, **kw)
+    stdout, _ = p.communicate(stdin)
     if p.returncode:
-        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
+        raise RuntimeError(' '.join(argv) + '\n' + '(failed)')
     return stdout
 
 # panics is similar to pytest.raises and asserts that wrapped code panics with arg.
