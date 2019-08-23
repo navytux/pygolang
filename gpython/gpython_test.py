@@ -20,8 +20,8 @@
 
 from __future__ import print_function, absolute_import
 
-import sys, os, golang, subprocess
-from six import PY2, PY3
+import sys, os, golang
+from six import PY2
 from six.moves import builtins
 import pytest
 
