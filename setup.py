@@ -29,6 +29,15 @@ from setuptools.command.develop import develop as _develop
 from os.path import dirname, join   #, exists
 import sys, re
 
+# reuse golang.pyx.build to build pygolang extensions.
+# we have to be careful and inject synthethic golang package in order to be
+# able to import golang.pyx.build without built golang.
+import imp
+golang = sys.modules['golang'] = imp.new_module('golang')
+#golang.__package__ = 'golang'
+golang.__path__    = ['golang']
+from golang.pyx.build import Extension as Ext   # XXX + setup
+
 # read file content
 def readfile(path):
     with open(path, 'r') as f:
@@ -178,7 +187,7 @@ def Ext(name, srcv, **kw):
 
 # XXX extra require
 #   cmd/pybench         pytest
-#   pyx/build           setuptools_dso
+#   pyx/build           cython, setuptools_dso >= 1.2
 #   x/perf/benchlib     numpy
 #   ...
 #   + generate e.g. pyx = join(pyx/*)
