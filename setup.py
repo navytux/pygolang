@@ -189,14 +189,23 @@ def Ext(name, srcv, **kw):
     return ext
 """
 
-# XXX extra require
-#   cmd/pybench         pytest
-#   pyx/build           cython, setuptools_dso >= 1.2, setuptools, wheel
-#   x/perf/benchlib     numpy
-#   ...
-#   + generate e.g. pyx = join(pyx/*)
-#   all = join ^^^
-# XXX find_packages -> init as empty?
+# requirements of packages under "golang." namespace
+R = {
+    'cmd.pybench':      {'pytest'},
+    'pyx.build':        {'cython', 'setuptools_dso >= 1.2', 'setuptools', 'wheel'},
+    'x.perf.benchlib':  {'numpy'},
+}
+# TODO generate e.g. x.perf = join(x.perf.*); x = join(x.*)
+Rall = set()
+for pkg in R:
+    Rall.update(R[pkg])
+R['all'] = Rall
+
+# extras_require <- R
+extras_require = {}
+for k in sorted(R.keys()):
+    extras_require[k] = list(sorted(R[k]))
+
 
 setup(
     name        = 'pygolang',
@@ -257,17 +266,7 @@ setup(
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator'],
-
-    extras_require = {
-                  'test': ['pytest',
-                           'numpy',    # XXX numpy for t(benchlib)
-
-                           # for testprog/golang_pyx_user/
-                           # XXX move -> pygolang[build] ?
-                           'cython',
-                           'setuptools_dso',
-                          ],
-    },
+    extras_require   = extras_require,
 
     entry_points= {'console_scripts': [
                         # NOTE gpython is handled specially - see XInstallGPython.
