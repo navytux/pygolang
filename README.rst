@@ -265,13 +265,13 @@ See also |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in
 Cython/nogil mode.
 
 .. |libgolang.h| replace:: `libgolang.h`
-.. _libgolang.h: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/libgolang.h
+.. _libgolang.h: https://lab.nexedi.com/kirr/pygolang/tree/20e79dcdffc4bd2b627ea8df72ce4b2b77aa65bb/golang/libgolang.h
 
 .. |golang.pxd| replace:: `golang.pxd`
-.. _golang.pxd: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/_golang.pxd
+.. _golang.pxd: https://lab.nexedi.com/kirr/pygolang/tree/20e79dcdffc4bd2b627ea8df72ce4b2b77aa65bb/golang/_golang.pxd
 
 .. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
-.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/d2be57f313013882523b9afc02fbcb950ec7eb25/golang/testprog/golang_pyx_user
+.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/20e79dcdffc4bd2b627ea8df72ce4b2b77aa65bb/golang/pyx/build/testprog/golang_pyx_user
 
 .. XXX sha1 -> master
 
