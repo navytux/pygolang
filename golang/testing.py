@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package testing mirrors Go testing package for things missed in Python"""
+"""Package testing mirrors Go testing package for things missed in Python."""
 
 from __future__ import print_function, absolute_import
 

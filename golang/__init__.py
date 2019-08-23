@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package golang provides Go-like features for Python
+"""Package golang provides Go-like features for Python.
 
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
@@ -25,7 +25,7 @@
 - `defer` allows to schedule a cleanup from the main control flow.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
-...
+See README for thorough overview.
 """
 
 from __future__ import print_function, absolute_import
