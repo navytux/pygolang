@@ -1001,8 +1001,8 @@ def bench_defer(b):
 
 # ---- misc ----
 
-# pyrun runs `sys.executable argv... <stdin` and returns its output.
-def pyrun(argv, stdin=None, stdout=PIPE, **kw):
+# pyrun runs `sys.executable argv... <stdin`.
+def pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):
     argv = [sys.executable] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
@@ -1017,11 +1017,15 @@ def pyrun(argv, stdin=None, stdout=PIPE, **kw):
         pathv.append(envpath)
     env['PYTHONPATH'] = ':'.join(pathv)
 
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, env=env, **kw)
-    stdout, _ = p.communicate(stdin)
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
+    stdout, stderr = p.communicate(stdin)
     if p.returncode:
-        raise RuntimeError(' '.join(argv) + '\n' + '(failed)')
+        raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
     return stdout
+
+# pyout runs `sys.executable argv... <stdin` and returns its output.
+def pyout(argv, stdin=None, stdout=PIPE, stderr=None, **kw):
+    return pyrun(argv, stdin=stdin, stdout=stdout, stderr=stderr, **kw)
 
 # panics is similar to pytest.raises and asserts that wrapped code panics with arg.
 class panics:

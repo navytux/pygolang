@@ -22,7 +22,7 @@ from __future__ import print_function, absolute_import
 
 import sys, os, golang
 from golang import b
-from golang.golang_test import pyrun
+from golang.golang_test import pyout
 from six import PY2
 from six.moves import builtins
 import pytest
@@ -92,7 +92,7 @@ def test_gevent_activated():
 def test_executable():
     # sys.executable must point to gpython and we must be able to execute it.
     assert 'gpython' in sys.executable
-    out = pyrun(['-c', 'import sys; print(sys.version)'])
+    out = pyout(['-c', 'import sys; print(sys.version)'])
     assert ('[GPython %s]' % golang.__version__) in str(out)
 
 # verify pymain.
@@ -105,19 +105,19 @@ def test_pymain():
     testdata = join(dirname(__file__), 'testdata')
 
     # interactive
-    _ = pyrun([], stdin=b'import hello\n', cwd=testdata)
+    _ = pyout([], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"hello\nworld\n['']\n"
 
     # -c
-    _ = pyrun(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
+    _ = pyout(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
     assert _ == b"hello\nworld\n['-c', 'abc', 'def']\n"
 
     # -m
-    _ = pyrun(['-m', 'hello', 'abc', 'def'], cwd=testdata)
+    _ = pyout(['-m', 'hello', 'abc', 'def'], cwd=testdata)
     # realpath rewrites e.g. `local/lib -> lib` if local/lib is symlink
     hellopy = realpath(join(testdata, 'hello.py'))
     assert _ == b"hello\nworld\n['%s', 'abc', 'def']\n" % b(hellopy)
 
     # file
-    _ = pyrun(['testdata/hello.py', 'abc', 'def'], cwd=here)
+    _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
