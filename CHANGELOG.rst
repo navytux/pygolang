@@ -64,7 +64,7 @@ Pygolang change history
 
 - ? `*: Use golang.time universally`
 
-- XXX `pygolang[X]` and `pygolang[all]`.
+- XXX `pygolang[X]` and `pygolang[pyx.build]`. `pygolang[all]` selects everything.
 
 .. readme_renderer/pypi don't support `.. class:: align-center`
 .. |_| unicode:: 0xA0   .. nbsp
