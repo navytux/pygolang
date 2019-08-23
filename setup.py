@@ -207,6 +207,9 @@ setup(
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
                         language = 'c'),
+
+                    Ext('golang._time',
+                        ['golang/_time.pyx']),
                   ],
     include_package_data = True,
 

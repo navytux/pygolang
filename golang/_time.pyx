@@ -17,15 +17,27 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""pyx declarations for libgolang bits that are only interesting for runtimes."""
+"""_time.pyx implements time.pyx - see _time.pxd for package overview."""
 
-from libc.stdint cimport uint64_t
+def pynow(): # -> t
+    return now_pyexc()
 
-cdef extern from "golang/libgolang.h" nogil:
-    struct _libgolang_runtime_ops:
-        void        (*nanosleep)(uint64_t)
-        uint64_t    (*nanotime)()
+def pysleep(double dt):
+    with nogil:
+        sleep_pyexc(dt)
 
-    # XXX better take from golang.pxd, but there it is declared in `namespace
-    # "golang"` which fails for C-mode compiles.
-    void panic(const char *)
+
+# ---- misc ----
+pysecond        = second
+pynanosecond    = nanosecond
+pymicrosecond   = microsecond
+pymillisecond   = millisecond
+pyminute        = minute
+pyhour          = hour
+
+from golang cimport topyexc
+
+cdef double now_pyexc()             nogil except +topyexc:
+    return now()
+cdef void sleep_pyexc(double dt)    nogil except +topyexc:
+    sleep(dt)

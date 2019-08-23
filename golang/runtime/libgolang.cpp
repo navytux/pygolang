@@ -28,9 +28,11 @@
 #include "golang/libgolang.h"
 
 #include <exception>
+#include <limits>
 #include <string>
 
 using std::exception;
+using std::numeric_limits;
 using std::string;
 
 namespace golang {
@@ -89,4 +91,36 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     _runtime = runtime_ops;
 }
 
+void _tasknanosleep(uint64_t dt) {
+    _runtime->nanosleep(dt);
+}
+
+uint64_t _nanotime() {
+    return _runtime->nanotime();
+}
+
 }   // golang::
+
+
+// ---- golang::time:: ----
+
+namespace golang {
+namespace time {
+
+void sleep(double dt) {
+    if (dt <= 0)
+        dt = 0;
+    dt *= 1E9; // s -> ns
+    if (dt > numeric_limits<uint64_t>::max())
+        panic("sleep: dt overflow");
+    uint64_t dt_ns = dt;
+    _tasknanosleep(dt_ns);
+}
+
+double now() {
+    uint64_t t_ns = _nanotime();
+    double t_s = t_ns * 1E-9;   // no overflow possible
+    return t_s;
+}
+
+}}  // golang::time::

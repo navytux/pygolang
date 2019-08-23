@@ -21,12 +21,30 @@
 
 from __future__ import print_function, absolute_import
 
-from golang.runtime._libgolang cimport _libgolang_runtime_ops
+from gevent import sleep as pygsleep
+from libc.stdint cimport uint64_t
+from golang.runtime._libgolang cimport _libgolang_runtime_ops, panic
+from golang.runtime cimport _runtime_thread
 
 cdef nogil:
 
+    # XXX better panic with pyexc object and detect that at recover side?
+
+    bint _nanosleep(uint64_t dt):
+        cdef double dt_s = dt * 1E-9
+        with gil:
+            pygsleep(dt_s)
+            return True
+    void nanosleep(uint64_t dt):
+        ok = _nanosleep(dt)
+        if not ok:
+            panic("pyxgo: gevent: sleep: failed")
+
+
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
+            nanosleep       = nanosleep,
+            nanotime        = _runtime_thread.nanotime, # reuse from _runtime_thread
     )
 
 from cpython cimport PyCapsule_New

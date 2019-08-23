@@ -34,6 +34,7 @@
 //
 // C++-level API
 //
+//  - `sleep` pauses current task.
 //  - `panic` throws exception that represent C-level panic.
 //
 // For example:
@@ -43,6 +44,9 @@
 //
 //
 // C-level API
+//
+//  - `tasknanosleep` pauses current task.
+//
 //
 // Runtimes
 //
@@ -92,9 +96,19 @@ extern "C" {
 LIBGOLANG_API void panic(const char *arg);
 LIBGOLANG_API const char *recover(void);
 
+LIBGOLANG_API void _tasknanosleep(uint64_t dt);
+LIBGOLANG_API uint64_t _nanotime(void);
+
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use.
 typedef struct _libgolang_runtime_ops {
+    // nanosleep should pause current goroutine for at least dt nanoseconds.
+    // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
+    void        (*nanosleep)(uint64_t dt);
+
+    // nanotime should return current time since EPOCH in nanoseconds.
+    uint64_t    (*nanotime)(void);
+
 } _libgolang_runtime_ops;
 
 LIBGOLANG_API void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
@@ -103,5 +117,25 @@ LIBGOLANG_API void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
 #ifdef __cplusplus
 }}
 #endif
+
+
+// ---- C++-level API that is available when compiling with C++ ----
+
+#ifdef __cplusplus
+
+namespace golang {
+
+namespace time {
+
+// sleep pauses current goroutine for at least dt seconds.
+LIBGOLANG_API void sleep(double dt);
+
+// now returns current time in seconds.
+LIBGOLANG_API double now();
+
+}   // golang::time::
+
+}   // golang::
+#endif  // __cplusplus
 
 #endif  // _NXD_LIBGOLANG_H

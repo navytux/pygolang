@@ -17,15 +17,10 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""pyx declarations for libgolang bits that are only interesting for runtimes."""
+"""Package time mirrors Go package time.
 
-from libc.stdint cimport uint64_t
+See _time.pxd for package documentation.
+"""
 
-cdef extern from "golang/libgolang.h" nogil:
-    struct _libgolang_runtime_ops:
-        void        (*nanosleep)(uint64_t)
-        uint64_t    (*nanotime)()
-
-    # XXX better take from golang.pxd, but there it is declared in `namespace
-    # "golang"` which fails for C-mode compiles.
-    void panic(const char *)
+# redirect cimport: golang.time -> golang._time (see __init__.pxd for rationale)
+from golang._time cimport *

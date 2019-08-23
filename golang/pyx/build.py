@@ -120,5 +120,17 @@ def Extension(name, sources, **kw):
     if exists(venv_inc):
         kw['include_dirs'].append(venv_inc)
 
+    # provide POSIX/... defines to Cython
+    POSIX = ('posix' in sys.builtin_module_names)
+    pyxenv = kw.get('cython_compile_time_env', {})
+    pyxenv.setdefault('POSIX',  POSIX)
+    kw['cython_compile_time_env'] = pyxenv
+
+    # XXX hack, because setuptools_dso.Extension is not Cython.Extension
+    # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
+    #ext = setuptools_dso.Extension(name, sources, **kw)
+    pyxenv = kw.pop('cython_compile_time_env')
     ext = setuptools_dso.Extension(name, sources, **kw)
+    ext.cython_compile_time_env = pyxenv
+
     return ext
