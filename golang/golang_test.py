@@ -49,25 +49,6 @@ for f in dir(_golang_test):
 def test_go_leaked():
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
-# XXX -> golang.pyx.build_test.py ?
-def test_pyx_user():
-    pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
-    # XXX copy to tmp first?
-    # XXX stdout=None stderr=None - to see debug output
-    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser, stdout=None, stderr=None)
-
-    # run built test.
-    _ = pyrun(["-c",
-        # XXX `import golang` is a hack: it dynamically loads _golang.so -> libgolang.so,
-        # and this way dynamic linker already has libgolang.so DSO found and in
-        # memory for all further imports. If we don't, current state of setuptools_dso
-        # is that `import pyxuser.test` will fail finding libgolang.so.
-        "import golang;" +
-        "from pyxuser import test; test.main()"], cwd=pyxuser)
-    assert _ == b"test.pyx: OK\n"
-
-
-
 # benchmark go+join a thread/coroutine.
 def bench_go(b):
     done = chan()
