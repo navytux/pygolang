@@ -30,7 +30,7 @@ import sys, re
 
 # reuse golang.pyx.build to build pygolang extensions.
 # we have to be careful and inject synthetic golang package in order to be
-# able to import golang.pyx.build without built golang.
+# able to import golang.pyx.build without built/working golang.
 import imp, pkgutil
 golang = imp.new_module('golang')
 golang.__package__ = 'golang'
