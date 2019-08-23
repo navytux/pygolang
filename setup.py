@@ -192,10 +192,10 @@ def Ext(name, srcv, **kw):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'cython', 'setuptools_dso >= 1.2', 'setuptools', 'wheel'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.2'},
     'x.perf.benchlib':  {'numpy'},
 }
-# TODO generate e.g. x.perf = join(x.perf.*); x = join(x.*)
+# TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
 Rall = set()
 for pkg in R:
     Rall.update(R[pkg])
