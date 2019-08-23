@@ -35,9 +35,10 @@ import setuptools_dso
 
 import sys, pkgutil, platform, sysconfig
 from os.path import dirname, join, exists
-
 from distutils.errors import DistutilsError
-class BuildError(DistutilsError):
+
+# Error represents a build error.
+class Error(DistutilsError):
     pass
 
 # _PyPkg provides information about 1 py package.
