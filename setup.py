@@ -25,8 +25,7 @@ from setuptools import find_packages
 from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
-#import sysconfig, platform
-from os.path import dirname, join   #, exists
+from os.path import dirname, join
 import sys, re
 
 # reuse golang.pyx.build to build pygolang extensions.
@@ -157,38 +156,6 @@ class develop(XInstallGPython, _develop):
         assert self.gpython_installed == 1
 
 
-"""
-# Ext creates Extension with common settings.
-def Ext(name, srcv, **kw):
-    # prepend -I<top> so that e.g. golang/libgolang.h is found
-    incv = kw.get('include_dirs', [])
-    incv.insert(0, '.')
-
-    # workaround pip bug that for virtualenv case headers are installed into
-    # not-searched include path. https://github.com/pypa/pip/issues/4610
-    # (without this e.g. "greenlet/greenlet.h" is not found)
-    venv_inc = join(sys.prefix, 'include', 'site', 'python' + sysconfig.get_python_version())
-    if exists(venv_inc):
-        incv.append(venv_inc)
-
-    # provide POSIX/PYPY/... defines to Cython      XXX -> golang.pyx.build
-    POSIX = ('posix' in sys.builtin_module_names)
-    PYPY  = (platform.python_implementation() == 'PyPy')
-    pyxenv = kw.get('cython_compile_time_env', {})
-    pyxenv.setdefault('POSIX',  POSIX)
-    pyxenv.setdefault('PYPY',   PYPY)
-    kw['cython_compile_time_env'] = pyxenv
-
-    kw['include_dirs'] = incv
-    #return Extension(name, srcv, **kw)
-    # XXX hack, because Extension is not Cython.Extension, but setuptools_dso.Extension
-    # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
-    pyxenv = kw.pop('cython_compile_time_env')
-    ext = Extension(name, srcv, **kw)
-    ext.cython_compile_time_env = pyxenv
-    return ext
-"""
-
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
@@ -229,9 +196,6 @@ setup(
     keywords    = 'golang go channel goroutine concurrency GOPATH python import gpython gevent cython nogil GIL',
 
     packages    = find_packages(),
-
-    # XXX don't install headers - use them directly from installed package
-    #headers     = ['golang/libgolang.h'],
 
     x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
                         depends         = ['golang/libgolang.h'],
