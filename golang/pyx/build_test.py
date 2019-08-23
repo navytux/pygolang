@@ -23,6 +23,7 @@ from __future__ import print_function, absolute_import
 from golang.golang_test import pyrun
 from os.path import dirname
 
+# verify that we can build/run external package that uses pygolang in pyx mode.
 def test_pyx_build():
     pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
     # XXX copy to tmp first?
