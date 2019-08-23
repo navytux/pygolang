@@ -47,15 +47,14 @@ class Error(DistutilsError):
 class _PyPkg:
     # .name - full package name, e.g. "golang.time"
     # .path - filesystem path of the package
-    #         (file for module, directory for pkg/__init__.py)  XXX path or pkgdir?
+    #         (file for module, directory for pkg/__init__.py)
     pass
 
-# _pyimport finds specified python package and returns information about it.
+# _findpkg finds specified python package and returns information about it.
 #
-# e.g. _pyimport("golang") -> _PyPkg("/path/to/pygolang/golang")
-def _pyimport(pkgname):  # -> _PyPkg
+# e.g. _findpkg("golang") -> _PyPkg("/path/to/pygolang/golang")
+def _findpkg(pkgname):  # -> _PyPkg
     pkg = pkgutil.get_loader(pkgname)
-    # XXX can also raise ImportError for pkgname with '.' inside
     if pkg is None: # package not found
         raise Error("package %r not found" % (pkgname,))
     path = pkg.get_filename()
@@ -79,7 +78,8 @@ def setup(**kw):
 #       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
 #   )
 def Extension(name, sources, **kw):
-    gopkg = _pyimport("golang")
+    # find pygolang root
+    gopkg = _findpkg("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
     if pygo == '':
         pygo = '.'
@@ -91,15 +91,15 @@ def Extension(name, sources, **kw):
     incv.insert(0, pygo)
     kw['include_dirs'] = incv
 
-    # link with libgolang runtime
+    # link with libgolang.so
     dsov = kw.get('dsos', [])[:]
     dsov.insert(0, 'golang.runtime.libgolang')
     kw['dsos'] = dsov
 
-    # default language to C++ (chan[T] & co are accessibly only through C++)
+    # default language to C++ (chan[T] & co are accessible only via C++)
     kw.setdefault('language', 'c++')
 
-    # some depends to workaround a bit lack of proper dependency management in
+    # some depends to workaround a bit lack of proper dependency tracking in
     # setuptools/distutils.
     dependv = kw.get('depends', [])[:]
     dependv.append('%s/golang/libgolang.h'  % pygo)
@@ -122,7 +122,7 @@ def Extension(name, sources, **kw):
     pyxenv.setdefault('PYPY',   PYPY)
     kw['cython_compile_time_env'] = pyxenv
 
-    # XXX hack, because Extension is not Cython.Extension, but setuptools_dso.Extension
+    # XXX hack, because setuptools_dso.Extension is not Cython.Extension
     # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
     #ext = setuptools_dso.Extension(name, sources, **kw)
     pyxenv = kw.pop('cython_compile_time_env')
