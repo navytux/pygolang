@@ -24,7 +24,7 @@ from golang import go, chan, select, default, nilchan, _PanicError, func, panic,
 from golang import time
 from pytest import raises
 from os.path import dirname
-import os, sys, threading, inspect, subprocess
+import os, sys, threading, inspect
 from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
@@ -36,20 +36,7 @@ from golang._pycompat import im_class
 def test_go():
     # leaked goroutine behaviour check: done in separate process because we need
     # to test process termination exit there.
-
-    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
-    # script will succeed on `import golang` when running in-tree.
-    dir_golang = dirname(__file__)  #     .../pygolang/golang
-    dir_top    = dir_golang + '/..' # ~>  .../pygolang
-    pathv = [dir_top]
-    env = os.environ.copy()
-    envpath = env.get('PYTHONPATH')
-    if envpath is not None:
-        pathv.append(envpath)
-    env['PYTHONPATH'] = ':'.join(pathv)
-
-    subprocess.check_call([sys.executable, dir_golang + "/testprog/golang_test_goleaked.py"],
-            env=env)
+    pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
 def bench_go(b):
@@ -1020,7 +1007,20 @@ def bench_defer(b):
 # pyrun runs `sys.executable argv... <stdin`.
 def pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):
     argv = [sys.executable] + argv
-    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, **kw)
+
+    # adjust $PYTHONPATH to point to pygolang. This makes sure that external
+    # script will succeed on `import golang` when running in-tree.
+    kw = kw.copy()
+    dir_golang = dirname(__file__)  #     .../pygolang/golang
+    dir_top    = dir_golang + '/..' # ~>  .../pygolang
+    pathv = [dir_top]
+    env = kw.pop('env', os.environ.copy())
+    envpath = env.get('PYTHONPATH')
+    if envpath is not None:
+        pathv.append(envpath)
+    env['PYTHONPATH'] = ':'.join(pathv)
+
+    p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
     if p.returncode:
         raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
