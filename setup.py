@@ -29,7 +29,7 @@ from os.path import dirname, join
 import sys, re
 
 # reuse golang.pyx.build to build pygolang extensions.
-# we have to be careful and inject synthethic golang package in order to be
+# we have to be careful and inject synthetic golang package in order to be
 # able to import golang.pyx.build without built golang.
 import imp, pkgutil
 golang = imp.new_module('golang')
