@@ -144,6 +144,7 @@ class develop(XInstallGPython, _develop):
         assert self.gpython_installed == 1
 
 
+"""
 # Ext creates Extension with common settings.
 def Ext(name, srcv, **kw):
     # prepend -I<top> so that e.g. golang/libgolang.h is found
@@ -153,8 +154,6 @@ def Ext(name, srcv, **kw):
     # workaround pip bug that for virtualenv case headers are installed into
     # not-searched include path. https://github.com/pypa/pip/issues/4610
     # (without this e.g. "greenlet/greenlet.h" is not found)
-    #
-    # XXX -> better build.import("greenlet") -> include_dirs ?
     venv_inc = join(sys.prefix, 'include', 'site', 'python' + sysconfig.get_python_version())
     if exists(venv_inc):
         incv.append(venv_inc)
@@ -175,6 +174,7 @@ def Ext(name, srcv, **kw):
     ext = Extension(name, srcv, **kw)
     ext.cython_compile_time_env = pyxenv
     return ext
+"""
 
 # XXX extra require
 #   cmd/pybench         pytest
@@ -227,12 +227,13 @@ setup(
                         ['golang/runtime/_runtime_thread.pyx'],
                         dsos    = ['golang.runtime.libgolang'],
                         depends = ['golang/libgolang.h'],
+                        language="c",
                         ),
 
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
                         dsos    = ['golang.runtime.libgolang'],
-                        depends = ['golang/libgolang.h']),
+                        depends = ['golang/libgolang.h']),  # XXX lang=c
 
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',

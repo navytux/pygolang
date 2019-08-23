@@ -16,7 +16,21 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""XXX"""   # XXX
+"""Package build provides infrastructure to build Cython Pygolang-based packages.
+
+XXX
+
+Usage example::
+
+    from golang.pyx.build import Extension, setup   # XXX setup too?
+
+    setup(
+        name        = 'mypkg',
+        description = 'my Pygolang/Cython-based package',
+        ...
+        ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
+    )
+"""
 
 import setuptools_dso
 
@@ -28,15 +42,15 @@ from os.path import dirname
 
 # _PyPkg provides information about 1 py package.
 class _PyPkg:
-    # .name - full package name, e.g. golang.time
+    # .name - full package name, e.g. "golang.time"
     # .path - filesystem path of the package
-    #         (file for module, directory for pkg/__init__.py)
+    #         (file for module, directory for pkg/__init__.py)  XXX
     pass
 
-# _pyimport returns path to specified package.
-# e.g. _pyimport("golang") -> /path/to/pygolang/golang  XXX -> _PyPkg
-# XXX error -> what?
-def _pyimport(pkgname): # -> _PyPkg
+# _pyimport finds specified python package and returns information about it.
+#
+# e.g. _pyimport("golang") -> _PyPkg("/path/to/pygolang/golang")
+def _pyimport(pkgname):  # -> _PyPkg
     pkg = pkgutil.get_loader(pkgname)
     # XXX can also raise ImportError for pkgname with '.' inside
     if pkg is None: # package not found
@@ -49,14 +63,61 @@ def _pyimport(pkgname): # -> _PyPkg
     pypkg.path = path
     return pypkg
 
-# XXX
-def Extension(name, sources, *argv, **kw):
+# Extension should be used to build extensions that use pygolang.
+#
+# For example:
+#
+#   setup(
+#       ...
+#       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
+#   )
+def Extension(name, sources, **kw):
     gopkg = _pyimport("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
 
-    # XXX include_dirs += [pygo]
-    # XXX dsos += ['golang.runtime.libgolang'],
-    # XXX language = 'c++'
-    ...
+    kw = kw.copy()
 
-    return setuptools_dso.Extension(name, sources, *argv, **kw)
+    # prepend -I<pygolang> so that e.g. golang/libgolang.h is found
+    incv = kw.get('include_dirs', [])[:]
+    incv.insert(0, pygo.pkgdir)     # XXX path or pkgdir?
+    kw['include_dirs'] = incv
+
+    # link with libgolang runtime
+    dsov = kw.get('dsos', [])[:]
+    dsov.insert(0, 'golang.runtime.libgolang')
+    kw['dsos'] = dsov
+
+    # default language to C++ (chan[T] & co are accessibly only through C++)
+    kw.setdefault('language', 'c++')
+
+    # some depends to workaround a bit lack of proper dependency management in
+    # setuptools/distutils.
+    dependv = kw.get('depends', [])[:]
+    dependv.append('%s/golang/libgolang.h' % pygo.pkgdir)
+    dependv.append('%s/golang/_golang.pxd' % ptgo.pkgdir)
+    dependv.append('%s/golang/__init__.pxd' % ptgo.pkgdir)
+    kw['depends'] = dependv
+
+    # workaround pip bug that for virtualenv case headers are installed into
+    # not-searched include path. https://github.com/pypa/pip/issues/4610
+    # (without this e.g. "greenlet/greenlet.h" is not found)
+    venv_inc = join(sys.prefix, 'include', 'site', 'python' + sysconfig.get_python_version())
+    if exists(venv_inc):
+        kw['include_dirs'].append(venv_inc)
+
+    # provide POSIX/PYPY/... defines to Cython
+    POSIX = ('posix' in sys.builtin_module_names)
+    PYPY  = (platform.python_implementation() == 'PyPy')
+    pyxenv = kw.get('cython_compile_time_env', {})
+    pyxenv.setdefault('POSIX',  POSIX)
+    pyxenv.setdefault('PYPY',   PYPY)
+    kw['cython_compile_time_env'] = pyxenv
+
+    # XXX hack, because Extension is not Cython.Extension, but setuptools_dso.Extension
+    # del from kw to avoid "Unknown Extension options: 'cython_compile_time_env'"
+    #ext = setuptools_dso.Extension(name, sources, **kw)
+    pyxenv = kw.pop('cython_compile_time_env')
+    ext = Extension(name, srcv, **kw)
+    ext.cython_compile_time_env = pyxenv
+
+    return ext

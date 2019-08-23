@@ -22,13 +22,9 @@ from __future__ import print_function
 
 from golang.pyx.build import Extension, setup   # XXX need to import setup too?
 
-
 setup(
     name        = 'golang_pyx_user',
     description = 'test project that uses pygolang in pyx mode',
 
     ext_modules = [Extension('pyxuser.test', ['pyxuser/test.pyx'])],
-#                  include_dirs=[groot],
-#                  dsos    = ['golang.runtime.libgolang'],
-#                  language='c++')],
 )
