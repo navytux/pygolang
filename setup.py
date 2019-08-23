@@ -138,6 +138,23 @@ class develop(XInstallGPython, _develop):
         assert self.gpython_installed == 1
 
 
+# requirements of packages under "golang." namespace
+R = {
+    'cmd.pybench':      {'pytest'},
+    'x.perf.benchlib':  {'numpy'},
+}
+# TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
+Rall = set()
+for pkg in R:
+    Rall.update(R[pkg])
+R['all'] = Rall
+
+# extras_require <- R
+extras_require = {}
+for k in sorted(R.keys()):
+    extras_require[k] = list(sorted(R[k]))
+
+
 setup(
     name        = 'pygolang',
     version     = version,
@@ -156,10 +173,7 @@ setup(
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator'],
-
-    extras_require = {
-                  'test': ['pytest'],
-    },
+    extras_require   = extras_require,
 
     entry_points= {'console_scripts': [
                         # NOTE gpython is handled specially - see XInstallGPython.
