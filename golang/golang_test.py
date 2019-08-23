@@ -47,7 +47,6 @@ for f in dir(_golang_test):
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
-    # XXX stdout !PIPE
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
