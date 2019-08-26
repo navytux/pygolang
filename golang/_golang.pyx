@@ -139,7 +139,7 @@ cdef void __goviac(void *arg) nogil:
             raise   # XXX exception -> exit program with traceback (same as in go) ?
 
 
-# ---- channels -----
+# ---- channels ----
 
 # pychan is chan<object>
 @final
