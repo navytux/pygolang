@@ -145,6 +145,8 @@ cdef void _test_go_nogil() nogil except +topyexc:
     if i != 222:
         panic("after done: i != 222")
 cdef void _work(int *pi, chan[structZ] done) nogil:
+    if pi[0] != 111:
+        panic("_work: *pi != 111")
     pi[0] = 222
     done.close()
 
@@ -154,25 +156,32 @@ def test_go_nogil():
 
 
 # runtime/libgolang_test_c.c
-cdef extern from *:
+cdef extern from * nogil:
     """
     extern "C" void _test_chan_c();
+    extern "C" void _test_go_c();
     """
-    void _test_chan_c() nogil except +topyexc
+    void _test_chan_c() except +topyexc
+    void _test_go_c()   except +topyexc
 def test_chan_c():
     with nogil:
         _test_chan_c()
+def test_go_c():
+    with nogil:
+        _test_go_c()
 
 # runtime/libgolang_test.cpp
-cdef extern from *:
+cdef extern from * nogil:
     """
     extern void _test_chan_cpp_refcount();
     extern void _test_chan_cpp();
     extern void _test_chan_vs_stackdeadwhileparked();
+    extern void _test_go_cpp();
     """
-    void _test_chan_cpp_refcount() nogil except +topyexc
-    void _test_chan_cpp() nogil except +topyexc
-    void _test_chan_vs_stackdeadwhileparked() nogil except +topyexc
+    void _test_chan_cpp_refcount()              except +topyexc
+    void _test_chan_cpp()                       except +topyexc
+    void _test_chan_vs_stackdeadwhileparked()   except +topyexc
+    void _test_go_cpp()                         except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
         _test_chan_cpp_refcount()
@@ -182,3 +191,6 @@ def test_chan_cpp():
 def test_chan_vs_stackdeadwhileparked():
     with nogil:
         _test_chan_vs_stackdeadwhileparked()
+def test_go_cpp():
+    with nogil:
+        _test_go_cpp()

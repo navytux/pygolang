@@ -269,3 +269,21 @@ void _test_chan_vs_stackdeadwhileparked() {
     });
     done.recv();
 }
+
+// small test to verify C++ go.
+static void _work(int *pi, chan<structZ> done);
+void _test_go_cpp() {
+    auto done = makechan<structZ>();
+    int i = 111;
+    go(_work, &i, done); // not λ to test that go correctly passes arguments
+    done.recv();
+    if (i != 222) {
+        panic("after done: i != 222");
+    }
+}
+static void _work(int *pi, chan<structZ> done) {
+    if (*pi != 111)
+        panic("_work: *pi != 111");
+    *pi = 222;
+    done.close();
+}
