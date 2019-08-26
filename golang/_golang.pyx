@@ -31,8 +31,10 @@ from __future__ import print_function, absolute_import
 # init libgolang runtime early
 _init_libgolang()
 
-from cpython cimport PY_MAJOR_VERSION
+from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 from cython cimport final
+
+import sys
 
 # ---- panic ----
 
@@ -64,6 +66,72 @@ cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
 
 
+# ---- go ----
+
+# go spawns lightweight thread.
+#
+# go spawns:
+#
+# - lightweight thread (with    gevent integration), or
+# - full OS thread     (without gevent integration).
+#
+# Use gpython to run Python with integrated gevent, or use gevent directly to do so.
+def pygo(f, *argv, **kw):
+    _ = _togo(); _.f = f; _.argv = argv; _.kw    = kw
+    Py_INCREF(_)    # we transfer 1 ref to _goviac
+    with nogil:
+        _taskgo_pyexc(_goviac, <void*>_)
+
+@final
+cdef class _togo:
+    cdef object f
+    cdef tuple  argv
+    cdef dict   kw
+
+cdef extern from "Python.h" nogil:
+    ctypedef struct PyGILState_STATE:
+        pass
+    PyGILState_STATE PyGILState_Ensure()
+    void PyGILState_Release(PyGILState_STATE)
+
+cdef void _goviac(void *arg) nogil:
+    # create new py thread state and keep it alive while __goviac runs.
+    #
+    # Just `with gil` is not enough: for `with gil` if exceptions could be
+    # raised inside, cython generates several GIL release/reacquire calls.
+    # This way the thread state will be deleted on first release and _new_ one
+    # - _another_ thread state - create on acquire. All that implicitly with
+    # the effect of loosing things associated with thread state - e.g. current
+    # exception.
+    #
+    # -> be explicit and manually keep py thread state alive ourselves.
+    gstate = PyGILState_Ensure() # py thread state will stay alive until PyGILState_Release
+    __goviac(arg)
+    PyGILState_Release(gstate)
+
+cdef void __goviac(void *arg) nogil:
+    with gil:
+        try:
+            _ = <_togo>arg
+            Py_DECREF(_)
+            _.f(*_.argv, **_.kw)
+        except:
+            # ignore exceptions during python interpreter shutdown.
+            # python clears sys and other modules at exit which can result in
+            # arbitrary exceptions in still alive "daemon" threads that go
+            # spawns. Similarly to threading.py(*) we just ignore them.
+            #
+            # if we don't - there could lots of output like e.g. "lost sys.stderr"
+            # and/or "sys.excepthook is missing" etc.
+            #
+            # (*) github.com/python/cpython/tree/v2.7.16-121-g53639dd55a0/Lib/threading.py#L760-L778
+            #     see also "Technical details" in stackoverflow.com/a/12807285/9456786.
+            if sys is None:
+                return
+
+            raise   # XXX exception -> exit program with traceback (same as in go) ?
+
+
 # ---- init libgolang runtime ---
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
@@ -93,3 +161,15 @@ cdef void _init_libgolang() except*:
     if runtime_ops == NULL:
         pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
     _libgolang_init(runtime_ops)
+
+
+
+# ---- misc ----
+
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    void _taskgo(void (*f)(void *), void *arg)
+
+cdef nogil:
+
+    void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)      except +topyexc:
+        _taskgo(f, arg)

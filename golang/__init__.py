@@ -43,11 +43,6 @@ import six
 from golang._pycompat import im_class
 
 
-from ._golang import    \
-    _PanicError,            \
-    pypanic     as panic
-
-
 # @func is a necessary decorator for functions for selected golang features to work.
 #
 # For example it is required by defer. Usage:
@@ -177,22 +172,13 @@ def defer(f):
 
 
 
+# ---- go + channels ----
 
-# go spawns lightweight thread.
-#
-# go spawns:
-#
-# - lightweight thread (with    gevent integration), or
-# - full OS thread     (without gevent integration).
-#
-# Use gpython to run Python with integrated gevent, or use gevent directly to do so.
-def go(f, *argv, **kw):
-    t = threading.Thread(target=f, args=argv, kwargs=kw)
-    t.daemon = True # leaked goroutines don't prevent program to exit
-    t.start()
+from ._golang import    \
+    pygo        as go,      \
+    _PanicError,            \
+    pypanic     as panic
 
-
-# ---- channels ----
 
 # _RecvWaiting represents a receiver waiting on a chan.
 class _RecvWaiting(object):

@@ -170,12 +170,22 @@ located in `src/` under `$GOPATH`.
 Cython/nogil API
 ----------------
 
-Cython package `golang` provides *nogil* API with
-features that mirror corresponding Python package. Cython API is not only
+Cython package `golang` provides *nogil* API with goroutines and
+other features that mirror corresponding Python package. Cython API is not only
 faster compared to Python version, but also, due to *nogil* property, allows to
 build concurrent systems without limitations imposed by Python's GIL. All that
 while still programming in Python-like language. Brief description of
 Cython/nogil API follows:
+
+`go` spawns new task - a coroutine, or thread, depending on activated runtime.
+For example::
+
+   cdef nogil:
+      void worker():
+         pass
+
+      void myfunc():
+         go(worker)
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to

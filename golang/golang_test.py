@@ -33,6 +33,19 @@ import golang
 from golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
+# pyx/c/c++ tests -> test_pyx_*
+from golang import _golang_test
+for f in dir(_golang_test):
+    if f.startswith('test_'):
+        gf = 'test_pyx_' + f[len('test_'):] # test_chan_nogil -> test_pyx_chan_nogil
+        # define a python function with gf name (if we use f directly pytest
+        # will say "cannot collect 'test_pyx_chan_nogil' because it is not a function")
+        def _(func=getattr(_golang_test, f)):
+            func()
+        _.__name__ = gf
+        globals()[gf] = _
+
+
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():

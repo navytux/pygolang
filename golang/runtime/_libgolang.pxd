@@ -23,6 +23,8 @@ from libc.stdint cimport uint64_t
 
 cdef extern from "golang/libgolang.h" nogil:
     struct _libgolang_runtime_ops:
+        void    (*go)(void (*f)(void *) nogil, void *arg);
+
         void        (*nanosleep)(uint64_t)
         uint64_t    (*nanotime)()
 

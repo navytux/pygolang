@@ -170,10 +170,12 @@ def Extension(name, sources, **kw):
     if exists(venv_inc):
         kw['include_dirs'].append(venv_inc)
 
-    # provide POSIX/... defines to Cython
+    # provide POSIX/PYPY/... defines to Cython
     POSIX = ('posix' in sys.builtin_module_names)
+    PYPY  = (platform.python_implementation() == 'PyPy')
     pyxenv = kw.get('cython_compile_time_env', {})
     pyxenv.setdefault('POSIX',  POSIX)
+    pyxenv.setdefault('PYPY',   PYPY)
     kw['cython_compile_time_env'] = pyxenv
 
     # XXX hack, because setuptools_dso.Extension is not Cython.Extension

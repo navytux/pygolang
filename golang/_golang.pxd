@@ -22,6 +22,7 @@
 Cython/nogil API
 ----------------
 
+- `go` spawns lightweight thread.
 - `panic` stops normal execution of current goroutine by throwing a C-level exception.
 
 Everything in Cython/nogil API do not depend on Python runtime and in
@@ -54,6 +55,8 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover()
+
+    void go(...)    # typechecking is done by C
 
 
 # ---- python bits ----

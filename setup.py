@@ -208,6 +208,11 @@ setup(
                         ['golang/runtime/_runtime_gevent.pyx'],
                         language = 'c'),
 
+                    Ext('golang._golang_test',
+                        ['golang/_golang_test.pyx',
+                         'golang/runtime/libgolang_test_c.c',
+                         'golang/runtime/libgolang_test.cpp']),
+
                     Ext('golang._time',
                         ['golang/_time.pyx']),
                   ],

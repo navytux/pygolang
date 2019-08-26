@@ -21,6 +21,24 @@
 
 from __future__ import print_function, absolute_import
 
+# Thread runtime reuses C-level Python threadcreate implementation
+# for portability.
+#
+# PyThread_start_new_thread - Python's C function function to create
+# new thread - does not depend on GIL. On POSIX, for example, it is small
+# wrapper around pthread_create.
+
+# make sure python threading is initialized, so that there is no concurrent
+# calls to PyThread_init_thread later.
+#
+# This allows us to treat PyThread_start_new_thread as nogil.
+from cpython.ceval cimport PyEval_InitThreads
+#PyThread_init_thread()     # initializes only threading, but _not_ GIL
+PyEval_InitThreads()        # initializes      threading       and  GIL
+cdef extern from "pythread.h" nogil:
+    # NOTE py3.7 changed to `unsigned long PyThread_start_new_thread ...`
+    long PyThread_start_new_thread(void (*)(void *), void *)
+
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, panic
 
 from libc.stdint cimport uint64_t, UINT64_MAX
@@ -35,6 +53,11 @@ DEF i1E9 = 1000000000
 #           987654321
 
 cdef nogil:
+
+    void go(void (*f)(void *), void *arg):
+        pytid = PyThread_start_new_thread(f, arg)
+        if pytid == -1:
+            panic("pygo: failed")
 
     IF POSIX:
         void nanosleep(uint64_t dt):
@@ -86,6 +109,7 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
+            go              = go,
             nanosleep       = nanosleep,
             nanotime        = nanotime,
     )

@@ -23,12 +23,19 @@
 # Small program that uses a bit of golang.pyx nogil features, mainly to verify
 # that external project can build against golang in pyx mode.
 
-from golang cimport topyexc
+from golang cimport go, topyexc
 from libc.stdio cimport printf
 
 cdef nogil:
 
+    void worker(int i, int j):
+        pass
+
     void _main() except +topyexc:
+        cdef int i
+        for i in range(3):
+            go(worker, i, 4)
+
         printf("test.pyx: OK\n")
 
 def main():

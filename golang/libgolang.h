@@ -22,8 +22,8 @@
 
 // Library Libgolang provides Go-like features for C and C++.
 //
-// Library Libgolang provides Go-like
-// features. The library consists of high-level type-safe C++ API,
+// Library Libgolang provides goroutines and other
+// accompanying features. The library consists of high-level type-safe C++ API,
 // and low-level unsafe C API.
 //
 // The primary motivation for Libgolang is to serve as runtime for golang.pyx -
@@ -34,10 +34,13 @@
 //
 // C++-level API
 //
+//  - `go` spawns new task.
 //  - `sleep` pauses current task.
 //  - `panic` throws exception that represent C-level panic.
 //
 // For example:
+//
+//      go(worker, 1);                  // spawn worker(int)
 //
 //      if (<bug condition>)
 //          panic("bug");
@@ -45,6 +48,7 @@
 //
 // C-level API
 //
+//  - `_taskgo` spawns new task.
 //  - `tasknanosleep` pauses current task.
 //
 //
@@ -96,12 +100,16 @@ extern "C" {
 LIBGOLANG_API void panic(const char *arg);
 LIBGOLANG_API const char *recover(void);
 
+LIBGOLANG_API void _taskgo(void (*f)(void *arg), void *arg);
 LIBGOLANG_API void _tasknanosleep(uint64_t dt);
 LIBGOLANG_API uint64_t _nanotime(void);
 
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use.
 typedef struct _libgolang_runtime_ops {
+    // go should spawn a task (coroutine/thread/...).
+    void    (*go)(void (*f)(void *), void *arg);
+
     // nanosleep should pause current goroutine for at least dt nanoseconds.
     // nanosleep(0) is not noop - such call must be at least yielding to other goroutines.
     void        (*nanosleep)(uint64_t dt);
@@ -123,7 +131,23 @@ LIBGOLANG_API void _libgolang_init(const _libgolang_runtime_ops *runtime_ops);
 
 #ifdef __cplusplus
 
+#include <functional>
+#include <memory>
+
 namespace golang {
+
+// go provides type-safe wrapper over _taskgo.
+template<typename F, typename... Argv>  // F = std::function<void(Argv...)>
+static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
+    typedef std::function<void(void)> Frun;
+    Frun *frun = new Frun (std::bind(f, argv...));
+    _taskgo([](void *_frun) {
+        std::unique_ptr<Frun> frun (reinterpret_cast<Frun*>(_frun));
+        (*frun)();
+        // frun deleted here on normal exit or panic.
+    }, frun);
+}
+
 
 namespace time {
 
