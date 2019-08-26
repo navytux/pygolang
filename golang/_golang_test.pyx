@@ -139,15 +139,11 @@ def test_chan_nogil():
 # small test to verify pyx(nogil) go.
 cdef void _test_go_nogil() nogil except +topyexc:
     cdef chan[structZ] done = makechan[structZ]()
-    cdef int i = 111
-    go(_work, &i, done)
+    go(_work, 111, done)
     done.recv()
-    if i != 222:
-        panic("after done: i != 222")
-cdef void _work(int *pi, chan[structZ] done) nogil:
-    if pi[0] != 111:
-        panic("_work: *pi != 111")
-    pi[0] = 222
+cdef void _work(int i, chan[structZ] done) nogil:
+    if i != 111:
+        panic("_work: i != 111")
     done.close()
 
 def test_go_nogil():

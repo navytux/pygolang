@@ -24,7 +24,7 @@
 #endif
 
 #include "golang/libgolang.h"
-#include <stdio.h>
+#include <stdlib.h>
 
 typedef struct Point {
     int x, y;
@@ -70,26 +70,24 @@ void _test_chan_c(void) {
 }
 
 // small test to verify C _taskgo.
-struct _work_arg{int *pi; _chan *done;};
+struct _work_arg{int i; _chan *done;};
 static void _work(void *);
 void _test_go_c(void) {
     _chan *done = _makechan(0,0);
     if (done == NULL)
         panic("_makechan -> failed");
     int i = 111;
-    struct _work_arg _ = {.pi = &i, .done = done };
-    _taskgo(_work, &_);
+    struct _work_arg *_ = malloc(sizeof(*_));
+    _->i    = i;
+    _->done = done;
+    _taskgo(_work, _);
     _chanrecv(done, NULL);
-    if (i != 222) {
-        panic("after done: i != 222");
-    }
-
     _chanxdecref(done);
 }
 static void _work(void *__) {
     struct _work_arg *_ = (struct _work_arg *)__;
-    if (*_->pi != 111)
-        panic("_work: *pi != 111");
-    *_->pi = 222;
+    if (_->i != 111)
+        panic("_work: i != 111");
     _chanclose(_->done);
+    free(_);
 }
