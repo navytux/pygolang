@@ -141,13 +141,6 @@ cdef void __goviac(void *arg) nogil:
 
 # ---- channels -----
 
-# pynilchan is the nil py channel.
-#
-# On nil channel: send/recv block forever; close panics.
-cdef pychan _pynilchan = pychan()
-_pynilchan.ch = chan[pPyObject]()   # = NULL
-pynilchan = _pynilchan
-
 # pychan is chan<object>
 @final
 cdef class pychan:
@@ -232,6 +225,14 @@ cdef class pychan:
             return "nilchan"
         else:
             return super(pychan, pych).__repr__()
+
+
+# pynilchan is the nil py channel.
+#
+# On nil channel: send/recv block forever; close panics.
+cdef pychan _pynilchan = pychan()
+_pynilchan.ch = chan[pPyObject]()   # = NULL
+pynilchan = _pynilchan
 
 
 # pydefault represents default case for pyselect.
