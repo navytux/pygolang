@@ -30,7 +30,7 @@ from six.moves import range as xrange
 import gc, weakref
 
 import golang
-from golang import _chan_recv, _chan_send
+from golang._golang import _chan_recv, _chan_send
 from golang._pycompat import im_class
 
 # pyx/c/c++ tests -> test_pyx_*
@@ -693,13 +693,14 @@ def bench_select(b):
 
 
 def test_blockforever():
-    B = golang._blockforever
+    from golang import _golang
+    B = _golang._blockforever
     def _(): panic("t: blocks forever")
-    golang._blockforever = _
+    _golang._blockforever = _
     try:
         _test_blockforever()
     finally:
-        golang._blockforever = B
+        _golang._blockforever = B
 
 def _test_blockforever():
     z = nilchan
