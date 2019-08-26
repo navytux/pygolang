@@ -28,7 +28,6 @@ from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, \
     default, structZ, panic, pypanic, topyexc, cbool
-from golang cimport time
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
