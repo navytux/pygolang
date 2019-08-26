@@ -65,8 +65,8 @@ def test_quote():
     )
 
     for tin, tquoted in testv:
-        print('\n\n')
-        print('tin: %r' % tin)
+        #print('\n\n')
+        #print('tin: %r' % tin)
         # quote(in) == quoted
         # in = unquote(quoted)
         q = b'"' if isinstance(tquoted, bytes) else '"'
