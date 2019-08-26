@@ -273,8 +273,6 @@ Cython/nogil mode.
 .. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
 .. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/4e9df00/golang/pyx/testprog/golang_pyx_user
 
-.. XXX sha1 -> master
-
 --------
 
 Additional packages and utilities
