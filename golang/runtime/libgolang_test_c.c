@@ -78,6 +78,8 @@ void _test_go_c(void) {
         panic("_makechan -> failed");
     int i = 111;
     struct _work_arg *_ = malloc(sizeof(*_));
+    if (_ == NULL)
+        panic("malloc _work_arg -> failed");
     _->i    = i;
     _->done = done;
     _taskgo(_work, _);
