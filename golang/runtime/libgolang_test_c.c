@@ -76,11 +76,10 @@ void _test_go_c(void) {
     _chan *done = _makechan(0,0);
     if (done == NULL)
         panic("_makechan -> failed");
-    int i = 111;
     struct _work_arg *_ = malloc(sizeof(*_));
     if (_ == NULL)
         panic("malloc _work_arg -> failed");
-    _->i    = i;
+    _->i    = 111;
     _->done = done;
     _taskgo(_work, _);
     _chanrecv(done, NULL);
