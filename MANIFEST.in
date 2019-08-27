@@ -3,3 +3,4 @@ include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 recursive-include golang    *.py *.pxd *.pyx
 recursive-include gpython   *.py
+recursive-include 3rdparty  *.h
