@@ -30,8 +30,6 @@ from golang cimport go, panic, pypanic, topyexc
 from golang import chan, nilchan
 
 from golang import time
-from golang._golang import _pychan_recv, _pychan_send
-from golang._pycompat import im_class
 
 # pylen_{recv,send}q returns len(ch._{recv,send}q)
 def pylen_recvq(ch):
@@ -47,13 +45,13 @@ def pylen_sendq(ch):
 #
 # For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
 def pywaitBlocked(chanop):
-    if im_class(chanop) is not chan:
-        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
+    if chanop.__self__.__class__ is not chan:
+        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, chanop.__self__.__class__))
     ch = chanop.__self__
     recv = send = False
-    if chanop.__func__ is _pychan_recv:
+    if chanop.__name__ == "recv":       # XXX better check PyCFunction directly
         recv = True
-    elif chanop.__func__ is _pychan_send:
+    elif chanop.__name__ == "send":     # XXX better check PyCFunction directly
         send = True
     else:
         pypanic("wait blocked: unexpected chan method: %r" % (chanop,))

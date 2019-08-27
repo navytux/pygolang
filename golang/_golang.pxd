@@ -63,3 +63,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
 cdef void topyexc() except *
 cpdef pypanic(arg)
+
+from cython cimport final
+
+@final
+cdef class pychan:
+    cdef dict __dict__

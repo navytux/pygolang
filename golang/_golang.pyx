@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# cython: binding=False
 # distutils: language = c++
 # distutils: depends = libgolang.h
 #
@@ -35,9 +36,7 @@ from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 from cython cimport final
 
 import sys
-import six
 import threading, collections, random
-from golang._pycompat import im_class
 
 # ---- panic ----
 
@@ -253,7 +252,8 @@ def _dequeWaiter(queue):
 
 
 # pychan is Python channel with Go semantic.
-class pychan(object):
+@final
+cdef class pychan:
     # ._cap         channel capacity
     # ._mu          lock
     # ._dataq       deque *: data buffer
@@ -446,16 +446,6 @@ pynilchan = pychan(None)    # TODO -> <chan*>(NULL) after move to Cython
 # pydefault represents default case for pyselect.
 pydefault  = object()
 
-# unbound pychan.{send,recv,recv_}
-_pychan_send  = pychan.send
-_pychan_recv  = pychan.recv
-_pychan_recv_ = pychan.recv_
-if six.PY2:
-    # on py3 class.func gets the func; on py2 - unbound_method(func)
-    _pychan_send  = _pychan_send.__func__
-    _pychan_recv  = _pychan_recv.__func__
-    _pychan_recv_ = _pychan_recv_.__func__
-
 # pyselect executes one ready send or receive channel case.
 #
 # if no case is ready and default case was provided, select chooses default.
@@ -502,9 +492,9 @@ def pyselect(*casev):
         # send
         elif isinstance(case, tuple):
             send, tx = case
-            if im_class(send) is not pychan:
-                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
-            if send.__func__ is not _pychan_send:
+            if send.__self__.__class__ is not pychan:
+                pypanic("pyselect: send on non-chan: %r" % (send.__self__.__class__,))
+            if send.__name__ != "send":         # XXX better check PyCFunction directly
                 pypanic("pyselect: send expected: %r" % (send,))
 
             ch = send.__self__
@@ -521,11 +511,11 @@ def pyselect(*casev):
         # recv
         else:
             recv = case
-            if im_class(recv) is not pychan:
-                pypanic("pyselect: recv on non-chan: %r" % (im_class(recv),))
-            if recv.__func__ is _pychan_recv:
+            if recv.__self__.__class__ is not pychan:
+                pypanic("pyselect: recv on non-chan: %r" % (recv.__self__.__class__,))
+            if recv.__name__ == "recv":         # XXX better check PyCFunction directly
                 commaok = False
-            elif recv.__func__ is _pychan_recv_:
+            elif recv.__name__ == "recv_":      # XXX better check PyCFunction directly
                 commaok = True
             else:
                 pypanic("pyselect: recv expected: %r" % (recv,))
