@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <atomic>
 #include <exception>
-#include <functional>   // function
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>        // lock_guard
