@@ -31,37 +31,37 @@ from golang import nilchan
 
 from golang import time
 
-# pylen_{recv,send}q returns len(ch._{recv,send}q)
-def pylen_recvq(pychan ch not None): # -> int
-    if ch is nilchan:
+# pylen_{recv,send}q returns len(pych._{recv,send}q)
+def pylen_recvq(pychan pych not None): # -> int
+    if pych is nilchan:
         raise AssertionError('len(.recvq) on nil channel')
-    return len(ch._recvq)
-def pylen_sendq(pychan ch not None): # -> int
-    if ch is nilchan:
+    return len(pych._recvq)
+def pylen_sendq(pychan pych not None): # -> int
+    if pych is nilchan:
         raise AssertionError('len(.sendq) on nil channel')
-    return len(ch._sendq)
+    return len(pych._sendq)
 
 # pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
 #
 # For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
-def pywaitBlocked(chanop):
-    if chanop.__self__.__class__ is not pychan:
-        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, chanop.__self__.__class__))
-    cdef pychan ch = chanop.__self__
+def pywaitBlocked(pychanop):
+    if pychanop.__self__.__class__ is not pychan:
+        pypanic("wait blocked: %r is method of a non-chan: %r" % (pychanop, pychanop.__self__.__class__))
+    cdef pychan pych = pychanop.__self__
     recv = send = False
-    if chanop.__name__ == "recv":       # XXX better check PyCFunction directly
+    if pychanop.__name__ == "recv":     # XXX better check PyCFunction directly
         recv = True
-    elif chanop.__name__ == "send":     # XXX better check PyCFunction directly
+    elif pychanop.__name__ == "send":   # XXX better check PyCFunction directly
         send = True
     else:
-        pypanic("wait blocked: unexpected chan method: %r" % (chanop,))
+        pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
 
     t0 = time.now()
     while 1:
-        with ch._mu:
-            if recv and pylen_recvq(ch) > 0:
+        with pych._mu:
+            if recv and pylen_recvq(pych) > 0:
                 return
-            if send and pylen_sendq(ch) > 0:
+            if send and pylen_sendq(pych) > 0:
                 return
         now = time.now()
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
