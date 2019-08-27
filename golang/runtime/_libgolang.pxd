@@ -23,8 +23,12 @@ from libc.stdint cimport uint64_t
 
 cdef extern from "golang/libgolang.h" nogil:
     struct _libgolang_sema
+    enum _libgolang_runtime_flags:
+        STACK_DEAD_WHILE_PARKED
 
     struct _libgolang_runtime_ops:
+        _libgolang_runtime_flags  flags
+
         void    (*go)(void (*f)(void *) nogil, void *arg);
 
         _libgolang_sema* (*sema_alloc)  ()

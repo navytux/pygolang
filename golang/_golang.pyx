@@ -33,10 +33,15 @@ from __future__ import print_function, absolute_import
 _init_libgolang()
 
 from cpython cimport Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
+cdef extern from "Python.h":
+    ctypedef struct PyTupleObject:
+        PyObject **ob_item
+    void Py_FatalError(const char *msg)
+
+from libcpp.vector cimport vector
 from cython cimport final
 
 import sys
-import threading, collections, random
 
 # ---- panic ----
 
@@ -136,311 +141,98 @@ cdef void __goviac(void *arg) nogil:
 
 # ---- channels ----
 
-# _RecvWaiting represents a receiver waiting on a chan.
-class _RecvWaiting(object):
-    # .group    _WaitGroup      group of waiters this receiver is part of
-    # .chan     chan            channel receiver is waiting on
-    #
-    # on wakeup: sender|closer -> receiver:
-    #   .rx_                    rx_ for recv
-    def __init__(self, group, ch):
-        self.group = group
-        self.chan  = ch
-        group.register(self)
-
-    # wakeup notifies waiting receiver that recv_ completed.
-    def wakeup(self, rx, ok):
-        self.rx_ = (rx, ok)
-        self.group.wakeup()
-
-
-# _SendWaiting represents a sender waiting on a chan.
-class _SendWaiting(object):
-    # .group    _WaitGroup      group of waiters this sender is part of
-    # .chan     chan            channel sender is waiting on
-    # .obj                      object that was passed to send
-    #
-    # on wakeup: receiver|closer -> sender:
-    #   .ok     bool            whether send succeeded (it will not on close)
-    def __init__(self, group, ch, obj):
-        self.group = group
-        self.chan  = ch
-        self.obj   = obj
-        group.register(self)
-
-    # wakeup notifies waiting sender that send completed.
-    def wakeup(self, ok):
-        self.ok = ok
-        self.group.wakeup()
-
-
-# _WaitGroup is a group of waiting senders and receivers.
-#
-# Only 1 waiter from the group can succeed waiting.
-class _WaitGroup(object):
-    # ._waitv   [] of _{Send|Recv}Waiting
-    # ._sema    semaphore   used for wakeup
-    #
-    # ._mu      lock    NOTE ∀ chan order is always: chan._mu > ._mu
-    #
-    # on wakeup: sender|receiver -> group:
-    #   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
-    def __init__(self):
-        self._waitv = []
-        self._sema  = threading.Lock()   # in python it is valid to release lock from another thread.
-        self._sema.acquire()
-        self._mu    = threading.Lock()
-        self.which  = None
-
-    def register(self, wait):
-        self._waitv.append(wait)
-
-    # try_to_win tries to win waiter after it was dequeued from a channel's {_send|_recv}q.
-    #
-    # -> ok: true if won, false - if not.
-    def try_to_win(self, waiter):
-        with self._mu:
-            if self.which is not None:
-                return False
-            else:
-                self.which = waiter
-                return True
-
-    # wait waits for winning case of group to complete.
-    def wait(self):
-        self._sema.acquire()
-
-    # wakeup wakes up the group.
-    #
-    # prior to wakeup try_to_win must have been called.
-    # in practice this means that waiters queued to chan.{_send|_recv}q must
-    # be dequeued with _dequeWaiter.
-    def wakeup(self):
-        assert self.which is not None
-        self._sema.release()
-
-    # dequeAll removes all registered waiters from their wait queues.
-    def dequeAll(self):
-        for w in self._waitv:
-            ch = w.chan
-            if isinstance(w, _SendWaiting):
-                queue = ch._sendq
-            else:
-                assert isinstance(w, _RecvWaiting)
-                queue = ch._recvq
-
-            with ch._mu:
-                try:
-                    queue.remove(w)
-                except ValueError:
-                    pass
-
-
-# _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
-#
-# the channel owning {_recv|_send}q must be locked.
-def _dequeWaiter(queue):
-    while len(queue) > 0:
-        w = queue.popleft()
-        # if this waiter can win its group - return it.
-        # if not - someone else from its group already has won, and so we anyway have
-        # to remove the waiter from the queue.
-        if w.group.try_to_win(w):
-            return w
-
-    return None
-
-
-# pychan is Python channel with Go semantic.
+# pychan is chan<object>.
 @final
 cdef class pychan:
-    # ._cap         channel capacity
-    # ._mu          lock
-    # ._dataq       deque *: data buffer
-    # ._recvq       deque _RecvWaiting: blocked receivers
-    # ._sendq       deque _SendWaiting: blocked senders
-    # ._closed      bool
+    def __cinit__(pych, size=0):
+        pych.ch = makechan_pyobj_pyexc(size)
 
-    def __init__(ch, size=0):
-        ch._cap         = size
-        ch._mu          = threading.Lock()
-        ch._dataq       = collections.deque()
-        ch._recvq       = collections.deque()
-        ch._sendq       = collections.deque()
-        ch._closed      = False
+    def __dealloc__(pych):
+        # on del: drain buffered channel to decref sent objects.
+        # verify that the channel is not connected anywhere outside us.
+        # (if it was present also somewhere else - draining would be incorrect)
+        if pych.ch == nil:
+            return
+        cdef int refcnt = _chanrefcnt(pych.ch._rawchan())
+        if refcnt != 1:
+            # cannot raise py-level exception in __dealloc__
+            Py_FatalError("pychan.__dealloc__: chan.refcnt=%d ; must be =1" % refcnt)
+
+        cdef chan[pPyObject] ch = pych.ch
+        pych.ch = nil # does _chanxdecref(ch)
+
+        cdef PyObject *_rx
+        while ch.len() != 0:
+            # NOTE *not* chanrecv_pyexc(ch):
+            # - recv must not block and must not panic as we verified that we
+            #   are the only holder of the channel and that ch buffer is not empty.
+            # - even if recv panics, we cannot convert that panic to python
+            #   exception in __dealloc__. So if it really panics - let the
+            #   panic make it and crash the process similarly to Py_FatalError above.
+            _rx = ch.recv()
+            Py_DECREF(<object>_rx)
+
+        # ch is decref'ed automatically at return
+
 
     # send sends object to a receiver.
-    def send(ch, obj):
-        if ch is pynilchan:
-            _blockforever()
+    def send(pych, obj):
+        # increment obj reference count - until received the channel is holding pointer to the object.
+        Py_INCREF(obj)
 
-        ch._mu.acquire()
-        if 1:
-            ok = ch._trysend(obj)
-            if ok:
-                return
-
-            g  = _WaitGroup()
-            me = _SendWaiting(g, ch, obj)
-            ch._sendq.append(me)
-
-        ch._mu.release()
-
-        g.wait()
-        assert g.which is me
-        if not me.ok:
-            pypanic("send on closed channel")
+        try:
+            with nogil:
+                chansend_pyexc(pych.ch, <PyObject *>obj)
+        except: # not only _PanicError as send can also throw e.g. bad_alloc
+            # the object was not sent - e.g. it was "send on a closed channel"
+            Py_DECREF(obj)
+            raise
 
     # recv_ is "comma-ok" version of recv.
     #
     # ok is true - if receive was delivered by a successful send.
     # ok is false - if receive is due to channel being closed and empty.
-    def recv_(ch): # -> (rx, ok)
-        if ch is pynilchan:
-            _blockforever()
+    def recv_(pych): # -> (rx, ok)
+        cdef PyObject *_rx = NULL
+        cdef bint ok
 
-        ch._mu.acquire()
-        if 1:
-            rx_, ok = ch._tryrecv()
-            if ok:
-                return rx_
+        with nogil:
+            _rx, ok = chanrecv__pyexc(pych.ch)
 
-            g  = _WaitGroup()
-            me = _RecvWaiting(g, ch)
-            ch._recvq.append(me)
+        if not ok:
+            return (None, ok)
 
-        ch._mu.release()
-
-        g.wait()
-        assert g.which is me
-        return me.rx_
+        # we received the object and the channel dropped pointer to it.
+        rx = <object>_rx
+        Py_DECREF(rx)
+        return (rx, ok)
 
     # recv receives from the channel.
-    def recv(ch): # -> rx
-        rx, _ = ch.recv_()
+    def recv(pych): # -> rx
+        rx, _ = pych.recv_()    # TODO call recv_ via C
         return rx
 
-    # _trysend(obj) -> ok
-    #
-    # must be called with ._mu held.
-    # if ok or panic - returns with ._mu released.
-    # if !ok - returns with ._mu still being held.
-    def _trysend(ch, obj):
-        if ch._closed:
-            ch._mu.release()
-            pypanic("send on closed channel")
-
-        # synchronous channel
-        if ch._cap == 0:
-            recv = _dequeWaiter(ch._recvq)
-            if recv is None:
-                return False
-
-            ch._mu.release()
-            recv.wakeup(obj, True)
-            return True
-
-        # buffered channel
-        else:
-            if len(ch._dataq) >= ch._cap:
-                return False
-
-            ch._dataq.append(obj)
-            recv = _dequeWaiter(ch._recvq)
-            if recv is not None:
-                rx = ch._dataq.popleft()
-                ch._mu.release()
-                recv.wakeup(rx, True)
-            else:
-                ch._mu.release()
-
-            return True
-
-    # _tryrecv() -> rx_=(rx, ok), ok
-    #
-    # must be called with ._mu held.
-    # if ok or panic - returns with ._mu released.
-    # if !ok - returns with ._mu still being held.
-    def _tryrecv(ch):
-        # buffered
-        if len(ch._dataq) > 0:
-            rx = ch._dataq.popleft()
-
-            # wakeup a blocked writer, if there is any
-            send = _dequeWaiter(ch._sendq)
-            if send is not None:
-                ch._dataq.append(send.obj)
-                ch._mu.release()
-                send.wakeup(True)
-            else:
-                ch._mu.release()
-
-            return (rx, True), True
-
-        # closed
-        if ch._closed:
-            ch._mu.release()
-            return (None, False), True
-
-        # sync | empty: there is waiting writer
-        send = _dequeWaiter(ch._sendq)
-        if send is None:
-            return (None, False), False
-
-        ch._mu.release()
-        rx = send.obj
-        send.wakeup(True)
-        return (rx, True), True
-
-
     # close closes sending side of the channel.
-    def close(ch):
-        if ch is pynilchan:
-            pypanic("close of nil channel")
+    def close(pych):
+        with nogil:
+            chanclose_pyexc(pych.ch)
 
-        recvv = []
-        sendv = []
+    def __len__(pych):
+        return chanlen_pyexc(pych.ch)
 
-        with ch._mu:
-            if ch._closed:
-                pypanic("close of closed channel")
-            ch._closed = True
-
-            # schedule: wake-up all readers
-            while 1:
-                recv = _dequeWaiter(ch._recvq)
-                if recv is None:
-                    break
-                recvv.append(recv)
-
-            # schedule: wake-up all writers (they will panic)
-            while 1:
-                send = _dequeWaiter(ch._sendq)
-                if send is None:
-                    break
-                sendv.append(send)
-
-        # perform scheduled wakeups outside of ._mu
-        for recv in recvv:
-            recv.wakeup(None, False)
-        for send in sendv:
-            send.wakeup(False)
-
-
-    def __len__(ch):
-        return len(ch._dataq)
-
-    def __repr__(ch):
-        if ch is pynilchan:
+    def __repr__(pych):
+        if pych.ch == nil:
             return "nilchan"
         else:
-            return super(pychan, ch).__repr__()
+            return super(pychan, pych).__repr__()
 
 
 # pynilchan is the nil py channel.
 #
 # On nil channel: send/recv block forever; close panics.
-pynilchan = pychan(None)    # TODO -> <chan*>(NULL) after move to Cython
+cdef pychan _pynilchan = pychan()
+_pynilchan.ch = chan[pPyObject]()   # = NULL
+pynilchan = _pynilchan
 
 
 # pydefault represents default case for pyselect.
@@ -474,164 +266,90 @@ pydefault  = object()
 #       # default case
 #       ...
 def pyselect(*pycasev):
-    # select promise: if multiple cases are ready - one will be selected randomly
-    npycasev = list(enumerate(pycasev))
-    random.shuffle(npycasev)
+    cdef int i, n = len(pycasev), selected
+    cdef vector[_selcase] casev = vector[_selcase](n)
+    cdef pychan pych
+    cdef PyObject *_rx = NULL # all select recvs are setup to receive into _rx
+    cdef cbool rxok = False   # (its ok as only one receive will be actually executed)
 
-    # first pass: poll all cases and bail out in the end if default was provided
-    recvv = [] # [](n, ch, commaok)
-    sendv = [] # [](n, ch, tx)
-    ndefault = None
-    for (n, pycase) in npycasev:
-        # default: remember we have it
+    # prepare casev for chanselect
+    for i in range(n):
+        pycase = pycasev[i]
+        # default
         if pycase is pydefault:
-            if ndefault is not None:
-                pypanic("pyselect: multiple default")
-            ndefault = n
+            casev[i] = default
 
         # send
         elif type(pycase) is tuple:
             if len(pycase) != 2:
                 pypanic("pyselect: invalid [%d]() case" % len(pycase))
+            _tcase = <PyTupleObject *>pycase
 
-            pysend, tx = pycase
+            pysend = <object>(_tcase.ob_item[0])
             if pysend.__self__.__class__ is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
-            ch = pysend.__self__
+            pych = pysend.__self__
 
             if pysend.__name__ != "send":       # XXX better check PyCFunction directly
                 pypanic("pyselect: send expected: %r" % (pysend,))
 
-            if ch is not pynilchan:   # nil chan is never ready
-                ch._mu.acquire()
-                if 1:
-                    ok = ch._trysend(tx)
-                    if ok:
-                        return n, None
-                ch._mu.release()
+            # wire ptx through pycase[1]
+            p_tx = &(_tcase.ob_item[1])
+            tx   = <object>(p_tx[0])
 
-                sendv.append((n, ch, tx))
+            # incref tx as if corresponding channel is holding pointer to the object while it is being sent.
+            # we'll decref the object if it won't be sent.
+            # see pychan.send for details.
+            Py_INCREF(tx)
+            casev[i] = pych.ch.sends(p_tx)
 
         # recv
         else:
             pyrecv = pycase
             if pyrecv.__self__.__class__ is not pychan:
                 pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
-            ch = pyrecv.__self__
+            pych = pyrecv.__self__
 
             if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
-                commaok = False
+                casev[i] = pych.ch.recvs(&_rx)
             elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
-                commaok = True
+                casev[i] = pych.ch.recvs(&_rx, &rxok)
             else:
                 pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
-            if ch is not pynilchan:   # nil chan is never ready
-                ch._mu.acquire()
-                if 1:
-                    rx_, ok = ch._tryrecv()
-                    if ok:
-                        if not commaok:
-                            rx, ok = rx_
-                            rx_ = rx
-                        return n, rx_
-                ch._mu.release()
-
-                recvv.append((n, ch, commaok))
-
-    # execute default if we have it
-    if ndefault is not None:
-        return ndefault, None
-
-    # select{} or with nil-channels only -> block forever
-    if len(recvv) + len(sendv) == 0:
-        _blockforever()
-
-    # second pass: subscribe and wait on all rx/tx cases
-    g = _WaitGroup()
-
-    # selected returns what was selected in g.
-    # the return signature is the one of select.
-    def selected():
-        g.wait()
-        sel = g.which
-        if isinstance(sel, _SendWaiting):
-            if not sel.ok:
-                pypanic("send on closed channel")
-            return sel.sel_n, None
-
-        if isinstance(sel, _RecvWaiting):
-            rx_ = sel.rx_
-            if not sel.sel_commaok:
-                rx, ok = rx_
-                rx_ = rx
-            return sel.sel_n, rx_
-
-        raise AssertionError("select: unreachable")
-
+    selected = -1
     try:
-        for n, ch, tx in sendv:
-            ch._mu.acquire()
-            with g._mu:
-                # a case that we previously queued already won
-                if g.which is not None:
-                    ch._mu.release()
-                    return selected()
-
-                ok = ch._trysend(tx)
-                if ok:
-                    # don't let already queued cases win
-                    g.which = "tx prepoll won"  # !None
-
-                    return n, None
-
-                w = _SendWaiting(g, ch, tx)
-                w.sel_n = n
-                ch._sendq.append(w)
-            ch._mu.release()
-
-        for n, ch, commaok in recvv:
-            ch._mu.acquire()
-            with g._mu:
-                # a case that we previously queued already won
-                if g.which is not None:
-                    ch._mu.release()
-                    return selected()
-
-                rx_, ok = ch._tryrecv()
-                if ok:
-                    # don't let already queued cases win
-                    g.which = "rx prepoll won"  # !None
-
-                    if not commaok:
-                        rx, ok = rx_
-                        rx_ = rx
-                    return n, rx_
-
-                w = _RecvWaiting(g, ch)
-                w.sel_n = n
-                w.sel_commaok = commaok
-                ch._recvq.append(w)
-            ch._mu.release()
-
-        return selected()
-
+        with nogil:
+            selected = _chanselect_pyexc(&casev[0], casev.size())
     finally:
-        # unsubscribe not-succeeded waiters
-        g.dequeAll()
+        # decref not sent tx (see ^^^ send prepare)
+        for i in range(n):
+            if casev[i].op == _CHANSEND and (i != selected):
+                p_tx = <PyObject **>casev[i].data
+                _tx  = p_tx[0]
+                tx   = <object>_tx
+                Py_DECREF(tx)
 
+    # return what was selected
+    cdef _chanop op = casev[selected].op
+    if op == _DEFAULT:
+        return selected, None
+    if op == _CHANSEND:
+        return selected, None
 
-# _blockforever blocks current goroutine forever.
-_tblockforever = None
-def _blockforever():
-    if _tblockforever is not None:
-        _tblockforever()
-    # take a lock twice. It will forever block on the second lock attempt.
-    # Under gevent, similarly to Go, this raises "LoopExit: This operation
-    # would block forever", if there are no other greenlets scheduled to be run.
-    dead = threading.Lock()
-    dead.acquire()
-    dead.acquire()
+    if op != _CHANRECV:
+        raise AssertionError("pyselect: chanselect returned with bad op")
+    # we received NULL or the object; if it is object, corresponding channel
+    # dropped pointer to it (see pychan.recv_ for details).
+    cdef object rx = None
+    if _rx != NULL:
+        rx = <object>_rx
+        Py_DECREF(rx)
+
+    if casev[selected].rxok != NULL:
+        return selected, (rx, rxok)
+    else:
+        return selected, rx
 
 # ---- init libgolang runtime ---
 
@@ -668,9 +386,30 @@ cdef void _init_libgolang() except*:
 # ---- misc ----
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    int  _chanrefcnt(_chan *ch)
+    int  _chanselect(_selcase *casev, int casec)
     void _taskgo(void (*f)(void *), void *arg)
 
 cdef nogil:
+
+    chan[pPyObject] makechan_pyobj_pyexc(unsigned size)         except +topyexc:
+        return makechan[pPyObject](size)
+
+    void chansend_pyexc(chan[pPyObject] ch, PyObject *_tx)      except +topyexc:
+        ch.send(_tx)
+
+    (PyObject*, bint) chanrecv__pyexc(chan[pPyObject] ch)       except +topyexc:
+        _ = ch.recv_()
+        return (_.first, _.second)  # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
+
+    void chanclose_pyexc(chan[pPyObject] ch)                    except +topyexc:
+        ch.close()
+
+    unsigned chanlen_pyexc(chan[pPyObject] ch)                  except +topyexc:
+        return ch.len()
+
+    int _chanselect_pyexc(const _selcase *casev, int casec)     except +topyexc:
+        return _chanselect(casev, casec)
 
     void _taskgo_pyexc(void (*f)(void *) nogil, void *arg)      except +topyexc:
         _taskgo(f, arg)

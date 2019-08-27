@@ -159,6 +159,11 @@ def test_chan():
     assert w2() is not None
     ch = None
     gc.collect()
+    # pypy needs another GC run: pychan does Py_DECREF on buffered objects, but
+    # on pypy cpyext objects are not deallocated from Py_DECREF even if
+    # ob_refcnt goes to zero - the deallocation is delayed until GC run.
+    # see also: http://doc.pypy.org/en/latest/discussion/rawrefcount.html
+    gc.collect()
     assert w1() is None
     assert w2() is None
 

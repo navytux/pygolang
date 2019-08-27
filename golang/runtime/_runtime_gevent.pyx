@@ -42,7 +42,7 @@ from cpython cimport Py_INCREF, Py_DECREF
 from cython cimport final
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
-        panic
+        STACK_DEAD_WHILE_PARKED, panic
 from golang.runtime cimport _runtime_thread
 
 
@@ -125,6 +125,10 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops gevent_ops = _libgolang_runtime_ops(
+            # when greenlet is switched to another, its stack is copied to
+            # heap, and stack of switched-to greenlet is copied back to C stack.
+            flags           = STACK_DEAD_WHILE_PARKED,
+
             go              = go,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,

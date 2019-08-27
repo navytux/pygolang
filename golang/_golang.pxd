@@ -23,6 +23,7 @@ Cython/nogil API
 ----------------
 
 - `go` spawns lightweight thread.
+- `chan[T]`, `makechan[T]` and `select` provide C-level channels with Go semantic.
 - `panic` stops normal execution of current goroutine by throwing a C-level exception.
 
 Everything in Cython/nogil API do not depend on Python runtime and in
@@ -38,9 +39,15 @@ Golang.py runtime
 
 In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 
+- Python-level channels are represented by pychan + pyselect.
 - Python-level panic is represented by pypanic.
 """
 
+
+from libcpp cimport nullptr_t, nullptr as nil
+from libcpp.utility cimport pair
+cdef extern from *:
+    ctypedef bint cbool "bool"
 
 # nogil pyx-level golang API.
 #
@@ -58,14 +65,63 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
     void go(...)    # typechecking is done by C
 
+    struct _chan
+    cppclass chan[T]:
+        chan();
+
+        # send/recv/close
+        void send(const T&)
+        T recv()
+        pair[T, cbool] recv_()
+        void close()
+
+        # send/recv in select
+        _selcase sends(const T *ptx)
+        _selcase recvs()
+        _selcase recvs(T* prx)
+        _selcase recvs(T* prx, cbool *pok)
+
+        # length/capacity
+        unsigned len()
+        unsigned cap()
+
+        # compare wrt nil; =nil
+        cbool operator==(nullptr_t)
+        cbool operator!=(nullptr_t)
+        void operator=(nullptr_t)
+
+        # for tests
+        _chan *_rawchan()
+
+    chan[T] makechan[T]()
+    chan[T] makechan[T](unsigned size)
+
+    struct structZ:
+        pass
+
+    enum _chanop:
+        _CHANSEND
+        _CHANRECV
+        _DEFAULT
+    struct _selcase:
+        _chanop op
+        void    *data
+        cbool   *rxok
+    const _selcase default "golang::_default"
+
+    int select(_selcase casev[])
+
 
 # ---- python bits ----
 
 cdef void topyexc() except *
 cpdef pypanic(arg)
 
+# pychan is chan<object>
+from cpython cimport PyObject
+ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 from cython cimport final
 
 @final
 cdef class pychan:
-    cdef dict __dict__
+    cdef chan[pPyObject] ch

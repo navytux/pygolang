@@ -23,18 +23,26 @@
 # Small program that uses a bit of golang.pyx nogil features, mainly to verify
 # that external project can build against golang in pyx mode.
 
-from golang cimport go, topyexc
+from golang cimport go, chan, makechan, topyexc
 from libc.stdio cimport printf
 
 cdef nogil:
 
-    void worker(int i, int j):
-        pass
+    void worker(chan[int] ch, int i, int j):
+        ch.send(i*j)
 
     void _main() except +topyexc:
+        cdef chan[int] ch = makechan[int]()
         cdef int i
         for i in range(3):
-            go(worker, i, 4)
+            go(worker, ch, i, 4)
+
+        for i in range(3):
+            ch.recv()
+
+        ch.close()
+        #_, ok = ch.recv_() # TODO teach Cython to coerce pair[X,Y] -> (X,Y)
+        ch.recv_()
 
         printf("test.pyx: OK\n")
 

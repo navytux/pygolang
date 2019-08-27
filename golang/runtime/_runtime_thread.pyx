@@ -80,7 +80,7 @@ cdef extern from "pythread.h" nogil:
     void PyThread_free_lock(PyThread_type_lock)
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
-        panic
+        _libgolang_runtime_flags, panic
 
 from libc.stdint cimport uint64_t, UINT64_MAX
 IF POSIX:
@@ -168,6 +168,7 @@ cdef nogil:
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
+            flags           = <_libgolang_runtime_flags>0,
             go              = go,
             sema_alloc      = sema_alloc,
             sema_free       = sema_free,

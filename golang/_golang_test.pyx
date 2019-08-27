@@ -26,21 +26,30 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport go, pychan, panic, pypanic, topyexc
-from golang import nilchan
-from golang import _golang
+from golang cimport go, chan, _chan, makechan, pychan, nil, select, \
+    default, structZ, panic, pypanic, topyexc, cbool
 
-from golang import time
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    int _tchanrecvqlen(_chan *ch)
+    int _tchansendqlen(_chan *ch)
+    void (*_tblockforever)()
 
-# pylen_{recv,send}q returns len(pych._{recv,send}q)
+# pylen_{recv,send}q returns len(_chan._{recv,send}q)
 def pylen_recvq(pychan pych not None): # -> int
-    if pych is nilchan:
+    if pych.ch == nil:
         raise AssertionError('len(.recvq) on nil channel')
-    return len(pych._recvq)
+    return _tchanrecvqlen(pych.ch._rawchan())
 def pylen_sendq(pychan pych not None): # -> int
-    if pych is nilchan:
+    if pych.ch == nil:
         raise AssertionError('len(.sendq) on nil channel')
-    return len(pych._sendq)
+    return _tchansendqlen(pych.ch._rawchan())
+
+# runtime/libgolang_test.cpp
+cdef extern from *:
+    """
+    extern void waitBlocked(golang::_chan *ch, bool rx, bool tx);
+    """
+    void waitBlocked(_chan *, bint rx, bint tx) nogil except +topyexc
 
 # pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
 #
@@ -49,7 +58,8 @@ def pywaitBlocked(pychanop):
     if pychanop.__self__.__class__ is not pychan:
         pypanic("wait blocked: %r is method of a non-chan: %r" % (pychanop, pychanop.__self__.__class__))
     cdef pychan pych = pychanop.__self__
-    recv = send = False
+    cdef bint recv = False
+    cdef bint send = False
     if pychanop.__name__ == "recv":     # XXX better check PyCFunction directly
         recv = True
     elif pychanop.__name__ == "send":   # XXX better check PyCFunction directly
@@ -57,41 +67,84 @@ def pywaitBlocked(pychanop):
     else:
         pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
 
-    t0 = time.now()
-    while 1:
-        with pych._mu:
-            if recv and pylen_recvq(pych) > 0:
-                return
-            if send and pylen_sendq(pych) > 0:
-                return
-        now = time.now()
-        if now-t0 > 10: # waited > 10 seconds - likely deadlock
-            pypanic("deadlock")
-        time.sleep(0)   # yield to another thread / coroutine
+    with nogil:
+        waitBlocked(pych.ch._rawchan(), recv, send)
 
 
-# `with pypanicWhenBlocked` hooks into _golang._blockforever to raise panic with
+# `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with
 # "t: blocks forever" instead of blocking.
 cdef class pypanicWhenBlocked:
     def __enter__(t):
-        assert _golang._tblockforever is None
-        _golang._tblockforever = _panicblocked
+        global _tblockforever
+        _tblockforever = _panicblocked
         return t
 
     def __exit__(t, typ, val, tb):
-        _golang._tblockforever = None
+        _tblockforever = NULL
 
-def _panicblocked():
-    pypanic("t: blocks forever")
+cdef void _panicblocked() nogil:
+    panic("t: blocks forever")
+
+
+# small test to verify pyx(nogil) channels.
+ctypedef struct Point:
+    int x
+    int y
+
+# TODO kill this and teach Cython to coerce pair[X,Y] -> (X,Y)
+cdef (int, cbool) recv_(chan[int] ch) nogil:
+    _ = ch.recv_()
+    return (_.first, _.second)
+
+cdef void _test_chan_nogil() nogil except +topyexc:
+    cdef chan[structZ] done = makechan[structZ]()
+    cdef chan[int]     chi  = makechan[int](1)
+    cdef chan[Point]   chp  = makechan[Point]()
+    chp = nil   # reset to nil
+
+    cdef int i, j
+    cdef Point p
+    cdef cbool jok
+
+    i=+1; chi.send(i)
+    j=-1; j = chi.recv()
+    if not (j == i):
+        panic("send -> recv != I")
+
+    i = 2
+    _=select([
+        done.recvs(),           # 0
+        chi.sends(&i),          # 1
+        chp.recvs(&p),          # 2
+        chi.recvs(&j, &jok),    # 3
+        default,                # 4
+    ])
+    if _ != 1:
+        panic("select: selected !1")
+
+    j, jok = recv_(chi)
+    if not (j == 2 and jok == True):
+        panic("recv_ != (2, true)")
+
+    chi.close()
+    j, jok = recv_(chi)
+    if not (j == 0 and jok == False):
+        panic("recv_ from closed != (0, false)")
+
+def test_chan_nogil():
+    with nogil:
+        _test_chan_nogil()
 
 
 # small test to verify pyx(nogil) go.
 cdef void _test_go_nogil() nogil except +topyexc:
-    go(_work, 111)
-    # TODO wait till _work is done
-cdef void _work(int i) nogil:
+    cdef chan[structZ] done = makechan[structZ]()
+    go(_work, 111, done)
+    done.recv()
+cdef void _work(int i, chan[structZ] done) nogil:
     if i != 111:
         panic("_work: i != 111")
+    done.close()
 
 def test_go_nogil():
     with nogil:
@@ -101,9 +154,14 @@ def test_go_nogil():
 # runtime/libgolang_test_c.c
 cdef extern from * nogil:
     """
+    extern "C" void _test_chan_c();
     extern "C" void _test_go_c();
     """
+    void _test_chan_c() except +topyexc
     void _test_go_c()   except +topyexc
+def test_chan_c():
+    with nogil:
+        _test_chan_c()
 def test_go_c():
     with nogil:
         _test_go_c()
@@ -111,9 +169,24 @@ def test_go_c():
 # runtime/libgolang_test.cpp
 cdef extern from * nogil:
     """
+    extern void _test_chan_cpp_refcount();
+    extern void _test_chan_cpp();
+    extern void _test_chan_vs_stackdeadwhileparked();
     extern void _test_go_cpp();
     """
+    void _test_chan_cpp_refcount()              except +topyexc
+    void _test_chan_cpp()                       except +topyexc
+    void _test_chan_vs_stackdeadwhileparked()   except +topyexc
     void _test_go_cpp()                         except +topyexc
+def test_chan_cpp_refcount():
+    with nogil:
+        _test_chan_cpp_refcount()
+def test_chan_cpp():
+    with nogil:
+        _test_chan_cpp()
+def test_chan_vs_stackdeadwhileparked():
+    with nogil:
+        _test_chan_vs_stackdeadwhileparked()
 def test_go_cpp():
     with nogil:
         _test_go_cpp()

@@ -170,7 +170,7 @@ located in `src/` under `$GOPATH`.
 Cython/nogil API
 ----------------
 
-Cython package `golang` provides *nogil* API with goroutines and
+Cython package `golang` provides *nogil* API with goroutines, channels and
 other features that mirror corresponding Python package. Cython API is not only
 faster compared to Python version, but also, due to *nogil* property, allows to
 build concurrent systems without limitations imposed by Python's GIL. All that
@@ -178,14 +178,59 @@ while still programming in Python-like language. Brief description of
 Cython/nogil API follows:
 
 `go` spawns new task - a coroutine, or thread, depending on activated runtime.
-For example::
+`chan[T]` represents a channel with Go semantic and elements of type `T`.
+Use `makechan[T]` to create new channel, and `chan[T].recv`, `chan[T].send`,
+`chan[T].close` for communication. `nil` stands for the nil channel. `select`
+can be used to multiplex on several channels. For example::
 
    cdef nogil:
-      void worker():
-         pass
+      struct Point:
+         int x
+         int y
+
+      void worker(chan[int] chi, chan[Point] chp):
+         chi.send(1)
+
+         cdef Point p
+         p.x = 3
+         p.y = 4
+         chp.send(p)
 
       void myfunc():
-         go(worker)
+         cdef chan[int]   chi = makechan[int]()       # synchronous channel of integers
+         cdef chan[Point] chp = makechan[Point](3)    # channel with buffer of size 3 and Point elements
+
+         go(worker, chi, chp)
+
+         i = chi.recv()    # will give 1
+         p = chp.recv()    # will give Point(3,4)
+
+         chp = nil         # rebind chp to nil channel
+         cdef cbool ok
+         cdef int j = 33
+         _ = select([
+             chi.recvs(&i)          # 0
+             chi.recvs(&i, &ok),    # 1
+             chi.sends(&j),         # 2
+             chp.recvs(&p),         # 3
+             default,               # 4
+         ])
+         if _ == 0:
+             # i is what was received from chi
+             ...
+         if _ == 1:
+             # (i, ok) is what was received from chi
+             ...
+         if _ == 2:
+             # we know j was sent to chi
+             ...
+         if _ == 3:
+             # this case will be never selected because
+             # send/recv on nil channel block forever.
+             ...
+         if _ == 4:
+             # default case
+             ...
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to
