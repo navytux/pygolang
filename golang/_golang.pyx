@@ -497,10 +497,11 @@ def pyselect(*pycasev):
             pysend, tx = pycase
             if pysend.__self__.__class__ is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
+            ch = pysend.__self__
+
             if pysend.__name__ != "send":       # XXX better check PyCFunction directly
                 pypanic("pyselect: send expected: %r" % (pysend,))
 
-            ch = pysend.__self__
             if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
@@ -516,6 +517,8 @@ def pyselect(*pycasev):
             pyrecv = pycase
             if pyrecv.__self__.__class__ is not pychan:
                 pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
+            ch = pyrecv.__self__
+
             if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
                 commaok = False
             elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
@@ -523,7 +526,6 @@ def pyselect(*pycasev):
             else:
                 pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
-            ch = pyrecv.__self__
             if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
