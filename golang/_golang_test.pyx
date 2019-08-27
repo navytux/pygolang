@@ -26,28 +26,28 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport go, panic, pypanic, topyexc
-from golang import chan, nilchan
+from golang cimport go, pychan, panic, pypanic, topyexc
+from golang import nilchan
 
 from golang import time
 
 # pylen_{recv,send}q returns len(ch._{recv,send}q)
-def pylen_recvq(ch):
+def pylen_recvq(pychan ch not None): # -> int
     if ch is nilchan:
         raise AssertionError('len(.recvq) on nil channel')
     return len(ch._recvq)
-def pylen_sendq(ch):
+def pylen_sendq(pychan ch not None): # -> int
     if ch is nilchan:
         raise AssertionError('len(.sendq) on nil channel')
     return len(ch._sendq)
 
-# pywaitBlocked waits till a receive or send channel operation blocks waiting on the channel.
+# pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
 #
 # For example `pywaitBlocked(ch.send)` waits till sender blocks waiting on ch.
 def pywaitBlocked(chanop):
-    if chanop.__self__.__class__ is not chan:
+    if chanop.__self__.__class__ is not pychan:
         pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, chanop.__self__.__class__))
-    ch = chanop.__self__
+    cdef pychan ch = chanop.__self__
     recv = send = False
     if chanop.__name__ == "recv":       # XXX better check PyCFunction directly
         recv = True
