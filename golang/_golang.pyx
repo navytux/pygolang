@@ -270,8 +270,6 @@ class pychan(object):
         ch._closed      = False
 
     # send sends object to a receiver.
-    #
-    # .send(obj)
     def send(ch, obj):
         if ch is pynilchan:
             _blockforever()
@@ -297,9 +295,7 @@ class pychan(object):
     #
     # ok is true - if receive was delivered by a successful send.
     # ok is false - if receive is due to channel being closed and empty.
-    #
-    # .recv_() -> (rx, ok)
-    def recv_(ch):
+    def recv_(ch): # -> (rx, ok)
         if ch is pynilchan:
             _blockforever()
 
@@ -320,9 +316,7 @@ class pychan(object):
         return me.rx_
 
     # recv receives from the channel.
-    #
-    # .recv() -> rx
-    def recv(ch):
+    def recv(ch): # -> rx
         rx, _ = ch.recv_()
         return rx
 
