@@ -473,31 +473,31 @@ pydefault  = object()
 #   if _ == 3:
 #       # default case
 #       ...
-def pyselect(*casev):
+def pyselect(*pycasev):
     # select promise: if multiple cases are ready - one will be selected randomly
-    ncasev = list(enumerate(casev))
-    random.shuffle(ncasev)
+    npycasev = list(enumerate(pycasev))
+    random.shuffle(npycasev)
 
     # first pass: poll all cases and bail out in the end if default was provided
     recvv = [] # [](n, ch, commaok)
     sendv = [] # [](n, ch, tx)
     ndefault = None
-    for (n, case) in ncasev:
+    for (n, pycase) in npycasev:
         # default: remember we have it
-        if case is pydefault:
+        if pycase is pydefault:
             if ndefault is not None:
                 pypanic("pyselect: multiple default")
             ndefault = n
 
         # send
-        elif isinstance(case, tuple):
-            send, tx = case
-            if send.__self__.__class__ is not pychan:
-                pypanic("pyselect: send on non-chan: %r" % (send.__self__.__class__,))
-            if send.__name__ != "send":         # XXX better check PyCFunction directly
-                pypanic("pyselect: send expected: %r" % (send,))
+        elif isinstance(pycase, tuple):
+            pysend, tx = pycase
+            if pysend.__self__.__class__ is not pychan:
+                pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
+            if pysend.__name__ != "send":       # XXX better check PyCFunction directly
+                pypanic("pyselect: send expected: %r" % (pysend,))
 
-            ch = send.__self__
+            ch = pysend.__self__
             if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
@@ -510,17 +510,17 @@ def pyselect(*casev):
 
         # recv
         else:
-            recv = case
-            if recv.__self__.__class__ is not pychan:
-                pypanic("pyselect: recv on non-chan: %r" % (recv.__self__.__class__,))
-            if recv.__name__ == "recv":         # XXX better check PyCFunction directly
+            pyrecv = pycase
+            if pyrecv.__self__.__class__ is not pychan:
+                pypanic("pyselect: recv on non-chan: %r" % (pyrecv.__self__.__class__,))
+            if pyrecv.__name__ == "recv":       # XXX better check PyCFunction directly
                 commaok = False
-            elif recv.__name__ == "recv_":      # XXX better check PyCFunction directly
+            elif pyrecv.__name__ == "recv_":    # XXX better check PyCFunction directly
                 commaok = True
             else:
-                pypanic("pyselect: recv expected: %r" % (recv,))
+                pypanic("pyselect: recv expected: %r" % (pyrecv,))
 
-            ch = recv.__self__
+            ch = pyrecv.__self__
             if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
