@@ -261,32 +261,32 @@ class pychan(object):
     # ._sendq       deque _SendWaiting: blocked senders
     # ._closed      bool
 
-    def __init__(self, size=0):
-        self._cap       = size
-        self._mu        = threading.Lock()
-        self._dataq     = collections.deque()
-        self._recvq     = collections.deque()
-        self._sendq     = collections.deque()
-        self._closed    = False
+    def __init__(ch, size=0):
+        ch._cap         = size
+        ch._mu          = threading.Lock()
+        ch._dataq       = collections.deque()
+        ch._recvq       = collections.deque()
+        ch._sendq       = collections.deque()
+        ch._closed      = False
 
     # send sends object to a receiver.
     #
     # .send(obj)
-    def send(self, obj):
-        if self is pynilchan:
+    def send(ch, obj):
+        if ch is pynilchan:
             _blockforever()
 
-        self._mu.acquire()
+        ch._mu.acquire()
         if 1:
-            ok = self._trysend(obj)
+            ok = ch._trysend(obj)
             if ok:
                 return
 
             g  = _WaitGroup()
-            me = _SendWaiting(g, self, obj)
-            self._sendq.append(me)
+            me = _SendWaiting(g, ch, obj)
+            ch._sendq.append(me)
 
-        self._mu.release()
+        ch._mu.release()
 
         g.wait()
         assert g.which is me
@@ -299,21 +299,21 @@ class pychan(object):
     # ok is false - if receive is due to channel being closed and empty.
     #
     # .recv_() -> (rx, ok)
-    def recv_(self):
-        if self is pynilchan:
+    def recv_(ch):
+        if ch is pynilchan:
             _blockforever()
 
-        self._mu.acquire()
+        ch._mu.acquire()
         if 1:
-            rx_, ok = self._tryrecv()
+            rx_, ok = ch._tryrecv()
             if ok:
                 return rx_
 
             g  = _WaitGroup()
-            me = _RecvWaiting(g, self)
-            self._recvq.append(me)
+            me = _RecvWaiting(g, ch)
+            ch._recvq.append(me)
 
-        self._mu.release()
+        ch._mu.release()
 
         g.wait()
         assert g.which is me
@@ -322,8 +322,8 @@ class pychan(object):
     # recv receives from the channel.
     #
     # .recv() -> rx
-    def recv(self):
-        rx, _ = self.recv_()
+    def recv(ch):
+        rx, _ = ch.recv_()
         return rx
 
     # _trysend(obj) -> ok
@@ -331,34 +331,34 @@ class pychan(object):
     # must be called with ._mu held.
     # if ok or panic - returns with ._mu released.
     # if !ok - returns with ._mu still being held.
-    def _trysend(self, obj):
-        if self._closed:
-            self._mu.release()
+    def _trysend(ch, obj):
+        if ch._closed:
+            ch._mu.release()
             pypanic("send on closed channel")
 
         # synchronous channel
-        if self._cap == 0:
-            recv = _dequeWaiter(self._recvq)
+        if ch._cap == 0:
+            recv = _dequeWaiter(ch._recvq)
             if recv is None:
                 return False
 
-            self._mu.release()
+            ch._mu.release()
             recv.wakeup(obj, True)
             return True
 
         # buffered channel
         else:
-            if len(self._dataq) >= self._cap:
+            if len(ch._dataq) >= ch._cap:
                 return False
 
-            self._dataq.append(obj)
-            recv = _dequeWaiter(self._recvq)
+            ch._dataq.append(obj)
+            recv = _dequeWaiter(ch._recvq)
             if recv is not None:
-                rx = self._dataq.popleft()
-                self._mu.release()
+                rx = ch._dataq.popleft()
+                ch._mu.release()
                 recv.wakeup(rx, True)
             else:
-                self._mu.release()
+                ch._mu.release()
 
             return True
 
@@ -367,61 +367,61 @@ class pychan(object):
     # must be called with ._mu held.
     # if ok or panic - returns with ._mu released.
     # if !ok - returns with ._mu still being held.
-    def _tryrecv(self):
+    def _tryrecv(ch):
         # buffered
-        if len(self._dataq) > 0:
-            rx = self._dataq.popleft()
+        if len(ch._dataq) > 0:
+            rx = ch._dataq.popleft()
 
             # wakeup a blocked writer, if there is any
-            send = _dequeWaiter(self._sendq)
+            send = _dequeWaiter(ch._sendq)
             if send is not None:
-                self._dataq.append(send.obj)
-                self._mu.release()
+                ch._dataq.append(send.obj)
+                ch._mu.release()
                 send.wakeup(True)
             else:
-                self._mu.release()
+                ch._mu.release()
 
             return (rx, True), True
 
         # closed
-        if self._closed:
-            self._mu.release()
+        if ch._closed:
+            ch._mu.release()
             return (None, False), True
 
         # sync | empty: there is waiting writer
-        send = _dequeWaiter(self._sendq)
+        send = _dequeWaiter(ch._sendq)
         if send is None:
             return (None, False), False
 
-        self._mu.release()
+        ch._mu.release()
         rx = send.obj
         send.wakeup(True)
         return (rx, True), True
 
 
     # close closes sending side of the channel.
-    def close(self):
-        if self is pynilchan:
+    def close(ch):
+        if ch is pynilchan:
             pypanic("close of nil channel")
 
         recvv = []
         sendv = []
 
-        with self._mu:
-            if self._closed:
+        with ch._mu:
+            if ch._closed:
                 pypanic("close of closed channel")
-            self._closed = True
+            ch._closed = True
 
             # schedule: wake-up all readers
             while 1:
-                recv = _dequeWaiter(self._recvq)
+                recv = _dequeWaiter(ch._recvq)
                 if recv is None:
                     break
                 recvv.append(recv)
 
             # schedule: wake-up all writers (they will panic)
             while 1:
-                send = _dequeWaiter(self._sendq)
+                send = _dequeWaiter(ch._sendq)
                 if send is None:
                     break
                 sendv.append(send)
@@ -433,14 +433,14 @@ class pychan(object):
             send.wakeup(False)
 
 
-    def __len__(self):
-        return len(self._dataq)
+    def __len__(ch):
+        return len(ch._dataq)
 
-    def __repr__(self):
-        if self is pynilchan:
+    def __repr__(ch):
+        if ch is pynilchan:
             return "nilchan"
         else:
-            return super(pychan, self).__repr__()
+            return super(pychan, ch).__repr__()
 
 
 # pynilchan is the nil py channel.
