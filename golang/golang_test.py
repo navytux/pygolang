@@ -28,7 +28,8 @@ from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
 
-from golang._golang_test import waitBlocked, len_recvq, len_sendq
+from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
+        pylen_sendq as len_sendq
 
 # pyx/c/c++ tests -> test_pyx_*
 from golang import _golang_test
