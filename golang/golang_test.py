@@ -29,7 +29,7 @@ from six.moves import range as xrange
 import gc, weakref
 
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
-        pylen_sendq as len_sendq
+        pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
 # pyx/c/c++ tests -> test_pyx_*
 from golang import _golang_test
@@ -653,14 +653,8 @@ def bench_select(b):
 
 
 def test_blockforever():
-    from golang import _golang
-    B = _golang._blockforever
-    def _(): panic("t: blocks forever")
-    _golang._blockforever = _
-    try:
+    with panicWhenBlocked():
         _test_blockforever()
-    finally:
-        _golang._blockforever = B
 
 def _test_blockforever():
     z = nilchan

@@ -28,6 +28,7 @@ from __future__ import print_function, absolute_import
 
 from golang cimport go, pychan, panic, pypanic, topyexc
 from golang import nilchan
+from golang import _golang
 
 from golang import time
 
@@ -67,6 +68,21 @@ def pywaitBlocked(pychanop):
         if now-t0 > 10: # waited > 10 seconds - likely deadlock
             pypanic("deadlock")
         time.sleep(0)   # yield to another thread / coroutine
+
+
+# `with pypanicWhenBlocked` hooks into _golang._blockforever to raise panic with
+# "t: blocks forever" instead of blocking.
+cdef class pypanicWhenBlocked:
+    def __enter__(t):
+        assert _golang._tblockforever is None
+        _golang._tblockforever = _panicblocked
+        return t
+
+    def __exit__(t, typ, val, tb):
+        _golang._tblockforever = None
+
+def _panicblocked():
+    pypanic("t: blocks forever")
 
 
 # small test to verify pyx(nogil) go.

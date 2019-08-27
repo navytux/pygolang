@@ -617,7 +617,10 @@ def pyselect(*casev):
 
 
 # _blockforever blocks current goroutine forever.
+_tblockforever = None
 def _blockforever():
+    if _tblockforever is not None:
+        _tblockforever()
     # take a lock twice. It will forever block on the second lock attempt.
     # Under gevent, similarly to Go, this raises "LoopExit: This operation
     # would block forever", if there are no other greenlets scheduled to be run.
