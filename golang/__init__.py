@@ -173,9 +173,9 @@ def defer(f):
 
 from ._golang import    \
     pygo        as go,      \
-    chan,                   \
-    select,                 \
-    default,                \
-    nilchan,                \
+    pychan      as chan,    \
+    pyselect    as select,  \
+    pydefault   as default, \
+    pynilchan   as nilchan, \
     _PanicError,            \
     pypanic     as panic

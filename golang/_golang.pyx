@@ -252,8 +252,8 @@ def _dequeWaiter(queue):
     return None
 
 
-# chan is a channel with Go semantic.
-class chan(object):
+# pychan is Python channel with Go semantic.
+class pychan(object):
     # ._cap         channel capacity
     # ._mu          lock
     # ._dataq       deque *: data buffer
@@ -273,7 +273,7 @@ class chan(object):
     #
     # .send(obj)
     def send(self, obj):
-        if self is nilchan:
+        if self is pynilchan:
             _blockforever()
 
         self._mu.acquire()
@@ -300,7 +300,7 @@ class chan(object):
     #
     # .recv_() -> (rx, ok)
     def recv_(self):
-        if self is nilchan:
+        if self is pynilchan:
             _blockforever()
 
         self._mu.acquire()
@@ -401,7 +401,7 @@ class chan(object):
 
     # close closes sending side of the channel.
     def close(self):
-        if self is nilchan:
+        if self is pynilchan:
             pypanic("close of nil channel")
 
         recvv = []
@@ -437,32 +437,32 @@ class chan(object):
         return len(self._dataq)
 
     def __repr__(self):
-        if self is nilchan:
+        if self is pynilchan:
             return "nilchan"
         else:
-            return super(chan, self).__repr__()
+            return super(pychan, self).__repr__()
 
 
-# nilchan is the nil channel.
+# pynilchan is the nil py channel.
 #
 # On nil channel: send/recv block forever; close panics.
-nilchan = chan(None)    # TODO -> <chan*>(NULL) after move to Cython
+pynilchan = pychan(None)    # TODO -> <chan*>(NULL) after move to Cython
 
 
-# default represents default case for select.
-default  = object()
+# pydefault represents default case for pyselect.
+pydefault  = object()
 
-# unbound chan.{send,recv,recv_}
-_chan_send  = chan.send
-_chan_recv  = chan.recv
-_chan_recv_ = chan.recv_
+# unbound pychan.{send,recv,recv_}
+_pychan_send  = pychan.send
+_pychan_recv  = pychan.recv
+_pychan_recv_ = pychan.recv_
 if six.PY2:
     # on py3 class.func gets the func; on py2 - unbound_method(func)
-    _chan_send  = _chan_send.__func__
-    _chan_recv  = _chan_recv.__func__
-    _chan_recv_ = _chan_recv_.__func__
+    _pychan_send  = _pychan_send.__func__
+    _pychan_recv  = _pychan_recv.__func__
+    _pychan_recv_ = _pychan_recv_.__func__
 
-# select executes one ready send or receive channel case.
+# pyselect executes one ready send or receive channel case.
 #
 # if no case is ready and default case was provided, select chooses default.
 # if no case is ready and default was not provided, select blocks until one case becomes ready.
@@ -489,7 +489,7 @@ if six.PY2:
 #   if _ == 3:
 #       # default case
 #       ...
-def select(*casev):
+def pyselect(*casev):
     # select promise: if multiple cases are ready - one will be selected randomly
     ncasev = list(enumerate(casev))
     random.shuffle(ncasev)
@@ -500,21 +500,21 @@ def select(*casev):
     ndefault = None
     for (n, case) in ncasev:
         # default: remember we have it
-        if case is default:
+        if case is pydefault:
             if ndefault is not None:
-                pypanic("select: multiple default")
+                pypanic("pyselect: multiple default")
             ndefault = n
 
         # send
         elif isinstance(case, tuple):
             send, tx = case
-            if im_class(send) is not chan:
-                pypanic("select: send on non-chan: %r" % (im_class(send),))
-            if send.__func__ is not _chan_send:
-                pypanic("select: send expected: %r" % (send,))
+            if im_class(send) is not pychan:
+                pypanic("pyselect: send on non-chan: %r" % (im_class(send),))
+            if send.__func__ is not _pychan_send:
+                pypanic("pyselect: send expected: %r" % (send,))
 
             ch = send.__self__
-            if ch is not nilchan:   # nil chan is never ready
+            if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
                     ok = ch._trysend(tx)
@@ -527,17 +527,17 @@ def select(*casev):
         # recv
         else:
             recv = case
-            if im_class(recv) is not chan:
-                pypanic("select: recv on non-chan: %r" % (im_class(recv),))
-            if recv.__func__ is _chan_recv:
+            if im_class(recv) is not pychan:
+                pypanic("pyselect: recv on non-chan: %r" % (im_class(recv),))
+            if recv.__func__ is _pychan_recv:
                 commaok = False
-            elif recv.__func__ is _chan_recv_:
+            elif recv.__func__ is _pychan_recv_:
                 commaok = True
             else:
-                pypanic("select: recv expected: %r" % (recv,))
+                pypanic("pyselect: recv expected: %r" % (recv,))
 
             ch = recv.__self__
-            if ch is not nilchan:   # nil chan is never ready
+            if ch is not pynilchan:   # nil chan is never ready
                 ch._mu.acquire()
                 if 1:
                     rx_, ok = ch._tryrecv()

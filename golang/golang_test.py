@@ -30,7 +30,7 @@ from six.moves import range as xrange
 import gc, weakref
 
 import golang
-from golang._golang import _chan_recv, _chan_send
+from golang._golang import _pychan_recv, _pychan_send
 from golang._pycompat import im_class
 
 # pyx/c/c++ tests -> test_pyx_*
@@ -70,9 +70,9 @@ def waitBlocked(chanop):
         panic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
     ch = chanop.__self__
     recv = send = False
-    if chanop.__func__ is _chan_recv:
+    if chanop.__func__ is _pychan_recv:
         recv = True
-    elif chanop.__func__ is _chan_send:
+    elif chanop.__func__ is _pychan_send:
         send = True
     else:
         panic("wait blocked: unexpected chan method: %r" % (chanop,))
