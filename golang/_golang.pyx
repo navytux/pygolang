@@ -141,7 +141,7 @@ cdef void __goviac(void *arg) nogil:
 
 # ---- channels ----
 
-# pychan is chan<object>
+# pychan is chan<object>.
 @final
 cdef class pychan:
     def __cinit__(pych, size=0):
