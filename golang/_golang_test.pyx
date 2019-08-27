@@ -26,7 +26,49 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport go, panic, topyexc
+from golang cimport go, panic, pypanic, topyexc
+from golang import chan, nilchan
+
+from golang import time
+from golang._golang import _pychan_recv, _pychan_send
+from golang._pycompat import im_class
+
+# len_{recv,send}q returns len(ch._{recv,send}q)
+def len_recvq(ch):
+    if ch is nilchan:
+        raise AssertionError('len(.recvq) on nil channel')
+    return len(ch._recvq)
+def len_sendq(ch):
+    if ch is nilchan:
+        raise AssertionError('len(.sendq) on nil channel')
+    return len(ch._sendq)
+
+# waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
+#
+# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
+def waitBlocked(chanop):
+    if im_class(chanop) is not chan:
+        pypanic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
+    ch = chanop.__self__
+    recv = send = False
+    if chanop.__func__ is _pychan_recv:
+        recv = True
+    elif chanop.__func__ is _pychan_send:
+        send = True
+    else:
+        pypanic("wait blocked: unexpected chan method: %r" % (chanop,))
+
+    t0 = time.now()
+    while 1:
+        with ch._mu:
+            if recv and len_recvq(ch) > 0:
+                return
+            if send and len_sendq(ch) > 0:
+                return
+        now = time.now()
+        if now-t0 > 10: # waited > 10 seconds - likely deadlock
+            pypanic("deadlock")
+        time.sleep(0)   # yield to another thread / coroutine
 
 
 # small test to verify pyx(nogil) go.

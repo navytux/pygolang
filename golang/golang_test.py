@@ -21,7 +21,6 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
-from golang import time
 from pytest import raises
 from os.path import dirname
 import os, sys, threading, inspect
@@ -29,9 +28,7 @@ from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
 
-import golang
-from golang._golang import _pychan_recv, _pychan_send
-from golang._pycompat import im_class
+from golang._golang_test import waitBlocked, len_recvq, len_sendq
 
 # pyx/c/c++ tests -> test_pyx_*
 from golang import _golang_test
@@ -60,44 +57,6 @@ def bench_go(b):
     for i in xrange(b.N):
         go(_)
         done.recv()
-
-
-# waitBlocked waits till a receive or send channel operation blocks waiting on the channel.
-#
-# For example `waitBlocked(ch.send)` waits till sender blocks waiting on ch.
-def waitBlocked(chanop):
-    if im_class(chanop) is not chan:
-        panic("wait blocked: %r is method of a non-chan: %r" % (chanop, im_class(chanop)))
-    ch = chanop.__self__
-    recv = send = False
-    if chanop.__func__ is _pychan_recv:
-        recv = True
-    elif chanop.__func__ is _pychan_send:
-        send = True
-    else:
-        panic("wait blocked: unexpected chan method: %r" % (chanop,))
-
-    t0 = time.now()
-    while 1:
-        with ch._mu:
-            if recv and len_recvq(ch) > 0:
-                return
-            if send and len_sendq(ch) > 0:
-                return
-        now = time.now()
-        if now-t0 > 10: # waited > 10 seconds - likely deadlock
-            panic("deadlock")
-        time.sleep(0)   # yield to another thread / coroutine
-
-# len_{recv,send}q returns len(ch._{recv,send}q)
-def len_recvq(ch):
-    if ch is nilchan:
-        raise AssertionError('len(.recvq) on nil channel')
-    return len(ch._recvq)
-def len_sendq(ch):
-    if ch is nilchan:
-        raise AssertionError('len(.sendq) on nil channel')
-    return len(ch._sendq)
 
 
 def test_chan():
