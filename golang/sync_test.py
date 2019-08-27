@@ -205,24 +205,3 @@ def bench_workgroup_raise(b):
         else:
             # NOTE not using `with raises` since it affects benchmark timing
             assert False, "did not raise"
-
-
-import sys
-
-def raise_nocycle():
-    exc = RuntimeError('aaa')
-    try:
-        raise exc
-    finally:
-        exc = None
-
-def zzz(f):
-    try:
-        f()
-    except Exception as exc:
-        exc.__traceback__ = sys.exc_info()[2]
-
-
-def bench_raise_nocycle(b):
-    for i in xrange(b.N):
-        zzz(raise_nocycle)
