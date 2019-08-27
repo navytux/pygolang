@@ -21,25 +21,66 @@
 
 from __future__ import print_function, absolute_import
 
-# Thread runtime reuses C-level Python threadcreate implementation
-# for portability.
+# Thread runtime reuses C-level Python threadcreate + semaphore implementation
+# for portability. In Python semaphores do not depend on GIL and by reusing
+# the implementation we can offload us from covering different systems.
 #
-# PyThread_start_new_thread - Python's C function function to create
+# On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
+#
+# Similarly PyThread_start_new_thread - Python's C function function to create
 # new thread - does not depend on GIL. On POSIX, for example, it is small
 # wrapper around pthread_create.
+#
+# NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
+from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
+        PyThread_type_lock, WAIT_LOCK
+
+# FIXME On Darwin, even though this is considered as POSIX, Python uses
+# mutex+condition variable to implement its lock, and, as of 20190828, Py2.7
+# implementation, even though similar issue was fixed for Py3 in 2012, contains
+# synchronization bug: the condition is signalled after mutex unlock while the
+# correct protocol is to signal condition from under mutex:
+#
+#   https://github.com/python/cpython/blob/v2.7.16-127-g0229b56d8c0/Python/thread_pthread.h#L486-L506
+#   https://github.com/python/cpython/commit/187aa545165d (py3 fix)
+#
+# PyPy has the same bug for both pypy2 and pypy3:
+#
+#   https://bitbucket.org/pypy/pypy/src/578667b3fef9/rpython/translator/c/src/thread_pthread.c#lines-443:465
+#   https://bitbucket.org/pypy/pypy/src/5b42890d48c3/rpython/translator/c/src/thread_pthread.c#lines-443:465
+#
+# This way when Pygolang is used with buggy Python/darwin, the bug leads to
+# frequently appearing deadlocks, while e.g. CPython3/darwin works ok.
+#
+# -> TODO maintain our own semaphore code.
+import sys, platform
+if 'darwin' in sys.platform:
+    pyimpl = platform.python_implementation()
+    pyver  = sys.version_info
+    buggy  = None
+    if 'CPython' in pyimpl and pyver < (3, 0):
+        buggy = "cpython2/darwin"
+    if 'PyPy' in pyimpl:
+        buggy = "pypy/darwin"
+    if buggy:
+        print("WARNING: pyxgo: thread: %s has race condition bug in runtime"
+              " that leads to deadlocks" % buggy, file=sys.stderr)
 
 # make sure python threading is initialized, so that there is no concurrent
-# calls to PyThread_init_thread later.
+# calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
 #
-# This allows us to treat PyThread_start_new_thread as nogil.
+# This allows us to treat PyThread_allocate_lock & PyThread_start_new_thread as nogil.
 from cpython.ceval cimport PyEval_InitThreads
 #PyThread_init_thread()     # initializes only threading, but _not_ GIL
 PyEval_InitThreads()        # initializes      threading       and  GIL
 cdef extern from "pythread.h" nogil:
     # NOTE py3.7 changed to `unsigned long PyThread_start_new_thread ...`
     long PyThread_start_new_thread(void (*)(void *), void *)
+    PyThread_type_lock PyThread_allocate_lock()
+    void PyThread_free_lock(PyThread_type_lock)
 
-from golang.runtime._libgolang cimport _libgolang_runtime_ops, panic
+from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
+        panic
 
 from libc.stdint cimport uint64_t, UINT64_MAX
 IF POSIX:
@@ -58,6 +99,24 @@ cdef nogil:
         pytid = PyThread_start_new_thread(f, arg)
         if pytid == -1:
             panic("pygo: failed")
+
+    _libgolang_sema* sema_alloc():
+        # python calls it "lock", but it is actually a semaphore.
+        # and in particular can be released by thread different from thread that acquired it.
+        pysema = PyThread_allocate_lock()
+        return <_libgolang_sema *>pysema # NULL is ok - libgolang expects it
+
+    void sema_free(_libgolang_sema *gsema):
+        pysema = <PyThread_type_lock>gsema
+        PyThread_free_lock(pysema)
+
+    void sema_acquire(_libgolang_sema *gsema):
+        pysema = <PyThread_type_lock>gsema
+        PyThread_acquire_lock(pysema, WAIT_LOCK)
+
+    void sema_release(_libgolang_sema *gsema):
+        pysema = <PyThread_type_lock>gsema
+        PyThread_release_lock(pysema)
 
     IF POSIX:
         void nanosleep(uint64_t dt):
@@ -110,6 +169,10 @@ cdef nogil:
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
             go              = go,
+            sema_alloc      = sema_alloc,
+            sema_free       = sema_free,
+            sema_acquire    = sema_acquire,
+            sema_release    = sema_release,
             nanosleep       = nanosleep,
             nanotime        = nanotime,
     )

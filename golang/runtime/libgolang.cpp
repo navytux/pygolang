@@ -29,6 +29,7 @@
 
 #include <exception>
 #include <limits>
+#include <mutex>        // lock_guard
 #include <string>
 
 using std::exception;
@@ -102,6 +103,62 @@ void _tasknanosleep(uint64_t dt) {
 uint64_t _nanotime() {
     return _runtime->nanotime();
 }
+
+
+// ---- semaphores ----
+
+// Sema provides semaphore.
+struct Sema {
+    _libgolang_sema *_gsema;
+
+    Sema();
+    ~Sema();
+    void acquire();
+    void release();
+
+private:
+    Sema(const Sema&);      // don't copy
+};
+
+Sema::Sema() {
+    Sema *sema = this;
+
+    sema->_gsema = _runtime->sema_alloc();
+    if (!sema->_gsema)
+        panic("sema: alloc failed");
+}
+
+Sema::~Sema() {
+    Sema *sema = this;
+
+    _runtime->sema_free(sema->_gsema);
+    sema->_gsema = NULL;
+}
+
+void Sema::acquire() {
+    Sema *sema = this;
+    _runtime->sema_acquire(sema->_gsema);
+}
+
+void Sema::release() {
+    Sema *sema = this;
+    _runtime->sema_release(sema->_gsema);
+}
+
+// Mutex provides mutex.
+// currently implemented via Sema.
+struct Mutex {
+    void lock()     { _sema.acquire();  }
+    void unlock()   { _sema.release();  }
+    Mutex() {}
+
+private:
+    Sema _sema;
+    Mutex(const Mutex&);    // don't copy
+};
+
+// with_lock mimics `with mu` from python.
+#define with_lock(mu) std::lock_guard<Mutex> _with_lock_ ## __COUNTER__ (mu)
 
 }   // golang::
 
