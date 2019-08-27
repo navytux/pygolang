@@ -490,7 +490,10 @@ def pyselect(*pycasev):
             ndefault = n
 
         # send
-        elif isinstance(pycase, tuple):
+        elif type(pycase) is tuple:
+            if len(pycase) != 2:
+                pypanic("pyselect: invalid [%d]() case" % len(pycase))
+
             pysend, tx = pycase
             if pysend.__self__.__class__ is not pychan:
                 pypanic("pyselect: send on non-chan: %r" % (pysend.__self__.__class__,))
