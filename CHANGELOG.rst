@@ -1,7 +1,7 @@
 Pygolang change history
 -----------------------
 
-0.0.3 (2019-08-XX)
+0.0.3 (2019-08-28)
 ~~~~~~~~~~~~~~~~~~
 
 - Provide Cython/nogil API with goroutines and channels. Cython API is not only
@@ -18,6 +18,13 @@ Pygolang change history
 
   __ https://pypi.org/project/wendelin.core
   __ XXX
+  __ XXX
+
+- Provide way to install Pygolang with extra requirements in the form of
+  `pygolang[<package>]`. For example `pygolang[x.perf.benchlib]` additionally
+  selects NumPy, `pygolang[pyx.build]` - everything needed by build system, and
+  `pygolang[all]` selects everything (commit__).
+
   __ XXX
 
 - Improve tests to exercise the implementation more thoroughly in many
@@ -61,10 +68,6 @@ Pygolang change history
 - Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/3c55ca59
-
-- ? `*: Use golang.time universally`
-
-- XXX `pygolang[X]` and `pygolang[pyx.build]`. `pygolang[all]` selects everything.
 
 .. readme_renderer/pypi don't support `.. class:: align-center`
 .. |_| unicode:: 0xA0   .. nbsp
