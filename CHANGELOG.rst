@@ -11,27 +11,51 @@ Pygolang change history
   would deadlock if it tries to take the GIL in its pinner thread.
   Implementation of Python-level goroutines and channels becomes tiny wrapper
   around Cython/nogil API. This brings in ~5x speedup to Python-level `golang`
-  package along the way.
-  (`commit 1`__, 2__, ...)
-
-  .. XXX recheck 5x
+  package along the way (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__, 8__, 9__,
+  10__, 11__, 12__, 13__, 14__, 15__, 16__, 17__, 18__, 19__, 20__, 21__, 22__,
+  23__, 24__, 25__, 26__).
 
   __ https://pypi.org/project/wendelin.core
-  __ XXX
-  __ XXX
+  __ Don't verify ._recvq and ._sendq of nil channel
+  __ tests: Factor out retrieving len(ch._recvq) and len(ch._sendq)
+  __ Use panic when testing "blocks forever"
+  __ tests: Factor out pyrun from gpython_test into golang_test
+  __ golang_test: Split pyrun into -> pyrun & pyout
+  __ golang_test: Switch test_go to pyrun
+  __ Start using Cython and providing Cython/nogil API
+  __ libgolang: Introduce runtimes
+  __ pyx api: Provide sleep
+  __ pyx api: Provide go
+  __ golang: Move channels implementation from golang.py to golang.pyx
+  __ golang.pyx: Rename moved channel bits * -> py*
+  __ golang.pyx: pychan: self -> ch
+  __ golang.pyx: pychan: return cosmetics
+  __ golang: tests: Move channel test utilities from golang_test.py -> _golang_test.pyx
+  __ golang_test.pyx: Rename moved channel utilities * -> py*
+  __ golang.pyx: Switch pychan from `class` to `cdef class`
+  __ golang_test.pyx: Switch to cimport pychan
+  __ golang_test.pyx: ch -> pych for Py-level pychan objects
+  __ golang: tests: Rework verifying blockforever
+  __ golang.pyx: pyselect: * -> py* in logic which analyzes cases
+  __ golang.pyx: pyselect: Don't accept tuple subclasses; more clear panic on invalid tuple
+  __ golang.pyx: pyselect: Small cosmetics
+  __ libgolang: Add internal semaphores
+  __ Hook in list.h from Linux
+  __ Port/move channels to C/C++/Pyx
+
 
 - Provide way to install Pygolang with extra requirements in the form of
   `pygolang[<package>]`. For example `pygolang[x.perf.benchlib]` additionally
   selects NumPy, `pygolang[pyx.build]` - everything needed by build system, and
   `pygolang[all]` selects everything (commit__).
 
-  __ XXX
+  __ Provide golang.X requirements in pygolang[X]
 
 - Improve tests to exercise the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/773d8fb2  test: Verify panic argument
-  __ Test that len(nilchan) == 0
+  __ Test len(nilchan) and repr(nilchan)
   __ time: Test for now
   __ golang: Run all select tests "more thoroughly
   __ golang: Test that buffered channel releases objects from buffer on chan GC
