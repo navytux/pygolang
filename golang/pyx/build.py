@@ -94,6 +94,7 @@ class _build_ext(_dso_build_ext):
                 filter_out('-std=gnu++')
             # filter-out C only options from C++ sources
             else:
+                # XXX does not work - that comes from somewhere else
                 filter_out('-Wstrict-prototypes') # gives warning that it is valid only for C/ObjC, not C++
 
             print('\nBBB %r %s -> %s\n\t%r\n\t%r\n\t%r\n' % (ext, src, obj, cc_args, extra_postargs, pp_opts))
