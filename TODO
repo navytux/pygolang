@@ -1,3 +1,5 @@
+? scikit-build
+
 - gpython: main in C + AST rewrite hook + changed pyc magic
   -> drop pypy support?
   -> CFFI universally for cpython/pypy?
