@@ -39,13 +39,14 @@
 #include <random>
 #include <string>
 
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <string.h>
 
 // linux/list.h needs ARRAY_SIZE    XXX -> better use c.h or ccan/array_size.h ?
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
+#include <stddef.h>     // offsetof
 #include <linux/list.h>
 
 using std::atomic;

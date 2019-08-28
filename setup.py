@@ -201,7 +201,8 @@ setup(
                         depends         = ['golang/libgolang.h'],
                         include_dirs    = ['.', '3rdparty/include'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
-                        soversion       = '0.1')],  # XXX take soversion from version?
+                        extra_compile_args = ['-std=gnu++11'], # not c++11 as linux/list.h uses typeof
+                        soversion       = '0.1')],
     ext_modules = [
                     Ext('golang._golang',
                         ['golang/_golang.pyx']),

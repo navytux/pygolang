@@ -276,7 +276,7 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 }
 
 template<typename T> class chan;
-template<typename T> chan<T> makechan(unsigned size=0);
+template<typename T> static chan<T> makechan(unsigned size=0);
 
 // chan<T> provides type-safe wrapper over _chan.
 //

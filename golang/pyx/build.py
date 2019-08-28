@@ -65,9 +65,58 @@ def _findpkg(pkgname):  # -> _PyPkg
     pypkg.path = path
     return pypkg
 
+
+# XXX doc
+_dso_build_ext = setuptools_dso.build_ext
+class _build_ext(_dso_build_ext):
+    def build_extension(self, ext):
+        # wrap _compiler <src> -> <obj> with our code
+        _compile = self.compiler._compile
+        def _(obj, src, ext, cc_args, extra_postargs, pp_opts):
+            # filter_out removes arguments that start with argprefix
+            cc_args = cc_args[:]
+            extra_postargs = extra_postargs[:]
+            pp_opts = pp_opts[:]
+            def filter_out(argprefix):
+                for l in (cc_args, extra_postargs, pp_opts):
+                    _ = []
+                    for arg in l:
+                        if not arg.startswith(argprefix):
+                            _.append(arg)
+                    l[:] = _
+
+            print('\nAAA %r %s -> %s\n\t%r\n\t%r\n\t%r\n' % (ext, src, obj, cc_args, extra_postargs, pp_opts))
+
+            # filter-out C++ only options from non-C++ sources
+            cxx = (self.compiler.language_map[ext] == 'c++')
+            if not cxx:
+                filter_out('-std=c++')
+                filter_out('-std=gnu++')
+            # filter-out C only options from C++ sources
+            else:
+                filter_out('-Wstrict-prototypes') # gives warning that it is valid only for C/ObjC, not C++
+
+            print('\nBBB %r %s -> %s\n\t%r\n\t%r\n\t%r\n' % (ext, src, obj, cc_args, extra_postargs, pp_opts))
+
+            _compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+        self.compiler._compile = _
+        try:
+            _dso_build_ext.build_extension(self, ext) # super doesn't work for _dso_build_ext
+        finally:
+            self.compiler._compile = _compile
+
+
+
 # setup should be used instead of setuptools.setup
 def setup(**kw):
-    return setuptools_dso.setup(**kw)
+    # setuptools_dso.setup hardcodes setuptools_dso.build_ext to be used.
+    # temporarily inject our code there.
+    _ = setuptools_dso.build_ext
+    try:
+        setuptools_dso.build_ext = _build_ext
+        return setuptools_dso.setup(**kw)
+    finally:
+        setuptools_dso.build_ext = _
 
 # Extension should be used to build extensions that use pygolang.
 #
@@ -97,7 +146,10 @@ def Extension(name, sources, **kw):
     kw['dsos'] = dsov
 
     # default language to C++ (chan[T] & co are accessible only via C++)
-    kw.setdefault('language', 'c++')
+    lang = kw.setdefault('language', 'c++')
+    if lang == 'c++':
+        # XXX check that -std is not there
+        kw['extra_compile_args'] = ['-std=c++11']
 
     # some depends to workaround a bit lack of proper dependency tracking in
     # setuptools/distutils.
