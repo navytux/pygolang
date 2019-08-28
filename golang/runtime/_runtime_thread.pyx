@@ -34,13 +34,13 @@ from __future__ import print_function, absolute_import
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 #
 # FIXME On Darwin, even though this is considered as POSIX, Python uses
-# mutex+condition variable to implement its lock and as of 20190828 Py2.7
+# mutex+condition variable to implement its lock, and, as of 20190828, Py2.7
 # implementation, even though similar issue was fixed for Py3 in 2012, contains
 # synchronization bug: the condition is signalled after mutex unlock while the
-# correct protocol is to signal from under mutex:
+# correct protocol is to signal condition from under mutex:
 #
-#   XXX link to py27 code
-#   XXX link to py3  fix patch
+#   https://github.com/python/cpython/blob/v2.7.16-127-g0229b56d8c0/Python/thread_pthread.h#L486-L506
+#   https://github.com/python/cpython/commit/187aa545165d (py3 fix)
 #
 # This way when Pygolang is used with Py2/darwin, the bug leads to frequently
 # appearing deadlocks, while Py3/darwin works ok.
