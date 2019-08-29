@@ -258,6 +258,7 @@ setup(
         Operating System :: Microsoft :: Windows
 
         Programming Language :: Python
+        Programming Language :: Cython
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3
