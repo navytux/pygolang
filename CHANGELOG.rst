@@ -1,7 +1,7 @@
 Pygolang change history
 -----------------------
 
-0.0.3 (2019-08-28)
+0.0.3 (2019-08-29)
 ~~~~~~~~~~~~~~~~~~
 
 - Provide Cython/nogil API with goroutines and channels. Cython API is not only
