@@ -49,8 +49,8 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 #   https://bitbucket.org/pypy/pypy/src/578667b3fef9/rpython/translator/c/src/thread_pthread.c#lines-443:465
 #   https://bitbucket.org/pypy/pypy/src/5b42890d48c3/rpython/translator/c/src/thread_pthread.c#lines-443:465
 #
-# This way when Pygolang is used with Py2/darwin, the bug leads to frequently
-# appearing deadlocks, while Py3/darwin works ok.
+# This way when Pygolang is used with buggy Python/darwin, the bug leads to
+# frequently appearing deadlocks, while e.g. CPython3/darwin works ok.
 #
 # -> TODO maintain our own semaphore code.
 import sys, platform
