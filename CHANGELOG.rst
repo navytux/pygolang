@@ -13,7 +13,7 @@ Pygolang change history
   around Cython/nogil API. This brings in ~5x speedup to Python-level `golang`
   package along the way (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__, 8__, 9__,
   10__, 11__, 12__, 13__, 14__, 15__, 16__, 17__, 18__, 19__, 20__, 21__, 22__,
-  23__, 24__, 25__, 26__).
+  23__, 24__, 25__, 26__, 27__).
 
   __ https://pypi.org/project/wendelin.core
   __ Don't verify ._recvq and ._sendq of nil channel
@@ -25,6 +25,7 @@ Pygolang change history
   __ Start using Cython and providing Cython/nogil API
   __ libgolang: Introduce runtimes
   __ pyx api: Provide sleep
+  __ pyx.build: Allow to combine C and C++ sources in one extension
   __ pyx api: Provide go
   __ golang: Move channels implementation from golang.py to golang.pyx
   __ golang.pyx: Rename moved channel bits * -> py*
