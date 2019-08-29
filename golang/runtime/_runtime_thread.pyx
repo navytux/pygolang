@@ -44,17 +44,27 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 #   https://github.com/python/cpython/blob/v2.7.16-127-g0229b56d8c0/Python/thread_pthread.h#L486-L506
 #   https://github.com/python/cpython/commit/187aa545165d (py3 fix)
 #
+# PyPy has the same bug for both pypy2 and pypy3:
+#
+#   https://bitbucket.org/pypy/pypy/src/578667b3fef9/rpython/translator/c/src/thread_pthread.c#lines-443:465
+#   https://bitbucket.org/pypy/pypy/src/5b42890d48c3/rpython/translator/c/src/thread_pthread.c#lines-443:465
+#
 # This way when Pygolang is used with Py2/darwin, the bug leads to frequently
 # appearing deadlocks, while Py3/darwin works ok.
 #
 # -> TODO maintain our own semaphore code.
 import sys, platform
-if 'darwin'  in sys.platform and \
-   'CPython' in platform.python_implementation() and \
-   sys.version_info < (3, 0):
-    print("WARNING: cpython2/darwin has race condition bug in runtime that leads to deadlocks",
-        file=sys.stderr)
-
+if 'darwin' in sys.platform:
+    pyimpl = platform.python_implementation()
+    pyver  = sys.version_info
+    buggy  = None
+    if 'CPython' in pyimpl and pyver < (3, 0):
+        buggy = "cpython2/darwin"
+    if 'PyPy' in pyimpl:
+        buggy = "pypy/darwin"
+    if buggy:
+        print("WARNING: %s has race condition bug in runtime that leads to deadlocks" %
+            buggy, file=sys.stderr)
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
