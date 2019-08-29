@@ -16,33 +16,33 @@ Pygolang change history
   23__, 24__, 25__, 26__, 27__).
 
   __ https://pypi.org/project/wendelin.core
-  __ Don't verify ._recvq and ._sendq of nil channel
-  __ tests: Factor out retrieving len(ch._recvq) and len(ch._sendq)
-  __ Use panic when testing "blocks forever"
-  __ tests: Factor out pyrun from gpython_test into golang_test
-  __ golang_test: Split pyrun into -> pyrun & pyout
-  __ golang_test: Switch test_go to pyrun
-  __ Start using Cython and providing Cython/nogil API
-  __ libgolang: Introduce runtimes
-  __ pyx api: Provide sleep
-  __ pyx.build: Allow to combine C and C++ sources in one extension
-  __ pyx api: Provide go
-  __ golang: Move channels implementation from golang.py to golang.pyx
-  __ golang.pyx: Rename moved channel bits * -> py*
-  __ golang.pyx: pychan: self -> ch
-  __ golang.pyx: pychan: return cosmetics
-  __ golang: tests: Move channel test utilities from golang_test.py -> _golang_test.pyx
-  __ golang_test.pyx: Rename moved channel utilities * -> py*
-  __ golang.pyx: Switch pychan from `class` to `cdef class`
-  __ golang_test.pyx: Switch to cimport pychan
-  __ golang_test.pyx: ch -> pych for Py-level pychan objects
-  __ golang: tests: Rework verifying blockforever
-  __ golang.pyx: pyselect: * -> py* in logic which analyzes cases
-  __ golang.pyx: pyselect: Don't accept tuple subclasses; more clear panic on invalid tuple
-  __ golang.pyx: pyselect: Small cosmetics
-  __ libgolang: Add internal semaphores
-  __ Hook in list.h from Linux
-  __ Port/move channels to C/C++/Pyx
+  __ https://lab.nexedi.com/kirr/pygolang/commit/d98e42e3
+  __ https://lab.nexedi.com/kirr/pygolang/commit/352628b5
+  __ https://lab.nexedi.com/kirr/pygolang/commit/fa667412
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f812faa2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/88eb8fe0
+  __ https://lab.nexedi.com/kirr/pygolang/commit/62bdb806
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8fa3c15b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ad00be70
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ce8152a2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7ae8c4f3
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f971a2a8
+  __ https://lab.nexedi.com/kirr/pygolang/commit/83259a1b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/311df9f1
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7e55394d
+  __ https://lab.nexedi.com/kirr/pygolang/commit/790189e3
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a508be9a
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a0714b8e
+  __ https://lab.nexedi.com/kirr/pygolang/commit/1bcb8297
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ef076d3a
+  __ https://lab.nexedi.com/kirr/pygolang/commit/4166dc65
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b9333e00
+  __ https://lab.nexedi.com/kirr/pygolang/commit/d5e74947
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2fc71566
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e4dddf15
+  __ https://lab.nexedi.com/kirr/pygolang/commit/69db91bf
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9efb6575
+  __ https://lab.nexedi.com/kirr/pygolang/commit/3b241983
 
 
 - Provide way to install Pygolang with extra requirements in the form of
@@ -50,26 +50,26 @@ Pygolang change history
   selects NumPy, `pygolang[pyx.build]` - everything needed by build system, and
   `pygolang[all]` selects everything (commit__).
 
-  __ Provide golang.X requirements in pygolang[X]
+  __ https://lab.nexedi.com/kirr/pygolang/commit/89a1061a
 
 - Improve tests to exercise the implementation more thoroughly in many
   places (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
 
-  __ https://lab.nexedi.com/kirr/pygolang/commit/773d8fb2  test: Verify panic argument
-  __ Test len(nilchan) and repr(nilchan)
-  __ time: Test for now
-  __ golang: Run all select tests "more thoroughly
-  __ golang: Test that buffered channel releases objects from buffer on chan GC
-  __ golang: Add test for blocked select(send|recv) vs close
+  __ https://lab.nexedi.com/kirr/pygolang/commit/773d8fb2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/3e5b5f01
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7f2362dd
+  __ https://lab.nexedi.com/kirr/pygolang/commit/c5810987
+  __ https://lab.nexedi.com/kirr/pygolang/commit/cb5bfdd2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/02f6991f
 
 - Fix race bugs in buffered channel send and receive (`commit 1`__, 2__).
 
-  __ golang: Fix race in chan._trysend
-  __ golang: Fix race in chan._tryrecv
+  __ https://lab.nexedi.com/kirr/pygolang/commit/eb8a1fef
+  __ https://lab.nexedi.com/kirr/pygolang/commit/c6bb9eb3
 
 - Fix deadlock in `sync.WorkGroup` tests (commit__).
 
-  __ sync.WorkGroup: Fix deadlock thinko in tests
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b8b042c5
 
 - Fix `@func(cls) def name` not to override `name` in calling context (commit__).
 
@@ -84,7 +84,7 @@ Pygolang change history
   This removes reliance on outside semaphore+waitlist code and speeds up
   `sync.WorkGroup` along the way (commit__).
 
-  __ sync: threading.Event -> chan
+  __ https://lab.nexedi.com/kirr/pygolang/commit/78d85cdc
 
 - Speedup `sync.WorkGroup` by not using `@func` at runtime (commit__).
 
