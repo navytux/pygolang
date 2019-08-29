@@ -63,8 +63,8 @@ if 'darwin' in sys.platform:
     if 'PyPy' in pyimpl:
         buggy = "pypy/darwin"
     if buggy:
-        print("WARNING: %s has race condition bug in runtime that leads to deadlocks" %
-            buggy, file=sys.stderr)
+        print("WARNING: pyxgo: thread: %s has race condition bug in runtime"
+              " that leads to deadlocks" % buggy, file=sys.stderr)
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
