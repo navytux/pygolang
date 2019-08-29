@@ -148,9 +148,12 @@ def Extension(name, sources, **kw):
 
     # default language to C++ (chan[T] & co are accessible only via C++)
     lang = kw.setdefault('language', 'c++')
+
+    # default to C++11 (chan[T] & co require C++11 features)
     if lang == 'c++':
-        # XXX check that -std is not there
-        kw['extra_compile_args'] = ['-std=c++11']
+        ccextra = kw.get('extra_compile_args', [])[:]
+        ccextra.insert(0, '-std=c++11') # if another -std=... was already there - it will override us
+        kw['extra_compile_args'] = ccextra
 
     # some depends to workaround a bit lack of proper dependency tracking in
     # setuptools/distutils.
