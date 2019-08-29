@@ -66,7 +66,9 @@ def _findpkg(pkgname):  # -> _PyPkg
     return pypkg
 
 
-# XXX doc
+# _build_ext amends setuptools_dso.build_ext to allow combining C and C++
+# sources in one extension without hitting `error: invalid argument
+# '-std=c++11' not allowed with 'C'`.
 _dso_build_ext = setuptools_dso.build_ext
 class _build_ext(_dso_build_ext):
     def build_extension(self, ext):
@@ -74,9 +76,9 @@ class _build_ext(_dso_build_ext):
         _compile = self.compiler._compile
         def _(obj, src, ext, cc_args, extra_postargs, pp_opts):
             # filter_out removes arguments that start with argprefix
-            cc_args = cc_args[:]
-            extra_postargs = extra_postargs[:]
-            pp_opts = pp_opts[:]
+            cc_args         = cc_args[:]
+            extra_postargs  = extra_postargs[:]
+            pp_opts         = pp_opts[:]
             def filter_out(argprefix):
                 for l in (cc_args, extra_postargs, pp_opts):
                     _ = []
@@ -85,19 +87,18 @@ class _build_ext(_dso_build_ext):
                             _.append(arg)
                     l[:] = _
 
-            print('\nAAA %r %s -> %s\n\t%r\n\t%r\n\t%r\n' % (ext, src, obj, cc_args, extra_postargs, pp_opts))
-
             # filter-out C++ only options from non-C++ sources
+            #
+            # reason: while gcc only warns about -std=c++ passed with C source,
+            # clang considers that an error. Given that with distutils /
+            # setuptools the _same_ compiler is used to compile C and C++
+            # sources, and that it is not possible to provide per-source flags,
+            # without filtering, that leads to inability to use both C and C++
+            # sources in one extension.
             cxx = (self.compiler.language_map[ext] == 'c++')
             if not cxx:
                 filter_out('-std=c++')
                 filter_out('-std=gnu++')
-            # filter-out C only options from C++ sources
-            else:
-                # XXX does not work - that comes from somewhere else
-                filter_out('-Wstrict-prototypes') # gives warning that it is valid only for C/ObjC, not C++
-
-            print('\nBBB %r %s -> %s\n\t%r\n\t%r\n\t%r\n' % (ext, src, obj, cc_args, extra_postargs, pp_opts))
 
             _compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
         self.compiler._compile = _
@@ -107,7 +108,6 @@ class _build_ext(_dso_build_ext):
             self.compiler._compile = _compile
 
 
-
 # setup should be used instead of setuptools.setup
 def setup(**kw):
     # setuptools_dso.setup hardcodes setuptools_dso.build_ext to be used.
@@ -115,7 +115,7 @@ def setup(**kw):
     _ = setuptools_dso.build_ext
     try:
         setuptools_dso.build_ext = _build_ext
-        return setuptools_dso.setup(**kw)
+        setuptools_dso.setup(**kw)
     finally:
         setuptools_dso.build_ext = _
 

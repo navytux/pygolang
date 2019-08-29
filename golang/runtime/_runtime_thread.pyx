@@ -32,7 +32,9 @@ from __future__ import print_function, absolute_import
 # wrapper around pthread_create.
 #
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
-#
+from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
+        PyThread_type_lock, WAIT_LOCK
+
 # FIXME On Darwin, even though this is considered as POSIX, Python uses
 # mutex+condition variable to implement its lock, and, as of 20190828, Py2.7
 # implementation, even though similar issue was fixed for Py3 in 2012, contains
@@ -46,8 +48,13 @@ from __future__ import print_function, absolute_import
 # appearing deadlocks, while Py3/darwin works ok.
 #
 # -> TODO maintain our own semaphore code.
-from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
-        PyThread_type_lock, WAIT_LOCK
+import sys, platform
+if 'darwin'  in sys.platform and \
+   'CPython' in platform.python_implementation() and \
+   sys.version_info < (3, 0):
+    print("WARNING: cpython2/darwin has race condition bug in runtime that leads to deadlocks",
+        file=sys.stderr)
+
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
