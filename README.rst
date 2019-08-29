@@ -21,6 +21,11 @@ between Python/Cython and Go environments.
 __ `Additional packages and utilities`_
 
 
+
+.. contents::
+   :depth: 1
+
+
 GPython
 -------
 
@@ -147,6 +152,7 @@ practically natively modelled with `try`/`except`.
 
 If `defer` is used, the function that uses it must be wrapped with `@func`
 decorator.
+
 
 Import
 ------
@@ -288,7 +294,7 @@ handle concurrency in structured ways:
 
 - `golang.time` provides timers integrated with channels.
 
-.. [*] See `Go Concurrency Patterns: Context`__ for overview of contexts.
+.. [*] See `Go Concurrency Patterns: Context`__ for overview.
 
 __ https://blog.golang.org/context
 

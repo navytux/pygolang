@@ -182,6 +182,11 @@ setup(
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
     url         = 'https://lab.nexedi.com/kirr/pygolang',
+    project_urls= {
+        'Bug Tracker':   'https://lab.nexedi.com/kirr/pygolang/issues',
+        'Source Code':   'https://lab.nexedi.com/kirr/pygolang',
+        'Documentation': 'https://pypi.org/project/pygolang',
+    },
     license     = 'GPLv3+ with wide exception for Open-Source',
     author      = 'Kirill Smelkov',
     author_email= 'kirr@nexedi.com',
@@ -237,6 +242,8 @@ setup(
     classifiers = [_.strip() for _ in """\
         Development Status :: 3 - Alpha
         Intended Audience :: Developers
+        Programming Language :: Python
+        Programming Language :: Cython
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3

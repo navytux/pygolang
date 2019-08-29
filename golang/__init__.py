@@ -31,7 +31,7 @@ See also package golang.pyx which provides similar functionality for Cython nogi
 
 from __future__ import print_function, absolute_import
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'recover', 'func', 'gimport']
 
