@@ -391,7 +391,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     if (ch == NULL)
         return NULL;
     memset((void *)ch, 0, sizeof(*ch));
-    new (&ch->_mu) Sema();
+    new (&ch->_mu) Mutex();
 
     ch->_refcnt   = 1;
     ch->_cap      = size;
