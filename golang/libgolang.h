@@ -316,39 +316,39 @@ public:
     static_assert(std::is_trivially_copyable<T>::value, "TODO chan<T>: T copy is not trivial");
 
     // send/recv/close
-    inline void send(const T &ptx)     { _chansend(_ch, &ptx);                  }
-    inline T recv()                    { T rx; _chanrecv(_ch, &rx); return rx;  }
-    inline std::pair<T,bool> recv_()   { T rx; bool ok = _chanrecv_(_ch, &rx);
-                                         return std::make_pair(rx, ok);         }
-    inline void close()                { _chanclose(_ch);                       }
+    inline void send(const T &ptx)    const  { _chansend(_ch, &ptx);                  }
+    inline T recv()                   const  { T rx; _chanrecv(_ch, &rx); return rx;  }
+    inline std::pair<T,bool> recv_()  const  { T rx; bool ok = _chanrecv_(_ch, &rx);
+                                               return std::make_pair(rx, ok);         }
+    inline void close()               const  { _chanclose(_ch);                       }
 
     // send/recv in select
 
     // ch.sends creates `ch.send(*ptx)` case for select.
-    [[nodiscard]] inline _selcase sends(const T *ptx) { return _selsend(_ch, ptx); }
+    [[nodiscard]] inline _selcase sends(const T *ptx) const { return _selsend(_ch, ptx); }
 
     // ch.recvs creates `*prx = ch.recv()` case for select.
     //
     // if pok is provided the case is extended to `[*prx, *pok] = ch.recv_()`
     // if both prx and pok are omitted the case is reduced to `ch.recv()`.
-    [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) {
+    [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) const {
         return _selrecv_(_ch, prx, pok);
     }
 
     // length/capacity
-    inline unsigned len()              { return _chanlen(_ch);         }
-    inline unsigned cap()              { return _chancap(_ch);         }
+    inline unsigned len()             const  { return _chanlen(_ch);         }
+    inline unsigned cap()             const  { return _chancap(_ch);         }
 
     // compare wrt nil
-    inline bool operator==(nullptr_t)  { return (_ch == NULL); }
-    inline bool operator!=(nullptr_t)  { return (_ch != NULL); }
+    inline bool operator==(nullptr_t) const  { return (_ch == NULL); }
+    inline bool operator!=(nullptr_t) const  { return (_ch != NULL); }
 
     // compare wrt chan
-    inline bool operator==(const chan<T>& ch2)	{ return (_ch == ch2._ch); }
-    inline bool operator!=(const chan<T>& ch2)  { return (_ch != ch2._ch); }
+    inline bool operator==(const chan<T>& ch2) const { return (_ch == ch2._ch); }
+    inline bool operator!=(const chan<T>& ch2) const { return (_ch != ch2._ch); }
 
     // for testing
-    inline _chan *_rawchan()           { return _ch; }
+    inline _chan *_rawchan() const     { return _ch; }
 };
 
 // makechan<T> makes new chan<T> with capacity=size.
