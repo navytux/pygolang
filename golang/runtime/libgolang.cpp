@@ -715,30 +715,42 @@ void _chan::close() {
         }
         ch->_closed = true;
 
-        // wake-up all readers
+        vector<_RecvSendWaiting*> wakeupv;
+
+        // schedule: wake-up all readers
         while (1) {
             _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
             if (recv == NULL)
                 break;
 
+            wakeupv.push_back(recv);
+#if 0
             ch->_mu.unlock();
             if (recv->pdata != NULL)
                 memset(recv->pdata, 0, ch->_elemsize);
             recv->wakeup(/*ok=*/false);
-            ch->_mu.lock();
+            ch->_mu.lock();     // FIXME ch (and ch.mu) could get destroyed at this point
+#endif
         }
 
-        // wake-up all writers (they will panic)
+        // schedule: wake-up all writers (they will panic)
         while (1) {
             _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
             if (send == NULL)
                 break;
 
+            wakeupv.push_back(send);
+#if 0
             ch->_mu.unlock();
             send->wakeup(/*ok=*/false);
             ch->_mu.lock();
+#endif
         }
     ch->_mu.unlock();
+
+    // perform scheduled wakeups outside of ._mu
+    for (auto w : wakeupv)
+        w->wakeup(/*ok=*/false);
 }
 
 // len returns current number of buffered elements.
@@ -816,6 +828,15 @@ template<> int _chanselect2</*onstack=*/true> (const _selcase *, int, const vect
 template<> int _chanselect2</*onstack=*/false>(const _selcase *, int, const vector<int>&);
 static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*);
 
+// XXX temp
+static bool allzero(const void *p, unsigned size) {
+    const char *q = reinterpret_cast<const char*>(p);
+    for (;size != 0; size--)
+        if (*q++ != 0)
+            return false;
+    return true;
+}
+
 // _chanselect executes one ready send or receive channel case.
 //
 // if no case is ready and default case was provided, select chooses default.
@@ -881,6 +902,12 @@ int _chanselect(const _selcase *casev, int casec) {
                     if (done) {
                         if (cas->rxok != NULL)
                             *cas->rxok = ok;
+                        if (cas->rxok != NULL && cas->data != NULL) {
+                            if (!(*cas->rxok) && !allzero(cas->data, cas->ch->_elemsize)) {
+                                fprintf(stderr, "BUG: !rxok with *prx != 0 (A)\n");
+                                abort();
+                            }
+                        }
                         return n;
                     }
                 }
@@ -988,7 +1015,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     defer([&]() {
         for (int i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
-            w->chan->_mu.lock();
+            w->chan->_mu.lock();    // FIXME w->chan could be not-live already ?
             list_del_init(&w->in_rxtxq); // thanks to _init used in _dequeWaiter
             w->chan->_mu.unlock();       // it is ok to del twice even if w was already removed
         }
@@ -1041,6 +1068,12 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     if (cas->rxok != NULL)
                         *cas->rxok = ok;
+                    if (cas->rxok != NULL && cas->data != NULL) {
+                        if (!(*cas->rxok) && !allzero(cas->data, cas->ch->_elemsize)) {
+                            fprintf(stderr, "BUG: !rxok with *prx != 0 (B)\n");
+                            abort();
+                        }
+                    }
                     return n;
                 }
 
@@ -1080,6 +1113,13 @@ ready:
     else if (cas->op == _CHANRECV) {
         if (cas->rxok != NULL)
             *cas->rxok = sel->ok;
+        // XXX temp debug
+        if (cas->rxok != NULL && cas->data != NULL) {
+            if (!(*cas->rxok) && !allzero(cas->data, cas->ch->_elemsize)) {
+                fprintf(stderr, "BUG: !rxok with *prx != 0 (C)\n");
+                abort();
+            }
+        }
         return selected;
     }
 

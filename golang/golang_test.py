@@ -632,10 +632,21 @@ def test_select():
 
 # benchmark sync chan send vs recv on select side.
 def bench_select(b):
+    print('\n\n\nAAAA %d\n' % b.N, file=sys.stderr)
     ch1  = chan()
     ch2  = chan()
     done = chan()
     def _():
+        print('\nBBB\n', file=sys.stderr)
+        try:
+            _f()
+        finally:
+            print('\nBBB EXIT\n', file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            print('\nBBB EXIT 2\n', file=sys.stderr)
+
+    def _f():
         while 1:
             _, _rx = select(
                 ch1.recv_,   # 0
@@ -644,6 +655,7 @@ def bench_select(b):
             if _ == 0:
                 _, ok = _rx
                 if not ok:
+                    print('_: %r  _rx: %r' % (_, _rx), file=sys.stderr)
                     done.close()
                     return
     go(_)

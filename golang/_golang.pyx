@@ -347,6 +347,10 @@ def pyselect(*pycasev):
         Py_DECREF(rx)
 
     if casev[selected].rxok != NULL:
+        if _rx != NULL and not rxok:
+            panic("BUG: !rxok after !NULL pyobj recv")
+        if _rx == NULL and     rxok:
+            panic("BUG: rxok after  NULL pyobj recv")
         return selected, (rx, rxok)
     else:
         return selected, rx
