@@ -1,6 +1,4 @@
-#!/bin/sh -e
-# `trun ...` - run `...` while testing pygolang
-#
+#!/usr/bin/env python
 # Copyright (C) 2019  Nexedi SA and Contributors.
 #                     Kirill Smelkov <kirr@nexedi.com>
 #
@@ -19,14 +17,47 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+""" `trun ...` - run `...` while testing pygolang
 
-# if TSAN/ASAN detects a bug - make it fail loudly
-export TSAN_OPTIONS="halt_on_error=1"
-export ASAN_OPTIONS="halt_on_error=1"
+For example it is not possible to import sanitized libgolang if non-sanitized
+python was used to start tests - it will fail with
 
-# XXX detect libtsan.so / libasan.so -> LD_PRELOAD
+    ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
+
+trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.so
+"""
+
+import os, sys
+
+# env_append appends value to ${name} environment variable.
+# the value is appended with " " separator.
+def env_append(name, value):
+    _ = os.environ.get(name, "")
+    if _ != "":
+        _ += " "
+    os.environ[name] = _ + value
+
+
+# if TSAN/ASAN detects a bug - make it fail loudly on the first bug
+env_append("TSAN_OPTIONS", "halt_on_error=1")
+env_append("ASAN_OPTIONS", "halt_on_error=1")
+
+# try to import golang. If libgolang is compiled with a sanitizer this will fail with
+#   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
+# which we use to detect which library to LD_PRELOAD.
+ld_preload = None
+try:
+    import golang
+except ImportError as e:
+    msg = e.args[0]
+    if 'libtsan' in msg or 'libasan' in msg:
+        ld_preload = msg.split()[0]
+    else:
+        raise
+if ld_preload is not None:
+    print 'LD_PRELOAD ->', ld_preload
+    env_append("LD_PRELOAD", ld_preload)
+
 # XXX test on darwin
 
-#export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.5	# XXX debug with asan
-
-exec "$@"
+os.execvp(sys.argv[1], sys.argv[1:])
