@@ -686,16 +686,11 @@ def test_func():
 
     zzz = zzz_orig = 'z'    # `@func(MyClass) def zzz` must not override zzz
     @func(MyClass)
-    def zzz(self): pass
-    """
     def zzz(self, v, x=2, **kkkkwww):
         assert self.v == v
         return v + 1
-    """
-    if zzz is not zzz_orig:
-        raise (zzz, zzz_orig)
-    #assert zzz is zzz_orig
-    #assert zzz == 'z'
+    assert zzz is zzz_orig
+    assert zzz == 'z'
 
 def abdefgh():  # XXX kill def
     mstatic = mstatic_orig = 'mstatic'
