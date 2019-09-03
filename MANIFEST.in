@@ -1,4 +1,4 @@
-include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml
+include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun
 include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 recursive-include golang    *.py *.pxd *.pyx *.toml
