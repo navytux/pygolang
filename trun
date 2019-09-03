@@ -55,7 +55,7 @@ except ImportError as e:
     else:
         raise
 if ld_preload is not None:
-    print 'LD_PRELOAD ->', ld_preload
+    #print 'LD_PRELOAD ->', ld_preload
     env_append("LD_PRELOAD", ld_preload)
 
 # XXX test on darwin
