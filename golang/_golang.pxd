@@ -70,28 +70,28 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         chan();
 
         # send/recv/close
-        void send(const T&)
-        T recv()
-        pair[T, cbool] recv_()
-        void close()
+        void send(const T&)                 const
+        T recv()                            const
+        pair[T, cbool] recv_()              const
+        void close()                        const
 
         # send/recv in select
-        _selcase sends(const T *ptx)
-        _selcase recvs()
-        _selcase recvs(T* prx)
-        _selcase recvs(T* prx, cbool *pok)
+        _selcase sends(const T *ptx)        const
+        _selcase recvs()                    const
+        _selcase recvs(T* prx)              const
+        _selcase recvs(T* prx, cbool *pok)  const
 
         # length/capacity
-        unsigned len()
-        unsigned cap()
+        unsigned len()                      const
+        unsigned cap()                      const
 
         # compare wrt nil; =nil
-        cbool operator==(nullptr_t)
-        cbool operator!=(nullptr_t)
+        cbool operator==(nullptr_t)         const
+        cbool operator!=(nullptr_t)         const
         void operator=(nullptr_t)
 
         # for tests
-        _chan *_rawchan()
+        _chan *_rawchan()   const
 
     chan[T] makechan[T]()
     chan[T] makechan[T](unsigned size)
