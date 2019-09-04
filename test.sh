@@ -1,6 +1,7 @@
 #!/bin/bash -xe
 
-export CFLAGS="-O0 -g -fsanitize=thread"	# distutils take this for both C and C++
+#export CFLAGS="-O0 -g -fsanitize=thread"	# distutils take this for both C and C++
+export CFLAGS="-fsanitize=thread"	# distutils take this for both C and C++
 #export CFLAGS="-O0 -g -fsanitize=address"	# distutils take this for both C and C++
 # distutils use CFLAGS also at link stage so no need to set LDFLAGS separately
 #export LDFLAGS="-kirr"

@@ -366,6 +366,7 @@ void _WaitGroup::wakeup() {
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
 //
 // the channel owning {_recv|_send}q must be locked.
+// if the waiter is successfully dequeued, the caller must wake it up after copying data (XXX for rx only)
 _RecvSendWaiting *_dequeWaiter(list_head *queue) {
     while (!list_empty(queue)) {
         _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
@@ -715,7 +716,7 @@ void _chan::close() {
         }
         ch->_closed = true;
 
-	// XXX better relink ch->_recvq and ch->_sendq to separate queues?
+        // XXX better relink ch->_recvq and ch->_sendq to separate queues?
         vector<_RecvSendWaiting*> wakeupv;
 
         // schedule: wake-up all readers
@@ -1041,7 +1042,8 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             // queuing other cases.
             if (g->which != NULL) {
                 ch->_mu.unlock();
-                goto ready;
+                //goto ready;
+                goto wait_case;
             }
 
             // send
@@ -1100,8 +1102,10 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     }
 
     // wait for a case to become ready
+wait_case:
     g->wait();
-ready:
+//ready:    // FIXME move before g->wait (g->which != NULL, but *prx and rxok for
+//          // recv waiter is still being copied in progress.
     if (g->which == &_sel_txrx_prepoll_won)
         bug("select: woke up with g.which=_sel_txrx_prepoll_won");
 
