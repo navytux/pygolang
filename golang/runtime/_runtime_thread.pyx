@@ -207,10 +207,11 @@ cdef nogil:
         cdef WorkState state
         cdef bint done
         state.gsema = sema_alloc()
-        # XXX check mu != nil
+        if state.gsema == NULL:
+            panic("sema_alloc -> NULL")
         state.nwork = 0
 
-        n = 2
+        n = 1
         state.nwork = n
         for i in range(n):
             go(_test_lock_worker, &state)
