@@ -192,4 +192,4 @@ def test_go_cpp():
         _test_go_cpp()
 
 
-from golang.runtime._runtime_thread import test_lock
+from golang.runtime._runtime_thread import test_sema_wakeup

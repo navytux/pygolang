@@ -189,43 +189,52 @@ libgolang_runtime_ops = PyCapsule_New(&thread_ops,
 cdef nogil:
     struct WorkState:
         _libgolang_sema *gsema
-        int              nwork
+        #int              nwork
 
-    void _test_lock_worker(void *_state):
+    #void _test_lock_worker(void *_state):
+    #    state = <WorkState*>_state
+
+    #    for i in range(10000000):
+    #        sema_acquire(state.gsema)
+    #        sema_release(state.gsema)
+
+    #    sema_acquire(state.gsema)
+    #    state.nwork -= 1
+    #    sema_release(state.gsema)
+
+    void _test_sema_release(void *_state):
         state = <WorkState*>_state
-
-        for i in range(10000000):
-            sema_acquire(state.gsema)
-            sema_release(state.gsema)
-
-        sema_acquire(state.gsema)
-        state.nwork -= 1
         sema_release(state.gsema)
 
-
-    void _test_lock():
+    void _test_sema_wakeup():
         cdef WorkState state
-        cdef bint done
+        #cdef bint done
         state.gsema = sema_alloc()
         if state.gsema == NULL:
             panic("sema_alloc -> NULL")
-        state.nwork = 0
+        #state.nwork = 0
 
-        n = 1
-        state.nwork = n
-        for i in range(n):
-            go(_test_lock_worker, &state)
-
-        while 1:
+        for i in range(100000):
             sema_acquire(state.gsema)
-            done = (state.nwork == 0)
+            go(_test_sema_release, &state)
+            sema_acquire(state.gsema)
             sema_release(state.gsema)
-            if done:
-                break
+
+        #n = 1
+        #state.nwork = n
+        #for i in range(n):
+        #    go(_test_lock_worker, &state)
+
+        #while 1:
+        #    sema_acquire(state.gsema)
+        #    done = (state.nwork == 0)
+        #    sema_release(state.gsema)
+        #    if done:
+        #        break
 
         sema_free(state.gsema)
 
-def test_lock():
-    print('\nthread -> test_lock')
+def test_sema_wakeup():
+    print('\nthread -> test_sema_wakeup')
     with nogil:
-        _test_lock()
+        _test_sema_wakeup()

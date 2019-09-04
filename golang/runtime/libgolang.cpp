@@ -590,6 +590,7 @@ bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *c
         list_add_tail(&me->in_rxtxq, &ch->_recvq);
     ch->_mu.unlock();
 
+    // XXX what happens if g->wakeup is called before we enter into g->wait() ?
     g->wait();
     if (g->which != me)
         bug("chanrecv: g.which != me");
