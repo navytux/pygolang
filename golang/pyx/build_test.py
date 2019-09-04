@@ -24,7 +24,7 @@ from golang.golang_test import pyrun, pyout
 from os.path import dirname
 
 # verify that we can build/run external package that uses pygolang in pyx mode.
-def test_pyx_build():
+def _test_pyx_build():
     pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser)
 
