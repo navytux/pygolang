@@ -31,9 +31,6 @@ from __future__ import print_function, absolute_import
 
 import os, sys, re, subprocess
 
-#import pprint
-#pprint.pprint(dict(os.environ))
-
 # env_append appends value to ${name} environment variable.
 # the value is appended with " " separator.
 def env_append(name, value):
@@ -110,6 +107,9 @@ if ld_preload is not None:
 # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
 env_append("TSAN_OPTIONS", "halt_on_error=1")
 env_append("ASAN_OPTIONS", "halt_on_error=1")
+
+#import pprint
+#pprint.pprint(dict(os.environ))
 
 # exec `...`
 os.execvp(sys.argv[1], sys.argv[1:])
