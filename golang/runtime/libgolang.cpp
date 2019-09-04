@@ -269,6 +269,7 @@ struct _RecvSendWaiting {
     _RecvSendWaiting();
     void init(_WaitGroup *group, _chan *ch);
     void wakeup(bool ok);
+    bool waked_up; // XXX debug
 private:
     _RecvSendWaiting(const _RecvSendWaiting&);  // don't copy
 };
@@ -290,6 +291,7 @@ struct _WaitGroup {
     void wakeup();
 private:
     _WaitGroup(const _WaitGroup&);  // don't copy
+    int waked_up;
 };
 
 
@@ -311,12 +313,14 @@ void _RecvSendWaiting::init(_WaitGroup *group, _chan *ch) {
     w->pdata = NULL;
     w->ok    = false;
     w->sel_n = -1;
+    w->waked_up = false;
 }
 
 // wakeup notifies waiting receiver/sender that corresponding operation completed.
 void _RecvSendWaiting::wakeup(bool ok) {
     _RecvSendWaiting *w = this;
     w->ok = ok;
+    w->waked_up = true;
     w->group->wakeup();
 }
 
@@ -324,6 +328,7 @@ _WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
     group->_sema.acquire();
     group->which = NULL;
+    group->waked_up = 0;
 }
 
 // try_to_win tries to win waiter after it was dequeued from a channel's {_send|_recv}q.
@@ -360,6 +365,7 @@ void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
         bug("wakeup: group.which=nil");
+    group->waked_up++;
     group->_sema.release();
 }
 

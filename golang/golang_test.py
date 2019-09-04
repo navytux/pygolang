@@ -168,6 +168,42 @@ def test_chan():
     assert w1() is None
     assert w2() is None
 
+# FIXME move -> C level
+# XXX doc what it does.
+"""
+def test_lock():
+    mu = threading.Lock()
+    nwork = [0]
+    def _():
+        lock    = mu.acquire
+        unlock  = mu.release
+
+        for i in xrange(10000):
+            lock()
+            unlock()
+
+        lock()
+        nwork[0] -= 1
+        unlock()
+
+    n = 4
+    nwork = [n]
+    for i in range(n):
+        go(_)
+
+    lock   = mu.acquire
+    unlock = mu.release
+
+    while 1:
+        lock()
+        done = (nwork[0] == 0)
+        unlock()
+        if done:
+            break
+"""
+
+
+
 # test for buffered chan bug when ch._mu was released too early in _trysend.
 def test_chan_buf_send_vs_tryrecv_race():
     # there was a bug when for buffered channel _trysend(ch) was releasing
@@ -189,14 +225,16 @@ def test_chan_buf_send_vs_tryrecv_race():
     #                # oopses since T3 already
     #                # popped the value
     #                ch.dataq.popleft()
-    ch   = chan(1) # buffered
-    done = chan()
+#   ch   = chan(1) # buffered
+    ch   = chan() # sync
+    #done = chan()
+    done = chan(3)  # to distinguish done from ch by ._cap
     N = 1000
 
     # T1: recv(blocked)
     def _():
         for i in range(N):
-            assert ch.recv() == i
+            assert ch.recv() == i       # T1 | T2
         done.send(1)
     go(_)
 
@@ -226,7 +264,7 @@ def test_chan_buf_send_vs_tryrecv_race():
     go(_)
 
     for i in range(3):
-        done.recv()
+        done.recv()         # T1 | T2
 
 # test for buffered chan bug when ch._mu was released too early in _tryrecv.
 def test_chan_buf_recv_vs_tryrecv_race():

@@ -183,3 +183,48 @@ cdef nogil:
 from cpython cimport PyCapsule_New
 libgolang_runtime_ops = PyCapsule_New(&thread_ops,
         "golang.runtime._runtime_thread.libgolang_runtime_ops", NULL)
+
+
+# XXX doc what it does.
+cdef nogil:
+    struct WorkState:
+        _libgolang_sema *gsema
+        int              nwork
+
+    void _test_lock_worker(void *_state):
+        state = <WorkState*>_state
+
+        for i in range(10000000):
+            sema_acquire(state.gsema)
+            sema_release(state.gsema)
+
+        sema_acquire(state.gsema)
+        state.nwork -= 1
+        sema_release(state.gsema)
+
+
+    void _test_lock():
+        cdef WorkState state
+        cdef bint done
+        state.gsema = sema_alloc()
+        # XXX check mu != nil
+        state.nwork = 0
+
+        n = 2
+        state.nwork = n
+        for i in range(n):
+            go(_test_lock_worker, &state)
+
+        while 1:
+            sema_acquire(state.gsema)
+            done = (state.nwork == 0)
+            sema_release(state.gsema)
+            if done:
+                break
+
+        sema_free(state.gsema)
+
+def test_lock():
+    print('\nthread -> test_lock')
+    with nogil:
+        _test_lock()

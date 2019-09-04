@@ -102,8 +102,6 @@ if ld_preload is not None:
     #print('env <-', ld_preload)
     env_append(*ld_preload)
 
-# XXX test on darwin
-
 # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
 env_append("TSAN_OPTIONS", "halt_on_error=1")
 env_append("ASAN_OPTIONS", "halt_on_error=1")

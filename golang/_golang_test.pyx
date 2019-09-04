@@ -190,3 +190,6 @@ def test_chan_vs_stackdeadwhileparked():
 def test_go_cpp():
     with nogil:
         _test_go_cpp()
+
+
+from golang.runtime._runtime_thread import test_lock

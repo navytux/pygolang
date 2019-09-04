@@ -158,7 +158,7 @@ void waitBlocked(_chan *ch, bool rx, bool tx) {
             return;
 
         double now = time::now();
-        if (now-t0 > 10) // waited > 10 seconds - likely deadlock
+        if (now-t0 > 3) // waited > 10 seconds - likely deadlock
             panic("deadlock");
         time::sleep(0);  // yield to another thread / coroutine
     }
