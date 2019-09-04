@@ -725,6 +725,8 @@ void _chan::close() {
             if (recv == NULL)
                 break;
 
+            if (recv->pdata != NULL)
+                memset(recv->pdata, 0, ch->_elemsize);
             wakeupv.push_back(recv);
 #if 0
             ch->_mu.unlock();
