@@ -168,41 +168,6 @@ def test_chan():
     assert w1() is None
     assert w2() is None
 
-# FIXME move -> C level
-# XXX doc what it does.
-"""
-def test_lock():
-    mu = threading.Lock()
-    nwork = [0]
-    def _():
-        lock    = mu.acquire
-        unlock  = mu.release
-
-        for i in xrange(10000):
-            lock()
-            unlock()
-
-        lock()
-        nwork[0] -= 1
-        unlock()
-
-    n = 4
-    nwork = [n]
-    for i in range(n):
-        go(_)
-
-    lock   = mu.acquire
-    unlock = mu.release
-
-    while 1:
-        lock()
-        done = (nwork[0] == 0)
-        unlock()
-        if done:
-            break
-"""
-
-
 
 # test for buffered chan bug when ch._mu was released too early in _trysend.
 def test_chan_buf_send_vs_tryrecv_race():
