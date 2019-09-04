@@ -715,6 +715,7 @@ void _chan::close() {
         }
         ch->_closed = true;
 
+	// XXX better relink ch->_recvq and ch->_sendq to separate queues?
         vector<_RecvSendWaiting*> wakeupv;
 
         // schedule: wake-up all readers
@@ -748,9 +749,11 @@ void _chan::close() {
         }
     ch->_mu.unlock();
 
+#if 1
     // perform scheduled wakeups outside of ._mu
     for (auto w : wakeupv)
         w->wakeup(/*ok=*/false);
+#endif
 }
 
 // len returns current number of buffered elements.
