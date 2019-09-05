@@ -214,7 +214,8 @@ cdef nogil:
             panic("sema_alloc -> NULL")
         #state.nwork = 0
 
-        for i in range(100000):
+        # XXX rework so that T2 is not spawned on every iteration?
+        for i in range(10000):
             sema_acquire(state.gsema)
             go(_test_sema_release, &state)
             sema_acquire(state.gsema)
@@ -235,6 +236,5 @@ cdef nogil:
         sema_free(state.gsema)
 
 def test_sema_wakeup():
-    print('\nthread -> test_sema_wakeup')
     with nogil:
         _test_sema_wakeup()

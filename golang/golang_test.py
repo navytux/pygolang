@@ -314,8 +314,6 @@ def bench_chan(b):
 def test_select():
     N = 1000 # times to do repeated select/chan or select/select interactions
 
-    print('\n000')
-
     # sync: close vs select(send)
     ch = chan()
     def _():
@@ -323,8 +321,6 @@ def test_select():
         ch.close()
     go(_)
     with panics("send on closed channel"): select((ch.send, 0))
-
-    print('\n111')
 
     # sync: close vs select(recv)
     ch = chan()
@@ -334,8 +330,6 @@ def test_select():
     go(_)
     #assert select(ch.recv) == (0, None)
     assert select(ch.recv_) == (0, (None, False))
-
-    print('\n222')
 
     # non-blocking try send: not ok
     ch = chan()
