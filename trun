@@ -65,19 +65,54 @@ def ximport_empty_golangmod():
 
 def main():
     # install synthetic golang package so that we can import golang.X even if
-    # golang._golang (which is imported by golang/__init__) is not
-    # built/functional. We use golang.pyx.build._findpkg to locate _golang.so
-    # that corresponds to our python.
+    # golang._golang (which is imported by golang/__init__.py) is not built/functional.
+    # Use golang.pyx.build._findpkg to locate _golang.so that corresponds to our python.
     ximport_empty_golangmod()
     from golang.pyx.build import _findpkg
     _golang_so = _findpkg('golang._golang')
 
+    # determine if _golang.so is linked to a sanitizer, and if yes, which
+    # particular sanitizer DSO we need to preload.
+    ld_preload = None
+    if 'linux' in sys.platform:
+        p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
+        out, _ = p.communicate()
+        if PY3:
+            out = out.decode('utf-8')
+        _ = grep1(r"lib.san\.so\.. => ([^\s]+)", out)
+        if _ is not None:
+            ld_preload = ("LD_PRELOAD", _.group(1))
+
+    elif 'darwin' in sys.platform:
+        # on darwin there is no ready out-of-the box analog of ldd, but
+        # sanitizer runtimes print instruction what to preload, e.g.
+        #   ==973==ERROR: Interceptors are not working. This may be because ThreadSanitizer is loaded too late (e.g. via dlopen). Please launch the executable with:
+        #   DYLD_INSERT_LIBRARIES=/Library/Developer/CommandLineTools/usr/lib/clang/10.0.1/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib
+        #   "interceptors not installed" && 0./test.sh: line 6:   973 Abort trap: 6           ./trun python -m pytest "$@"
+        #   (process crash)
+        p = subprocess.Popen(["python", "-c", "import golang"], stderr=subprocess.PIPE)
+        _, err = p.communicate()
+        if p.returncode != 0:
+            if PY3:
+                err = err.decode('utf-8')
+
+            _ = grep1("DYLD_INSERT_LIBRARIES=(.*)$", err)
+            if _ is not None:
+                ld_preload = ("DYLD_INSERT_LIBRARIES", _.group(1))
+            else:
+                print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
+                print(err, file=sys.stderr)
+                sys.exit(2)
+
+
+    """
     # try to see if we can import golang. If libgolang is compiled with a sanitizer
     # this will fail with e.g.:
     #
     # linux:
     #   ...
-    #   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
+    #   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block (cpython)
+    #   ImportError: unable to load extension module 'golang/_golang.pypy-41-x86_64-linux-gnu.so': /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block (pypy)
     #
     # darwing:
     #   ...
@@ -95,12 +130,17 @@ def main():
             err = err.decode('utf-8')
 
         if 'linux' in sys.platform:
+            print('ERR:\n%s\n' % err)
             _ = grep1("ImportError: (.*):", err)
             if _ is not None:
                 ld_preload = ("LD_PRELOAD", _.group(1))
 
             # asan/linux just aborts the process with error but there is no detail, e.g.
             #   ==23564==ASan runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD.
+            # for tsan/linux the detail is there but varying:
+            #   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block (cpython)
+            #   ImportError: unable to load extension module 'golang/_golang.pypy-41-x86_64-linux-gnu.so': /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block (pypy)
+
             # -> use ldd to detect required runtime DSO.
             # XXX use ldd always??
             elif grep1("runtime does not come first in initial library list", err):
@@ -121,10 +161,11 @@ def main():
             print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
             print(err, file=sys.stderr)
             sys.exit(2)
+    """
 
 
     if ld_preload is not None:
-        #print('env <-', ld_preload)
+        print('env <-', ld_preload)
         env_prepend(*ld_preload)
 
     # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
