@@ -37,7 +37,7 @@ def readfile(path):
 # we have to be careful and inject synthetic golang package in order to be
 # able to import golang.pyx.build without built/working golang.
 trun = {}
-exec readfile('trun') in trun   # XXX relative to file, XXX py3
+exec(readfile('trun'), trun)   # XXX relative to file
 trun['ximport_empty_golangmod']()
 from golang.pyx.build import setup, Extension as Ext
 
