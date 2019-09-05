@@ -31,13 +31,15 @@ from __future__ import print_function, absolute_import
 
 import os, sys, re, subprocess, imp, pkgutil
 
-# env_append appends value to ${name} environment variable.
-# the value is appended with " " separator.
-def env_append(name, value):
+# env_prepend prepends value to ${name} environment variable.
+#
+# the value is prepended with " " separator.
+# the value is prepended - not appended - so that default set by trun can be overrideen by user.
+def env_prepend(name, value):
     _ = os.environ.get(name, "")
     if _ != "":
-        _ += " "
-    os.environ[name] = _ + value
+        value += " " + _
+    os.environ[name] = value
 
 # grep1 searches for the first line, that mattches pattern, from text.
 def grep1(pattern, text): # -> re.Match|None
@@ -120,11 +122,16 @@ def main():
 
     if ld_preload is not None:
         #print('env <-', ld_preload)
-        env_append(*ld_preload)
+        env_prepend(*ld_preload)
 
     # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
-    env_append("TSAN_OPTIONS", "halt_on_error=1")
-    env_append("ASAN_OPTIONS", "halt_on_error=1")
+    env_prepend("TSAN_OPTIONS", "halt_on_error=1")
+    env_prepend("ASAN_OPTIONS", "halt_on_error=1")
+
+    # many python allocations, whose lifetime is overset of python interpreter
+    # lifetime and which are not explicitly freed on python shutdown, are
+    # reported as leaks. Disable it.    XXX text
+    env_prepend("ASAN_OPTIONS", "detect_leaks=0")
 
     #import pprint
     #pprint.pprint(dict(os.environ))
