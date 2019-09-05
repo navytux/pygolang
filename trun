@@ -99,6 +99,7 @@ def main():
             # asan/linux just aborts the process with error but there is no detail, e.g.
             #   ==23564==ASan runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD.
             # -> use ldd to detect required runtime DSO.
+            # XXX use ldd always??
             elif grep1("runtime does not come first in initial library list", err):
                 p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
                 out, _ = p.communicate()
