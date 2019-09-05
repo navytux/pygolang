@@ -30,6 +30,7 @@ trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.s
 from __future__ import print_function, absolute_import
 
 import os, sys, re, subprocess, imp, pkgutil
+PY3 = (bytes is not str)
 
 # env_prepend prepends value to ${name} environment variable.
 #
@@ -90,7 +91,7 @@ def main():
     _, err = p.communicate()
     ld_preload = None
     if p.returncode != 0:
-        if bytes is not str: # py3
+        if PY3:
             err = err.decode('utf-8')
 
         if 'linux' in sys.platform:
@@ -105,6 +106,8 @@ def main():
             elif grep1("runtime does not come first in initial library list", err):
                 p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
                 out, _ = p.communicate()
+                if PY3:
+                    out = out.decode('utf-8')
                 _ = grep1(r"lib.san\.so\.. => ([^\s]+)", out)
                 if _ is not None:
                     ld_preload = ("LD_PRELOAD", _.group(1))
