@@ -133,6 +133,9 @@ def main():
     # reported as leaks. Disable it.    XXX text
     env_prepend("ASAN_OPTIONS", "detect_leaks=0")
 
+    # tune ASAN to check more aggressively
+    env_prepend("ASAN_OPTIONS", "detect_stack_use_after_return=1")
+
     #import pprint
     #pprint.pprint(dict(os.environ))
 
