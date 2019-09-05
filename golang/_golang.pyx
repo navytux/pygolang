@@ -113,13 +113,13 @@ cdef void _goviac(void *arg) nogil:
     #
     # -> be explicit and manually keep py thread state alive ourselves.
     gstate = PyGILState_Ensure() # py thread state will stay alive until PyGILState_Release
-    __goviac(arg)
+    __goviac(arg)               #   XXX
     PyGILState_Release(gstate)
 
 cdef void __goviac(void *arg) nogil:
     with gil:
         try:
-            _ = <_togo>arg
+            _ = <_togo>arg      # <-- XXX
             Py_DECREF(_)
             _.f(*_.argv, **_.kw)
         except:

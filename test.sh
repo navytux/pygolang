@@ -4,7 +4,7 @@
 #export CFLAGS="-g -O0"
 #export CFLAGS="-g -O0 -fsanitize=thread"
 #export CFLAGS="-g -fsanitize=thread"
-export CFLAGS="-g -O0 -fsanitize=address"
+#export CFLAGS="-g -O0 -fsanitize=address"
 
 #export CFLAGS="-O0 -g -fsanitize=thread"	# distutils take this for both C and C++
 #export CFLAGS="-O0 -g -fsanitize=address"	# distutils take this for both C and C++
