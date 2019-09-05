@@ -25,5 +25,5 @@ python setup.py build_ext -i
 
 #LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.5 python -m pytest "$@"
 ./trun python -m pytest "$@"
-./trun gpython -m pytest "$@"
+#./trun gpython -m pytest "$@"
 #gdb python -ex run -ex q --args python `which gpython` -m pytest "$@"
