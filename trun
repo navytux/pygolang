@@ -29,7 +29,7 @@ trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.s
 
 from __future__ import print_function, absolute_import
 
-import os, sys, re, subprocess
+import os, sys, re, subprocess, imp, pkgutil
 
 # env_append appends value to ${name} environment variable.
 # the value is appended with " " separator.
@@ -48,66 +48,89 @@ def grep1(pattern, text): # -> re.Match|None
             return m
     return None
 
-# try to see if we can import golang. If libgolang is compiled with a sanitizer
-# this will fail with e.g.:
-#
-# linux:
-#   ...
-#   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
-#
-# darwing:
-#   ...
-#   ==973==ERROR: Interceptors are not working. This may be because ThreadSanitizer is loaded too late (e.g. via dlopen). Please launch the executable with:
-#   DYLD_INSERT_LIBRARIES=/Library/Developer/CommandLineTools/usr/lib/clang/10.0.1/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib
-#   "interceptors not installed" && 0./test.sh: line 6:   973 Abort trap: 6           ./trun python -m pytest "$@"
-#   (process crash)
-#
-# we use printed information to detect which library to LD_PRELOAD.
-p = subprocess.Popen(["python", "-c", "import golang"], stderr=subprocess.PIPE)
-out, err = p.communicate()
-ld_preload = None
-if p.returncode != 0:
-    if bytes is not str: # py3
-        err = err.decode('utf-8')
+# inject_empty_golangmod injects syncthetic golang package in order to be able
+# to import e.g. golang.pyx.build, or locate golang._golang, without built/working golang.
+def ximport_empty_golangmod():
+    assert 'golang' not in sys.modules
+    golang = imp.new_module('golang')
+    golang.__package__ = 'golang'
+    golang.__path__    = ['golang']             # XXX relative to file
+    golang.__file__    = 'golang/__init__.py'   # XXX relative to file
+    golang.__loader__  = pkgutil.ImpLoader('golang', None, 'golang/__init__.py',    # XXX relative to file
+                                           [None, None, imp.PY_SOURCE])
+    sys.modules['golang'] = golang
 
-    if 'linux' in sys.platform:
-        _ = grep1("ImportError: (.*):", err)
-        if _ is not None:
-            ld_preload = ("LD_PRELOAD", _.group(1))
+def main():
+    # install synthetic golang package so that we can import golang.X even if
+    # golang._golang (which is imported by golang/__init__) is not
+    # built/functional. We use golang.pyx.build._findpkg to locate _golang.so
+    # that corresponds to our python.
+    ximport_empty_golangmod()
+    from golang.pyx.build import _findpkg
+    _golang_so = _findpkg('golang._golang')
 
-    if 'darwin' in sys.platform:
-        _ = grep1("DYLD_INSERT_LIBRARIES=(.*)$", err)
-        if _ is not None:
-            ld_preload = ("DYLD_INSERT_LIBRARIES", _.group(1))
+    # try to see if we can import golang. If libgolang is compiled with a sanitizer
+    # this will fail with e.g.:
+    #
+    # linux:
+    #   ...
+    #   ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
+    #
+    # darwing:
+    #   ...
+    #   ==973==ERROR: Interceptors are not working. This may be because ThreadSanitizer is loaded too late (e.g. via dlopen). Please launch the executable with:
+    #   DYLD_INSERT_LIBRARIES=/Library/Developer/CommandLineTools/usr/lib/clang/10.0.1/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib
+    #   "interceptors not installed" && 0./test.sh: line 6:   973 Abort trap: 6           ./trun python -m pytest "$@"
+    #   (process crash)
+    #
+    # we use printed information to detect which library to LD_PRELOAD.
+    p = subprocess.Popen(["python", "-c", "import golang"], stderr=subprocess.PIPE)
+    _, err = p.communicate()
+    ld_preload = None
+    if p.returncode != 0:
+        if bytes is not str: # py3
+            err = err.decode('utf-8')
 
-    if ld_preload is None:
-        print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
-        print(err, file=sys.stderr)
-        sys.exit(2)
+        if 'linux' in sys.platform:
+            _ = grep1("ImportError: (.*):", err)
+            if _ is not None:
+                ld_preload = ("LD_PRELOAD", _.group(1))
+
+            # asan/linux just aborts the process with error but there is no detail, e.g.
+            #   ==23564==ASan runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD.
+            # -> use ldd to detect required runtime DSO.
+            elif grep1("runtime does not come first in initial library list", err):
+                p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
+                out, _ = p.communicate()
+                _ = grep1(r"lib.san\.so\.. => ([^\s]+)", out)
+                if _ is not None:
+                    ld_preload = ("LD_PRELOAD", _.group(1))
+
+        if 'darwin' in sys.platform:
+            _ = grep1("DYLD_INSERT_LIBRARIES=(.*)$", err)
+            if _ is not None:
+                ld_preload = ("DYLD_INSERT_LIBRARIES", _.group(1))
+
+        if ld_preload is None:
+            print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
+            print(err, file=sys.stderr)
+            sys.exit(2)
 
 
-"""
-ld_preload = None
-try:
-    import golang
-except ImportError as e:
-    msg = e.args[0]
-    if 'libtsan' in msg or 'libasan' in msg:
-        ld_preload = msg.split()[0]
-    else:
-        raise
-"""
+    if ld_preload is not None:
+        #print('env <-', ld_preload)
+        env_append(*ld_preload)
 
-if ld_preload is not None:
-    #print('env <-', ld_preload)
-    env_append(*ld_preload)
+    # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
+    env_append("TSAN_OPTIONS", "halt_on_error=1")
+    env_append("ASAN_OPTIONS", "halt_on_error=1")
 
-# if TSAN/ASAN detects a bug - make it fail loudly on the first bug
-env_append("TSAN_OPTIONS", "halt_on_error=1")
-env_append("ASAN_OPTIONS", "halt_on_error=1")
+    #import pprint
+    #pprint.pprint(dict(os.environ))
 
-#import pprint
-#pprint.pprint(dict(os.environ))
+    # exec `...`
+    os.execvp(sys.argv[1], sys.argv[1:])
 
-# exec `...`
-os.execvp(sys.argv[1], sys.argv[1:])
+
+if __name__ == '__main__':
+    main()
