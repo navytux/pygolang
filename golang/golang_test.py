@@ -60,6 +60,10 @@ def bench_go(b):
         go(_)
         done.recv()
 
+def test_deadlock():
+    ch = nilchan
+    ch.recv()
+
 
 def test_chan():
     # sync: pre-close vs send/recv

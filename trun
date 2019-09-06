@@ -116,6 +116,12 @@ def main():
     env_prepend("TSAN_OPTIONS", "halt_on_error=1")
     env_prepend("ASAN_OPTIONS", "halt_on_error=1")
 
+    # tweak TSAN/ASAN defaults:
+
+    # enable TSAN deadlock detector
+    env_prepend("TSAN_OPTIONS", "detect_deadlocks=1")
+    env_prepend("TSAN_OPTIONS", "second_deadlock_stack=1")
+
     # many python allocations, whose lifetime coincides with python interpreter
     # lifetime and which are not explicitly freed on python shutdown, are
     # reported as leaks. Disable leak reporting to avoid huge non-pygolang
