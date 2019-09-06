@@ -1,5 +1,6 @@
 #!/bin/bash -xe
 # build/run pygolang tests in-tree while developing.
+# XXX merge into trun?
 
 # distutils takes CFLAGS for both C and C++
 # distutils use CFLAGS also at link stage so no need to set LDFLAGS separately
