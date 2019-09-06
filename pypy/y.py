@@ -33,6 +33,8 @@ t.join()
 
 Z = {-1: 0}
 
+N = 10000000
+
 def main():
     global Z
     print('\n\n\nSTART\n\n\n')
@@ -41,20 +43,20 @@ def main():
         global Z
         #done.close()
         pass
-        for i in range(1000):
+        for i in range(N):
             Z[-1] = i
     #go(_)
     #thread.start_new_thread(_, ())
     t = threading.Thread(target=_)
     t.start()
-    for i in range(1000):
+    for i in range(N):
         _ = Z.setdefault('observed', [])
         l = Z[-1]
         if _ and _[-1] == l:
             continue
         _.append(l)
     print('switched at least #%d times' % len(Z['observed']))
-    print(Z)
+    #print(Z)
 
 if __name__ == '__main__':
     main()
