@@ -165,7 +165,7 @@ def main():
 
 
     if ld_preload is not None:
-        print('env <-', ld_preload)
+        #print('env <-', ld_preload)
         env_prepend(*ld_preload)
 
     # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
