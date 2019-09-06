@@ -25,7 +25,7 @@ from golang import time
 from golang.golang_test import panics
 
 # all timer tests operate in dt units
-dt = 10*time.millisecond
+dt = 50*time.millisecond
 
 # test_now verifies that time.now is correct.
 def test_now():
