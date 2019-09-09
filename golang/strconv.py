@@ -35,7 +35,7 @@ def _bstr(s):   # -> sbytes, wasunicode
     elif isinstance(s, six.text_type):          # py2: unicode  py3: str
         wasunicode = True
     else:
-        raise TypeError("_bstr: invalid type %s", type(s))
+        raise TypeError("_bstr: invalid type %s" % type(s))
 
     if wasunicode:                              # py2: unicode  py3: str    -> bytes
         s = s.encode('UTF-8')
