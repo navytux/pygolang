@@ -336,8 +336,8 @@ public:
     }
 
     // length/capacity
-    inline unsigned len()             const  { return _chanlen(_ch);         }
-    inline unsigned cap()             const  { return _chancap(_ch);         }
+    inline unsigned len()             const  { return _chanlen(_ch); }
+    inline unsigned cap()             const  { return _chancap(_ch); }
 
     // compare wrt nil
     inline bool operator==(nullptr_t) const  { return (_ch == NULL); }
