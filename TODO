@@ -1,4 +1,6 @@
-? scikit-build
+- gpython -X gpython.runtime=(gevent|thread)
+  $GPYTHON_RUNTIME
+  -> sys._xoptions
 
 - gpython: main in C + AST rewrite hook + changed pyc magic
   -> drop pypy support?
@@ -37,16 +39,11 @@
 ? io/ioutil: readfile, writefile
 ? io.Pipe
 
+? scikit-build
+
 ----
 
 "solved"
 
 ? errctx (-> directly use go123; see gimport vs go123 on pypi)
   -> better make raise always behave like raise_ in pypi.org/project/pep3134 (exception cause is preserved)
-
-
-----
-
-? out-out of gevent/gpython ?	XXX what did this mean? -> finer grained
-  control when to use/not use gevent (i.e. disable gevent under gpython, use
-  gevent under std python, ...)?
