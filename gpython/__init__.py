@@ -57,6 +57,8 @@ def pymain(argv):
     # XXX -x            skip non-unix shebang
     # XXX -             program read from stdin
 
+    # XXX -X gpython.runtime=(gevent|thread) + $GPYTHON_RUNTIME
+
     # interactive console
     if not argv:
         sys.argv = ['']
@@ -162,6 +164,7 @@ def main():
                 '\n\n\t%s\n\nsys.modules:\n\n\t%s' % (bad, sysmodv))
 
     # make gevent pre-available & stdlib patched
+    # TODO only if gpython.runtime=gevent
     from gevent import monkey
     # XXX workaround for gevent vs pypy2 crash.
     # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
@@ -199,7 +202,6 @@ def main():
         exe = exe[:-len('-script.py')]
         exe = exe + '.exe'
 
-    import sys
     sys.executable  = exe
     sys.version    += (' [GPython %s]' % golang.__version__)
 
