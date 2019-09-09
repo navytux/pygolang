@@ -4,7 +4,7 @@
 
 # distutils takes CFLAGS for both C and C++
 # distutils use CFLAGS also at link stage so no need to set LDFLAGS separately
-export CFLAGS="-g -O0 -fsanitize=thread"
+#export CFLAGS="-g -O0 -fsanitize=thread"
 #export CFLAGS="-g -O0 -fsanitize=address"
 
 python setup.py build_dso -i

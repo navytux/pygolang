@@ -119,6 +119,8 @@ def main():
     # tweak TSAN/ASAN defaults:
 
     # enable TSAN deadlock detector
+    # (unfortunately it caughts only few _potential_ deadlocks and actually
+    # gets stuck on any real deadlock)
     env_prepend("TSAN_OPTIONS", "detect_deadlocks=1")
     env_prepend("TSAN_OPTIONS", "second_deadlock_stack=1")
 
