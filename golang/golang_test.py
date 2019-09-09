@@ -60,7 +60,7 @@ def bench_go(b):
         go(_)
         done.recv()
 
-def test_deadlock():
+def _test_deadlock():
     ch = nilchan
     ch.recv()
 
