@@ -112,7 +112,9 @@ cdef nogil:
 
     void sema_acquire(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema
-        PyThread_acquire_lock(pysema, WAIT_LOCK)
+        ok = PyThread_acquire_lock(pysema, WAIT_LOCK)
+        if ok == 0:
+            panic("pyxgo: thread: sema_acquire: PyThread_acquire_lock failed")
 
     void sema_release(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema
