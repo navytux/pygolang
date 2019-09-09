@@ -3,6 +3,7 @@ __pycache__
 build/
 .tox/
 .cache/
+.pytest_cache/
 
 *.o
 *.so
@@ -12,7 +13,13 @@ build/
 *.pyd
 
 /dist/
+/pip-wheel-metadata/
 *.egg-info
 
 perf.data*
 core
+
+tags
+
+.*.sw?
+.sw?
