@@ -141,6 +141,7 @@ struct Sema {
 
 private:
     Sema(const Sema&);      // don't copy
+    Sema(Sema&&);           // don't move
 };
 
 Sema::Sema() {
@@ -178,6 +179,7 @@ struct Mutex {
 private:
     Sema _sema;
     Mutex(const Mutex&);    // don't copy
+    Mutex(Mutex&&);         // don't move
 };
 
 // with_lock mimics `with mu` from python.
@@ -194,6 +196,7 @@ struct _deferred {
     ~_deferred() { f(); }
 private:
     _deferred(const _deferred&);    // don't copy
+    _deferred(_deferred&&);         // don't move
 };
 
 // ---- channels -----
@@ -245,6 +248,7 @@ struct _chan {
     void _dataq_popleft(void *prx);
 private:
     _chan(const _chan&);    // don't copy
+    _chan(_chan&&);         // don't move
 
     template<bool onstack> void _send2 (const void *);
     void __send2 (const void *, _WaitGroup*, _RecvSendWaiting*);
@@ -273,6 +277,7 @@ struct _RecvSendWaiting {
     void wakeup(bool ok);
 private:
     _RecvSendWaiting(const _RecvSendWaiting&);  // don't copy
+    _RecvSendWaiting(_RecvSendWaiting&&);       // don't move
 };
 
 // _WaitGroup is a group of waiting senders and receivers.
@@ -292,6 +297,7 @@ struct _WaitGroup {
     void wakeup();
 private:
     _WaitGroup(const _WaitGroup&);  // don't copy
+    _WaitGroup(_WaitGroup&&);       // don't move
 };
 
 
