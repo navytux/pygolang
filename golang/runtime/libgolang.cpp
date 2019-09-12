@@ -57,6 +57,8 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+static void *zalloc(size_t size);
+
 namespace golang {
 
 // ---- panic ----
@@ -387,10 +389,9 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
 // returned channel has refcnt=1.
 _chan *_makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
-    ch = (_chan *)malloc(sizeof(_chan) + size*elemsize);
+    ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         return NULL;
-    memset((void *)ch, 0, sizeof(*ch));
     new (&ch->_mu) Mutex();
 
     ch->_refcnt   = 1;
@@ -1149,3 +1150,14 @@ double now() {
 }
 
 }}  // golang::time::
+
+
+// ---- misc ----
+
+// zalloc allocates zeroed memory.
+static void *zalloc(size_t size) {
+    void *mem = malloc(size);
+    if (mem != NULL)
+        memset(mem, 0, size);
+    return mem;
+}
