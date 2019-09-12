@@ -183,7 +183,22 @@ private:
 };
 
 // with_lock mimics `with mu` from python.
-#define with_lock(mu) std::lock_guard<Mutex> _with_lock_ ## __COUNTER__ (mu)
+// usage example:
+//
+//  with_lock(mu) {
+//      ...
+//  }
+#define with_lock(mu) for (             \
+    _with_lock_guard _with_lock(mu);    \
+    _with_lock.once();                  \
+)
+struct _with_lock_guard {
+    std::lock_guard<Mutex> mug;
+    bool                   done;
+    _with_lock_guard(Mutex &mu) : mug(mu), done(false) {}
+    bool once() { bool _ = !done; done = true; return _; }
+};
+
 
 // defer(f) mimics defer from golang.
 // XXX f is called at end of current scope, not function.
@@ -1013,7 +1028,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             continue;
 
         ch->_mu.lock();
-        with_lock(g->_mu); // with, because _trysend may panic
+        with_lock(g->_mu) { // with, because _trysend may panic
             // a case that we previously queued already won while we were
             // queuing other cases.
             if (g->which != NULL) {
@@ -1067,6 +1082,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             else {
                 bug("select: invalid op during phase 2");
             }
+        }
         ch->_mu.unlock();
     }
 
