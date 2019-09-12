@@ -288,6 +288,22 @@ def test_chan_buf_recv_vs_tryrecv_race():
     for i in range(3):
         done.recv()
 
+# send/recv on the same channel in both directions.
+# this triggers https://bugs.python.org/issue38106 on MacOS.
+def test_chan_sendrecv_2way():
+    N = 1000
+
+    ch = chan()
+    def _():
+        for i in range(N):
+            assert ch.recv() == ('hello %d' % i)
+            ch.send('world %d' % i)
+    go(_)
+
+    for i in range(N):
+        ch.send('hello %d' % i)
+        assert ch.recv() == ('world %d' % i)
+
 
 # benchmark sync chan send/recv.
 def bench_chan(b):

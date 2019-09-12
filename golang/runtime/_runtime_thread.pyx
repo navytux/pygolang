@@ -52,19 +52,27 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 # This way when Pygolang is used with buggy Python/darwin, the bug leads to
 # frequently appearing deadlocks, while e.g. CPython3/darwin works ok.
 #
-# -> TODO maintain our own semaphore code.
+# The bug was reported to CPython/PyPy upstreams:
+#
+# - https://bugs.python.org/issue38106
+# - https://bitbucket.org/pypy/pypy/issues/3072
+#
+# -> TODO maintain our own semaphore code or stop printing the warning when/if
+#    fixed CPython/PyPy versions are released.
 import sys, platform
 if 'darwin' in sys.platform:
     pyimpl = platform.python_implementation()
     pyver  = sys.version_info
-    buggy  = None
+    buggy  = buglink = None
     if 'CPython' in pyimpl and pyver < (3, 0):
-        buggy = "cpython2/darwin"
+        buggy   = "cpython2/darwin"
+        buglink = "https://bugs.python.org/issue38106"
     if 'PyPy' in pyimpl:
-        buggy = "pypy/darwin"
+        buggy   = "pypy/darwin"
+        buglink = "https://bitbucket.org/pypy/pypy/issues/3072"
     if buggy:
         print("WARNING: pyxgo: thread: %s has race condition bug in runtime"
-              " that leads to deadlocks" % buggy, file=sys.stderr)
+              " that leads to deadlocks (%s)" % (buggy, buglink), file=sys.stderr)
 
 # make sure python threading is initialized, so that there is no concurrent
 # calls to PyThread_init_thread from e.g. PyThread_allocate_lock later.
