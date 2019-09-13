@@ -144,17 +144,15 @@ void _test_chan_cpp() {
     //chan<chan<int>> zzz;
 }
 
-// waitBlocked waits until either a receive (if rx) or send (if tx) operation
-// blocks waiting on the channel.
-void waitBlocked(_chan *ch, bool rx, bool tx) {
+// waitBlocked waits until at least nrx recv and ntx send operations block
+// waiting on the channel.
+void waitBlocked(_chan *ch, int nrx, int ntx) {
     if (ch == NULL)
         panic("wait blocked: called on nil channel");
 
     double t0 = time::now();
     while (1) {
-        if (rx && (_tchanrecvqlen(ch) != 0))
-            return;
-        if (tx && (_tchansendqlen(ch) != 0))
+        if ((_tchanrecvqlen(ch) >= nrx) && (_tchansendqlen(ch) >= ntx))
             return;
 
         double now = time::now();
@@ -165,10 +163,10 @@ void waitBlocked(_chan *ch, bool rx, bool tx) {
 }
 
 template<typename T> void waitBlocked_RX(chan<T> ch) {
-    waitBlocked(ch._rawchan(), /*rx=*/true, /*tx=*/0);
+    waitBlocked(ch._rawchan(), /*nrx=*/1, /*ntx=*/0);
 }
 template<typename T> void waitBlocked_TX(chan<T> ch) {
-    waitBlocked(ch._rawchan(), /*rx=*/0, /*tx=*/true);
+    waitBlocked(ch._rawchan(), /*nrx=*/0, /*ntx=*/1);
 }
 
 // usestack_and_call pushes C-stack down and calls f from that.

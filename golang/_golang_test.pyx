@@ -47,9 +47,9 @@ def pylen_sendq(pychan pych not None): # -> int
 # runtime/libgolang_test.cpp
 cdef extern from *:
     """
-    extern void waitBlocked(golang::_chan *ch, bool rx, bool tx);
+    extern void waitBlocked(golang::_chan *ch, int nrx, int ntx);
     """
-    void waitBlocked(_chan *, bint rx, bint tx) nogil except +topyexc
+    void waitBlocked(_chan *, int nrx, int ntx) nogil except +topyexc
 
 # pywaitBlocked waits till a receive or send pychan operation blocks waiting on the channel.
 #
@@ -58,17 +58,17 @@ def pywaitBlocked(pychanop):
     if pychanop.__self__.__class__ is not pychan:
         pypanic("wait blocked: %r is method of a non-chan: %r" % (pychanop, pychanop.__self__.__class__))
     cdef pychan pych = pychanop.__self__
-    cdef bint recv = False
-    cdef bint send = False
+    cdef int nrecv = 0
+    cdef int nsend = 0
     if pychanop.__name__ == "recv":     # XXX better check PyCFunction directly
-        recv = True
+        nrecv = 1
     elif pychanop.__name__ == "send":   # XXX better check PyCFunction directly
-        send = True
+        nsend = 1
     else:
         pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
 
     with nogil:
-        waitBlocked(pych.ch._rawchan(), recv, send)
+        waitBlocked(pych.ch._rawchan(), nrecv, nsend)
 
 
 # `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with
