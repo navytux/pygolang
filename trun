@@ -1,0 +1,146 @@
+#!/usr/bin/env python
+# Copyright (C) 2019  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
+#
+# This program is free software: you can Use, Study, Modify and Redistribute
+# it under the terms of the GNU General Public License version 3, or (at your
+# option) any later version, as published by the Free Software Foundation.
+#
+# You can also Link and Combine this program with other software covered by
+# the terms of any of the Free Software licenses or any of the Open Source
+# Initiative approved licenses and Convey the resulting work. Corresponding
+# source of such a combination shall include the source code for all other
+# software used.
+#
+# This program is distributed WITHOUT ANY WARRANTY; without even the implied
+# warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# See COPYING file for full licensing terms.
+# See https://www.nexedi.com/licensing for rationale and options.
+""" `trun ...` - run `...` while testing pygolang
+
+For example it is not possible to import sanitized libgolang.so if non-sanitized
+python was used to start tests - it will fail with
+
+    ImportError: /usr/lib/x86_64-linux-gnu/libtsan.so.0: cannot allocate memory in static TLS block
+
+trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.so
+"""
+
+# TODO integrate startup code into e.g. `gpython -race` which should arrange
+# for _golang.xxx-race.so to be loaded instead of _golang.xxx.so, and also
+# arrange for initial $LD_PRELOAD. Always build both _golang.xxx.so and
+# _golang.xxx-race.so as part of standard pygolang build.
+
+from __future__ import print_function, absolute_import
+
+import os, sys, re, subprocess, imp, pkgutil
+PY3 = (bytes is not str)
+
+# env_prepend prepends value to ${name} environment variable.
+#
+# the value is prepended with " " separator.
+# the value is prepended - not appended - so that defaults set by trun can be overridden by user.
+def env_prepend(name, value):
+    _ = os.environ.get(name, "")
+    if _ != "":
+        value += " " + _
+    os.environ[name] = value
+
+# grep1 searches for the first line, that matches pattern, from text.
+def grep1(pattern, text): # -> re.Match|None
+    p = re.compile(pattern)
+    for l in text.splitlines():
+        m = p.search(l)
+        if m is not None:
+            return m
+    return None
+
+# ximport_empty_golangmod injects synthetic golang package in order to be able
+# to import e.g. golang.pyx.build, or locate golang._golang, without built/working golang.
+def ximport_empty_golangmod():
+    assert 'golang' not in sys.modules
+    golang = imp.new_module('golang')
+    golang.__package__ = 'golang'
+    golang.__path__    = ['golang']
+    golang.__file__    = 'golang/__init__.py'
+    golang.__loader__  = pkgutil.ImpLoader('golang', None, 'golang/__init__.py',
+                                           [None, None, imp.PY_SOURCE])
+    sys.modules['golang'] = golang
+
+
+def main():
+    # install synthetic golang package so that we can import golang.X even if
+    # golang._golang (which is imported by golang/__init__.py) is not built/functional.
+    # Use golang.pyx.build._findpkg to locate _golang.so that corresponds to our python.
+    ximport_empty_golangmod()
+    from golang.pyx import build
+    _golang_so = build._findpkg('golang._golang')
+
+    # determine if _golang.so is linked to a sanitizer, and if yes, to which
+    # particular sanitizer DSO. Set LD_PRELOAD appropriately.
+    ld_preload = None
+    if 'linux' in sys.platform:
+        p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
+        out, _ = p.communicate()
+        if PY3:
+            out = out.decode('utf-8')
+        _ = grep1(r"lib.san\.so\.. => ([^\s]+)", out)
+        if _ is not None:
+            ld_preload = ("LD_PRELOAD", _.group(1))
+
+    elif 'darwin' in sys.platform:
+        # on darwin there is no ready out-of-the box analog of ldd, but
+        # sanitizer runtimes print instruction what to preload, e.g.
+        #   ==973==ERROR: Interceptors are not working. This may be because ThreadSanitizer is loaded too late (e.g. via dlopen). Please launch the executable with:
+        #   DYLD_INSERT_LIBRARIES=/Library/Developer/CommandLineTools/usr/lib/clang/10.0.1/lib/darwin/libclang_rt.tsan_osx_dynamic.dylib
+        #   "interceptors not installed" && 0./test.sh: line 6:   973 Abort trap: 6           ./trun python -m pytest "$@"
+        # try to `import golang` to retrieve that.
+        p = subprocess.Popen(["python", "-c", "import golang"], stderr=subprocess.PIPE)
+        _, err = p.communicate()
+        if p.returncode != 0:
+            if PY3:
+                err = err.decode('utf-8')
+
+            _ = grep1("DYLD_INSERT_LIBRARIES=(.*)$", err)
+            if _ is not None:
+                ld_preload = ("DYLD_INSERT_LIBRARIES", _.group(1))
+            else:
+                print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
+                print(err, file=sys.stderr)
+                sys.exit(2)
+
+    # ld_preload has e.g. ("LD_PRELOAD", "/usr/lib/x86_64-linux-gnu/libtsan.so.0")
+    if ld_preload is not None:
+        #print('env <-', ld_preload)
+        env_prepend(*ld_preload)
+
+    # $LD_PRELOAD setup; ready to exec `...`
+
+    # if TSAN/ASAN detects a bug - make it fail loudly on the first bug
+    env_prepend("TSAN_OPTIONS", "halt_on_error=1")
+    env_prepend("ASAN_OPTIONS", "halt_on_error=1")
+
+    # tweak TSAN/ASAN defaults:
+
+    # enable TSAN deadlock detector
+    # (unfortunately it caughts only few _potential_ deadlocks and actually
+    # gets stuck on any real deadlock)
+    env_prepend("TSAN_OPTIONS", "detect_deadlocks=1")
+    env_prepend("TSAN_OPTIONS", "second_deadlock_stack=1")
+
+    # many python allocations, whose lifetime coincides with python interpreter
+    # lifetime and which are not explicitly freed on python shutdown, are
+    # reported as leaks. Disable leak reporting to avoid huge non-pygolang
+    # related printouts.
+    env_prepend("ASAN_OPTIONS", "detect_leaks=0")
+
+    # tune ASAN to check more aggressively by default
+    env_prepend("ASAN_OPTIONS", "detect_stack_use_after_return=1")
+
+    # exec `...`
+    os.execvp(sys.argv[1], sys.argv[1:])
+
+
+if __name__ == '__main__':
+    main()

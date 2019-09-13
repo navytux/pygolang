@@ -28,23 +28,19 @@ from setuptools.command.develop import develop as _develop
 from os.path import dirname, join
 import sys, re
 
-# reuse golang.pyx.build to build pygolang extensions.
-# we have to be careful and inject synthetic golang package in order to be
-# able to import golang.pyx.build without built/working golang.
-import imp, pkgutil
-golang = imp.new_module('golang')
-golang.__package__ = 'golang'
-golang.__path__    = ['golang']
-golang.__file__    = 'golang/__init__.py'
-golang.__loader__  = pkgutil.ImpLoader('golang', None, 'golang/__init__.py',
-                                       [None, None, imp.PY_SOURCE])
-sys.modules['golang'] = golang
-from golang.pyx.build import setup, Extension as Ext
-
 # read file content
 def readfile(path):
     with open(path, 'r') as f:
         return f.read()
+
+# reuse golang.pyx.build to build pygolang extensions.
+# we have to be careful and inject synthetic golang package in order to be
+# able to import golang.pyx.build without built/working golang.
+trun = {}
+exec(readfile('trun'), trun)
+trun['ximport_empty_golangmod']()
+from golang.pyx.build import setup, Extension as Ext
+
 
 # grep searches text for pattern.
 # return re.Match object or raises if pattern was not found.
