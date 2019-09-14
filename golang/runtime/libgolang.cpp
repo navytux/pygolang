@@ -65,6 +65,10 @@ namespace golang {
 
 struct PanicError : exception {
     const char *arg;
+
+    virtual const char *what() const throw() {
+        return arg;
+    }
 };
 
 // panic throws exception that represents C-level panic.
