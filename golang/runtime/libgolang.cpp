@@ -372,17 +372,20 @@ bool _WaitGroup::try_to_win(_RecvSendWaiting *waiter) { // -> won
     return won;
 }
 
-// wait waits for winning case of group to complete.
+// wait waits for winning case of the group to become ready.
 void _WaitGroup::wait() {
     _WaitGroup *group = this;
     group->_sema.acquire();
 }
 
-// wakeup wakes up the group.
+// wakeup notifies the group that the winning case becomes ready.
 //
 // prior to wakeup try_to_win must have been called.
 // in practice this means that waiters queued to chan.{_send|_recv}q must
 // be dequeued with _dequeWaiter.
+//
+// it is ok to call wakeup before wait - wait won't miss the readiness
+// notification.
 void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
     if (group->which == NULL)
@@ -393,6 +396,8 @@ void _WaitGroup::wakeup() {
 // _dequeWaiter dequeues a send or recv waiter from a channel's _recvq or _sendq.
 //
 // the channel owning {_recv|_send}q must be locked.
+// if the waiter is successfully dequeued, the caller must wake it up, but only
+// after copying sent/recv data.
 _RecvSendWaiting *_dequeWaiter(list_head *queue) {
     while (!list_empty(queue)) {
         _RecvSendWaiting *w = list_entry(queue->next, _RecvSendWaiting, in_rxtxq);
@@ -1046,7 +1051,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             // queuing other cases.
             if (g->which != NULL) {
                 ch->_mu.unlock();
-                goto ready;
+                goto wait_case_ready;
             }
 
             // send
@@ -1100,8 +1105,8 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     }
 
     // wait for a case to become ready
+wait_case_ready:
     g->wait();
-ready:
     if (g->which == &_sel_txrx_prepoll_won)
         bug("select: woke up with g.which=_sel_txrx_prepoll_won");
 

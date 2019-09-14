@@ -174,12 +174,14 @@ cdef extern from * nogil:
     extern void _test_chan_vs_stackdeadwhileparked();
     extern void _test_go_cpp();
     extern void _test_close_wakeup_all();
+    extern void _test_select_win_while_queue();
     """
     void _test_chan_cpp_refcount()              except +topyexc
     void _test_chan_cpp()                       except +topyexc
     void _test_chan_vs_stackdeadwhileparked()   except +topyexc
     void _test_go_cpp()                         except +topyexc
     void _test_close_wakeup_all()               except +topyexc
+    void _test_select_win_while_queue()         except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
         _test_chan_cpp_refcount()
@@ -195,3 +197,6 @@ def test_go_cpp():
 def test_close_wakeup_all():
     with nogil:
         _test_close_wakeup_all()
+def test_select_win_while_queue():
+    with nogil:
+        _test_select_win_while_queue()

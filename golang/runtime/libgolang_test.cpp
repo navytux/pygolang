@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <tuple>
 #include <utility>
+#include <string.h>
 using namespace golang;
 using std::function;
 using std::move;
@@ -327,4 +328,56 @@ void _test_close_wakeup_all() {
     // wait till all workers finish
     for (i=0; i < 1+N; i++)
         done.recv();
+}
+
+// verify that select correctly handles situation where a case that is already
+// queued wins while select queues other cases.
+void __test_select_win_while_queue() {
+    const int Ncase =        1000; // many select cases to ↑ p(win-while-queue)
+    const int Ndata = 1*1024*1024; // big element size to  ↑ time when case won, but not yet woken up
+    int i;
+
+    // Data is workaround for "error: function returning an array" if we use
+    // chan<char[Ndata]> directly.
+    struct Data { char _[Ndata]; };
+    auto ch   = makechan<Data>();
+    auto ch2  = makechan<int>();
+    auto done = makechan<structZ>();
+
+    Data *data_send = (Data *)calloc(1, sizeof(Data));
+    Data *data_recv = (Data *)calloc(1, sizeof(Data));
+    if (data_send == NULL || data_recv == NULL)
+        throw std::bad_alloc();
+    for (i=0; i<Ndata; i++)
+        data_send->_[i] = i % 0xff;
+
+    // win first select case (see vvv) right after it is queued.
+    go([ch, data_send, done]() {
+        waitBlocked_RX(ch);
+        // select queued ch.recv and is likely still queing other cases.
+        // -> win ch.recv
+        ch.send(*data_send);
+        done.close();
+    });
+
+    // select {ch.recv, ch2.recv, ch2.recv, ch2.recv, ...}
+    _selcase casev[1+Ncase];
+    bool ok=false;
+    casev[0] = ch.recvs(data_recv, &ok);
+    for (i=0; i<Ncase; i++)
+        casev[1+i] = ch2.recvs();
+
+    int _ = select(casev);
+    ASSERT(_ == 0);
+    ASSERT(ok == true);
+    ASSERT(!memcmp(data_recv, data_send, sizeof(Data)));
+
+    done.recv();
+    free(data_send);
+    free(data_recv);
+}
+void _test_select_win_while_queue() {
+    int i, N = 100;
+    for (i=0; i<N; i++)
+        __test_select_win_while_queue();
 }
