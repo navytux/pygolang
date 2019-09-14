@@ -280,3 +280,51 @@ static void _work(int i, chan<structZ> done) {
         panic("_work: i != 111");
     done.close();
 }
+
+// verify that chan close wakes up all consumers atomically - in other words
+// that it is safe to e.g. destroy the channel after recv wakeup caused by close.
+//
+// this also verifies that recv, upon wakeup, does not use channel
+// object when it could be already destroyed.
+void _test_close_wakeup_all() {
+    int i, N = 100;
+    auto ch   = makechan<int>();
+    auto _ch  = ch._rawchan();
+    auto done = makechan<structZ>();
+
+    // ch.recv subscriber that destroys ch right after wakeup.
+    // ch ownership is transferred to this goroutine.
+    go([ch, done]() mutable {
+        ch.recv();
+        // destroy ch _before_ signalling on done. This should be safe to do
+        // as other workers vvv don't use ch after wakeup from ch.recv().
+        ASSERT(_chanrefcnt(ch._rawchan()) == 1);
+        ch = NULL;
+        done.send(structZ{});
+    });
+    waitBlocked(_ch, /*nrx=*/1, /*ntx=*/0);
+    ASSERT(_chanrefcnt(_ch) == 2);
+    ch = NULL;
+    ASSERT(_chanrefcnt(_ch) == 1);
+
+    // many other ch.recv subscribers queued to ch.recvq
+    // their lifetime is subset of ^^^ subscriber lifetime; they don't own a ch reference.
+    for (i=0; i < N; i++) {
+        go([_ch, done]() {
+            _chanrecv(_ch, NULL);
+            done.send(structZ{});
+        });
+    }
+
+    // wait till all workers block in ch.recv()
+    waitBlocked(_ch, /*nrx=*/1+N, 0);
+
+    // ch.close() must wake up all workers atomically. If it is not the case,
+    // this will reliably (N >> 1) trigger assert in chan decref on len(ch.recvq) == 0.
+    ASSERT(_chanrefcnt(_ch) == 1);
+    _chanclose(_ch);
+
+    // wait till all workers finish
+    for (i=0; i < 1+N; i++)
+        done.recv();
+}

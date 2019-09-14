@@ -465,6 +465,10 @@ void _chan::decref() {
         return;
 
     // refcnt=0 -> free the channel
+    if (!list_empty(&ch->_recvq))
+        panic("chan: decref: free: recvq not empty");
+    if (!list_empty(&ch->_sendq))
+        panic("chan: decref: free: sendq not empty");
     ch->_mu.~Mutex();
     memset((void *)ch, 0, sizeof(*ch) + ch->_cap*ch->_elemsize);
     free(ch);
@@ -588,7 +592,8 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
             return __recv2_(prx, g.get(), me.get());
 
         // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
-        void *prx_onheap = malloc(ch->_elemsize);
+        unsigned ch_elemsize = ch->_elemsize;
+        void *prx_onheap = malloc(ch_elemsize);
         if (prx_onheap == NULL) {
             ch->_mu.unlock();
             throw bad_alloc();
@@ -598,7 +603,8 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
         });
 
         bool ok = __recv2_(prx_onheap, g.get(), me.get());
-        memcpy(prx, prx_onheap, ch->_elemsize);
+        // NOTE don't access ch after wakeup
+        memcpy(prx, prx_onheap, ch_elemsize);
         return ok;
 }
 
@@ -741,30 +747,33 @@ void _chan::close() {
         }
         ch->_closed = true;
 
-        // wake-up all readers
+        // TODO better relink dequed waiters to separate wakeup queue
+        vector<_RecvSendWaiting*> wakeupv;
+
+        // schedule: wake-up all readers
         while (1) {
             _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
             if (recv == NULL)
                 break;
 
-            ch->_mu.unlock();
             if (recv->pdata != NULL)
                 memset(recv->pdata, 0, ch->_elemsize);
-            recv->wakeup(/*ok=*/false);
-            ch->_mu.lock();
+            wakeupv.push_back(recv);
         }
 
-        // wake-up all writers (they will panic)
+        // schedule: wake-up all writers (they will panic)
         while (1) {
             _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
             if (send == NULL)
                 break;
 
-            ch->_mu.unlock();
-            send->wakeup(/*ok=*/false);
-            ch->_mu.lock();
+            wakeupv.push_back(send);
         }
     ch->_mu.unlock();
+
+    // perform scheduled wakeups outside of ch._mu
+    for (auto w : wakeupv)
+        w->wakeup(/*ok=*/false);
 }
 
 // len returns current number of buffered elements.
