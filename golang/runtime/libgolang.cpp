@@ -1047,6 +1047,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             w->chan->_mu.unlock();       // it is ok to del twice even if w was already removed
         }
 
+        bzero((void *)waitv, waitc*sizeof(waitv[0]));
         free(waitv);
         waitv = NULL;
     });
