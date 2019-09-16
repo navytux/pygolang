@@ -285,9 +285,9 @@ static void _work(int i, chan<structZ> done) {
 // verify that chan close wakes up all consumers atomically - in other words
 // that it is safe to e.g. destroy the channel after recv wakeup caused by close.
 //
-// this also verifies that recv, upon wakeup, does not use channel
+// this also verifies that recv and select, upon wakeup, do not use channel
 // object when it could be already destroyed.
-void _test_close_wakeup_all() {
+void __test_close_wakeup_all(bool vs_select) {
     int i, N = 100;
     auto ch   = makechan<int>();
     auto _ch  = ch._rawchan();
@@ -295,11 +295,12 @@ void _test_close_wakeup_all() {
 
     // ch.recv subscriber that destroys ch right after wakeup.
     // ch ownership is transferred to this goroutine.
-    go([ch, done]() mutable {
+    go([ch, done, vs_select]() mutable {
         ch.recv();
         // destroy ch _before_ signalling on done. This should be safe to do
         // as other workers vvv don't use ch after wakeup from ch.recv().
-        ASSERT(_chanrefcnt(ch._rawchan()) == 1);
+        if (!vs_select)
+            ASSERT(_chanrefcnt(ch._rawchan()) == 1);
         ch = NULL;
         done.send(structZ{});
     });
@@ -308,11 +309,18 @@ void _test_close_wakeup_all() {
     ch = NULL;
     ASSERT(_chanrefcnt(_ch) == 1);
 
-    // many other ch.recv subscribers queued to ch.recvq
+    // many other ch.recv or select({ch.recv}) subscribers queued to ch.recvq
     // their lifetime is subset of ^^^ subscriber lifetime; they don't own a ch reference.
     for (i=0; i < N; i++) {
-        go([_ch, done]() {
-            _chanrecv(_ch, NULL);
+        go([_ch, done, vs_select]() {
+            if (!vs_select) {
+                _chanrecv(_ch, NULL);
+            } else {
+                int rx;
+                select({
+                    _selrecv(_ch, &rx)
+                });
+            }
             done.send(structZ{});
         });
     }
@@ -322,13 +330,15 @@ void _test_close_wakeup_all() {
 
     // ch.close() must wake up all workers atomically. If it is not the case,
     // this will reliably (N >> 1) trigger assert in chan decref on len(ch.recvq) == 0.
-    ASSERT(_chanrefcnt(_ch) == 1);
+    ASSERT(_chanrefcnt(_ch) == (vs_select ? 1+N : 1));
     _chanclose(_ch);
 
     // wait till all workers finish
     for (i=0; i < 1+N; i++)
         done.recv();
 }
+void _test_close_wakeup_all_vsrecv()   { __test_close_wakeup_all(/*vs_select=*/false); }
+void _test_close_wakeup_all_vsselect() { __test_close_wakeup_all(/*vs_select=*/true);  }
 
 // verify that select correctly handles situation where a case that is already
 // queued wins while select queues other cases.

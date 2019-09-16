@@ -944,6 +944,18 @@ int _chanselect(const _selcase *casev, int casec) {
         _blockforever();
 
     // second pass: subscribe and wait on all rx/tx cases
+
+    // keep all channels alive while _chanselect2 runs.
+    // we need to keep them alive because upon wakeup:
+    // - __chanselect2 needs to unregister all registered waiters from all channels,
+    // - _chanselect2<onstack=false> needs to access casev[selected].ch->_elemsize.
+    for (int i=0; i < casec; i++)
+        _chanxincref(casev[i].ch);
+    defer([&]() {
+        for (int i=0; i < casec; i++)
+            _chanxdecref(casev[i].ch);
+    });
+
     return (_runtime->flags & STACK_DEAD_WHILE_PARKED) \
         ? _chanselect2</*onstack=*/false>(casev, casec, nv)
         : _chanselect2</*onstack=*/true> (casev, casec, nv);
@@ -1007,6 +1019,8 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     int selected = __chanselect2(casev_onheap.get(), casec, nv, g.get());
 
     // copy data back to original rx location.
+    // NOTE it is ok to access cas->ch because we pin all channels to be alive
+    // while _chanselect2 runs.
     _selcase *cas = &casev_onheap[selected];
     if (cas->op == _CHANRECV) {
         const _selcase *cas0 = &casev[selected];
@@ -1028,7 +1042,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     defer([&]() {
         for (int i = 0; i < waitc; i++) {
             _RecvSendWaiting *w = &waitv[i];
-            w->chan->_mu.lock();
+            w->chan->_mu.lock();    // NOTE we pin all channels alive before entering _chanselect2
             list_del_init(&w->in_rxtxq); // thanks to _init used in _dequeWaiter
             w->chan->_mu.unlock();       // it is ok to del twice even if w was already removed
         }
