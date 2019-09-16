@@ -206,13 +206,13 @@ void _test_chan_vs_stackdeadwhileparked() {
 
     // recv
     auto ch = makechan<int>();
-    go([&]() {
+    go([ch]() {
         waitBlocked_RX(ch);
-        usestack_and_call([&]() {
+        usestack_and_call([ch]() {
             ch.send(111);
         });
     });
-    usestack_and_call([&]() {
+    usestack_and_call([ch]() {
         int rx = ch.recv();
         if (rx != 111)
             panic("recv(111) != 111");
@@ -220,28 +220,28 @@ void _test_chan_vs_stackdeadwhileparked() {
 
     // send
     auto done = makechan<structZ>();
-    go([&]() {
+    go([ch, done]() {
         waitBlocked_TX(ch);
-        usestack_and_call([&]() {
+        usestack_and_call([ch]() {
             int rx = ch.recv();
             if (rx != 222)
                 panic("recv(222) != 222");
         });
         done.close();
     });
-    usestack_and_call([&]() {
+    usestack_and_call([ch]() {
         ch.send(222);
     });
     done.recv();
 
     // select(recv)
-    go([&]() {
+    go([ch]() {
         waitBlocked_RX(ch);
-        usestack_and_call([&]() {
+        usestack_and_call([ch]() {
             ch.send(333);
         });
     });
-    usestack_and_call([&]() {
+    usestack_and_call([ch]() {
         int rx = 0;
         int _ = select({ch.recvs(&rx)});
         if (_ != 0)
@@ -252,16 +252,16 @@ void _test_chan_vs_stackdeadwhileparked() {
 
     // select(send)
     done = makechan<structZ>();
-    go([&]() {
+    go([ch, done]() {
         waitBlocked_TX(ch);
-        usestack_and_call([&]() {
+        usestack_and_call([ch]() {
             int rx = ch.recv();
             if (rx != 444)
                 panic("recv(444) != 444");
         });
         done.close();
     });
-    usestack_and_call([&]() {
+    usestack_and_call([ch]() {
         int tx = 444;
         int _ = select({ch.sends(&tx)});
         if (_ != 0)
