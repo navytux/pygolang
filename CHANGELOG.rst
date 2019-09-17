@@ -1,6 +1,32 @@
 Pygolang change history
 -----------------------
 
+0.0.4 (2019-09-17)
+~~~~~~~~~~~~~~~~~~
+
+- Add ThreadSanitizer, AddressSanitizer and Python debug builds to testing coverage (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/4dc1a7f0
+
+- Fix race bugs in `close`, `recv` and `select` (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
+  A 25-years old race condition in Python was also discovered while doing
+  quality assurance on concurrency (`commit 7`__, `Python bug`__, `PyPy bug`__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/78e38690
+  __ https://lab.nexedi.com/kirr/pygolang/commit/44737253
+  __ https://lab.nexedi.com/kirr/pygolang/commit/c92a4830
+  __ https://lab.nexedi.com/kirr/pygolang/commit/dcf4ebd1
+  __ https://lab.nexedi.com/kirr/pygolang/commit/65c43848
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5aa1e899
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5142460d
+  __ https://bugs.python.org/issue38106
+  __ https://bitbucket.org/pypy/pypy/issues/3072
+
+- If C-level panic causes termination, its argument is now printed (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f2b77c94
+
+
 0.0.3 (2019-08-29)
 ~~~~~~~~~~~~~~~~~~
 

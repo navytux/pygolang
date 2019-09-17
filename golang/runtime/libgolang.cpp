@@ -93,7 +93,7 @@ const char *recover() {
 }
 
 
-// bug indicates internal bug in golang implementation.
+// bug indicates internal bug in libgolang implementation.
 struct Bug : exception {
     const string msg;
 

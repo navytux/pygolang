@@ -69,7 +69,7 @@ version = _.group(1)
 # uninstall.
 #
 # NOTE in some cases (see below e.g. about bdist_wheel) we accept for gpython
-# to be generated not via XInstallGPython - becuase in those cases pkg_resources
+# to be generated not via XInstallGPython - because in those cases pkg_resources
 # and entry points are not used - just plain `import gpython`.
 class XInstallGPython:
     gpython_installed = 0
