@@ -19,6 +19,9 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """_time.pyx implements time.pyx - see _time.pxd for package overview."""
 
+from __future__ import print_function, absolute_import
+
+
 def pynow(): # -> t
     return now_pyexc()
 
