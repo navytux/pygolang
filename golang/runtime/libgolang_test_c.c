@@ -74,8 +74,6 @@ struct _work_arg{int i; _chan *done;};
 static void _work(void *);
 void _test_go_c(void) {
     _chan *done = _makechan(0,0);
-    if (done == NULL)
-        panic("_makechan -> failed");
     struct _work_arg *_ = malloc(sizeof(*_));
     if (_ == NULL)
         panic("malloc _work_arg -> failed");

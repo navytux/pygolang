@@ -359,8 +359,6 @@ chan<T> makechan(unsigned size) {
         ? 0          // eg struct{} for which sizeof() gives 1 - *not* 0
         : sizeof(T);
     ch._ch = _makechan(elemsize, size);
-    if (ch._ch == NULL)
-        throw std::bad_alloc();
     return ch;
 }
 

@@ -417,11 +417,12 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
 // _makechan creates new _chan(elemsize, size).
 //
 // returned channel has refcnt=1.
+// _makechan always returns !NULL and panics on memory allocation failure.
 _chan *_makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
     ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
-        return NULL;
+        panic("makechan: alloc failed");
     new (&ch->_mu) Mutex();
 
     ch->_refcnt   = 1;
