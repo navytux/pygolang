@@ -181,7 +181,6 @@ def main():
         exe = exe[:-len('-script.py')]
         exe = exe + '.exe'
 
-    import sys
     sys.executable  = exe
     sys.version    += (' [GPython %s]' % golang.__version__)
 
