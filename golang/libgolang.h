@@ -38,8 +38,8 @@
 //  - `go` spawns new task.
 //  - `chan<T>`, and `select` provide channels with Go semantic and automatic
 //    lifetime management.
-//  - `sleep` pauses current task.
 //  - `panic` throws exception that represent C-level panic.
+//  - `time::sleep` pauses current task.
 //
 // For example:
 //
@@ -71,7 +71,7 @@
 //  - `_chanxincref` and `_chanxdecref` manage channel lifetime.
 //  - `_chansend` and `_chanrecv` send/receive over raw channel.
 //  - `_chanselect`, `_selsend`, `_selrecv`, ... provide raw select functionality.
-//  - `tasknanosleep` pauses current task.
+//  - `_tasknanosleep` pauses current task.
 //
 //
 // Runtimes
@@ -390,6 +390,7 @@ int select(const _selcase (&casev)[N]) {
 }
 
 
+// golang::time::
 namespace time {
 
 // sleep pauses current goroutine for at least dt seconds.
