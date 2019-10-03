@@ -23,7 +23,7 @@ from __future__ import print_function, absolute_import
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from pytest import raises
 from os.path import dirname
-import os, sys, threading, inspect
+import os, sys, threading, inspect, importlib
 from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
@@ -31,17 +31,22 @@ import gc, weakref
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
-# pyx/c/c++ tests -> test_pyx_*
-from golang import _golang_test
-for f in dir(_golang_test):
-    if f.startswith('test_'):
-        gf = 'test_pyx_' + f[len('test_'):] # test_chan_nogil -> test_pyx_chan_nogil
-        # define a python function with gf name (if we use f directly pytest
-        # will say "cannot collect 'test_pyx_chan_nogil' because it is not a function")
-        def _(func=getattr(_golang_test, f)):
-            func()
-        _.__name__ = gf
-        globals()[gf] = _
+# pyx/c/c++ tests -> test_pyx_* in caller's globals.
+def import_pyx_tests(modpath):
+    mod = importlib.import_module(modpath)
+    callf = inspect.currentframe().f_back   # caller's frame
+    callg = callf.f_globals                 # caller's globals
+    for f in dir(mod):
+        if f.startswith('test_'):
+            gf = 'test_pyx_' + f[len('test_'):] # test_chan_nogil -> test_pyx_chan_nogil
+            # define a python function with gf name (if we use f directly pytest
+            # will say "cannot collect 'test_pyx_chan_nogil' because it is not a function")
+            def _(func=getattr(mod, f)):
+                func()
+            _.__name__ = gf
+            callg[gf] = _
+
+import_pyx_tests("golang._golang_test")
 
 
 # leaked goroutine behaviour check: done in separate process because we need
