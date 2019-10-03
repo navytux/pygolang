@@ -32,6 +32,11 @@ from golang import context
 
 import six
 
+from golang._sync import \
+    PySema      as Sema,    \
+    PyMutex     as Mutex    \
+
+
 # Once allows to execute an action only once.
 #
 # For example:

@@ -290,7 +290,7 @@ handle concurrency in structured ways:
 
 - `golang.sync` provides `sync.WorkGroup` to spawn group of goroutines working
   on a common task. It also provides low-level primitives - for example
-  `sync.Once` and `sync.WaitGroup` - that are sometimes useful too.
+  `sync.Once`, `sync.WaitGroup` and `sync.Mutex` - that are sometimes useful too.
 
 - `golang.time` provides timers integrated with channels.
 

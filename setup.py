@@ -214,6 +214,11 @@ setup(
                          'golang/runtime/libgolang_test_c.c',
                          'golang/runtime/libgolang_test.cpp']),
 
+                    Ext('golang._sync',
+                        ['golang/_sync.pyx']),
+                    Ext('golang._sync_test',
+                        ['golang/_sync_test.pyx']),
+
                     Ext('golang._time',
                         ['golang/_time.pyx']),
                   ],

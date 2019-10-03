@@ -1,3 +1,5 @@
 /_golang.cpp
 /_golang_test.cpp
+/_sync.cpp
+/_sync_test.cpp
 /_time.cpp

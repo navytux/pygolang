@@ -24,9 +24,65 @@ from golang import go, chan
 from golang import sync, context, time
 import threading
 from pytest import raises
-from golang.golang_test import panics
+from golang.golang_test import import_pyx_tests, panics
+from golang.time_test import dt
 from six.moves import range as xrange
 import six
+
+import_pyx_tests("golang._sync_test")
+
+def _test_mutex(mu, lock, unlock):
+    # verify that g2 mu.lock() blocks until g1 does mu.unlock()
+    getattr(mu, lock)()
+    l = []
+    done = chan()
+    def _():
+        getattr(mu, lock)()
+        l.append('b')
+        getattr(mu, unlock)()
+        done.close()
+    go(_)
+    time.sleep(1*dt)
+    l.append('a')
+    getattr(mu, unlock)()
+    done.recv()
+    assert l == ['a', 'b']
+
+    # the same via with
+    with mu:
+        l = []
+        done = chan()
+        def _():
+            with mu:
+                l.append('d')
+            done.close()
+        go(_)
+        time.sleep(1*dt)
+        l.append('c')
+    done.recv()
+    assert l == ['c', 'd']
+
+def test_mutex():   _test_mutex(sync.Mutex(), 'lock',    'unlock')
+def test_sema():    _test_mutex(sync.Sema(),  'acquire', 'release')
+
+# verify that sema.acquire can be woken up by sema.release not from the same
+# thread which did the original sema.acquire.
+def test_sema_wakeup_different_thread():
+    sema = sync.Sema()
+    sema.acquire()
+    l = []
+    done = chan()
+    def _():
+        time.sleep(1*dt)
+        l.append('a')
+        sema.release()
+        done.close()
+    go(_)
+    sema.acquire()
+    l.append('b')
+    done.recv()
+    assert l == ['a', 'b']
+
 
 def test_once():
     once = sync.Once()

@@ -133,58 +133,61 @@ uint64_t _nanotime() {
 
 
 // ---- semaphores ----
+// (_sema = _libgolang_sema)
 
-// Sema provides semaphore.
-struct Sema {
-    _libgolang_sema *_gsema;
+// _makesema creates new semaphore.
+//
+// it always returns !NULL and panics on memory allocation failue.
+_sema *_makesema() {
+    _sema *sema = (_sema *)_runtime->sema_alloc();
+    if (!sema)
+        panic("makesema: alloc failed");
+    return sema;
+}
 
-    Sema();
-    ~Sema();
-    void acquire();
-    void release();
+void _semafree(_sema *sema) {
+    _runtime->sema_free((_libgolang_sema*)sema);
+}
 
-private:
-    Sema(const Sema&);      // don't copy
-    Sema(Sema&&);           // don't move
-};
+void _semaacquire(_sema *sema) {
+    _runtime->sema_acquire((_libgolang_sema *)sema);
+}
+
+void _semarelease(_sema *sema) {
+    _runtime->sema_release((_libgolang_sema *)sema);
+}
+
+// golang::sync::
+namespace sync {
 
 Sema::Sema() {
     Sema *sema = this;
-
-    sema->_gsema = _runtime->sema_alloc();
-    if (!sema->_gsema)
-        panic("sema: alloc failed");
+    sema->_gsema = _makesema();
 }
 
 Sema::~Sema() {
     Sema *sema = this;
-
-    _runtime->sema_free(sema->_gsema);
+    _semafree(sema->_gsema);
     sema->_gsema = NULL;
 }
 
 void Sema::acquire() {
     Sema *sema = this;
-    _runtime->sema_acquire(sema->_gsema);
+    _semaacquire(sema->_gsema);
 }
 
 void Sema::release() {
     Sema *sema = this;
-    _runtime->sema_release(sema->_gsema);
+    _semarelease(sema->_gsema);
 }
 
-// Mutex provides mutex.
-// currently implemented via Sema.
-struct Mutex {
-    void lock()     { _sema.acquire();  }
-    void unlock()   { _sema.release();  }
-    Mutex() {}
+// Mutex is currently implemented via Sema.
+Mutex::Mutex()          {}
+Mutex::~Mutex()         {}
+void Mutex::lock()      { _sema.acquire();  }
+void Mutex::unlock()    { _sema.release();  }
 
-private:
-    Sema _sema;
-    Mutex(const Mutex&);    // don't copy
-    Mutex(Mutex&&);         // don't move
-};
+}   // golang::sync::
 
 // with_lock mimics `with mu` from python.
 // usage example:
@@ -197,9 +200,9 @@ private:
     _with_lock.once();                  \
 )
 struct _with_lock_guard {
-    std::lock_guard<Mutex> mug;
+    std::lock_guard<sync::Mutex> mug;
     bool                   done;
-    _with_lock_guard(Mutex &mu) : mug(mu), done(false) {}
+    _with_lock_guard(sync::Mutex &mu) : mug(mu), done(false) {}
     bool once() { bool _ = !done; done = true; return _; }
 };
 
@@ -240,7 +243,7 @@ struct _chan {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
-    Mutex       _mu;
+    sync::Mutex _mu;
     list_head   _recvq;     // blocked receivers (_ -> _RecvSendWaiting.in_rxtxq)
     list_head   _sendq;     // blocked senders   (_ -> _RecvSendWaiting.in_rxtxq)
     bool        _closed;
@@ -303,9 +306,9 @@ private:
 //
 // Only 1 waiter from the group can succeed waiting.
 struct _WaitGroup {
-    Sema       _sema;   // used for wakeup
+    sync::Sema  _sema;  // used for wakeup
 
-    Mutex      _mu;     // lock    NOTE ∀ chan order is always: chan._mu > ._mu
+    sync::Mutex _mu;    // lock    NOTE ∀ chan order is always: chan._mu > ._mu
     // on wakeup: sender|receiver -> group:
     //   .which  _{Send|Recv}Waiting     instance which succeeded waiting.
     const _RecvSendWaiting    *which;
@@ -423,7 +426,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         panic("makechan: alloc failed");
-    new (&ch->_mu) Mutex();
+    new (&ch->_mu) sync::Mutex();
 
     ch->_refcnt   = 1;
     ch->_cap      = size;
@@ -1151,7 +1154,7 @@ void _blockforever() {
     // take a lock twice. It will forever block on the second lock attempt.
     // Under gevent, similarly to Go, this raises "LoopExit: This operation
     // would block forever", if there are no other greenlets scheduled to be run.
-    Sema dead;
+    sync::Sema dead;
     dead.acquire();
     dead.acquire();
     bug("_blockforever: woken up");

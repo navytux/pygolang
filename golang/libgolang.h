@@ -40,6 +40,7 @@
 //    lifetime management.
 //  - `panic` throws exception that represent C-level panic.
 //  - `time::sleep` pauses current task.
+//  - `sync::Sema` and `sync::Mutex` provide low-level synchronization.
 //
 // For example:
 //
@@ -72,6 +73,7 @@
 //  - `_chansend` and `_chanrecv` send/receive over raw channel.
 //  - `_chanselect`, `_selsend`, `_selrecv`, ... provide raw select functionality.
 //  - `_tasknanosleep` pauses current task.
+//  - `_makesema` and `_sema*` provide semaphore functionality.
 //
 //
 // Runtimes
@@ -196,6 +198,14 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
 
 // _default represents default case for _chanselect.
 extern LIBGOLANG_API const _selcase _default;
+
+// _sema corresponds to sync.Sema
+// no C-level analog is provided for sync.Mutex
+typedef struct _sema _sema;
+LIBGOLANG_API _sema *_makesema();
+LIBGOLANG_API void _semafree(_sema *sema);
+LIBGOLANG_API void _semaacquire(_sema *sema);
+LIBGOLANG_API void _semarelease(_sema *sema);
 
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use.
@@ -400,6 +410,44 @@ LIBGOLANG_API void sleep(double dt);
 LIBGOLANG_API double now();
 
 }   // golang::time::
+
+
+// golang::sync::
+namespace sync {
+
+// Sema provides semaphore.
+class Sema {
+    _sema *_gsema;
+
+public:
+    LIBGOLANG_API Sema();
+    LIBGOLANG_API ~Sema();
+    LIBGOLANG_API void acquire();
+    LIBGOLANG_API void release();
+
+private:
+    Sema(const Sema&);      // don't copy
+    Sema(Sema&&);           // don't move
+};
+
+// Mutex provides mutex.
+class Mutex {
+    Sema _sema;
+
+public:
+    LIBGOLANG_API Mutex();
+    LIBGOLANG_API ~Mutex();
+    LIBGOLANG_API void lock();
+    LIBGOLANG_API void unlock();
+
+private:
+    Mutex(const Mutex&);    // don't copy
+    Mutex(Mutex&&);         // don't move
+};
+
+
+}   // golang::sync::
+
 
 }   // golang::
 #endif  // __cplusplus
