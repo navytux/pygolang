@@ -21,9 +21,10 @@
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
+from golang import sync
 from pytest import raises
 from os.path import dirname
-import os, sys, threading, inspect, importlib
+import os, sys, inspect, importlib
 from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
@@ -106,7 +107,7 @@ def test_chan():
     # sync: close vs multiple recv
     ch = chan()
     done = chan()
-    mu = threading.Lock()
+    mu = sync.Mutex()
     s  = set()
     def _():
         assert ch.recv_() == (None, False)

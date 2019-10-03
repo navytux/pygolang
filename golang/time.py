@@ -27,7 +27,7 @@ See the following link about Go time package:
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, panic
-import threading
+from golang import _sync # avoid cycle: context -> time -> sync -> context
 
 from golang._time import \
     pysecond        as second,      \
@@ -77,7 +77,7 @@ class Ticker(object):
             panic("ticker: dt <= 0")
         self.c      = chan(1)   # 1-buffer -- same as in Go
         self._dt    = dt
-        self._mu    = threading.Lock()
+        self._mu    = _sync.PyMutex()
         self._stop  = False
         go(self._tick)
 
@@ -119,7 +119,7 @@ class Timer(object):
     def __init__(self, dt, f=None):
         self._f     = f
         self.c      = chan(1) if f is None else nilchan
-        self._mu    = threading.Lock()
+        self._mu    = _sync.PyMutex()
         self._dt    = None  # None - stopped, float - armed
         self._ver   = 0     # current timer was armed by n'th reset
         self.reset(dt)

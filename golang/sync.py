@@ -26,7 +26,7 @@ See the following link about Go sync package:
 
 from __future__ import print_function, absolute_import
 
-import threading, sys
+import sys
 from golang import go, chan, defer, func, panic
 from golang import context
 
@@ -46,7 +46,7 @@ from golang._sync import \
 #   once.do(doSomething)
 class Once(object):
     def __init__(once):
-        once._mu    = threading.Lock()
+        once._mu    = Mutex()
         once._done  = False
 
     def do(once, f):
@@ -59,7 +59,7 @@ class Once(object):
 # WaitGroup allows to wait for collection of tasks to finish.
 class WaitGroup(object):
     def __init__(wg):
-        wg._mu      = threading.Lock()
+        wg._mu      = Mutex()
         wg._count   = 0
         wg._done    = chan()    # closed & recreated every time ._count drops to 0
 
@@ -113,7 +113,7 @@ class WorkGroup(object):
     def __init__(g, ctx):
         g._ctx, g._cancel = context.with_cancel(ctx)
         g._wg   = WaitGroup()
-        g._mu   = threading.Lock()
+        g._mu   = Mutex()
         g._err  = None
 
     def go(g, f, *argv, **kw):

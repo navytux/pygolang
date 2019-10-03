@@ -28,8 +28,8 @@ See the following links about Go contexts:
 from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan
+from golang import _sync # avoid cycle: context -> sync -> context
 from golang import time
-import threading
 
 # Context is the interface that every context must implement.
 #
@@ -154,7 +154,7 @@ class _BaseCtx(object):
         # does not change after setup.
         ctx._parentv    = parentv
 
-        ctx._mu         = threading.Lock()
+        ctx._mu         = _sync.PyMutex()
         ctx._children   = set() # children of this context - we propagate cancel there (all _BaseCtx)
         ctx._err        = None
 

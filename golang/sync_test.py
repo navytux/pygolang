@@ -22,7 +22,6 @@ from __future__ import print_function, absolute_import
 
 from golang import go, chan
 from golang import sync, context, time
-import threading
 from pytest import raises
 from golang.golang_test import import_pyx_tests, panics
 from golang.time_test import dt
@@ -145,7 +144,7 @@ def test_waitgroup():
 
 def test_workgroup():
     ctx, cancel = context.with_cancel(context.background())
-    mu = threading.Lock()
+    mu = sync.Mutex()
 
     # t1=ok, t2=ok
     wg = sync.WorkGroup(ctx)
