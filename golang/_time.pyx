@@ -44,7 +44,7 @@ def pysleep(double dt):
 #
 # Note: there is no way to stop created ticker.
 # Note: for dt <= 0, contrary to Ticker, tick returns nilchan instead of panicking.
-def tick(dt):   # -> chan time
+def tick(double dt):    # -> chan time
     if dt <= 0:
         return pynilchan
     return Ticker(dt).c
@@ -52,14 +52,14 @@ def tick(dt):   # -> chan time
 # after returns channel connected to dt timer.
 #
 # Note: with after there is no way to stop/garbage-collect created timer until it fires.
-def after(dt):  # -> chan time
+def after(double dt):   # -> chan time
     return Timer(dt).c
 
 # after_func arranges to call f after dt time.
 #
 # The function will be called in its own goroutine.
 # Returned timer can be used to cancel the call.
-def after_func(dt, f):  # -> Timer
+def after_func(double dt, f):  # -> Timer
     return Timer(dt, f=f)
 
 
@@ -75,7 +75,7 @@ cdef class Ticker:
     cdef sync.Mutex  _mu
     cdef bint        _stop
 
-    def __init__(self, dt):
+    def __init__(Ticker self, double dt):
         if dt <= 0:
             pypanic("ticker: dt <= 0")
         self.c      = pychan(1) # 1-buffer -- same as in Go
@@ -86,7 +86,7 @@ cdef class Ticker:
     # stop cancels the ticker.
     #
     # It is guaranteed that ticker channel is empty after stop completes.
-    def stop(self):
+    def stop(Ticker self):
         self._mu.lock()
         self._stop = True
 
@@ -95,7 +95,7 @@ cdef class Ticker:
             self.c.recv()
         self._mu.unlock()
 
-    def _tick(self):
+    def _tick(Ticker self):
         while 1:
             # XXX adjust for accumulated error δ?
             pysleep(self._dt)
@@ -129,7 +129,7 @@ cdef class Timer:
     cdef double     _dt   # +inf - stopped, otherwise - armed
     cdef int        _ver  # current timer was armed by n'th reset
 
-    def __init__(self, dt, f=None):
+    def __init__(Timer self, double dt, f=None):
         self._f     = f
         self.c      = pychan(1) if f is None else pynilchan
         self._dt    = INFINITY
@@ -149,7 +149,7 @@ cdef class Timer:
     # Note: similarly to Go, if Timer is used with function - it is not
     # guaranteed that after stop the function is not running - in such case
     # the caller must explicitly synchronize with that function to complete.
-    def stop(self): # -> canceled
+    def stop(Timer self): # -> canceled
         self._mu.lock()
 
         if self._dt == INFINITY:
@@ -169,7 +169,7 @@ cdef class Timer:
     # reset rearms the timer.
     #
     # the timer must be either already stopped or expired.
-    def reset(self, dt):
+    def reset(Timer self, double dt):
         self._mu.lock()
         if self._dt != INFINITY:
             self._mu.unlock()
@@ -180,7 +180,7 @@ cdef class Timer:
         self._mu.unlock()
 
 
-    def _fire(self, dt, ver):
+    def _fire(Timer self, double dt, int ver):
         pysleep(dt)
         self._mu.lock()
         if self._ver != ver:
