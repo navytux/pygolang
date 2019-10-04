@@ -26,7 +26,7 @@ from golang cimport sync
 from libc.math cimport INFINITY
 from cython cimport final
 
-from golang import go, select, default, nilchan, panic
+from golang import go as pygo, select as pyselect, default as pydefault, nilchan as pynilchan, panic as pypanic
 
 
 def pynow(): # -> t
@@ -46,7 +46,7 @@ def pysleep(double dt):
 # Note: for dt <= 0, contrary to Ticker, tick returns nilchan instead of panicking.
 def tick(dt):   # -> chan time
     if dt <= 0:
-        return nilchan
+        return pynilchan
     return Ticker(dt).c
 
 # after returns channel connected to dt timer.
@@ -77,11 +77,11 @@ cdef class Ticker:
 
     def __init__(self, dt):
         if dt <= 0:
-            panic("ticker: dt <= 0")
+            pypanic("ticker: dt <= 0")
         self.c      = pychan(1) # 1-buffer -- same as in Go
         self._dt    = dt
         self._stop  = False
-        go(self._tick)
+        pygo(self._tick)
 
     # stop cancels the ticker.
     #
@@ -107,8 +107,8 @@ cdef class Ticker:
 
             # send from under ._mu so that .stop can be sure there is no
             # ongoing send while it drains the channel.
-            select(
-                default,
+            pyselect(
+                pydefault,
                 (self.c.send, pynow()),
             )
             self._mu.unlock()
@@ -131,7 +131,7 @@ cdef class Timer:
 
     def __init__(self, dt, f=None):
         self._f     = f
-        self.c      = pychan(1) if f is None else nilchan
+        self.c      = pychan(1) if f is None else pynilchan
         self._dt    = INFINITY
         self._ver   = 0
         self.reset(dt)
@@ -173,10 +173,10 @@ cdef class Timer:
         self._mu.lock()
         if self._dt != INFINITY:
             self._mu.unlock()
-            panic("Timer.reset: the timer is armed; must be stopped or expired")
+            pypanic("Timer.reset: the timer is armed; must be stopped or expired")
         self._dt  = dt
         self._ver += 1
-        go(self._fire, dt, self._ver)
+        pygo(self._fire, dt, self._ver)
         self._mu.unlock()
 
 
