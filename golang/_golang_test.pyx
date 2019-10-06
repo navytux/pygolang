@@ -36,13 +36,13 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
 # pylen_{recv,send}q returns len(_chan._{recv,send}q)
 def pylen_recvq(pychan pych not None): # -> int
-    if pych.ch == nil:
+    if pych._ch == NULL:
         raise AssertionError('len(.recvq) on nil channel')
-    return _tchanrecvqlen(pych.ch._rawchan())
+    return _tchanrecvqlen(pych._ch)
 def pylen_sendq(pychan pych not None): # -> int
-    if pych.ch == nil:
+    if pych._ch == NULL:
         raise AssertionError('len(.sendq) on nil channel')
-    return _tchansendqlen(pych.ch._rawchan())
+    return _tchansendqlen(pych._ch)
 
 # runtime/libgolang_test.cpp
 cdef extern from *:
@@ -68,7 +68,7 @@ def pywaitBlocked(pychanop):
         pypanic("wait blocked: unexpected chan method: %r" % (pychanop,))
 
     with nogil:
-        waitBlocked(pych.ch._rawchan(), nrecv, nsend)
+        waitBlocked(pych._ch, nrecv, nsend)
 
 
 # `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with

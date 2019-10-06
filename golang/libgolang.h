@@ -287,6 +287,7 @@ static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
 
 template<typename T> class chan;
 template<typename T> static chan<T> makechan(unsigned size=0);
+template<typename T> static chan<T> _wrapchan(_chan *_ch);
 
 // chan<T> provides type-safe wrapper over _chan.
 //
@@ -299,6 +300,7 @@ class chan {
 public:
     inline chan() { _ch = NULL; } // nil channel if not explicitly initialized
     friend chan<T> makechan<T>(unsigned size);
+    friend chan<T> _wrapchan<T>(_chan *_ch);
     inline ~chan() { _chanxdecref(_ch); _ch = NULL; }
 
     // = nil
@@ -361,14 +363,30 @@ public:
     inline _chan *_rawchan() const     { return _ch; }
 };
 
+// _elemsize<T> returns element size for chan<T>.
+template<typename T> static inline
+unsigned _elemsize() {
+    return std::is_empty<T>::value
+        ? 0          // eg struct{} for which sizeof() gives 1 - *not* 0
+        : sizeof(T);
+}
+
 // makechan<T> makes new chan<T> with capacity=size.
 template<typename T> static inline
 chan<T> makechan(unsigned size) {
     chan<T> ch;
-    unsigned elemsize = std::is_empty<T>::value
-        ? 0          // eg struct{} for which sizeof() gives 1 - *not* 0
-        : sizeof(T);
-    ch._ch = _makechan(elemsize, size);
+    ch._ch = _makechan(_elemsize<T>(), size);
+    return ch;
+}
+
+// _wrapchan<T> wraps raw channel with chan<T>.
+// raw channel must be either NULL or its element size must correspond to T.
+LIBGOLANG_API void __wrapchan(_chan *_ch, unsigned elemsize);
+template<typename T> static inline
+chan<T> _wrapchan(_chan *_ch) {
+    chan<T> ch;
+    __wrapchan(_ch, _elemsize<T>());
+    ch._ch = _ch;
     return ch;
 }
 

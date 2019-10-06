@@ -118,10 +118,8 @@ cdef void topyexc() except *
 cpdef pypanic(arg)
 
 # pychan is chan<object>
-from cpython cimport PyObject
-ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 from cython cimport final
 
 @final
 cdef class pychan:
-    cdef chan[pPyObject] ch
+    cdef _chan  *_ch

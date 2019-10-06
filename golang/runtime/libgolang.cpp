@@ -439,6 +439,15 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     return ch;
 }
 
+// __wrapchan serves _wrapchan<T>.
+void __wrapchan(_chan *ch, unsigned elemsize) {
+    if (ch == NULL)
+        return; // nil, no elemsize checking
+    if (ch->_elemsize != elemsize)
+        panic("wrapchan: elemsize mismatch");
+    _chanxincref(ch);
+}
+
 // _chanxincref increments reference counter of the channel.
 //
 // it is noop if ch=nil.
