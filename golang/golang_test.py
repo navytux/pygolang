@@ -22,7 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from golang import sync
-from pytest import raises
+from pytest import raises, mark
 from os.path import dirname
 import os, sys, inspect, importlib
 from subprocess import Popen, PIPE
@@ -650,6 +650,46 @@ def test_select():
     done.recv()
     assert len_sendq(ch1) == len_recvq(ch1) == 0
     assert len_sendq(ch2) == len_recvq(ch2) == 0
+
+
+# verify that select does not leak references to passed objects.
+@mark.skipif(not hasattr(sys, 'getrefcount'),   # skipped e.g. on PyPy
+             reason="needs sys.getrefcount")
+def test_select_refleak():
+    ch1 = chan()
+    ch2 = chan()
+    obj1 = object()
+    obj2 = object()
+    tx1 = (ch1.send, obj1)
+    tx2 = (ch2.send, obj2)
+
+    # normal exit
+    gc.collect()
+    nref1 = sys.getrefcount(obj1)
+    nref2 = sys.getrefcount(obj2)
+    _, _rx = select(
+        tx1,        # 0
+        tx2,        # 1
+        default,    # 2
+    )
+    assert (_, _rx) == (2, None)
+    gc.collect()
+    assert sys.getrefcount(obj1) == nref1
+    gc.collect()
+    assert sys.getrefcount(obj1) == nref2
+
+    # abnormal exit
+    with raises(AttributeError) as exc:
+        select(
+            tx1,        # 0
+            tx2,        # 1
+            'zzz',      # 2 causes pyselect to panic
+        )
+    assert exc.value.args == ("'str' object has no attribute '__self__'",)
+    gc.collect()
+    assert sys.getrefcount(obj1) == nref1
+    gc.collect()
+    assert sys.getrefcount(obj1) == nref2
 
 
 # benchmark sync chan send vs recv on select side.
