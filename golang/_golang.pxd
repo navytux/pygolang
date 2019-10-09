@@ -103,10 +103,14 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _CHANSEND
         _CHANRECV
         _DEFAULT
-    struct _selcase:
+    cppclass _selcase:
         _chanop op
         void    *ptxrx
         cbool   *rxok
+
+        const void *ptx() const
+        void *prx() const
+
     const _selcase default "golang::_default"
 
     int select(_selcase casev[])

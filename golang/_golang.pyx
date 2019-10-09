@@ -331,7 +331,7 @@ def pyselect(*pycasev):
         # decref not sent tx (see ^^^ send prepare)
         for i in range(n):
             if casev[i].op == _CHANSEND and (i != selected):
-                p_tx = <PyObject **>casev[i].ptxrx
+                p_tx = <PyObject **>casev[i].ptx()
                 _tx  = p_tx[0]
                 tx   = <object>_tx
                 Py_DECREF(tx)

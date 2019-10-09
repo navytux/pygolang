@@ -863,6 +863,21 @@ const _selcase _default = {
     .rxok   = NULL,
 };
 
+const void *_selcase::ptx() const {
+    const _selcase *cas = this;
+    if (cas->op != _CHANSEND)
+        panic("_selcase: ptx: op != send");
+    return cas->ptxrx;
+}
+
+void *_selcase::prx() const {
+    const _selcase *cas = this;
+    if (cas->op != _CHANRECV)
+        panic("_selcase: prx: op != recv");
+    return cas->ptxrx;
+}
+
+
 static const _RecvSendWaiting _sel_txrx_prepoll_won;
 template<bool onstack> static int _chanselect2(const _selcase *, int, const vector<int>&);
 template<> int _chanselect2</*onstack=*/true> (const _selcase *, int, const vector<int>&);
@@ -916,7 +931,7 @@ int _chanselect(const _selcase *casev, int casec) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
-                    bool done = ch->_trysend(cas->ptxrx);
+                    bool done = ch->_trysend(cas->ptx());
                     if (done)
                         return n;
                 }
@@ -930,7 +945,7 @@ int _chanselect(const _selcase *casev, int casec) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
-                    bool ok, done = ch->_tryrecv(cas->ptxrx, &ok);
+                    bool ok, done = ch->_tryrecv(cas->prx(), &ok);
                     if (done) {
                         if (cas->rxok != NULL)
                             *cas->rxok = ok;
@@ -1084,7 +1099,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
             // send
             if (cas->op == _CHANSEND) {
-                bool done = ch->_trysend(cas->ptxrx);
+                bool done = ch->_trysend(cas->ptx());
                 if (done) {
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     return n;
@@ -1095,7 +1110,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->ptxrx;
+                w->pdata = (void *)cas->ptx();
                 w->ok    = false;
                 w->sel_n = n;
 
@@ -1104,7 +1119,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
             // recv
             else if (cas->op == _CHANRECV) {
-                bool ok, done = ch->_tryrecv(cas->ptxrx, &ok);
+                bool ok, done = ch->_tryrecv(cas->prx(), &ok);
                 if (done) {
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     if (cas->rxok != NULL)
@@ -1117,7 +1132,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->ptxrx;
+                w->pdata = cas->prx();
                 w->ok    = false;
                 w->sel_n = n;
 

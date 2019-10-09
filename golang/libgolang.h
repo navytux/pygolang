@@ -156,6 +156,16 @@ typedef struct _selcase {
     enum _chanop    op;     // chansend/chanrecv/default
     void            *ptxrx; // chansend: ptx; chanrecv: prx
     bool            *rxok;  // chanrecv: where to save ok if !NULL; otherwise not used
+
+#ifdef __cplusplus
+    // ptx returns pointer to data to send for this case.
+    // .op must be _CHANSEND.
+    LIBGOLANG_API const void *ptx() const;
+
+    // prx returns pointer for this case to receive data into.
+    // .op must be _CHANRECV.
+    LIBGOLANG_API void *prx() const;
+#endif
 } _selcase;
 
 LIBGOLANG_API int _chanselect(const _selcase *casev, int casec);
