@@ -859,7 +859,7 @@ void _chan::_dataq_popleft(void *prx) {
 const _selcase _default = {
     .ch     = NULL,
     .op     = _DEFAULT,
-    .data   = NULL,
+    .ptxrx  = NULL,
     .rxok   = NULL,
 };
 
@@ -916,7 +916,7 @@ int _chanselect(const _selcase *casev, int casec) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
-                    bool done = ch->_trysend(cas->data);
+                    bool done = ch->_trysend(cas->ptxrx);
                     if (done)
                         return n;
                 }
@@ -930,7 +930,7 @@ int _chanselect(const _selcase *casev, int casec) {
             if (ch != NULL) {   // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
-                    bool ok, done = ch->_tryrecv(cas->data, &ok);
+                    bool ok, done = ch->_tryrecv(cas->ptxrx, &ok);
                     if (done) {
                         if (cas->rxok != NULL)
                             *cas->rxok = ok;
@@ -1017,12 +1017,12 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
         if (cas->ch == NULL) // nil chan
             continue;
         if (cas->op == _CHANSEND) {
-            memcpy(ptx, cas->data, cas->ch->_elemsize);
-            cas->data = ptx;
+            memcpy(ptx, cas->ptxrx, cas->ch->_elemsize);
+            cas->ptxrx = ptx;
             ptx += cas->ch->_elemsize;
         }
         else if (cas->op == _CHANRECV) {
-            cas->data = rxtxdata;
+            cas->ptxrx = rxtxdata;
         } else {
             bug("select: invalid op  ; _chanselect2: !onstack: B");
         }
@@ -1037,8 +1037,8 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     _selcase *cas = &casev_onheap[selected];
     if (cas->op == _CHANRECV) {
         const _selcase *cas0 = &casev[selected];
-        if (cas0->data != NULL)
-            memcpy(cas0->data, cas->data, cas->ch->_elemsize);
+        if (cas0->ptxrx != NULL)
+            memcpy(cas0->ptxrx, cas->ptxrx, cas->ch->_elemsize);
     }
 
     return selected;
@@ -1084,7 +1084,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
             // send
             if (cas->op == _CHANSEND) {
-                bool done = ch->_trysend(cas->data);
+                bool done = ch->_trysend(cas->ptxrx);
                 if (done) {
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     return n;
@@ -1095,7 +1095,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->data;
+                w->pdata = cas->ptxrx;
                 w->ok    = false;
                 w->sel_n = n;
 
@@ -1104,7 +1104,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
             // recv
             else if (cas->op == _CHANRECV) {
-                bool ok, done = ch->_tryrecv(cas->data, &ok);
+                bool ok, done = ch->_tryrecv(cas->ptxrx, &ok);
                 if (done) {
                     g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
                     if (cas->rxok != NULL)
@@ -1117,7 +1117,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
                 _RecvSendWaiting *w = &waitv[waitc++];
 
                 w->init(g, ch);
-                w->pdata = cas->data;
+                w->pdata = cas->ptxrx;
                 w->ok    = false;
                 w->sel_n = n;
 

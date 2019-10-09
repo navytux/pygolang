@@ -154,7 +154,7 @@ enum _chanop {
 typedef struct _selcase {
     _chan           *ch;    // channel
     enum _chanop    op;     // chansend/chanrecv/default
-    void            *data;  // chansend: ptx; chanrecv: prx
+    void            *ptxrx; // chansend: ptx; chanrecv: prx
     bool            *rxok;  // chanrecv: where to save ok if !NULL; otherwise not used
 } _selcase;
 
@@ -166,7 +166,7 @@ _selcase _selsend(_chan *ch, const void *ptx) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANSEND,
-        .data   = (void *)ptx,
+        .ptxrx  = (void *)ptx,
         .rxok   = NULL,
     };
     return _;
@@ -178,7 +178,7 @@ _selcase _selrecv(_chan *ch, void *prx) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV,
-        .data   = prx,
+        .ptxrx  = prx,
         .rxok   = NULL,
     };
     return _;
@@ -190,7 +190,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV,
-        .data   = prx,
+        .ptxrx  = prx,
         .rxok   = pok,
     };
     return _;

@@ -105,7 +105,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _DEFAULT
     struct _selcase:
         _chanop op
-        void    *data
+        void    *ptxrx
         cbool   *rxok
     const _selcase default "golang::_default"
 
