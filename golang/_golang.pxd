@@ -46,6 +46,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 
 from libcpp cimport nullptr_t, nullptr as nil
 from libcpp.utility cimport pair
+from libc.stdint cimport uint64_t
 cdef extern from *:
     ctypedef bint cbool "bool"
 
@@ -103,10 +104,15 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _CHANSEND
         _CHANRECV
         _DEFAULT
+    enum _selflags:
+        _INPLACE_DATA
     cppclass _selcase:
-        _chanop op
-        void    *ptxrx
-        cbool   *rxok
+        _chan     *ch
+        _chanop   op
+        unsigned  flags
+        void      *ptxrx
+        uint64_t  itxrx
+        cbool     *rxok
 
         const void *ptx() const
         void *prx() const

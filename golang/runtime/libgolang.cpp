@@ -859,6 +859,7 @@ void _chan::_dataq_popleft(void *prx) {
 const _selcase _default = {
     .ch     = NULL,
     .op     = _DEFAULT,
+    .flags  = (_selflags)0,
     .ptxrx  = NULL,
     .rxok   = NULL,
 };
@@ -867,13 +868,15 @@ const void *_selcase::ptx() const {
     const _selcase *cas = this;
     if (cas->op != _CHANSEND)
         panic("_selcase: ptx: op != send");
-    return cas->ptxrx;
+    return cas->flags & _INPLACE_DATA ? &cas->itxrx : cas->ptxrx;
 }
 
 void *_selcase::prx() const {
     const _selcase *cas = this;
     if (cas->op != _CHANRECV)
         panic("_selcase: prx: op != recv");
+    if (cas->flags & _INPLACE_DATA)
+        panic("_selcase: prx: recv with inplace data");
     return cas->ptxrx;
 }
 
@@ -943,6 +946,12 @@ int _chanselect(const _selcase *casev, int casec) {
         // recv
         else if (cas->op == _CHANRECV) {
             if (ch != NULL) {   // nil chan is never ready
+                // recv into inplace data is not supported
+                // ( in the future we might want to support it for symmetry with
+                //   send, but it will requre to drop const from casev )
+                if (cas->flags & _INPLACE_DATA)
+                    panic("select: recv into inplace data");
+
                 ch->_mu.lock();
                 if (1) {
                     bool ok, done = ch->_tryrecv(cas->prx(), &ok);
@@ -1000,7 +1009,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     unsigned rxmax=0, txtotal=0;
 
     // reallocate chan .tx / .rx to heap; adjust casev
-    // XXX avoid doing this if all .tx and .rx are on heap?
+    // XXX avoid doing this if all .tx and .rx are on heap or have inplace data?
     unique_ptr<_selcase[]>  casev_onheap (new _selcase[casec]);
     for (i = 0; i < casec; i++) {
         const _selcase *cas = &casev[i];
@@ -1008,7 +1017,8 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
         if (cas->ch == NULL) // nil chan
             continue;
         if (cas->op == _CHANSEND) {
-            txtotal += cas->ch->_elemsize;
+            if (!(cas->flags & _INPLACE_DATA))
+                txtotal += cas->ch->_elemsize;
         }
         else if (cas->op == _CHANRECV) {
             rxmax = max(rxmax, cas->ch->_elemsize);
@@ -1032,9 +1042,11 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
         if (cas->ch == NULL) // nil chan
             continue;
         if (cas->op == _CHANSEND) {
-            memcpy(ptx, cas->ptxrx, cas->ch->_elemsize);
-            cas->ptxrx = ptx;
-            ptx += cas->ch->_elemsize;
+            if (!(cas->flags & _INPLACE_DATA)) {
+                memcpy(ptx, cas->ptxrx, cas->ch->_elemsize);
+                cas->ptxrx = ptx;
+                ptx += cas->ch->_elemsize;
+            }
         }
         else if (cas->op == _CHANRECV) {
             cas->ptxrx = rxtxdata;

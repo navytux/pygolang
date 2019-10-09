@@ -150,10 +150,15 @@ def Extension(name, sources, **kw):
     lang = kw.setdefault('language', 'c++')
 
     # default to C++11 (chan[T] & co require C++11 features)
+    ccdefault = []
     if lang == 'c++':
-        ccextra = kw.get('extra_compile_args', [])[:]
-        ccextra.insert(0, '-std=c++11') # if another -std=... was already there - it will override us
-        kw['extra_compile_args'] = ccextra
+        ccdefault.append('-std=c++11')
+    # default to no strict-aliasing
+    ccdefault.append('-fno-strict-aliasing')
+
+    _ = kw.get('extra_compile_args', [])[:]
+    _[0:0] = ccdefault              # if another e.g. -std=... was already there -
+    kw['extra_compile_args'] = _    # - it will override us
 
     # some depends to workaround a bit lack of proper dependency tracking in
     # setuptools/distutils.

@@ -150,12 +150,26 @@ enum _chanop {
     _DEFAULT    = 2,
 };
 
+enum _selflags {
+    // _INPLACE_DATA indicates that select case data is stored in
+    // _selcase.itxrx instead of in *_selcase.ptxrx .
+    // XXX can be used only for send for now. In the future, for symmetry, we
+    // might want to allow _INPLACE_DATA for recv too.
+    _INPLACE_DATA   = 1,
+};
+
+
 // _selcase represents one select case.
 typedef struct _selcase {
-    _chan           *ch;    // channel
-    enum _chanop    op;     // chansend/chanrecv/default
-    void            *ptxrx; // chansend: ptx; chanrecv: prx
-    bool            *rxok;  // chanrecv: where to save ok if !NULL; otherwise not used
+    _chan           *ch;        // channel
+    enum _chanop    op    : 8;  // chansend/chanrecv/default
+    enum _selflags  flags : 8;  // e.g. _INPLACE_DATA
+    unsigned              :16;
+    union {
+        void        *ptxrx;     // chansend: ptx; chanrecv: prx
+        uint64_t     itxrx;     // used instead of .ptxrx if .flags&_INPLACE_DATA != 0
+    };
+    bool            *rxok;      // chanrecv: where to save ok if !NULL; otherwise not used
 
 #ifdef __cplusplus
     // ptx returns pointer to data to send for this case.
@@ -176,6 +190,7 @@ _selcase _selsend(_chan *ch, const void *ptx) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANSEND,
+        .flags  = (enum _selflags)0,
         .ptxrx  = (void *)ptx,
         .rxok   = NULL,
     };
@@ -188,6 +203,7 @@ _selcase _selrecv(_chan *ch, void *prx) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV,
+        .flags  = (enum _selflags)0,
         .ptxrx  = prx,
         .rxok   = NULL,
     };
@@ -200,6 +216,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
     _selcase _ = {
         .ch     = ch,
         .op     = _CHANRECV,
+        .flags  = (enum _selflags)0,
         .ptxrx  = prx,
         .rxok   = pok,
     };

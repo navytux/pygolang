@@ -391,3 +391,73 @@ void _test_select_win_while_queue() {
     for (i=0; i<N; i++)
         __test_select_win_while_queue();
 }
+
+// verify select behaviour with _INPLACE_DATA cases.
+void _test_select_inplace() {
+    auto ch = makechan<int>();
+    int i;
+
+    // inplace tx
+    go([ch]() {
+        _selcase sel[1];
+        sel[0] = ch.sends(NULL);
+        *(int *)&sel[0].itxrx = 12345;
+        sel[0].flags = _INPLACE_DATA;
+        int _ = select(sel);
+        ASSERT(_ == 0);
+    });
+
+    i = ch.recv();
+    ASSERT(i == 12345);
+
+    // inplace rx - currently forbidden to keep casev const.
+    _selcase sel[1];
+    sel[0] = ch.recvs();
+    sel[0].flags = _INPLACE_DATA;
+    const char *err = NULL;
+    try {
+        select(sel);
+    } catch (...) {
+        err = recover();
+    }
+    ASSERT(err != NULL);
+    ASSERT(!strcmp(err, "select: recv into inplace data"));
+
+    // _selcase ptx/prx
+    _selcase cas = _default;
+
+    err = NULL;
+    try {
+        cas.ptx();
+    } catch (...) {
+        err = recover();
+    }
+    ASSERT(err != NULL);
+    ASSERT(!strcmp(err, "_selcase: ptx: op != send"));
+
+    err = NULL;
+    try {
+        cas.prx();
+    } catch (...) {
+        err = recover();
+    }
+    ASSERT(err != NULL);
+    ASSERT(!strcmp(err, "_selcase: prx: op != recv"));
+
+    cas = ch.sends(&i);
+    ASSERT(cas.ptx() == &i);
+    cas.flags = _INPLACE_DATA;
+    ASSERT(cas.ptx() == &cas.itxrx);
+
+    cas = ch.recvs(&i);
+    ASSERT(cas.prx() == &i);
+    cas.flags = _INPLACE_DATA;
+    err = NULL;
+    try {
+        cas.prx();
+    } catch (...) {
+        err = recover();
+    }
+    ASSERT(err != NULL);
+    ASSERT(!strcmp(err, "_selcase: prx: recv with inplace data"));
+}
