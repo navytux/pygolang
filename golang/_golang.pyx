@@ -300,15 +300,15 @@ def pyselect(*pycasev):
                 if pysend.__name__ != "send":       # XXX better check PyCFunction directly
                     pypanic("pyselect: send expected: %r" % (pysend,))
 
-                # wire ptx through pycase[1]
-                p_tx = &(_tcase.ob_item[1])
-                tx   = <object>(p_tx[0])
+                tx = <object>(_tcase.ob_item[1])
 
                 # incref tx as if corresponding channel is holding pointer to the object while it is being sent.
                 # we'll decref the object if it won't be sent.
                 # see pychan.send for details.
                 Py_INCREF(tx)
-                casev[i] = _selsend(pych._ch, p_tx)
+                casev[i] = _selsend(pych._ch, NULL)
+                casev[i].flags = _INPLACE_DATA
+                (<PyObject **>&casev[i].itxrx)[0] = <PyObject *>tx
 
             # recv
             else:
@@ -331,9 +331,8 @@ def pyselect(*pycasev):
         # decref not sent tx (see ^^^ send prepare)
         for i in range(n):
             if casev[i].op == _CHANSEND and (i != selected):
-                p_tx = <PyObject **>casev[i].ptx()
-                _tx  = p_tx[0]
-                tx   = <object>_tx
+                _tx = (<PyObject **>casev[i].ptx())[0]
+                tx  = <object>_tx
                 Py_DECREF(tx)
 
     # return what was selected
