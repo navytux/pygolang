@@ -233,7 +233,7 @@ class _BaseCtx(object):
             # if parent can never be canceled (e.g. it is background) - we
             # don't need to propagate cancel from it.
             pdone = parent.done()
-            if pdone is nilchan:
+            if pdone == nilchan:
                 continue
 
             # parent is cancellable - glue to propagate cancel from it to us

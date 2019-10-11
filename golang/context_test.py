@@ -43,22 +43,22 @@ bg = context.background()
 # deadlines are tested in test_deadline.
 def test_context():
     assert bg.err()         is None
-    assert bg.done()        is nilchan
+    assert bg.done()        == nilchan
     assert bg.deadline()    is None
     assert not ready(bg.done())
     assert bg.value("hello") is None
 
     ctx1, cancel1 = context.with_cancel(bg)
-    assert ctx1.done() is not bg.done()
+    assert ctx1.done() != bg.done()
     assertCtx(ctx1,     Z)
 
     ctx11, cancel11 = context.with_cancel(ctx1)
-    assert ctx11.done() is not ctx1.done()
+    assert ctx11.done() != ctx1.done()
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    Z)
 
     ctx111  = context.with_value(ctx11,  "hello", "alpha")
-    assert ctx111.done() is ctx11.done()
+    assert ctx111.done() is ctx11.done()    # ==  and same pyobject
     assert ctx111.value("hello") == "alpha"
     assert ctx111.value("abc")   is None
     assertCtx(ctx1,     {ctx11})
@@ -66,7 +66,7 @@ def test_context():
     assertCtx(ctx111,   Z)
 
     ctx1111 = context.with_value(ctx111, "beta",  "gamma")
-    assert ctx1111.done() is ctx11.done()
+    assert ctx1111.done() is ctx11.done()   # ==  and same pyobject
     assert ctx1111.value("hello") == "alpha"
     assert ctx1111.value("beta")  == "gamma"
     assert ctx1111.value("abc")   is None
@@ -77,7 +77,7 @@ def test_context():
 
 
     ctx12 = context.with_value(ctx1, "hello", "world")
-    assert ctx12.done() is ctx1.done()
+    assert ctx12.done() is ctx1.done()      # ==  and same pyobject
     assert ctx12.value("hello") == "world"
     assert ctx12.value("abc")   is None
     assertCtx(ctx1,     {ctx11, ctx12})
@@ -87,7 +87,7 @@ def test_context():
     assertCtx(ctx12,    Z)
 
     ctx121, cancel121 = context.with_cancel(ctx12)
-    assert ctx121.done() is not ctx12.done()
+    assert ctx121.done() != ctx12.done()
     assert ctx121.value("hello") == "world"
     assert ctx121.value("abc")   is None
     assertCtx(ctx1,     {ctx11, ctx12})
@@ -98,7 +98,7 @@ def test_context():
     assertCtx(ctx121,   Z)
 
     ctx1211 = context.with_value(ctx121, "мир", "май")
-    assert ctx1211.done() is ctx121.done()
+    assert ctx1211.done() is ctx121.done()  # ==  and same pyobject
     assert ctx1211.value("hello") == "world"
     assert ctx1211.value("мир")   == "май"
     assert ctx1211.value("abc")   is None
@@ -111,8 +111,8 @@ def test_context():
     assertCtx(ctx1211,  Z)
 
     ctxM, cancelM = context.merge(ctx1111, ctx1211)
-    assert ctxM.done() is not ctx1111.done()
-    assert ctxM.done() is not ctx1211.done()
+    assert ctxM.done() != ctx1111.done()
+    assert ctxM.done() != ctx1211.done()
     assert ctxM.value("hello")  == "alpha"
     assert ctxM.value("мир")    == "май"
     assert ctxM.value("beta")   == "gamma"
@@ -158,30 +158,30 @@ def test_deadline():
     d3 = t0 + 30*dt
 
     ctx1, cancel1 = context.with_deadline(bg, d2)
-    assert ctx1.done() is not bg.done()
+    assert ctx1.done() != bg.done()
     assertCtx(ctx1, Z, deadline=d2)
 
     ctx11 = context.with_value(ctx1, "a", "b")
-    assert ctx11.done() is ctx1.done()
+    assert ctx11.done() is ctx1.done()  # ==  and same pyobject
     assert ctx11.value("a") == "b"
     assertCtx(ctx1,     {ctx11},        deadline=d2)
     assertCtx(ctx11,    Z,              deadline=d2)
 
     ctx111, cancel111 = context.with_cancel(ctx11)
-    assert ctx111.done() is not ctx11.done
+    assert ctx111.done() != ctx11.done
     assertCtx(ctx1,     {ctx11},        deadline=d2)
     assertCtx(ctx11,    {ctx111},       deadline=d2)
     assertCtx(ctx111,   Z,              deadline=d2)
 
     ctx1111, cancel1111 = context.with_deadline(ctx111, d3) # NOTE deadline > parent
-    assert ctx1111.done() is not ctx111.done()
+    assert ctx1111.done() != ctx111.done()
     assertCtx(ctx1,     {ctx11},        deadline=d2)
     assertCtx(ctx11,    {ctx111},       deadline=d2)
     assertCtx(ctx111,   {ctx1111},      deadline=d2)
     assertCtx(ctx1111,  Z,              deadline=d2)    # NOTE not d3
 
     ctx12, cancel12 = context.with_deadline(ctx1, d1)
-    assert ctx12.done() is not ctx1.done()
+    assert ctx12.done() != ctx1.done()
     assertCtx(ctx1,     {ctx11, ctx12}, deadline=d2)
     assertCtx(ctx11,    {ctx111},       deadline=d2)
     assertCtx(ctx111,   {ctx1111},      deadline=d2)
@@ -189,8 +189,8 @@ def test_deadline():
     assertCtx(ctx12,    Z,              deadline=d1)
 
     ctxM, cancelM = context.merge(ctx1111, ctx12)
-    assert ctxM.done() is not ctx1111.done()
-    assert ctxM.done() is not ctx12.done()
+    assert ctxM.done() != ctx1111.done()
+    assert ctxM.done() != ctx12.done()
     assert ctxM.value("a") == "b"
     assertCtx(ctx1,     {ctx11, ctx12}, deadline=d2)
     assertCtx(ctx11,    {ctx111},       deadline=d2)
@@ -221,7 +221,7 @@ def test_deadline():
 
     # with_timeout
     ctx, cancel = context.with_timeout(bg, 10*dt)
-    assert ctx.done() is not bg.done()
+    assert ctx.done() != bg.done()
     d = ctx.deadline()
     assert abs(d - (time.now() + 10*dt)) < 1*dt
     assertCtx(ctx,  Z,  deadline=d)

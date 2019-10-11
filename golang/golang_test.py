@@ -738,6 +738,27 @@ def _test_blockforever():
     with panics("t: blocks forever"): select((z.send, 1), z.recv)
 
 
+def test_chan_misc():
+    nilch = nilchan
+
+    assert nilch == nilch                   # nil == nil
+
+    # channels can be compared, different channels differ
+    assert nilch != None    # just in case
+    ch1 = chan()
+    ch2 = chan()
+    ch3 = chan()
+    assert ch1 != ch2;  assert ch1 == ch1
+    assert ch1 != ch3;  assert ch2 == ch2
+    assert ch2 != ch3;  assert ch3 == ch3
+    assert hash(nilch) != hash(ch1)
+    assert hash(nilch) != hash(ch2)
+    assert hash(nilch) != hash(ch3)
+    assert nilch != ch1
+    assert nilch != ch2
+    assert nilch != ch3
+
+
 def test_func():
     # test how @func(cls) works
     # this also implicitly tests just @func, since @func(cls) uses that.

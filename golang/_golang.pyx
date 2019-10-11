@@ -154,6 +154,9 @@ cdef class pychan:
         # (if it was present also somewhere else - draining would be incorrect)
         if pych._ch == NULL:
             return
+        # TODO: in the future there could be multiple pychan[object] wrapping
+        # the same underlying raw channel: e.g. ch=chan(); ch2=ch.txonly()
+        # -> drain underlying channel only when its last reference goes to 0.
         cdef int refcnt = _chanrefcnt(pych._ch)
         if refcnt != 1:
             # cannot raise py-level exception in __dealloc__
@@ -229,6 +232,17 @@ cdef class pychan:
             return "nilchan"
         else:
             return super(pychan, pych).__repr__()
+
+    # pychan == pychan
+    def __hash__(pychan pych):
+        return <Py_hash_t>pych._ch
+    def __eq__(pychan a, object rhs):
+        if not isinstance(rhs, pychan):
+            return False
+        cdef pychan b = rhs
+        if a._ch != b._ch:
+            return False
+        return True
 
 
 # pynilchan is the nil py channel.

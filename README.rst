@@ -60,7 +60,7 @@ Goroutines and channels
 exchange data in between either threads or coroutines via channels. `chan`
 creates a new channel with Go semantic - either synchronous or buffered. Use
 `chan.recv`, `chan.send` and `chan.close` for communication. `nilchan`
-stands for the nil channel. `select` can be used to multiplex on several
+stands for nil channel. `select` can be used to multiplex on several
 channels. For example::
 
     ch1 = chan()    # synchronous channel
@@ -186,7 +186,7 @@ Cython/nogil API follows:
 `go` spawns new task - a coroutine, or thread, depending on activated runtime.
 `chan[T]` represents a channel with Go semantic and elements of type `T`.
 Use `makechan[T]` to create new channel, and `chan[T].recv`, `chan[T].send`,
-`chan[T].close` for communication. `nil` stands for the nil channel. `select`
+`chan[T].close` for communication. `nil` stands for nil channel. `select`
 can be used to multiplex on several channels. For example::
 
    cdef nogil:
