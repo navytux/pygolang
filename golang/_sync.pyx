@@ -30,11 +30,11 @@ cdef class PySema:
     # FIXME cannot catch/pyreraise panic of .sema ctor
     # https://github.com/cython/cython/issues/3165
 
-    def acquire(pysema):
+    def acquire(PySema pysema):
         with nogil:
             semaacquire_pyexc(&pysema.sema)
 
-    def release(pysema):
+    def release(PySema pysema):
         semarelease_pyexc(&pysema.sema)
 
     # with support
@@ -49,17 +49,17 @@ cdef class PyMutex:
     # FIXME cannot catch/pyreraise panic of .mu ctor
     # https://github.com/cython/cython/issues/3165
 
-    def lock(pymu):
+    def lock(PyMutex pymu):
         with nogil:
             mutexlock_pyexc(&pymu.mu)
 
-    def unlock(pymu):
+    def unlock(PyMutex pymu):
         mutexunlock_pyexc(&pymu.mu)
 
 
     # with support
     __enter__ = lock
-    def __exit__(pymu, exc_typ, exc_val, exc_tb):
+    def __exit__(PyMutex pymu, exc_typ, exc_val, exc_tb):
         pymu.unlock()
 
 

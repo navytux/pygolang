@@ -145,10 +145,10 @@ cdef void __goviac(void *arg) nogil:
 # pychan is chan<object>.
 @final
 cdef class pychan:
-    def __cinit__(pych, size=0):
+    def __cinit__(pychan pych, size=0):
         pych._ch = _makechan_pyexc(sizeof(PyObject*), size)
 
-    def __dealloc__(pych):
+    def __dealloc__(pychan pych):
         # on del: drain buffered channel to decref sent objects.
         # verify that the channel is not connected anywhere outside us.
         # (if it was present also somewhere else - draining would be incorrect)
@@ -178,7 +178,7 @@ cdef class pychan:
 
 
     # send sends object to a receiver.
-    def send(pych, obj):
+    def send(pychan pych, obj):
         cdef PyObject *_tx = <PyObject*>obj
 
         # increment obj reference count - until received the channel is holding pointer to the object.
@@ -196,7 +196,7 @@ cdef class pychan:
     #
     # ok is true - if receive was delivered by a successful send.
     # ok is false - if receive is due to channel being closed and empty.
-    def recv_(pych): # -> (rx, ok)
+    def recv_(pychan pych): # -> (rx, ok)
         cdef PyObject *_rx = NULL
         cdef bint ok
 
@@ -212,19 +212,19 @@ cdef class pychan:
         return (rx, ok)
 
     # recv receives from the channel.
-    def recv(pych): # -> rx
+    def recv(pychan pych): # -> rx
         rx, _ = pych.recv_()    # TODO call recv_ via C
         return rx
 
     # close closes sending side of the channel.
-    def close(pych):
+    def close(pychan pych):
         with nogil:
             _chanclose_pyexc(pych._ch)
 
-    def __len__(pych):
+    def __len__(pychan pych):
         return _chanlen_pyexc(pych._ch)
 
-    def __repr__(pych):
+    def __repr__(pychan pych):
         if pych._ch == NULL:
             return "nilchan"
         else:

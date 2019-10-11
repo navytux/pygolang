@@ -74,12 +74,12 @@ def pywaitBlocked(pychanop):
 # `with pypanicWhenBlocked` hooks into libgolang _blockforever to raise panic with
 # "t: blocks forever" instead of blocking.
 cdef class pypanicWhenBlocked:
-    def __enter__(t):
+    def __enter__(pypanicWhenBlocked t):
         global _tblockforever
         _tblockforever = _panicblocked
         return t
 
-    def __exit__(t, typ, val, tb):
+    def __exit__(pypanicWhenBlocked t, typ, val, tb):
         _tblockforever = NULL
 
 cdef void _panicblocked() nogil:
