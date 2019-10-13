@@ -42,6 +42,28 @@ def test_now():
     assert t3 < t4
 
 
+# test_{timer,ticker}_time verifie that Timer/Ticker, when they fire, send current time.
+def test_timer_time():
+    Tstart = time.now()
+    t = time.Timer(3*dt)
+    tnow = t.c.recv()
+    Tend = time.now()
+
+    assert type(tnow) is type(Tstart)
+    assert Tstart < tnow < Tend
+    assert ((tnow - Tstart) / dt) >= 3
+
+def test_ticker_time():
+    Tstart = time.now()
+    tx = time.Ticker(3*dt)
+    tnow = tx.c.recv()
+    Tend = time.now()
+
+    assert type(tnow) is type(Tstart)
+    assert Tstart < tnow < Tend
+    assert ((tnow - Tstart) / dt) >= 3
+
+
 # test_timer verifies that Timer/Ticker fire as expected.
 def test_timer():
     # start timers at x5, x7 and x11 intervals an verify that the timers fire

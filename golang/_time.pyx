@@ -26,7 +26,7 @@ from golang cimport sync
 from libc.math cimport INFINITY
 from cython cimport final
 
-from golang import go as pygo, select as pyselect, default as pydefault, nilchan as pynilchan, panic as pypanic
+from golang import go as pygo, select as pyselect, default as pydefault, panic as pypanic
 
 
 def pynow(): # -> t
@@ -43,10 +43,10 @@ def pysleep(double dt):
 # tick returns channel connected to dt ticker.
 #
 # Note: there is no way to stop created ticker.
-# Note: for dt <= 0, contrary to Ticker, tick returns nilchan instead of panicking.
+# Note: for dt <= 0, contrary to Ticker, tick returns nil channel instead of panicking.
 def tick(double dt):    # -> chan time
     if dt <= 0:
-        return pynilchan
+        return pychan._nil('C.double')
     return Ticker(dt).c
 
 # after returns channel connected to dt timer.
@@ -69,7 +69,7 @@ def after_func(double dt, f):  # -> Timer
 # Ticking can be canceled via .stop() .
 @final
 cdef class Ticker:
-    cdef readonly pychan  c
+    cdef readonly pychan  c # chan[double]
 
     cdef double      _dt
     cdef sync.Mutex  _mu
@@ -78,7 +78,7 @@ cdef class Ticker:
     def __init__(Ticker self, double dt):
         if dt <= 0:
             pypanic("ticker: dt <= 0")
-        self.c      = pychan(1) # 1-buffer -- same as in Go
+        self.c      = pychan(1, dtype='C.double') # 1-buffer -- same as in Go
         self._dt    = dt
         self._stop  = False
         pygo(self._tick)
@@ -131,7 +131,8 @@ cdef class Timer:
 
     def __init__(Timer self, double dt, f=None):
         self._f     = f
-        self.c      = pychan(1) if f is None else pynilchan
+        self.c      = pychan(1, dtype='C.double') if f is None else \
+                      pychan._nil('C.double')
         self._dt    = INFINITY
         self._ver   = 0
         self.reset(dt)
