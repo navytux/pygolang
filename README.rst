@@ -99,6 +99,14 @@ channels. For example::
         # default case
         ...
 
+By default `chan` creates new channel that can carry arbitrary Python objects.
+However type of channel elements can be specified via `chan(dtype=X)` - for
+example `chan(dtype='C.int')` creates new channel whose elements are C
+integers. `chan.nil(X)` creates typed nil channel. `Cython/nogil API`_
+explains how channels with non-Python dtypes, besides in-Python usage, can be
+additionally used for interaction in between Python and nogil worlds.
+
+
 Methods
 -------
 
@@ -237,6 +245,13 @@ can be used to multiplex on several channels. For example::
          if _ == 4:
              # default case
              ...
+
+Channels created from Python are represented by `pychan` cdef class. Python
+channels that carry non-Python elements (`pychan.dtype != DTYPE_PYOBJECT`) can
+be converted to Cython/nogil `chan[T]` via `pychan.chan_*()`. For example
+`pychan.chan_int()` converts Python channel created via `pychan(dtype='C.int')`
+into `chan[int]`. This provides interaction mechanism in between *nogil* and
+Python worlds.
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to

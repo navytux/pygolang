@@ -110,6 +110,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         _chan     *ch
         _chanop   op
         unsigned  flags
+        unsigned  user
         void      *ptxrx
         uint64_t  itxrx
         cbool     *rxok
@@ -127,9 +128,40 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 cdef void topyexc() except *
 cpdef pypanic(arg)
 
-# pychan is chan<object>
+# pychan is python wrapper over chan<object> or chan<structZ|bool|int|double|...>
 from cython cimport final
 
+# DType describes type of channel elements.
+# TODO consider supporting NumPy dtypes too.
+cdef enum DType:
+    DTYPE_PYOBJECT   = 0    # chan[object]
+    DTYPE_STRUCTZ    = 1    # chan[structZ]
+    DTYPE_BOOL       = 2    # chan[bool]
+    DTYPE_INT        = 3    # chan[int]
+    DTYPE_DOUBLE     = 4    # chan[double]
+    DTYPE_NTYPES     = 5
+
+# pychan wraps a channel into python object.
+#
+# Type of channel can be either channel of python objects, or channel of
+# C-level objects. If channel elements are C-level objects, the channel - even
+# via pychan wrapper - can be used to interact with nogil world.
+#
+# There can be multiple pychan(s) wrapping a particular raw channel.
 @final
 cdef class pychan:
     cdef _chan  *_ch
+    cdef DType  dtype # type of channel elements
+
+    # pychan.nil(X) creates new nil pychan with element type X.
+    @staticmethod                  # XXX needs to be `cpdef nil()` but cython:
+    cdef pychan _nil(object dtype) #  "static cpdef methods not yet supported"
+
+    # chan_X returns ._ch wrapped into typesafe pyx/nogil-level chan[X].
+    # chan_X panics if channel type != X.
+    # X can be any C-level type, but not PyObject.
+    cdef nogil:
+        chan[structZ]   chan_structZ    (pychan pych)
+        chan[cbool]     chan_bool       (pychan pych)
+        chan[int]       chan_int        (pychan pych)
+        chan[double]    chan_double     (pychan pych)

@@ -29,6 +29,7 @@ from subprocess import Popen, PIPE
 from six.moves import range as xrange
 import gc, weakref
 
+from golang import _golang_test
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
@@ -738,15 +739,160 @@ def _test_blockforever():
     with panics("t: blocks forever"): select((z.send, 1), z.recv)
 
 
-def test_chan_misc():
-    nilch = nilchan
+# verify chan(dtype=X) functionality.
+def test_chan_dtype_invalid():
+    with raises(TypeError) as exc:
+        chan(dtype="BadType")
+    assert exc.value.args == ("pychan: invalid dtype: 'BadType'",)
 
-    assert nilch == nilch                   # nil == nil
+chantypev = [
+    # dtype         obj     zero-obj
+    ('object',      'abc',  None),
+    ('C.structZ',   None,   None),
+    ('C.bool',      True,   False),
+    ('C.int',       4,      0),
+    ('C.double',    3.14,   0.0),
+]
+
+@mark.parametrize('dtype,obj,zobj', chantypev)
+def test_chan_dtype(dtype, obj, zobj):
+    # py -> py  (pysend/pyrecv; buffered)
+    ch = chan(1, dtype=dtype)
+    ch.send(obj)
+    obj2, ok = ch.recv_()
+    assert ok == True
+    assert type(obj2) is type(obj)
+    assert obj2 == obj
+
+    # send with different type - rejected
+    for (dtype2, obj2, _) in chantypev:
+        if dtype2 == dtype or dtype == "object":
+            continue    # X -> X; object accepts *,
+        if (dtype2, dtype) == ('C.int', 'C.double'): # int -> double  ok
+            continue
+        with raises(TypeError) as exc:
+            ch.send(obj2)
+        # XXX we can implement vvv, but it will potentially hide cause error
+        # XXX (or use raise from?)
+        #assert exc.value.args == ("type mismatch: expect %s; got %r" % (dtype, obj2),)
+        with raises(TypeError) as exc:
+            select((ch.send, obj2))
+
+    # py -> py  (pyclose/pyrecv)
+    ch.close()
+    obj2, ok = ch.recv_()
+    assert ok == False
+    assert type(obj2) is type(zobj)
+    assert obj2 == zobj
+
+    # below tests are for py <-> c interaction
+    if dtype == "object":
+        return
+    ctype = dtype[2:]  # C.int -> int
+
+    ch = chan(dtype=dtype)  # recreate after close; mode=synchronous
+
+    # recv/send/close via C
+    def crecv(ch):
+        return getattr(_golang_test, "pychan_%s_recv" % ctype)(ch)
+    def csend(ch, obj):
+        getattr(_golang_test, "pychan_%s_send" % ctype)(ch, obj)
+    def cclose(ch):
+        getattr(_golang_test, "pychan_%s_close" % ctype)(ch)
+
+    # py -> c  (pysend/crecv)
+    rx = chan()
+    def _():
+        _ = crecv(ch)
+        rx.send(_)
+    go(_)
+    ch.send(obj)
+    obj2 = rx.recv()
+    assert type(obj2) is type(obj)
+    assert obj2 == obj
+
+    # py -> c  (pyselect/crecv)
+    rx = chan()
+    def _():
+        _ = crecv(ch)
+        rx.send(_)
+    go(_)
+    _, _rx = select(
+        (ch.send, obj), # 0
+    )
+    assert (_, _rx) == (0, None)
+    obj2 = rx.recv()
+    assert type(obj2) is type(obj)
+    assert obj2 == obj
+
+    # py -> c  (pyclose/crecv)
+    rx = chan()
+    def _():
+        _ = crecv(ch)
+        rx.send(_)
+    go(_)
+    ch.close()
+    obj2 = rx.recv()
+    assert type(obj2) is type(zobj)
+    assert obj2 == zobj
+
+
+    ch = chan(dtype=dtype)  # recreate after close
+
+    # py <- c  (pyrecv/csend)
+    def _():
+        csend(ch, obj)
+    go(_)
+    obj2 = ch.recv()
+    assert type(obj2) is type(obj)
+    assert obj2 == obj
+
+    # py <- c  (pyselect/csend)
+    def _():
+        csend(ch, obj)
+    go(_)
+    _, _rx = select(
+        ch.recv,        # 0
+    )
+    assert _ == 0
+    obj2 = _rx
+    assert type(obj2) is type(obj)
+    assert obj2 == obj
+
+    # py <- c  (pyrecv/cclose)
+    def _():
+        cclose(ch)
+    go(_)
+    obj2 = ch.recv()
+    assert type(obj2) is type(zobj)
+    assert obj2 == zobj
+
+
+@mark.parametrize('dtype', [_[0] for _ in chantypev])
+def test_chan_dtype_misc(dtype):
+    nilch = chan.nil(dtype)
+
+    # nil repr
+    if dtype == "object":
+        assert repr(nilch) == "nilchan"
+    else:
+        assert repr(nilch) == ("chan.nil(%r)" % dtype)
+
+    # optimization: nil[X]() -> always same object
+    nilch_ = chan.nil(dtype)
+    assert nilch is nilch_
+    if dtype == "object":
+        assert nilch is nilchan
+
+    assert hash(nilch) == hash(nilchan)
+    assert nilch == nilch                   # nil[X] == nil[X]
+    assert nilch == nilchan                 # nil[X] == nil[*]
+    assert nilchan == nilch                 # nil[*] == nil[X]
 
     # channels can be compared, different channels differ
     assert nilch != None    # just in case
-    ch1 = chan()
-    ch2 = chan()
+    ch1 = chan(dtype=dtype)
+    ch2 = chan(dtype=dtype)
     ch3 = chan()
     assert ch1 != ch2;  assert ch1 == ch1
     assert ch1 != ch3;  assert ch2 == ch2
@@ -757,6 +903,43 @@ def test_chan_misc():
     assert nilch != ch1
     assert nilch != ch2
     assert nilch != ch3
+
+    # .nil on chan instance     XXX doesn't work (yet ?)
+    """
+    ch = chan() # non-nil chan object instance
+    with raises(AttributeError):
+        ch.nil
+    """
+
+    # nil[X] vs nil[Y]
+    for (dtype2, _, _) in chantypev:
+        nilch2 = chan.nil(dtype2)
+        # nil[*] stands for untyped nil - it is equal to nil[X] for ∀ X
+        if dtype == "object" or dtype2 == "object":
+            if dtype != dtype2:
+                assert nilch is not nilch2
+            assert hash(nilch) == hash(nilch2)
+            assert (nilch  == nilch2)   == True
+            assert (nilch2 == nilch)    == True
+            assert (nilch  != nilch2)   == False
+            assert (nilch2 != nilch)    == False
+            continue
+
+        # nil[X] == nil[X]
+        if dtype == dtype2:
+            assert hash(nilch) == hash(nilch2)
+            assert (nilch  == nilch2)   == True
+            assert (nilch2 == nilch)    == True
+            assert (nilch  != nilch2)   == False
+            assert (nilch2 != nilch)    == False
+            continue
+
+        # nil[X] != nil[Y]
+        assert nilch is not nilch2
+        assert (nilch  == nilch2)   == False
+        assert (nilch2 == nilch)    == False
+        assert (nilch  != nilch2)   == True
+        assert (nilch2 != nilch)    == True
 
 
 def test_func():

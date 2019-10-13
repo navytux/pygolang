@@ -210,3 +210,72 @@ def test_select_win_while_queue():
 def test_select_inplace():
     with nogil:
         _test_select_inplace()
+
+
+# helpers for pychan(dtype=X)  py <-> c  tests.
+def pychan_structZ_recv(pychan pych):
+    with nogil: _pychan_structZ_recv(pych)
+    return None
+def pychan_structZ_send(pychan pych, obj):
+    if obj is not None:
+        raise TypeError("cannot convert %r to structZ" % (obj,))
+    cdef structZ _
+    with nogil:
+        _pychan_structZ_send(pych, _)
+def pychan_structZ_close(pychan pych):
+    with nogil: _pychan_structZ_close(pych)
+
+def pychan_bool_recv(pychan pych):
+    with nogil: _ = _pychan_bool_recv(pych)
+    return _
+def pychan_bool_send(pychan pych, cbool obj):
+    with nogil: _pychan_bool_send(pych, obj)
+def pychan_bool_close(pychan pych):
+    with nogil: _pychan_bool_close(pych)
+
+def pychan_int_recv(pychan pych):
+    with nogil: _ = _pychan_int_recv(pych)
+    return _
+def pychan_int_send(pychan pych, int obj):
+    with nogil: _pychan_int_send(pych, obj)
+def pychan_int_close(pychan pych):
+    with nogil: _pychan_int_close(pych)
+
+def pychan_double_recv(pychan pych):
+    with nogil: _ = _pychan_double_recv(pych)
+    return _
+def pychan_double_send(pychan pych, double obj):
+    with nogil: _pychan_double_send(pych, obj)
+def pychan_double_close(pychan pych):
+    with nogil: _pychan_double_close(pych)
+
+
+cdef nogil:
+
+    structZ _pychan_structZ_recv(pychan pych)               except +topyexc:
+        return pych.chan_structZ().recv()
+    void    _pychan_structZ_send(pychan pych, structZ obj)  except +topyexc:
+        pych.chan_structZ().send(obj)
+    void    _pychan_structZ_close(pychan pych)              except +topyexc:
+        pych.chan_structZ().close()
+
+    cbool   _pychan_bool_recv(pychan pych)                  except +topyexc:
+        return pych.chan_bool().recv()
+    void    _pychan_bool_send(pychan pych, cbool obj)       except +topyexc:
+        pych.chan_bool().send(obj)
+    void    _pychan_bool_close(pychan pych)                 except +topyexc:
+        pych.chan_bool().close()
+
+    int     _pychan_int_recv(pychan pych)                   except +topyexc:
+        return pych.chan_int().recv()
+    void    _pychan_int_send(pychan pych, int obj)          except +topyexc:
+        pych.chan_int().send(obj)
+    void    _pychan_int_close(pychan pych)                  except +topyexc:
+        pych.chan_int().close()
+
+    double  _pychan_double_recv(pychan pych)                except +topyexc:
+        return pych.chan_double().recv()
+    void    _pychan_double_send(pychan pych, double obj)    except +topyexc:
+        pych.chan_double().send(obj)
+    void    _pychan_double_close(pychan pych)               except +topyexc:
+        pych.chan_double().close()

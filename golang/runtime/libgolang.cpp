@@ -860,6 +860,7 @@ const _selcase _default = {
     .ch     = NULL,
     .op     = _DEFAULT,
     .flags  = (_selflags)0,
+    .user   = 0xff,
     .ptxrx  = NULL,
     .rxok   = NULL,
 };

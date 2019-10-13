@@ -164,7 +164,9 @@ typedef struct _selcase {
     _chan           *ch;        // channel
     enum _chanop    op    : 8;  // chansend/chanrecv/default
     enum _selflags  flags : 8;  // e.g. _INPLACE_DATA
-    unsigned              :16;
+    unsigned        user  : 8;  // arbitrary value that can be set by user
+                                // (e.g. pyselect stores channel type here)
+    unsigned              : 8;
     union {
         void        *ptxrx;     // chansend: ptx; chanrecv: prx
         uint64_t     itxrx;     // used instead of .ptxrx if .flags&_INPLACE_DATA != 0
@@ -191,6 +193,7 @@ _selcase _selsend(_chan *ch, const void *ptx) {
         .ch     = ch,
         .op     = _CHANSEND,
         .flags  = (enum _selflags)0,
+        .user   = 0xff,
         .ptxrx  = (void *)ptx,
         .rxok   = NULL,
     };
@@ -204,6 +207,7 @@ _selcase _selrecv(_chan *ch, void *prx) {
         .ch     = ch,
         .op     = _CHANRECV,
         .flags  = (enum _selflags)0,
+        .user   = 0xff,
         .ptxrx  = prx,
         .rxok   = NULL,
     };
@@ -217,6 +221,7 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
         .ch     = ch,
         .op     = _CHANRECV,
         .flags  = (enum _selflags)0,
+        .user   = 0xff,
         .ptxrx  = prx,
         .rxok   = pok,
     };
