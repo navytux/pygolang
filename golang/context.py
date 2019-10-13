@@ -41,7 +41,7 @@ class Context(object):
         raise NotImplementedError()
 
     # done returns channel that is closed when the context is canceled.
-    def done(ctx):  # -> chan
+    def done(ctx):  # -> chan(dtype='C.structZ')
         raise NotImplementedError()
 
     # err returns None if done is not yet closed, or error that explains why context was canceled.
@@ -134,7 +134,7 @@ def merge(parent1, parent2):    # -> ctx, cancel
 # _Background implements root context that is never canceled.
 class _Background(object):
     def done(bg):
-        return nilchan
+        return _nilchanZ
 
     def err(bg):
         return None
@@ -146,6 +146,7 @@ class _Background(object):
         return None
 
 _background = _Background()
+_nilchanZ   = chan.nil('C.structZ')
 
 # _BaseCtx is the common base for Contexts implemented in this package.
 class _BaseCtx(object):
@@ -267,7 +268,7 @@ class _BaseCtx(object):
 # _CancelCtx is context that can be canceled.
 class _CancelCtx(_BaseCtx):
     def __init__(ctx, *parentv):
-        super(_CancelCtx, ctx).__init__(chan(), *parentv)
+        super(_CancelCtx, ctx).__init__(chan(dtype='C.structZ'), *parentv)
 
 
 # _ValueCtx is context that carries key -> value.
