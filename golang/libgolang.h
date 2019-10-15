@@ -234,7 +234,7 @@ extern LIBGOLANG_API const _selcase _default;
 // _sema corresponds to sync.Sema
 // no C-level analog is provided for sync.Mutex
 typedef struct _sema _sema;
-LIBGOLANG_API _sema *_makesema();
+LIBGOLANG_API _sema *_makesema(void);
 LIBGOLANG_API void _semafree(_sema *sema);
 LIBGOLANG_API void _semaacquire(_sema *sema);
 LIBGOLANG_API void _semarelease(_sema *sema);
