@@ -66,11 +66,11 @@ def _findpkg(pkgname):  # -> _PyPkg
     return pypkg
 
 
-# _build_ext amends setuptools_dso.build_ext to allow combining C and C++
+# build_ext amends setuptools_dso.build_ext to allow combining C and C++
 # sources in one extension without hitting `error: invalid argument
 # '-std=c++11' not allowed with 'C'`.
 _dso_build_ext = setuptools_dso.build_ext
-class _build_ext(_dso_build_ext):
+class build_ext(_dso_build_ext):
     def build_extension(self, ext):
         # wrap _compiler <src> -> <obj> with our code
         _compile = self.compiler._compile
@@ -114,7 +114,7 @@ def setup(**kw):
     # temporarily inject our code there.
     _ = setuptools_dso.build_ext
     try:
-        setuptools_dso.build_ext = _build_ext
+        setuptools_dso.build_ext = build_ext
         setuptools_dso.setup(**kw)
     finally:
         setuptools_dso.build_ext = _
