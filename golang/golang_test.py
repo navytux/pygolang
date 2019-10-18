@@ -1295,6 +1295,46 @@ def test_defer_excchain():
     tb = Traceback(e.__traceback__)
     assert tb[-1].name == "_"
 
+# verify that recover breaks exception chain.
+@mark.xfail('PyPy' in sys.version and sys.version_info >= (3,),
+                reason="https://bitbucket.org/pypy/pypy/issues/3096")
+def test_defer_excchain_vs_recover():
+    @func
+    def _():
+        def p1():
+            raise RuntimeError(1)
+        defer(p1)
+        def p2():
+            raise RuntimeError(2)
+        defer(p2)
+        def _():
+            r = recover()
+            assert r == "aaa"
+        defer(_)
+        defer(lambda: panic("aaa"))
+
+    with raises(RuntimeError) as exci:
+        _()
+
+    e1 = exci.value
+    assert type(e1) is RuntimeError
+    assert e1.args == (1,)
+    assert e1.__cause__     is None
+    assert e1.__context__   is not None
+    if six.PY3: # .__traceback__ of top-level exception
+        assert e1.__traceback__ is not None
+        tb1 = Traceback(e1.__traceback__)
+        assert tb1[-1].name == "p1"
+
+    e2 = e1.__context__
+    assert type(e2) is RuntimeError
+    assert e2.args == (2,)
+    assert e2.__cause__     is None
+    assert e2.__context__   is None         # not chained to panic
+    assert e2.__traceback__ is not None
+    tb2 = Traceback(e2.__traceback__)
+    assert tb2[-1].name == "p2"
+
 # verify that traceback.{print_exception,format_exception} work on chained
 # exception correctly.
 def test_defer_excchain_traceback():

@@ -39,6 +39,7 @@ from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
 import decorator, six
 
+from golang._golang import _pysys_exc_clear as _sys_exc_clear
 
 # @func is a necessary decorator for functions for selected golang features to work.
 #
@@ -176,6 +177,7 @@ def recover():
     if exc is not None:
         goframe.recovered = True
         # recovered: clear current exception context
+        _sys_exc_clear()
         if six.PY2:
             goframe.exc_ctx    = None
             goframe.exc_ctx_tb = None

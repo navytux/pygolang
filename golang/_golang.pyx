@@ -75,6 +75,33 @@ cdef extern from "golang/libgolang.h" nogil:
     const char *recover_ "golang::recover" () except +
 
 
+# pyrecover needs to clear sys.exc_info().
+# py2 has sys.exc_clear() but it was removed in py3.
+# provide our own _pysys_exc_clear().
+cdef extern from *:
+    """
+    static void XPySys_ExcClear() {
+    #if PY_VERSION_HEX >= 0x03000000 || defined(PYPY_VERSION)
+        PyErr_SetExcInfo(NULL, NULL, NULL);
+    #else
+        PyThreadState *ts;
+        PyObject *exc_type, *exc_value, *exc_traceback;
+
+        ts = PyThreadState_GET();
+        exc_type        = ts->exc_type;         ts->exc_type        = NULL;
+        exc_value       = ts->exc_value;        ts->exc_value       = NULL;
+        exc_traceback   = ts->exc_traceback;    ts->exc_traceback   = NULL;
+
+        Py_XDECREF(exc_type);
+        Py_XDECREF(exc_value);
+        Py_XDECREF(exc_traceback);
+    #endif
+    }
+    """
+    void XPySys_ExcClear()
+def _pysys_exc_clear():
+    XPySys_ExcClear()
+
 # ---- go ----
 
 # go spawns lightweight thread.
