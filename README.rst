@@ -142,6 +142,12 @@ to be far away in the end. For example::
    ...                     │     finally:
                            │        wc.close()
 
+If deferred cleanup fails, previously unhandled exception, if any, won't be
+lost - it will be chained with (`PEP 3134`__) and included into traceback dump
+even on Python2.
+
+__ https://www.python.org/dev/peps/pep-3134/
+
 For completeness there is `recover` and `panic` that allow to program with
 Go-style error handling, for example::
 

@@ -224,7 +224,7 @@ setup(
                   ],
     include_package_data = True,
 
-    install_requires = ['gevent', 'six', 'decorator'],
+    install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"'],
     extras_require   = extras_require,
 
     entry_points= {'console_scripts': [

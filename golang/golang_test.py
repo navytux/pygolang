@@ -22,10 +22,12 @@ from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
 from golang import sync
-from pytest import raises, mark
-from os.path import dirname
-import os, sys, inspect, importlib
+from pytest import raises, mark, fail
+from _pytest._code import Traceback
+from os.path import dirname, realpath
+import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
+import six
 from six.moves import range as xrange
 import gc, weakref
 
@@ -1219,6 +1221,235 @@ def test_deferrecover():
     assert v == [7, 2, 1]
 
 
+# verify that defer correctly establishes exception chain (even on py2).
+def test_defer_excchain():
+    # just @func/raise embeds traceback and adds ø chain
+    @func
+    def _():
+        raise RuntimeError("err")
+    with raises(RuntimeError) as exci:
+        _()
+
+    e = exci.value
+    assert type(e) is RuntimeError
+    assert e.args == ("err",)
+    assert e.__cause__      is None
+    assert e.__context__    is None
+    if six.PY3: # .__traceback__ for top-level exception is not set on py2
+        assert e.__traceback__  is not None
+        tb = Traceback(e.__traceback__)
+        assert tb[-1].name == "_"
+
+    # exceptions in deferred calls are chained
+    def d1():
+        raise RuntimeError("d1: aaa")
+    def d2():
+        1/0
+    def d3():
+        raise RuntimeError("d3: bbb")
+
+    @func
+    def _():
+        defer(d3)
+        defer(d2)
+        defer(d1)
+        raise RuntimeError("err")
+
+    with raises(RuntimeError) as exci:
+        _()
+
+    e3 = exci.value
+    assert type(e3) is RuntimeError
+    assert e3.args == ("d3: bbb",)
+    assert e3.__cause__     is None
+    assert e3.__context__   is not None
+    if six.PY3: # .__traceback__ of top-level exception
+        assert e3.__traceback__ is not None
+        tb3 = Traceback(e3.__traceback__)
+        assert tb3[-1].name == "d3"
+
+    e2 = e3.__context__
+    assert type(e2) is ZeroDivisionError
+    #assert e2.args == ("division by zero",) # text is different in between py23
+    assert e2.__cause__     is None
+    assert e2.__context__   is not None
+    assert e2.__traceback__ is not None
+    tb2 = Traceback(e2.__traceback__)
+    assert tb2[-1].name == "d2"
+
+    e1 = e2.__context__
+    assert type(e1) is RuntimeError
+    assert e1.args == ("d1: aaa",)
+    assert e1.__cause__     is None
+    assert e1.__context__   is not None
+    assert e1.__traceback__ is not None
+    tb1 = Traceback(e1.__traceback__)
+    assert tb1[-1].name == "d1"
+
+    e = e1.__context__
+    assert type(e) is RuntimeError
+    assert e.args == ("err",)
+    assert e.__cause__      is None
+    assert e.__context__    is None
+    assert e.__traceback__  is not None
+    tb = Traceback(e.__traceback__)
+    assert tb[-1].name == "_"
+
+# verify that traceback.{print_exception,format_exception} work on chained
+# exception correctly.
+def test_defer_excchain_traceback():
+    # tbstr returns traceback that would be printed for exception e.
+    def tbstr(e):
+        fout_print = six.StringIO()
+        traceback.print_exception(type(e), e, e.__traceback__, file=fout_print)
+        lout_format = traceback.format_exception(type(e), e, e.__traceback__)
+        out_print  = fout_print.getvalue()
+        out_format = "".join(lout_format)
+        assert out_print == out_format
+        return out_print
+
+    # raise without @func/defer - must be printed correctly
+    # (we patch traceback.print_exception & co on py2)
+    def alpha():
+        def beta():
+            raise RuntimeError("gamma")
+        beta()
+
+    with raises(RuntimeError) as exci:
+        alpha()
+    e = exci.value
+    if not hasattr(e, '__traceback__'): # py2
+        e.__traceback__ = exci.tb
+
+    assertDoc("""\
+Traceback (most recent call last):
+  File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
+    alpha()
+  File "PYGOLANG/golang/golang_test.py", line ..., in alpha
+    beta()
+  File "PYGOLANG/golang/golang_test.py", line ..., in beta
+    raise RuntimeError("gamma")
+RuntimeError: gamma
+""", tbstr(e))
+
+
+    # raise in @func/chained defer
+    @func
+    def caller():
+        def q1():
+            raise RuntimeError("aaa")
+        defer(q1)
+        def q2():
+            raise RuntimeError("bbb")
+        defer(q2)
+        raise RuntimeError("ccc")
+
+    with raises(RuntimeError) as exci:
+        caller()
+    e = exci.value
+    if not hasattr(e, '__traceback__'): # py2
+        e.__traceback__ = exci.tb
+
+    assertDoc("""\
+Traceback (most recent call last):
+  File "PYGOLANG/golang/__init__.py", line ..., in _
+    return f(*argv, **kw)
+  File "PYGOLANG/golang/golang_test.py", line ..., in caller
+    raise RuntimeError("ccc")
+RuntimeError: ccc
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/golang_test.py", line ..., in q2
+    raise RuntimeError("bbb")
+RuntimeError: bbb
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
+    caller()
+  ...
+  File "PYGOLANG/golang/__init__.py", line ..., in _
+    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/golang_test.py", line ..., in q1
+    raise RuntimeError("aaa")
+RuntimeError: aaa
+""", tbstr(e))
+
+    e.__suppress_context__ = True
+    assertDoc("""\
+Traceback (most recent call last):
+  File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
+    caller()
+  ...
+  File "PYGOLANG/golang/__init__.py", line ..., in _
+    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/golang_test.py", line ..., in q1
+    raise RuntimeError("aaa")
+RuntimeError: aaa
+""", tbstr(e))
+
+    e.__cause__ = e.__context__
+    assertDoc("""\
+Traceback (most recent call last):
+  File "PYGOLANG/golang/__init__.py", line ..., in _
+    return f(*argv, **kw)
+  File "PYGOLANG/golang/golang_test.py", line ..., in caller
+    raise RuntimeError("ccc")
+RuntimeError: ccc
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/golang_test.py", line ..., in q2
+    raise RuntimeError("bbb")
+RuntimeError: bbb
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
+    caller()
+  ...
+  File "PYGOLANG/golang/__init__.py", line ..., in _
+    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/__init__.py", line ..., in __exit__
+    d()
+  File "PYGOLANG/golang/golang_test.py", line ..., in q1
+    raise RuntimeError("aaa")
+RuntimeError: aaa
+""", tbstr(e))
+
+
+# verify that dump of unhandled chained exception traceback works correctly (even on py2).
+def test_defer_excchain_dump():
+    # run golang_test_defer_excchain.py and verify its output via doctest.
+    dir_testprog = dirname(__file__) + "/testprog"      # pygolang/golang/testprog
+    with open(dir_testprog + "/golang_test_defer_excchain.txt", "r") as f:
+        tbok = f.read()
+    retcode, stdout, stderr = _pyrun(["golang_test_defer_excchain.py"],
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode != 0
+    assert stdout == b""
+    assertDoc(tbok, stderr)
+
+
 # defer overhead.
 def bench_try_finally(b):
     def fin(): pass
@@ -1313,3 +1544,31 @@ def test_panics():
     # panic with expected argument
     with panics(123):
         panic(123)
+
+# assertDoc asserts that want == got via doctest.
+#
+# in want:
+# - PYGOLANG means real pygolang prefix
+# - empty lines are changed to <BLANKLINE>
+def assertDoc(want, got):
+    if isinstance(want, bytes):
+        want = want.decode('utf-8')
+    if isinstance(got, bytes):
+        got  = got .decode('utf-8')
+
+    # normalize got to PYGOLANG
+    dir_pygolang = realpath(dirname(__file__) + "/..")  # pygolang
+    got = got.replace(dir_pygolang, "PYGOLANG")
+
+    # ^$ -> <BLANKLINE>
+    while "\n\n" in want:
+        want = want.replace("\n\n", "\n<BLANKLINE>\n")
+
+    X = doctest.OutputChecker()
+    if not X.check_output(want, got, doctest.ELLIPSIS):
+        # output_difference wants Example object with .want attr
+        class Ex: pass
+        _ = Ex()
+        _.want = want
+        fail("not equal:\n" + X.output_difference(_, got,
+                    doctest.ELLIPSIS | doctest.REPORT_UDIFF))

@@ -37,7 +37,7 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'reco
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
-import decorator
+import decorator, six
 
 
 # @func is a necessary decorator for functions for selected golang features to work.
@@ -113,6 +113,12 @@ class _GoFrame:
         self.deferv    = []     # defer registers funcs here
         self.recovered = False  # whether exception, if there was any, was recovered
 
+        # py2: to-be next exception in exception chain (PEP 3134)
+        if six.PY2:
+            self.exc_ctx    = None  # exception context to chain new exception into
+            self.exc_ctx_tb = None  # exc_tb we got when catching .exc_ctx.
+                                    # we will set .exc_ctx.__traceback__ to this
+                                    # if/when .exc_ctx will be chained into.
     def __enter__(self):
         pass
 
@@ -120,6 +126,26 @@ class _GoFrame:
     def __exit__(__goframe__, exc_type, exc_val, exc_tb):
         if exc_val is not None:
             __goframe__.recovered = False
+
+        # py2: simulate exception chaining (PEP 3134)
+        if six.PY2:
+            if exc_val is not None:
+                if not hasattr(exc_val, '__context__'):
+                    exc_val.__context__   = __goframe__.exc_ctx
+                if not hasattr(exc_val, '__cause__'):
+                    exc_val.__cause__     = None
+                if not hasattr(exc_val, '__suppress_context__'):
+                    exc_val.__suppress_context__ = False
+
+                # set .__traceback__ only for chained-to exceptions. top-level
+                # raised exception must remain without __traceback__, because
+                # if it was not yet caught, setting __traceback__ here early
+                # will be wrong compared to what sys.exc_info() returns in
+                # caller except block.
+                if __goframe__.exc_ctx is not None:
+                    __goframe__.exc_ctx.__traceback__ = __goframe__.exc_ctx_tb
+                __goframe__.exc_ctx    = exc_val
+                __goframe__.exc_ctx_tb = exc_tb
 
         if len(__goframe__.deferv) != 0:
             d = __goframe__.deferv.pop()
@@ -149,6 +175,11 @@ def recover():
     _, exc, _ = sys.exc_info()
     if exc is not None:
         goframe.recovered = True
+        # recovered: clear current exception context
+        if six.PY2:
+            goframe.exc_ctx    = None
+            goframe.exc_ctx_tb = None
+
     if type(exc) is _PanicError:
         exc = exc.args[0]
     return exc
@@ -167,6 +198,77 @@ def defer(f):
 
     goframe.deferv.append(f)
 
+
+# py2: defer simulates exception chaining. Adjust traceback.print_exception()
+# and default sys.excepthook so that, out of the box, dump of chained exceptions
+# is printed with all details automatically.
+if six.PY2:
+    import traceback
+    _tb_print_exception = traceback.print_exception
+    def _print_exception(etype, value, tb, limit=None, file=None):
+        if file is None:
+            file = sys.stderr
+        def emitf(msg):
+            print(msg, file=file)
+        def recursef(etype, value, tb):
+            _print_exception(etype, value, tb, limit, file)
+
+        _emit_exc_context(value, emitf, recursef)
+        _tb_print_exception(etype, value, tb, limit, file)
+
+    _tb_format_exception = traceback.format_exception
+    def _format_exception(etype, value, tb, limit=None):
+        l = []
+        def emitf(msg):
+            l.append(msg+"\n")
+        def recursef(etype, value, tb):
+            l.extend(_format_exception(etype, value, tb, limit))
+
+        _emit_exc_context(value, emitf, recursef)
+        l += _tb_format_exception(etype, value, tb, limit)
+        return l
+
+    # _emit_exc_context emits traceback for exc cause/context if any.
+    #
+    # emitf is used to emit raw text.
+    # recursef is used to spawn processing on cause exception object.
+    def _emit_exc_context(exc, emitf, recursef):
+        ecause   = getattr(exc, '__cause__', None)
+        econtext = getattr(exc, '__context__', None)
+        if ecause is not None:
+            recursef(type(ecause), ecause, getattr(ecause, '__traceback__', None))
+            emitf("\nThe above exception was the direct cause of the following exception:\n")
+
+        elif econtext is not None and not getattr(exc, '__suppress_context__', False):
+            recursef(type(econtext), econtext, getattr(econtext, '__traceback__', None))
+            emitf("\nDuring handling of the above exception, another exception occurred:\n")
+
+    # patch traceback functions: in python2.7 all exception-related functions
+    # in traceback module use either tb.print_exception() or tb.format_exception().
+    # This way if we patch those two and someone uses e.g. tb.print_exc(),
+    # it will print exception with cause/context included.
+    traceback.print_exception  = _print_exception
+    traceback.format_exception = _format_exception
+
+    # adjust default sys.excepthook. Do this only if sys.excepthook was not already overridden.
+    # Two cases are possible here:
+    #   1) golang is imported in regular interpreter, possibly late in the process;
+    #   2) golang is imported early as part of gpython startup.
+    # For "2" when we get here the "pristine" precondition will be true, and so
+    # we'll get to adjust sys.excepthook . For "1" if sys.excepthook is
+    # pristine - it is safe to adjust. If sys.excepthook is not pristine - it
+    # is not safe to adjust, because e.g. `import golang` was run from an
+    # interactive IPython session and IPython already installed its own
+    # sys.excepthook. We don't adjust sys.excepthook in such case, but we also
+    # provide integration patches that add exception chaining support for
+    # traceback dump functionality in popular third-party software.
+    if sys.excepthook is sys.__excepthook__:
+        sys.excepthook = traceback.print_exception
+
+    # install pytest/ipython integration patches.
+    # each patch is activated only when/if corresponding software is imported and actually used.
+    import golang._patch.pytest_py2
+    import golang._patch.ipython_py2
 
 
 # ---- go + channels ----
