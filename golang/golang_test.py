@@ -1243,8 +1243,9 @@ def bench_defer(b):
 
 # ---- misc ----
 
-# pyrun runs `sys.executable argv... <stdin`.
-def pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):
+# _pyrun runs `sys.executable argv... <stdin`.
+# it returns exit code, stdout and stderr.
+def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, stdout, stderr
     argv = [sys.executable] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
@@ -1261,11 +1262,18 @@ def pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):
 
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
-    if p.returncode:
+    return p.returncode, stdout, stderr
+
+# pyrun runs `sys.executable argv... <stdin`.
+# it raises exception if ran command fails.
+def pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):
+    retcode, stdout, stderr = _pyrun(argv, stdin=stdin, stdout=stdout, stderr=stderr, **kw)
+    if retcode:
         raise RuntimeError(' '.join(argv) + '\n' + (stderr and str(stderr) or '(failed)'))
     return stdout
 
 # pyout runs `sys.executable argv... <stdin` and returns its output.
+# it raises exception if ran command fails.
 def pyout(argv, stdin=None, stdout=PIPE, stderr=None, **kw):
     return pyrun(argv, stdin=stdin, stdout=stdout, stderr=stderr, **kw)
 
