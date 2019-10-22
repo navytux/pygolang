@@ -207,20 +207,6 @@ struct _with_lock_guard {
 };
 
 
-// defer(f) mimics defer from golang.
-// XXX f is called at end of current scope, not function.
-#define defer(f) _deferred _defer_ ## __COUNTER__ (f)
-struct _deferred {
-    typedef std::function<void(void)> F;
-    F f;
-
-    _deferred(F f) : f(f) {}
-    ~_deferred() { f(); }
-private:
-    _deferred(const _deferred&);    // don't copy
-    _deferred(_deferred&&);         // don't move
-};
-
 // ---- channels -----
 
 struct _WaitGroup;

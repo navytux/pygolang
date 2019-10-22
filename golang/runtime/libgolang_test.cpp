@@ -461,3 +461,17 @@ void _test_select_inplace() {
     ASSERT(err != NULL);
     ASSERT(!strcmp(err, "_selcase: prx: recv with inplace data"));
 }
+
+
+// verify that defer works.
+void __test_defer(bool *pcalled) {
+    defer([&]() {
+        *pcalled = true;
+    });
+    return;
+}
+void _test_defer() {
+    bool called = false;
+    __test_defer(&called);
+    ASSERT(called);
+}

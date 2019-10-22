@@ -449,6 +449,20 @@ int select(const _selcase (&casev)[N]) {
     return _chanselect(&casev[0], N);
 }
 
+// defer(f) mimics `defer f()` from golang.
+// NOTE contrary to Go f is called at end of current scope, not function.
+#define defer(f) golang::_deferred _defer_ ## __COUNTER__ (f)
+struct _deferred {
+    typedef std::function<void(void)> F;
+    F f;
+
+    _deferred(F f) : f(f) {}
+    ~_deferred() { f(); }
+private:
+    _deferred(const _deferred&);    // don't copy
+    _deferred(_deferred&&);         // don't move
+};
+
 
 // golang::time::
 namespace time {
