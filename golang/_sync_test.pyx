@@ -147,3 +147,29 @@ cdef nogil:
 def test_sema_wakeup():
     with nogil:
         _test_sema_wakeup()
+
+
+# verify Once
+cdef nogil:
+    int  _once_ncall = 0
+    void _once_call():
+        global _once_ncall
+        _once_ncall += 1
+
+cdef void _test_once() nogil except +topyexc:
+    cdef sync.Once once
+    if not (_once_ncall == 0):
+        panic("once @0: ncall != 0")
+    once.do(_once_call);
+    if not (_once_ncall == 1):
+        panic("once @1: ncall != 1")
+    once.do(_once_call);
+    if not (_once_ncall == 1):
+        panic("once @2: ncall != 1")
+    once.do(_once_call);
+    if not (_once_ncall == 1):
+        panic("once @3: ncall != 1")
+
+def test_once():
+    with nogil:
+        _test_once()

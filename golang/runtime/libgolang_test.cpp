@@ -475,3 +475,26 @@ void _test_defer() {
     __test_defer(&called);
     ASSERT(called);
 }
+
+
+// ---- sync:: ----
+
+// verify that sync::Once works.
+void _test_sync_once_cpp() {
+    sync::Once once;
+    int ncall = 0;
+    ASSERT(ncall == 0);
+    once.do_([&]() {
+        ncall++;
+    });
+    ASSERT(ncall == 1);
+    once.do_([&]() {
+        ncall++;
+    });
+    ASSERT(ncall == 1);
+    once.do_([&]() {
+        ncall++;
+        panic("should not panic");
+    });
+    ASSERT(ncall == 1);
+}

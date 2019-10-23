@@ -21,7 +21,9 @@
 
 from __future__ import print_function, absolute_import
 
-from cython cimport final
+from cython  cimport final
+from cpython cimport PyObject
+from golang  cimport topyexc
 
 @final
 cdef class PySema:
@@ -63,9 +65,45 @@ cdef class PyMutex:
         pymu.unlock()
 
 
-# ---- misc ----
+@final
+cdef class PyOnce:
+    """Once allows to execute an action only once.
 
-from golang cimport topyexc
+    For example:
+
+      once = Once()
+      ...
+      once.do(doSomething)
+    """
+    cdef Once once
+
+    # FIXME cannot catch/pyreraise panic of .once ctor
+    # https://github.com/cython/cython/issues/3165
+
+    def do(PyOnce pyonce, object f):
+        with nogil:
+            _once_pydo(&pyonce.once, <PyObject *>f)
+
+cdef void _once_pydo(Once *once, PyObject *f) nogil except *:
+    __once_pydo(once, f)
+
+cdef extern from * nogil:
+    """
+    static void __pyx_f_6golang_5_sync__pycall_fromnogil(PyObject *);
+    static void __once_pydo(golang::sync::Once *once, PyObject *f) {
+        once->do_([&]() {
+            __pyx_f_6golang_5_sync__pycall_fromnogil(f);
+        });
+    }
+    """
+    void __once_pydo(Once *once, PyObject *f) except +topyexc
+
+cdef void _pycall_fromnogil(PyObject *f) nogil except *:
+    with gil:
+        (<object>f)()
+
+
+# ---- misc ----
 
 cdef nogil:
 

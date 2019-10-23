@@ -33,3 +33,6 @@ cdef extern from "golang/libgolang.h" namespace "golang::sync" nogil:
     cppclass Mutex:
         void lock()
         void unlock()
+
+    cppclass Once:
+        void do "do_" (...)     # ... = std::function

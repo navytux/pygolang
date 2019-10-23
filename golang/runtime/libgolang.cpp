@@ -157,7 +157,7 @@ void _semarelease(_sema *sema) {
     _runtime->sema_release((_libgolang_sema *)sema);
 }
 
-// golang::sync::
+// golang::sync::  (only Sema and Mutex)
 namespace sync {
 
 Sema::Sema() {
@@ -1233,6 +1233,33 @@ double now() {
 
 }}  // golang::time::
 
+
+// ---- golang::sync:: (except Sema and Mutex) ----
+
+namespace golang {
+namespace sync {
+
+Once::Once() {
+    Once *once = this;
+    once->_done = false;
+}
+
+Once::~Once() {}
+
+void Once::do_(const std::function<void(void)> &f) {
+    Once *once = this;
+    once->_mu.lock();
+    defer([&]() {
+        once->_mu.unlock();
+    });
+
+    if (!once->_done) {
+        once->_done = true;
+        f();
+    }
+}
+
+}}  // golang::sync::
 
 // ---- misc ----
 

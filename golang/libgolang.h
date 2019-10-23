@@ -509,6 +509,26 @@ private:
     Mutex(Mutex&&);         // don't move
 };
 
+// Once allows to execute an action only once.
+//
+// For example:
+//
+//   sync::Once once;
+//   ...
+//   once.do_(doSomething);
+class Once {
+    Mutex _mu;
+    bool  _done;
+
+public:
+    LIBGOLANG_API Once();
+    LIBGOLANG_API ~Once();
+    LIBGOLANG_API void do_(const std::function<void(void)> &f);
+
+private:
+    Once(const Once&);      // don't copy
+    Once(Once&&);           // don't move
+};
 
 }   // golang::sync::
 

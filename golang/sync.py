@@ -34,26 +34,8 @@ import six
 
 from golang._sync import \
     PySema      as Sema,    \
-    PyMutex     as Mutex    \
-
-
-# Once allows to execute an action only once.
-#
-# For example:
-#
-#   once = Once()
-#   ...
-#   once.do(doSomething)
-class Once(object):
-    def __init__(once):
-        once._mu    = Mutex()
-        once._done  = False
-
-    def do(once, f):
-        with once._mu:
-            if not once._done:
-                once._done = True
-                f()
+    PyMutex     as Mutex,   \
+    PyOnce      as Once     \
 
 
 # WaitGroup allows to wait for collection of tasks to finish.
