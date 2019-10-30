@@ -36,3 +36,8 @@ cdef extern from "golang/libgolang.h" namespace "golang::sync" nogil:
 
     cppclass Once:
         void do "do_" (...)     # ... = std::function
+
+    cppclass WaitGroup:
+        void done()
+        void add(int delta)
+        void wait()

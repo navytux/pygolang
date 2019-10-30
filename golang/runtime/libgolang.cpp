@@ -1239,6 +1239,7 @@ double now() {
 namespace golang {
 namespace sync {
 
+// Once
 Once::Once() {
     Once *once = this;
     once->_done = false;
@@ -1257,6 +1258,55 @@ void Once::do_(const std::function<void(void)> &f) {
         once->_done = true;
         f();
     }
+}
+
+// WaitGroup
+WaitGroup::WaitGroup() {
+    WaitGroup& wg = *this;
+    wg._count = 0;
+    wg._done  = makechan<structZ>();
+}
+
+WaitGroup::~WaitGroup() {}
+
+void WaitGroup::done() {
+    WaitGroup& wg = *this;
+    wg.add(-1);
+}
+
+void WaitGroup::add(int delta) {
+    WaitGroup& wg = *this;
+
+    if (delta == 0)
+        return;
+
+    wg._mu.lock();
+    defer([&]() {
+        wg._mu.unlock();
+    });
+
+    wg._count += delta;
+    if (wg._count < 0)
+        panic("sync: negative WaitGroup counter");
+    if (wg._count == 0) {
+        wg._done.close();
+        wg._done = makechan<structZ>();
+    }
+}
+
+void WaitGroup::wait() {
+    WaitGroup& wg = *this;
+
+    chan<structZ> done = NULL;
+    wg._mu.lock();
+    if (wg._count != 0)
+        done = wg._done;
+    wg._mu.unlock();
+
+    if (done == NULL)   // wg._count was =0
+        return;
+
+    done.recv();
 }
 
 }}  // golang::sync::

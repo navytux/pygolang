@@ -530,6 +530,24 @@ private:
     Once(Once&&);           // don't move
 };
 
+// WaitGroup allows to wait for collection of tasks to finish.
+class WaitGroup {
+    Mutex          _mu;
+    int            _count;
+    chan<structZ>  _done;   // closed & recreated every time ._count drops to 0
+
+public:
+    LIBGOLANG_API WaitGroup();
+    LIBGOLANG_API ~WaitGroup();
+    LIBGOLANG_API void done();
+    LIBGOLANG_API void add(int delta);
+    LIBGOLANG_API void wait();
+
+private:
+    WaitGroup(const WaitGroup&);    // don't copy
+    WaitGroup(WaitGroup&&);         // don't move
+};
+
 }   // golang::sync::
 
 

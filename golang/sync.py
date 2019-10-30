@@ -27,44 +27,16 @@ See the following link about Go sync package:
 from __future__ import print_function, absolute_import
 
 import sys
-from golang import go, chan, defer, func, panic
+from golang import go, defer, func
 from golang import context
 
 import six
 
 from golang._sync import \
-    PySema      as Sema,    \
-    PyMutex     as Mutex,   \
-    PyOnce      as Once     \
-
-
-# WaitGroup allows to wait for collection of tasks to finish.
-class WaitGroup(object):
-    def __init__(wg):
-        wg._mu      = Mutex()
-        wg._count   = 0
-        wg._done    = chan()    # closed & recreated every time ._count drops to 0
-
-    def done(wg):
-        wg.add(-1)
-
-    def add(wg, delta):
-        if delta == 0:
-            return
-        with wg._mu:
-            wg._count += delta
-            if wg._count < 0:
-                panic("sync: negative WaitGroup counter")
-            if wg._count == 0:
-                wg._done.close()
-                wg._done = chan()
-
-    def wait(wg):
-        with wg._mu:
-            if wg._count == 0:
-                return
-            done = wg._done
-        done.recv()
+    PySema      as Sema,        \
+    PyMutex     as Mutex,       \
+    PyOnce      as Once,        \
+    PyWaitGroup as WaitGroup    \
 
 
 # WorkGroup is a group of goroutines working on a common task.
