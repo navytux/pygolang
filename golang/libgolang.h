@@ -194,9 +194,9 @@ _selcase _selsend(_chan *ch, const void *ptx) {
         .op     = _CHANSEND,
         .flags  = (enum _selflags)0,
         .user   = 0xff,
-        .ptxrx  = (void *)ptx,
-        .rxok   = NULL,
     };
+    _   .ptxrx  = (void *)ptx;
+    _   .rxok   = NULL;
     return _;
 }
 
@@ -208,9 +208,9 @@ _selcase _selrecv(_chan *ch, void *prx) {
         .op     = _CHANRECV,
         .flags  = (enum _selflags)0,
         .user   = 0xff,
-        .ptxrx  = prx,
-        .rxok   = NULL,
     };
+    _   .ptxrx  = prx;
+    _   .rxok   = NULL;
     return _;
 }
 
@@ -222,9 +222,9 @@ _selcase _selrecv_(_chan *ch, void *prx, bool *pok) {
         .op     = _CHANRECV,
         .flags  = (enum _selflags)0,
         .user   = 0xff,
-        .ptxrx  = prx,
-        .rxok   = pok,
     };
+    _   .ptxrx  = prx;
+    _   .rxok   = pok;
     return _;
 }
 

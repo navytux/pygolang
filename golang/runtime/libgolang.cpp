@@ -842,14 +842,18 @@ void _chan::_dataq_popleft(void *prx) {
 // ---- select ----
 
 // _default represents default case for _select.
-const _selcase _default = {
-    .ch     = NULL,
-    .op     = _DEFAULT,
-    .flags  = (_selflags)0,
-    .user   = 0xff,
-    .ptxrx  = NULL,
-    .rxok   = NULL,
-};
+static _selcase _mkdefault() {
+    _selcase _ = {
+        .ch     = NULL,
+        .op     = _DEFAULT,
+        .flags  = (_selflags)0,
+        .user   = 0xff,
+    };
+    _   .ptxrx  = NULL;
+    _   .rxok   = NULL;
+    return _;
+}
+const _selcase _default = _mkdefault();
 
 const void *_selcase::ptx() const {
     const _selcase *cas = this;
