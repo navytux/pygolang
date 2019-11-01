@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 from golang import context, _context, time, nilchan
-from golang._context import _ready as ready
+from golang._context import _tctxchildren as tctxchildren, _ready as ready
 from golang.time_test import dt
 
 # assertCtx asserts on state of _BaseCtx*
@@ -30,7 +30,7 @@ def assertCtx(ctx, children, deadline=None, err=None, done=False):
     assert ctx.deadline() == deadline
     assert ctx.err() is err
     assert ready(ctx.done()) == done
-    assert ctx._children == children
+    assert tctxchildren(ctx) == children
 
 Z = set()   # empty set
 C = context.canceled

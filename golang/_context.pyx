@@ -32,11 +32,14 @@ from golang import go, chan, select, default, nilchan
 from golang import _sync # avoid cycle: context -> sync -> context
 from golang import time
 
+from cython cimport final
+
+
 # Context is the interface that every context must implement.
 #
 # A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
-class Context(object):
+cdef class Context:
     # deadline() returns context deadline or None, if there is no deadline.
     def deadline(ctx):  # -> time | None
         raise NotImplementedError()
@@ -133,7 +136,8 @@ def merge(parent1, parent2):    # -> ctx, cancel
 # --------
 
 # _Background implements root context that is never canceled.
-class _Background(object):
+@final
+cdef class _Background:
     def done(bg):
         return _nilchanZ
 
@@ -150,14 +154,21 @@ _background = _Background()
 _nilchanZ   = chan.nil('C.structZ')
 
 # _BaseCtx is the common base for Contexts implemented in this package.
-class _BaseCtx(object):
+cdef class _BaseCtx:
+    # parents of this context - either _BaseCtx* or generic Context.
+    # does not change after setup.
+    cdef tuple  _parentv
+
+    cdef object _mu         # sync.PyMutex
+    cdef set    _children   # children of this context - we propagate cancel there (all _BaseCtx)
+    cdef object _err
+    cdef object _done       # pychan | None
+
     def __init__(ctx, done, *parentv):
-        # parents of this context - either _BaseCtx* or generic Context.
-        # does not change after setup.
         ctx._parentv    = parentv
 
         ctx._mu         = _sync.PyMutex()
-        ctx._children   = set() # children of this context - we propagate cancel there (all _BaseCtx)
+        ctx._children   = set()
         ctx._err        = None
 
         # chan: if context can be canceled on its own
@@ -218,9 +229,10 @@ class _BaseCtx(object):
             if parent is cancelFrom:
                 continue
             if isinstance(parent, _BaseCtx):
-                with parent._mu:
-                    if ctx in parent._children:
-                        parent._children.remove(ctx)
+                _parent = <_BaseCtx>parent
+                with _parent._mu:
+                    if ctx in _parent._children:
+                        _parent._children.remove(ctx)
 
         # propagate cancel to children
         for child in children:
@@ -240,11 +252,12 @@ class _BaseCtx(object):
 
             # parent is cancellable - glue to propagate cancel from it to us
             if isinstance(parent, _BaseCtx):
-                with parent._mu:
-                    if parent._err is not None:
-                        ctx._cancel(parent._err)
+                _parent = <_BaseCtx>parent
+                with _parent._mu:
+                    if _parent._err is not None:
+                        ctx._cancel(_parent._err)
                     else:
-                        parent._children.add(ctx)
+                        _parent._children.add(ctx)
             else:
                 if _ready(pdone):
                     ctx._cancel(parent.err())
@@ -267,19 +280,20 @@ class _BaseCtx(object):
 
 
 # _CancelCtx is context that can be canceled.
-class _CancelCtx(_BaseCtx):
+cdef class _CancelCtx(_BaseCtx):
     def __init__(ctx, *parentv):
         super(_CancelCtx, ctx).__init__(chan(dtype='C.structZ'), *parentv)
 
 
 # _ValueCtx is context that carries key -> value.
-class _ValueCtx(_BaseCtx):
+cdef class _ValueCtx(_BaseCtx):
+    # {} (key, value) specific to this context.
+    # the rest of the keys are inherited from parents.
+    # does not change after setup.
+    cdef dict   _kv
+
     def __init__(ctx, kv, parent):
         super(_ValueCtx, ctx).__init__(None, parent)
-
-        # {} (key, value) specific to this context.
-        # the rest of the keys are inherited from parents.
-        # does not change after setup.
         ctx._kv         = kv
 
     def value(ctx, key):
@@ -290,7 +304,10 @@ class _ValueCtx(_BaseCtx):
 
 
 # _TimeoutCtx is context that is canceled on timeout.
-class _TimeoutCtx(_CancelCtx):
+cdef class _TimeoutCtx(_CancelCtx):
+    cdef double _deadline
+    cdef object _timer      # time.Timer
+
     def __init__(ctx, timeout, deadline, parent):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
@@ -317,3 +334,9 @@ def _ready(ch):
         return True
     if _ == 1:
         return False
+
+
+# ---- for tests ----
+
+def _tctxchildren(_BaseCtx ctx):    # -> ctx._children
+    return ctx._children
