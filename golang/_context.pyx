@@ -43,19 +43,19 @@ from cython cimport final
 # key -> value dict.
 cdef class Context:
     # deadline() returns context deadline or None, if there is no deadline.
-    def deadline(ctx):  # -> time | None
+    def deadline(Context ctx):  # -> time | None
         raise NotImplementedError()
 
     # done returns channel that is closed when the context is canceled.
-    def done(ctx):  # -> pychan(dtype='C.structZ')
+    def done(Context ctx):  # -> pychan(dtype='C.structZ')
         raise NotImplementedError()
 
     # err returns None if done is not yet closed, or error that explains why context was canceled.
-    def err(ctx):   # -> error
+    def err(Context ctx):   # -> error
         raise NotImplementedError()
 
     # value returns value associated with key, or None, if context has no key.
-    def value(ctx, key):    # -> value | None
+    def value(Context ctx, object key):  # -> value | None
         raise NotImplementedError()
 
 
@@ -85,7 +85,7 @@ def with_cancel(parent): # -> ctx, cancel
 #
 # Returned context inherits from parent and in particular has all other
 # (key, value) pairs provided by parent.
-def with_value(parent, key, value): # -> ctx
+def with_value(parent, object key, object value): # -> ctx
     return _ValueCtx({key: value}, parent)
 
 # with_deadline creates new context with deadline.
@@ -96,7 +96,7 @@ def with_value(parent, key, value): # -> ctx
 #
 # The caller should explicitly call cancel to release context resources as soon
 # the context is no longer needed.
-def with_deadline(parent, deadline): # -> ctx, cancel
+def with_deadline(parent, double deadline): # -> ctx, cancel
     # parent's deadline is before deadline -> just use parent
     pdead = parent.deadline()
     if pdead is not None and pdead <= deadline:
@@ -115,7 +115,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
 # with_timeout creates new context with timeout.
 #
 # it is shorthand for with_deadline(parent, now+timeout).
-def with_timeout(parent, timeout): # -> ctx, cancel
+def with_timeout(parent, double timeout): # -> ctx, cancel
     return with_deadline(parent, time.now() + timeout)
 
 # merge merges 2 contexts into 1.
@@ -166,7 +166,7 @@ cdef class _BaseCtx:
     cdef object _err
     cdef object _done       # pychan | None
 
-    def __init__(ctx, done, *parentv):
+    def __init__(_BaseCtx ctx, done, *parentv):     # XXX done -> pychan?
         ctx._parentv    = parentv
 
         ctx._mu         = _pysync.PyMutex()
@@ -181,18 +181,18 @@ cdef class _BaseCtx:
 
         ctx._propagateCancel()
 
-    def done(ctx):
+    def done(_BaseCtx ctx):
         if ctx._done is not None:
             return ctx._done
         return ctx._parentv[0].done()
 
-    def err(ctx):
+    def err(_BaseCtx ctx):
         with ctx._mu:
             return ctx._err
 
     # value returns value for key from one of its parents.
     # this behaviour is inherited by all contexts except _ValueCtx who amends it.
-    def value(ctx, key):
+    def value(_BaseCtx ctx, object key):
         for parent in ctx._parentv:
             v = parent.value(key)
             if v is not None:
@@ -201,7 +201,7 @@ cdef class _BaseCtx:
 
     # deadline returns the earliest deadline of parents.
     # this behaviour is inherited by all contexts except _TimeoutCtx who overrides it.
-    def deadline(ctx):
+    def deadline(_BaseCtx ctx):
         d = None
         for parent in ctx._parentv:
             pd = parent.deadline()
@@ -210,12 +210,12 @@ cdef class _BaseCtx:
         return d
 
     # _cancel cancels ctx and its children.
-    def _cancel(ctx, err):
+    def _cancel(_BaseCtx ctx, err):
         return ctx._cancelFrom(None, err)
 
     # _cancelFrom cancels ctx and its children.
     # if cancelFrom != None it indicates which ctx parent cancellation was the cause for ctx cancel.
-    def _cancelFrom(ctx, cancelFrom, err):
+    def _cancelFrom(_BaseCtx ctx, cancelFrom, err):
         with ctx._mu:
             if ctx._err is not None:
                 return  # already canceled
@@ -243,7 +243,7 @@ cdef class _BaseCtx:
 
     # propagateCancel establishes setup so that whenever a parent is canceled,
     # ctx and its children are canceled too.
-    def _propagateCancel(ctx):
+    def _propagateCancel(_BaseCtx ctx):
         pforeignv = [] # parents with !pynilchan .done() for foreign contexts
         for parent in ctx._parentv:
             # if parent can never be canceled (e.g. it is background) - we
@@ -283,7 +283,7 @@ cdef class _BaseCtx:
 
 # _CancelCtx is context that can be canceled.
 cdef class _CancelCtx(_BaseCtx):
-    def __init__(ctx, *parentv):
+    def __init__(_CancelCtx ctx, *parentv):
         super(_CancelCtx, ctx).__init__(pychan(dtype='C.structZ'), *parentv)
 
 
@@ -294,11 +294,11 @@ cdef class _ValueCtx(_BaseCtx):
     # does not change after setup.
     cdef dict   _kv
 
-    def __init__(ctx, kv, parent):
+    def __init__(_ValueCtx ctx, dict kv, parent):
         super(_ValueCtx, ctx).__init__(None, parent)
         ctx._kv         = kv
 
-    def value(ctx, key):
+    def value(_ValueCtx ctx, object key):
         v = ctx._kv.get(key)
         if v is not None:
             return v
@@ -310,24 +310,24 @@ cdef class _TimeoutCtx(_CancelCtx):
     cdef double _deadline
     cdef object _timer      # pytime.Timer
 
-    def __init__(ctx, timeout, deadline, parent):
+    def __init__(_TimeoutCtx ctx, double timeout, double deadline, parent):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
         ctx._timer    = pytime.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
 
-    def deadline(ctx):
+    def deadline(_TimeoutCtx ctx):
         return ctx._deadline
 
     # cancel -> stop timer
-    def _cancelFrom(ctx, cancelFrom, err):
+    def _cancelFrom(_TimeoutCtx ctx, cancelFrom, err):
         super(_TimeoutCtx, ctx)._cancelFrom(cancelFrom, err)
         ctx._timer.stop()
 
 
 
 # _ready returns whether channel ch is ready.
-def _ready(ch):
+def _ready(pychan ch):
     _, _rx = pyselect(
             ch.recv,    # 0
             pydefault,  # 1
