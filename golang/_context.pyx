@@ -32,6 +32,7 @@ from golang import go as pygo, chan as pychan, select as pyselect, default as py
 from golang import _sync as _pysync # avoid cycle: context -> sync -> context
 from golang import time as pytime
 
+from golang cimport time
 from cython cimport final
 
 
@@ -101,7 +102,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
         return with_cancel(parent)
 
     # timeout <= 0   -> already canceled
-    timeout = deadline - pytime.now()
+    timeout = deadline - time.now()
     if timeout <= 0:
         ctx, cancel = with_cancel(parent)
         cancel()
@@ -114,7 +115,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
 #
 # it is shorthand for with_deadline(parent, now+timeout).
 def with_timeout(parent, timeout): # -> ctx, cancel
-    return with_deadline(parent, pytime.now() + timeout)
+    return with_deadline(parent, time.now() + timeout)
 
 # merge merges 2 contexts into 1.
 #
