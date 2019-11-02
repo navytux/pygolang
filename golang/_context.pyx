@@ -28,10 +28,11 @@ See the following links about Go contexts:
 
 from __future__ import print_function, absolute_import
 
-from golang import go as pygo, chan as pychan, select as pyselect, default as pydefault, nilchan as pynilchan
+from golang import go as pygo, select as pyselect, default as pydefault, nilchan as pynilchan
 from golang import _sync as _pysync # avoid cycle: context -> sync -> context
 from golang import time as pytime
 
+from golang cimport pychan
 from golang cimport time
 from cython cimport final
 
