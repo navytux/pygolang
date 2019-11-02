@@ -28,9 +28,9 @@ See the following links about Go contexts:
 
 from __future__ import print_function, absolute_import
 
-from golang import go, chan, select, default, nilchan
-from golang import _sync # avoid cycle: context -> sync -> context
-from golang import time
+from golang import go as pygo, chan as pychan, select as pyselect, default as pydefault, nilchan as pynilchan
+from golang import _sync as _pysync # avoid cycle: context -> sync -> context
+from golang import time as pytime
 
 from cython cimport final
 
@@ -45,7 +45,7 @@ cdef class Context:
         raise NotImplementedError()
 
     # done returns channel that is closed when the context is canceled.
-    def done(ctx):  # -> chan(dtype='C.structZ')
+    def done(ctx):  # -> pychan(dtype='C.structZ')
         raise NotImplementedError()
 
     # err returns None if done is not yet closed, or error that explains why context was canceled.
@@ -101,7 +101,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
         return with_cancel(parent)
 
     # timeout <= 0   -> already canceled
-    timeout = deadline - time.now()
+    timeout = deadline - pytime.now()
     if timeout <= 0:
         ctx, cancel = with_cancel(parent)
         cancel()
@@ -114,7 +114,7 @@ def with_deadline(parent, deadline): # -> ctx, cancel
 #
 # it is shorthand for with_deadline(parent, now+timeout).
 def with_timeout(parent, timeout): # -> ctx, cancel
-    return with_deadline(parent, time.now() + timeout)
+    return with_deadline(parent, pytime.now() + timeout)
 
 # merge merges 2 contexts into 1.
 #
@@ -151,7 +151,7 @@ cdef class _Background:
         return None
 
 _background = _Background()
-_nilchanZ   = chan.nil('C.structZ')
+_nilchanZ   = pychan.nil('C.structZ')
 
 # _BaseCtx is the common base for Contexts implemented in this package.
 cdef class _BaseCtx:
@@ -167,12 +167,12 @@ cdef class _BaseCtx:
     def __init__(ctx, done, *parentv):
         ctx._parentv    = parentv
 
-        ctx._mu         = _sync.PyMutex()
+        ctx._mu         = _pysync.PyMutex()
         ctx._children   = set()
         ctx._err        = None
 
-        # chan: if context can be canceled on its own
-        # None: if context can not be canceled on its own
+        # pychan: if context can be canceled on its own
+        # None:   if context can not be canceled on its own
         ctx._done       = done
         if done is None:
             assert len(parentv) == 1
@@ -242,12 +242,12 @@ cdef class _BaseCtx:
     # propagateCancel establishes setup so that whenever a parent is canceled,
     # ctx and its children are canceled too.
     def _propagateCancel(ctx):
-        pforeignv = [] # parents with !nilchan .done() for foreign contexts
+        pforeignv = [] # parents with !pynilchan .done() for foreign contexts
         for parent in ctx._parentv:
             # if parent can never be canceled (e.g. it is background) - we
             # don't need to propagate cancel from it.
             pdone = parent.done()
-            if pdone == nilchan:
+            if pdone == pynilchan:
                 continue
 
             # parent is cancellable - glue to propagate cancel from it to us
@@ -269,20 +269,20 @@ cdef class _BaseCtx:
 
         # there are some foreign contexts to propagate cancel from
         def _():
-            _, _rx = select(
+            _, _rx = pyselect(
                 ctx._done.recv,                         # 0
                 *[_.done().recv for _ in pforeignv]     # 1 + ...
             )
             # 0. nothing - already canceled
             if _ > 0:
                 ctx._cancel(pforeignv[_-1].err())
-        go(_)
+        pygo(_)
 
 
 # _CancelCtx is context that can be canceled.
 cdef class _CancelCtx(_BaseCtx):
     def __init__(ctx, *parentv):
-        super(_CancelCtx, ctx).__init__(chan(dtype='C.structZ'), *parentv)
+        super(_CancelCtx, ctx).__init__(pychan(dtype='C.structZ'), *parentv)
 
 
 # _ValueCtx is context that carries key -> value.
@@ -306,13 +306,13 @@ cdef class _ValueCtx(_BaseCtx):
 # _TimeoutCtx is context that is canceled on timeout.
 cdef class _TimeoutCtx(_CancelCtx):
     cdef double _deadline
-    cdef object _timer      # time.Timer
+    cdef object _timer      # pytime.Timer
 
     def __init__(ctx, timeout, deadline, parent):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
-        ctx._timer    = time.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
+        ctx._timer    = pytime.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
 
     def deadline(ctx):
         return ctx._deadline
@@ -326,9 +326,9 @@ cdef class _TimeoutCtx(_CancelCtx):
 
 # _ready returns whether channel ch is ready.
 def _ready(ch):
-    _, _rx = select(
+    _, _rx = pyselect(
             ch.recv,    # 0
-            default,    # 1
+            pydefault,  # 1
     )
     if _ == 0:
         return True
