@@ -44,23 +44,23 @@ def pysleep(double dt):
 #
 # Note: there is no way to stop created ticker.
 # Note: for dt <= 0, contrary to Ticker, tick returns nil channel instead of panicking.
-def tick(double dt):    # -> chan time
+def pytick(double dt):  # -> chan time
     if dt <= 0:
         return pychan._nil('C.double')
-    return Ticker(dt).c
+    return PyTicker(dt).c
 
 # after returns channel connected to dt timer.
 #
 # Note: with after there is no way to stop/garbage-collect created timer until it fires.
-def after(double dt):   # -> chan time
-    return Timer(dt).c
+def pyafter(double dt): # -> chan time
+    return PyTimer(dt).c
 
 # after_func arranges to call f after dt time.
 #
 # The function will be called in its own goroutine.
 # Returned timer can be used to cancel the call.
-def after_func(double dt, f):  # -> Timer
-    return Timer(dt, f=f)
+def pyafter_func(double dt, f):  # -> PyTimer
+    return PyTimer(dt, f=f)
 
 
 # Ticker arranges for time events to be sent to .c channel on dt-interval basis.
@@ -68,14 +68,14 @@ def after_func(double dt, f):  # -> Timer
 # If the receiver is slow, Ticker does not queue events and skips them.
 # Ticking can be canceled via .stop() .
 @final
-cdef class Ticker:
+cdef class PyTicker:
     cdef readonly pychan  c # chan[double]
 
     cdef double      _dt
     cdef sync.Mutex  _mu
     cdef bint        __stop
 
-    def __init__(Ticker self, double dt):
+    def __init__(PyTicker self, double dt):
         if dt <= 0:
             pypanic("ticker: dt <= 0")
         self.c      = pychan(1, dtype='C.double') # 1-buffer -- same as in Go
@@ -88,9 +88,9 @@ cdef class Ticker:
     # stop cancels the ticker.
     #
     # It is guaranteed that ticker channel is empty after stop completes.
-    def stop(Ticker self):
+    def stop(PyTicker self):
         _Ticker_stop_pyexc(self)
-    cdef void _stop(Ticker self) nogil:
+    cdef void _stop(PyTicker self) nogil:
         c = self.c.chan_double()
 
         self._mu.lock()
@@ -101,11 +101,11 @@ cdef class Ticker:
             c.recv()
         self._mu.unlock()
 
-    cdef void __tick(Ticker self, pychan nogilready) except +topyexc:
+    cdef void __tick(PyTicker self, pychan nogilready) except +topyexc:
         with nogil:
             nogilready.chan_structZ().close()
             self.___tick()
-    cdef void ___tick(Ticker self) nogil:
+    cdef void ___tick(PyTicker self) nogil:
         c = self.c.chan_double()
         while 1:
             # XXX adjust for accumulated error δ?
@@ -133,7 +133,7 @@ cdef class Ticker:
 # If func f is provided - when the timer fires f is called in its own goroutine
 # instead of event being sent to channel .c .
 @final
-cdef class Timer:
+cdef class PyTimer:
     cdef readonly pychan  c
 
     cdef object     _f
@@ -141,7 +141,7 @@ cdef class Timer:
     cdef double     _dt   # +inf - stopped, otherwise - armed
     cdef int        _ver  # current timer was armed by n'th reset
 
-    def __init__(Timer self, double dt, f=None):
+    def __init__(PyTimer self, double dt, f=None):
         self._f     = f
         self.c      = pychan(1, dtype='C.double') if f is None else \
                       pychan._nil('C.double')
@@ -162,9 +162,9 @@ cdef class Timer:
     # Note: similarly to Go, if Timer is used with function - it is not
     # guaranteed that after stop the function is not running - in such case
     # the caller must explicitly synchronize with that function to complete.
-    def stop(Timer self): # -> canceled
+    def stop(PyTimer self): # -> canceled
         return _Timer_stop_pyexc(self)
-    cdef bint _stop(Timer self) nogil: # -> canceled
+    cdef bint _stop(PyTimer self) nogil: # -> canceled
         cdef bint canceled
         c = self.c.chan_double()
 
@@ -187,9 +187,9 @@ cdef class Timer:
     # reset rearms the timer.
     #
     # the timer must be either already stopped or expired.
-    def reset(Timer self, double dt):
+    def reset(PyTimer self, double dt):
         _Timer_reset_pyexc(self, dt)
-    cdef void _reset(Timer self, double dt) nogil:
+    cdef void _reset(PyTimer self, double dt) nogil:
         self._mu.lock()
         if self._dt != INFINITY:
             self._mu.unlock()
@@ -208,11 +208,11 @@ cdef class Timer:
         if not ok:
             panic("timer: reset: failed")
 
-    cdef void __fire(Timer self, double dt, int ver, pychan nogilready) except +topyexc:
+    cdef void __fire(PyTimer self, double dt, int ver, pychan nogilready) except +topyexc:
         with nogil:
             nogilready.chan_structZ().close()
             self.___fire(dt, ver)
-    cdef void ___fire(Timer self, double dt, int ver) nogil:
+    cdef void ___fire(PyTimer self, double dt, int ver) nogil:
         c = self.c.chan_double()
         sleep(dt)
         self._mu.lock()
@@ -249,11 +249,11 @@ cdef double now_pyexc()             nogil except +topyexc:
 cdef void sleep_pyexc(double dt)    nogil except +topyexc:
     sleep(dt)
 
-cdef void _Ticker_stop_pyexc(Ticker t)              nogil except +topyexc:
+cdef void _Ticker_stop_pyexc(PyTicker t)            nogil except +topyexc:
     t._stop()
-cdef bint _Timer_stop_pyexc (Timer t)               nogil except +topyexc:
+cdef bint _Timer_stop_pyexc (PyTimer t)             nogil except +topyexc:
     return t._stop()
-cdef void _Timer_reset_pyexc(Timer t, double dt)    nogil except +topyexc:
+cdef void _Timer_reset_pyexc(PyTimer t, double dt)  nogil except +topyexc:
     t._reset(dt)
 
 

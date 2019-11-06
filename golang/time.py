@@ -37,8 +37,8 @@ from golang._time import \
     pynow       as now,     \
     pysleep     as sleep,   \
  \
-    tick,           \
-    after,          \
-    after_func,     \
-    Ticker,         \
-    Timer
+    pytick          as tick,        \
+    pyafter         as after,       \
+    pyafter_func    as after_func,  \
+    PyTicker        as Ticker,      \
+    PyTimer         as Timer
