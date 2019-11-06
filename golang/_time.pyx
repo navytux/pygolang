@@ -244,17 +244,19 @@ pymillisecond   = millisecond
 pyminute        = minute
 pyhour          = hour
 
-cdef double now_pyexc()             nogil except +topyexc:
-    return now()
-cdef void sleep_pyexc(double dt)    nogil except +topyexc:
-    sleep(dt)
+cdef nogil:
 
-cdef void _Ticker_stop_pyexc(PyTicker t)            nogil except +topyexc:
-    t._stop()
-cdef bint _Timer_stop_pyexc (PyTimer t)             nogil except +topyexc:
-    return t._stop()
-cdef void _Timer_reset_pyexc(PyTimer t, double dt)  nogil except +topyexc:
-    t._reset(dt)
+    double now_pyexc()                                      except +topyexc:
+        return now()
+    void sleep_pyexc(double dt)                             except +topyexc:
+        sleep(dt)
+
+    void _Ticker_stop_pyexc(PyTicker t)                     except +topyexc:
+        t._stop()
+    bint _Timer_stop_pyexc (PyTimer t)                      except +topyexc:
+        return t._stop()
+    void _Timer_reset_pyexc(PyTimer t, double dt)           except +topyexc:
+        t._reset(dt)
 
 
 cdef bint _callpyf(object f):
