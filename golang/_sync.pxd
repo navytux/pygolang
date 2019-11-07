@@ -19,9 +19,11 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package sync mirrors Go package sync.
 
-See the following link about Go sync package:
+ - `Once` allows to execute an action only once.
+ - `WaitGroup` allows to wait for a collection of tasks to finish.
+ - `Sema` and `Mutex` provide low-level synchronization.
 
-    https://golang.org/pkg/sync
+See also https://golang.org/pkg/sync for Go sync package documentation.
 """
 
 cdef extern from "golang/libgolang.h" namespace "golang::sync" nogil:
