@@ -34,7 +34,11 @@ from __future__ import print_function, absolute_import
 
 import os, os.path
 import sys
-import imp
+
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', DeprecationWarning)
+    import imp
 
 # _gopathv returns $GOPATH vector.
 def _gopathv():

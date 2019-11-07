@@ -34,7 +34,11 @@ trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.s
 
 from __future__ import print_function, absolute_import
 
-import os, sys, re, subprocess, imp, pkgutil
+import os, sys, re, subprocess, pkgutil
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', DeprecationWarning)
+    import imp
 PY3 = (bytes is not str)
 
 # env_prepend prepends value to ${name} environment variable.
