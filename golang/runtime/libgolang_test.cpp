@@ -480,6 +480,111 @@ void _test_defer() {
 }
 
 
+// verify refptr/refobj
+class MyObj : public refobj {
+public:
+    void decref() {
+        if (__decref())
+            delete this;
+    }
+
+    int i;
+    int myfunc(int j) { return i + j; }
+};
+
+void _test_refptr() {
+    refptr<MyObj> p;
+    ASSERT(p == NULL);
+    ASSERT(!(p != NULL));
+    ASSERT(p._ptr() == NULL);
+
+    MyObj *obj = new MyObj();
+    ASSERT(obj->refcnt() == 1);
+    obj->i = 3;
+
+    // adoptref
+    p = adoptref(obj);
+    ASSERT(obj->refcnt() == 1);
+    ASSERT(p._ptr() == obj);
+    ASSERT(p->i == 3);              // ->
+    ASSERT(p->myfunc(4) == 7);
+    p->i = 2;
+    ASSERT(obj->i == 2);
+    ASSERT((*p).i == 2);            // *
+    ASSERT((*p).myfunc(3) == 5);
+    (*p).i = 3;
+    ASSERT(obj->i == 3);
+
+    // newref
+    {
+        refptr<MyObj> q = newref(obj);
+        ASSERT(obj->refcnt() == 2);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == obj);
+        ASSERT(q->i == 3);
+        obj->i = 4;
+        ASSERT(q->i == 4);
+
+        // q goes out of scope - obj decref'ed
+    }
+    ASSERT(obj->refcnt() == 1);
+
+    // copy ctor
+    {
+        refptr<MyObj> q(p);
+        ASSERT(obj->refcnt() == 2);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == obj);
+        ASSERT(p == q);
+        // q goes out of scope - obj decref'ed
+    }
+    ASSERT(obj->refcnt() == 1);
+
+    // copy =
+    {
+        refptr<MyObj> q;
+        ASSERT(obj->refcnt() == 1);
+        ASSERT(q == NULL);
+        ASSERT(q._ptr() == NULL);
+        ASSERT(!(p == q));
+        ASSERT(p != q);
+
+        q = p;
+        ASSERT(obj->refcnt() == 2);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == obj);
+        ASSERT(p == q);
+        ASSERT(!(p != q));
+
+        q = NULL;
+        ASSERT(obj->refcnt() == 1);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == NULL);
+        ASSERT(!(p == q));
+        ASSERT(p != q);
+    }
+    ASSERT(obj->refcnt() == 1);
+
+    // move ctor
+    refptr<MyObj> q(move(p));
+    ASSERT(obj->refcnt() == 1);
+    ASSERT(p == NULL);
+    ASSERT(p._ptr() == NULL);
+    ASSERT(q != NULL);
+    ASSERT(q._ptr() == obj);
+
+    // move =
+    p = move(q);
+    ASSERT(obj->refcnt() == 1);
+    ASSERT(p != NULL);
+    ASSERT(p._ptr() == obj);
+    ASSERT(q == NULL);
+    ASSERT(q._ptr() == NULL);
+
+    // p goes out of scope and destroys obj
+}
+
+
 // ---- sync:: ----
 
 // verify that sync::Once works.

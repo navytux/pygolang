@@ -123,6 +123,17 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int select(_selcase casev[])
 
 
+    # memory management of C++ nogil classes
+    cppclass refptr[T]:
+        # compare wrt nil; =nil
+        cbool operator== (nullptr_t)    const
+        cbool operator!= (nullptr_t)    const
+        void  operator=  (nullptr_t)    const
+
+        # get raw pointer
+        T* _ptr()                       const
+
+
 # ---- python bits ----
 
 cdef void topyexc() except *

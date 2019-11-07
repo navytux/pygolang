@@ -288,6 +288,7 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 
 #ifdef __cplusplus
 
+#include <atomic>
 #include <exception>
 #include <functional>
 #include <initializer_list>
@@ -453,6 +454,147 @@ struct _deferred {
 private:
     _deferred(const _deferred&);    // don't copy
     _deferred(_deferred&&);         // don't move
+};
+
+
+// ---- reference-counted objects ----
+// C++ does not have garbage-collector -> libgolang provides illusion of GC
+// via reference counting support.
+
+template<typename T> class refptr;
+template<typename T> refptr<T> adoptref(T *_obj);
+template<typename T> refptr<T> newref  (T *_obj);
+
+// refptr<T> is smart pointer to T which manages T lifetime via reference counting.
+//
+// T must provide incref/decref methods for example via inheriting from refobj.
+// incref/decref must be safe to use from multiple threads simultaneously.
+template<typename T>
+class refptr {
+    T *_obj;
+
+public:
+    // nil if not explicitly initialized
+    inline refptr()                 { _obj = NULL;  }
+
+    inline ~refptr() {
+        if (_obj != NULL) {
+            _obj->decref();
+            _obj = NULL;
+        }
+    }
+
+    // = nil
+    inline refptr(nullptr_t)        { _obj = NULL;  }
+    inline refptr& operator=(nullptr_t) {
+        if (_obj != NULL)
+            _obj->decref();
+        _obj = NULL;
+        return *this;
+    }
+
+    // copy
+    inline refptr(const refptr& from) {
+        _obj = from._obj;
+        if(_obj != NULL)
+            _obj->incref();
+    }
+    inline refptr& operator=(const refptr& from) {
+        if (this != &from) {
+            if (_obj != NULL)
+                _obj->decref();
+            _obj = from._obj;
+            if (_obj != NULL)
+                _obj->incref();
+        }
+        return *this;
+    }
+
+    // move
+    inline refptr(refptr&& from) {
+        _obj = from._obj;
+        from._obj = NULL;
+    }
+    inline refptr& operator=(refptr&& from) {
+        if (this != &from) {
+            if (_obj != NULL)
+                _obj->decref();
+            _obj = from._obj;
+            from._obj = NULL;
+        }
+        return *this;
+    }
+
+    // create from raw pointer
+    friend refptr<T> adoptref<T>(T *_obj);
+    friend refptr<T> newref<T>  (T *_obj);
+
+    // compare wrt nil
+    inline bool operator==(nullptr_t) const { return (_obj == NULL);    }
+    inline bool operator!=(nullptr_t) const { return (_obj != NULL);    }
+
+    // compare wrt refptr
+    inline bool operator==(const refptr& p2) const { return (_obj == p2._obj);  }
+    inline bool operator!=(const refptr& p2) const { return (_obj != p2._obj);  }
+
+    // dereference, so that e.g. p->method() automatically works as p._obj->method().
+    inline T* operator-> () const   { return _obj;  }
+    inline T& operator*  () const   { return *_obj; }
+
+    // access to raw pointer
+    inline T *_ptr() const          { return _obj;  }
+};
+
+// adoptref wraps raw T* pointer into refptr<T> and transfers object ownership to it.
+//
+// The object is assumed to have reference 1 initially.
+// Usage example:
+//
+//      refptr<MyClass> p = adoptref(new MyClass());
+//      ...
+//      // the object will be deleted when p goes out of scope
+template<typename T>
+inline refptr<T> adoptref(T *_obj) {
+    refptr<T> p;
+    p._obj = _obj;
+    return p;
+}
+
+// newref wraps raw T* pointer into refptr<T>.
+//
+// Created refptr holds new reference onto wrapped object.
+// Usage example:
+//
+//      doSomething(MyClass *obj) {
+//          refptr<MyClass> p = newref(obj);
+//          ...
+//          // obj is guaranteed to stay alive until p stays alive
+//      }
+template<typename T>
+inline refptr<T> newref(T *_obj) {
+    refptr<T> p;
+    p._obj = _obj;
+    if (_obj != NULL)
+        _obj->incref();
+    return p;
+}
+
+// refobj provides base-functionality for reference-counted objects.
+//
+// It provides incref & __decref - the user must implement decref(*).
+//
+// (*) this way we don't require destructor to be virtual.
+class refobj {
+    std::atomic<int> _refcnt;    // reference counter for the object
+
+protected:
+    LIBGOLANG_API refobj();
+    LIBGOLANG_API ~refobj();
+    LIBGOLANG_API bool __decref();
+
+public:
+    LIBGOLANG_API void incref();
+    LIBGOLANG_API int  refcnt() const;
 };
 
 

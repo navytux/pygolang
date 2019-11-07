@@ -32,7 +32,6 @@
 #include "golang/time.h"
 
 #include <algorithm>
-#include <atomic>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -201,6 +200,39 @@ struct _with_lock_guard {
     bool once() { bool _ = !done; done = true; return _; }
 };
 
+// ---- reference-counted objects ----
+
+refobj::refobj() : _refcnt(1) {}
+refobj::~refobj() {
+    refobj *obj = this;
+    if (obj->_refcnt != 0)
+        panic("~refobj: refcnt != 0");
+}
+
+void refobj::incref() {
+    refobj *obj = this;
+
+    int refcnt_was = obj->_refcnt.fetch_add(+1);
+    if (refcnt_was < 1)
+        panic("incref: refcnt was < 1");
+}
+
+bool refobj::__decref() {
+    refobj *obj = this;
+
+    int refcnt_was = obj->_refcnt.fetch_add(-1);
+    if (refcnt_was < 1)
+        panic("decref: refcnt was < 1");
+    if (refcnt_was != 1)
+        return false;
+
+    return true; // should destroy
+}
+
+int refobj::refcnt() const {
+    const refobj *obj = this;
+    return obj->_refcnt;
+}
 
 // ---- channels -----
 
