@@ -19,9 +19,13 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package time mirrors Go package time.
 
-See the following link about Go time package:
+ - `now` returns current time.
+ - `sleep` pauses current task.
+ - `Ticker` and `Timer` provide timers integrated with channels.
+ - `tick`, `after` and `after_func` are convenience wrappers to use
+   tickers and timers easily.
 
-    https://golang.org/pkg/time
+See also https://golang.org/pkg/time for Go time package documentation.
 """
 
 # golang/pyx - the same as std python - represents time as float
