@@ -254,10 +254,20 @@ can be used to multiplex on several channels. For example::
 
 Channels created from Python are represented by `pychan` cdef class. Python
 channels that carry non-Python elements (`pychan.dtype != DTYPE_PYOBJECT`) can
-be converted to Cython/nogil `chan[T]` via `pychan.chan_*()`. For example
-`pychan.chan_int()` converts Python channel created via `pychan(dtype='C.int')`
-into `chan[int]`. This provides interaction mechanism in between *nogil* and
-Python worlds.
+be converted to Cython/nogil `chan[T]` via `pychan.chan_*()`.
+This provides interaction mechanism in between *nogil* and Python worlds.
+For example::
+
+   def myfunc(pychan pych):
+      if pych.dtype != DTYPE_INT:
+         raise TypeError("expected chan[int]")
+
+      cdef chan[int] ch = pych.chan_int()  # pychan -> chan[int]
+      with nogil:
+         # use ch in nogil code. Both Python and nogil parts can
+         # send/receive on the channel simultaneously.
+         ...
+
 
 `panic` stops normal execution of current goroutine by throwing a C-level
 exception. On Python/C boundaries C-level exceptions have to be converted to
