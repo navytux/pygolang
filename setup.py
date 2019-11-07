@@ -191,8 +191,14 @@ setup(
 
     packages    = find_packages(),
 
-    x_dsos      = [DSO('golang.runtime.libgolang', ['golang/runtime/libgolang.cpp'],
-                        depends         = ['golang/libgolang.h'],
+    x_dsos      = [DSO('golang.runtime.libgolang',
+                        ['golang/runtime/libgolang.cpp',
+                         'golang/sync.cpp',
+                         'golang/time.cpp'],
+                        depends = [
+                            'golang/libgolang.h',
+                            'golang/sync.h',
+                            'golang/time.h'],
                         include_dirs    = ['.', '3rdparty/include'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
                         extra_compile_args = ['-std=gnu++11'], # not c++11 as linux/list.h uses typeof

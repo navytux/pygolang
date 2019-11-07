@@ -26,7 +26,7 @@
 See also https://golang.org/pkg/sync for Go sync package documentation.
 """
 
-cdef extern from "golang/libgolang.h" namespace "golang::sync" nogil:
+cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
     cppclass Sema:
         Sema()
         void acquire()

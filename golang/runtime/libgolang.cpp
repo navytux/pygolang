@@ -28,6 +28,8 @@
 // - because Cython (currently ?) does not allow to add methods to `cdef struct`.
 
 #include "golang/libgolang.h"
+#include "golang/sync.h"
+#include "golang/time.h"
 
 #include <algorithm>
 #include <atomic>
@@ -123,17 +125,12 @@ void _taskgo(void (*f)(void *), void *arg) {
     _runtime->go(f, arg);
 }
 
-void _tasknanosleep(uint64_t dt) {
-    _runtime->nanosleep(dt);
-}
-
-uint64_t _nanotime() {
-    return _runtime->nanotime();
-}
-
 
 // ---- semaphores ----
 // (_sema = _libgolang_sema)
+
+// golang::sync::  (only Sema and Mutex)
+namespace sync {
 
 // _makesema creates new semaphore.
 //
@@ -157,8 +154,6 @@ void _semarelease(_sema *sema) {
     _runtime->sema_release((_libgolang_sema *)sema);
 }
 
-// golang::sync::  (only Sema and Mutex)
-namespace sync {
 
 Sema::Sema() {
     Sema *sema = this;
@@ -1214,10 +1209,18 @@ int _tchansendqlen(_chan *_ch) {
 }   // golang::
 
 
-// ---- golang::time:: ----
+// ---- golang::time:: (only sleep and now) ----
 
 namespace golang {
 namespace time {
+
+void _tasknanosleep(uint64_t dt) {
+    _runtime->nanosleep(dt);
+}
+
+uint64_t _nanotime() {
+    return _runtime->nanotime();
+}
 
 void sleep(double dt) {
     if (dt <= 0)
@@ -1237,83 +1240,6 @@ double now() {
 
 }}  // golang::time::
 
-
-// ---- golang::sync:: (except Sema and Mutex) ----
-
-namespace golang {
-namespace sync {
-
-// Once
-Once::Once() {
-    Once *once = this;
-    once->_done = false;
-}
-
-Once::~Once() {}
-
-void Once::do_(const std::function<void(void)> &f) {
-    Once *once = this;
-    once->_mu.lock();
-    defer([&]() {
-        once->_mu.unlock();
-    });
-
-    if (!once->_done) {
-        once->_done = true;
-        f();
-    }
-}
-
-// WaitGroup
-WaitGroup::WaitGroup() {
-    WaitGroup& wg = *this;
-    wg._count = 0;
-    wg._done  = makechan<structZ>();
-}
-
-WaitGroup::~WaitGroup() {}
-
-void WaitGroup::done() {
-    WaitGroup& wg = *this;
-    wg.add(-1);
-}
-
-void WaitGroup::add(int delta) {
-    WaitGroup& wg = *this;
-
-    if (delta == 0)
-        return;
-
-    wg._mu.lock();
-    defer([&]() {
-        wg._mu.unlock();
-    });
-
-    wg._count += delta;
-    if (wg._count < 0)
-        panic("sync: negative WaitGroup counter");
-    if (wg._count == 0) {
-        wg._done.close();
-        wg._done = makechan<structZ>();
-    }
-}
-
-void WaitGroup::wait() {
-    WaitGroup& wg = *this;
-
-    chan<structZ> done = NULL;
-    wg._mu.lock();
-    if (wg._count != 0)
-        done = wg._done;
-    wg._mu.unlock();
-
-    if (done == NULL)   // wg._count was =0
-        return;
-
-    done.recv();
-}
-
-}}  // golang::sync::
 
 // ---- misc ----
 

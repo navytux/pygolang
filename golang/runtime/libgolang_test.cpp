@@ -20,6 +20,9 @@
 // Test that exercises C++-level libgolang.h API and functionality.
 
 #include "golang/libgolang.h"
+#include "golang/sync.h"
+#include "golang/time.h"
+
 #include <stdio.h>
 #include <tuple>
 #include <utility>

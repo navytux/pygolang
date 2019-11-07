@@ -30,17 +30,18 @@ from golang cimport go, chan, makechan, structZ, nil, panic, topyexc
 from golang cimport sync, time
 
 # C-level _sema + _mutex
-# (not exposed in golang.pxd as it exposes only high-level API)
-cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+# (not exposed in sync.pxd as it exposes only high-level API)
+cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
     """
     namespace golang {
+    namespace sync {
         void _mutex_init(sync::Mutex *mu) {
             new (mu) sync::Mutex();
         }
         void _mutex_destroy(sync::Mutex *mu) {
             mu->~Mutex();
         }
-    }   // golang::
+    }}  // golang::sync::
     """
     struct _sema
     _sema *_makesema()
