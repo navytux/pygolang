@@ -24,6 +24,9 @@
 //
 //  - `now` returns current time.
 //  - `sleep` pauses current task.
+//  - `Ticker` and `Timer` provide timers integrated with channels.
+//  - `tick`, `after` and `after_func` are convenience wrappers to use
+//    tickers and timers easily.
 //
 // See also https://golang.org/pkg/time for Go time package documentation.
 //
@@ -37,6 +40,7 @@
 
 
 #include <golang/libgolang.h>
+#include <golang/sync.h>
 
 
 // ---- C-level API ----
@@ -68,6 +72,112 @@ LIBGOLANG_API void sleep(double dt);
 
 // now returns current time in seconds.
 LIBGOLANG_API double now();
+
+
+class Ticker;
+class Timer;
+
+// tick returns channel connected to dt ticker.
+//
+// Note: there is no way to stop created ticker.
+// Note: for dt <= 0, contrary to Ticker, tick returns nil channel instead of panicking.
+LIBGOLANG_API chan<double> tick(double dt);
+
+// after returns channel connected to dt timer.
+//
+// Note: with after there is no way to stop/garbage-collect created timer until it fires.
+LIBGOLANG_API chan<double> after(double dt);
+
+// after_func arranges to call f after dt time.
+//
+// The function will be called in its own goroutine.
+// Returned timer can be used to cancel the call.
+LIBGOLANG_API refptr<Timer> after_func(double dt, std::function<void()> f);
+
+
+// new_ticker creates new Ticker that will be firing at dt intervals.
+LIBGOLANG_API refptr<Ticker> new_ticker(double dt);
+
+// Ticker arranges for time events to be sent to .c channel on dt-interval basis.
+//
+// If the receiver is slow, Ticker does not queue events and skips them.
+// Ticking can be canceled via .stop() .
+struct Ticker : refobj {
+    chan<double> c;
+
+private:
+    double      _dt;
+    sync::Mutex _mu;
+    bool        _stop;
+
+    // don't new - create only via new_ticker()
+private:
+    Ticker();
+    ~Ticker();
+    friend refptr<Ticker> new_ticker(double dt);
+public:
+    LIBGOLANG_API void decref();
+
+public:
+    // stop cancels the ticker.
+    //
+    // It is guaranteed that ticker channel is empty after stop completes.
+    LIBGOLANG_API void stop();
+
+private:
+    void _tick();
+};
+
+
+// new_timer creates new Timer that will fire after dt.
+LIBGOLANG_API refptr<Timer> new_timer(double dt);
+
+// Timer arranges for time event to be sent to .c channel after dt time.
+//
+// The timer can be stopped (.stop), or reinitialized to another time (.reset).
+struct Timer : refobj {
+    chan<double> c;
+
+private:
+    std::function<void()>  _f;
+
+    sync::Mutex  _mu;
+    double       _dt;  // +inf - stopped, otherwise - armed
+    int          _ver; // current timer was armed by n'th reset
+
+    // don't new - create only via new_timer() & co
+private:
+    Timer();
+    ~Timer();
+    friend refptr<Timer> _new_timer(double dt, std::function<void()> f);
+public:
+    LIBGOLANG_API void decref();
+
+public:
+    // stop cancels the timer.
+    //
+    // It returns:
+    //
+    //   False: the timer was already expired or stopped,
+    //   True:  the timer was armed and canceled by this stop call.
+    //
+    // Note: contrary to Go version, there is no need to drain timer channel
+    // after stop call - it is guaranteed that after stop the channel is empty.
+    //
+    // Note: similarly to Go, if Timer is used with function - it is not
+    // guaranteed that after stop the function is not running - in such case
+    // the caller must explicitly synchronize with that function to complete.
+    LIBGOLANG_API bool stop();
+
+    // reset rearms the timer.
+    //
+    // the timer must be either already stopped or expired.
+    LIBGOLANG_API void reset(double dt);
+
+private:
+    void _fire(double dt, int ver);
+};
+
 
 }}   // golang::time::
 #endif  // __cplusplus

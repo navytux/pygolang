@@ -21,12 +21,12 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport pychan, select, default, panic, topyexc
+from golang cimport pychan, topyexc
 from golang cimport sync
-from libc.math cimport INFINITY
+from cpython cimport PyObject
 from cython cimport final
 
-from golang import go as pygo, panic as pypanic
+import atexit as pyatexit
 
 
 def pynow(): # -> t
@@ -38,22 +38,19 @@ def pysleep(double dt):
 
 
 # ---- timers ----
-# FIXME timers are implemented very inefficiently - each timer currently consumes a goroutine.
 
 # tick returns channel connected to dt ticker.
 #
 # Note: there is no way to stop created ticker.
 # Note: for dt <= 0, contrary to Ticker, tick returns nil channel instead of panicking.
 def pytick(double dt):  # -> chan time
-    if dt <= 0:
-        return pychan._nil('C.double')
-    return PyTicker(dt).c
+    return pychan.from_chan_double( tick(dt) )
 
 # after returns channel connected to dt timer.
 #
 # Note: with after there is no way to stop/garbage-collect created timer until it fires.
 def pyafter(double dt): # -> chan time
-    return PyTimer(dt).c
+    return pychan.from_chan_double( after(dt) )
 
 # after_func arranges to call f after dt time.
 #
@@ -69,61 +66,23 @@ def pyafter_func(double dt, f):  # -> PyTimer
 # Ticking can be canceled via .stop() .
 @final
 cdef class PyTicker:
-    cdef readonly pychan  c # chan[double]
-
-    cdef double      _dt
-    cdef sync.Mutex  _mu
-    cdef bint        __stop
+    cdef Ticker   tx
+    cdef readonly pychan  c # pychan wrapping tx.c
 
     def __init__(PyTicker pytx, double dt):
-        if dt <= 0:
-            pypanic("ticker: dt <= 0")
-        pytx.c      = pychan(1, dtype='C.double') # 1-buffer -- same as in Go
-        pytx._dt    = dt
-        pytx.__stop = False
-        nogilready = pychan(dtype='C.structZ')
-        pygo(pytx.__tick, pytx, nogilready)
-        nogilready.recv()
+        with nogil:
+            pytx.tx = new_ticker_pyexc(dt)
+        pytx.c = pychan.from_chan_double( pytx.tx.c )
+
+    def __dealloc__(PyTicker pytx):
+        pytx.tx = NULL
 
     # stop cancels the ticker.
     #
     # It is guaranteed that ticker channel is empty after stop completes.
     def stop(PyTicker pytx):
-        _Ticker_stop_pyexc(pytx)
-    cdef void _stop(PyTicker pytx) nogil:
-        c = pytx.c.chan_double()
-
-        pytx._mu.lock()
-        pytx.__stop = True
-
-        # drain what __tick could have been queued already
-        while c.len() > 0:
-            c.recv()
-        pytx._mu.unlock()
-
-    cdef void __tick(PyTicker pytx, pychan nogilready) except +topyexc:
         with nogil:
-            nogilready.chan_structZ().close()
-            pytx.___tick()
-    cdef void ___tick(PyTicker pytx) nogil:
-        c = pytx.c.chan_double()
-        while 1:
-            # XXX adjust for accumulated error δ?
-            sleep(pytx._dt)
-
-            pytx._mu.lock()
-            if pytx.__stop:
-                pytx._mu.unlock()
-                return
-
-            # send from under ._mu so that .stop can be sure there is no
-            # ongoing send while it drains the channel.
-            t = now()
-            select([
-                default,
-                c.sends(&t),
-            ])
-            pytx._mu.unlock()
+            ticker_stop_pyexc(pytx.tx)
 
 
 # Timer arranges for time event to be sent to .c channel after dt time.
@@ -134,20 +93,19 @@ cdef class PyTicker:
 # instead of event being sent to channel .c .
 @final
 cdef class PyTimer:
-    cdef readonly pychan  c
-
-    cdef object     _f
-    cdef sync.Mutex _mu
-    cdef double     _dt   # +inf - stopped, otherwise - armed
-    cdef int        _ver  # current timer was armed by n'th reset
+    cdef Timer    t
+    cdef readonly pychan  c # pychan wrapping t.c
 
     def __init__(PyTimer pyt, double dt, f=None):
-        pyt._f   = f
-        pyt.c    = pychan(1, dtype='C.double') if f is None else \
-                   pychan._nil('C.double')
-        pyt._dt  = INFINITY
-        pyt._ver = 0
-        pyt.reset(dt)
+        with nogil:
+            if f is None:
+                pyt.t = new_timer_pyexc(dt)
+            else:
+                pyt.t = _new_timer_pyfunc_pyexc(dt, <PyObject *>f)
+        pyt.c = pychan.from_chan_double( pyt.t.c )
+
+    def __dealloc__(PyTimer pyt):
+        pyt.t = NULL
 
     # stop cancels the timer.
     #
@@ -163,77 +121,152 @@ cdef class PyTimer:
     # guaranteed that after stop the function is not running - in such case
     # the caller must explicitly synchronize with that function to complete.
     def stop(PyTimer pyt): # -> canceled
-        return _Timer_stop_pyexc(pyt)
-    cdef bint _stop(PyTimer pyt) nogil: # -> canceled
-        cdef bint canceled
-        c = pyt.c.chan_double()
-
-        pyt._mu.lock()
-
-        if pyt._dt == INFINITY:
-            canceled = False
-        else:
-            pyt._dt  = INFINITY
-            pyt._ver += 1
-            canceled = True
-
-        # drain what __fire could have been queued already
-        while c.len() > 0:
-            c.recv()
-
-        pyt._mu.unlock()
+        with nogil:
+            canceled = timer_stop_pyexc(pyt.t)
         return canceled
 
     # reset rearms the timer.
     #
     # the timer must be either already stopped or expired.
     def reset(PyTimer pyt, double dt):
-        _Timer_reset_pyexc(pyt, dt)
-    cdef void _reset(PyTimer pyt, double dt) nogil:
-        pyt._mu.lock()
-        if pyt._dt != INFINITY:
-            pyt._mu.unlock()
-            panic("Timer.reset: the timer is armed; must be stopped or expired")
-        pyt._dt  = dt
-        pyt._ver += 1
-        # FIXME uses gil.
-        # TODO rework timers so that new timer does not spawn new goroutine.
-        ok = False
-        with gil:
-            nogilready = pychan(dtype='C.structZ')
-            pygo(pyt.__fire, pyt, dt, pyt._ver, nogilready)
-            nogilready.recv()
-            ok = True
-        pyt._mu.unlock()
-        if not ok:
-            panic("timer: reset: failed")
-
-    cdef void __fire(PyTimer pyt, double dt, int ver, pychan nogilready) except +topyexc:
         with nogil:
-            nogilready.chan_structZ().close()
-            pyt.___fire(dt, ver)
-    cdef void ___fire(PyTimer pyt, double dt, int ver) nogil:
-        c = pyt.c.chan_double()
-        sleep(dt)
-        pyt._mu.lock()
-        if pyt._ver != ver:
-            pyt._mu.unlock()
-            return  # the timer was stopped/resetted - don't fire it
-        pyt._dt = INFINITY
+            timer_reset_pyexc(pyt.t, dt)
 
-        # send under ._mu so that .stop can be sure that if it sees
-        # ._dt = INFINITY, there is no ongoing .c send.
-        if pyt._f is None:
-            c.send(now())
-            pyt._mu.unlock()
-            return
-        pyt._mu.unlock()
 
-        # call ._f not from under ._mu not to deadlock e.g. if ._f wants to reset the timer.
-        with gil:
-            ok = _callpyf(pyt._f)
-        if not ok:
-            panic("timer: fire: failed")
+# _PyFunc represents python function scheduled to be called via PyTimer(f=...).
+# _PyFunc can be used from nogil code.
+# _PyFunc is safe to use wrt race to python interpreter shutdown.
+cdef extern from * nogil:
+    """
+    #include <golang/sync.h>
+    using namespace golang;
+
+    #include <utility>
+    using std::tuple;
+    using std::make_tuple;
+    using std::tie;
+
+    // pyexited indicates whether Python interpreter exited.
+    static sync::Mutex  *pyexitedMu = new sync::Mutex(); // never freed not race at exit
+    static bool         pyexited = false;                // on mu dtor vs mu use
+    """
+    sync.Mutex *pyexitedMu
+    bint       pyexited
+
+cdef _time_pyatexit():
+    global pyexited
+    with nogil:
+        pyexitedMu.lock()
+        pyexited = True
+        pyexitedMu.unlock()
+
+pyatexit.register(_time_pyatexit)
+
+cdef extern from * nogil:
+    """
+    // pygil_ensure is like `with gil` but also takes into account possibility
+    // of python interpreter shutdown.
+    static tuple<PyGILState_STATE, bool> pygil_ensure() {
+        PyGILState_STATE gstate;
+
+        // A C++ thread might still be running while python interpreter is stopped.
+        // Verify it is not the case not to crash in PyGILState_Ensure().
+        //
+        // Tell caller not to run any py code if python interpreter is gone and ignore any error.
+        // Python itself behaves the same way on threading cleanup - see e.g.
+        // comments in our _golang.pyx::__goviac() about that and also e.g.
+        // https://www.riverbankcomputing.com/pipermail/pyqt/2004-July/008196.html
+        pyexitedMu->lock();
+        if (pyexited) {
+            pyexitedMu->unlock();
+            return make_tuple(PyGILState_STATE(0), false);
+        }
+
+        gstate = PyGILState_Ensure();
+        pyexitedMu->unlock();
+        return make_tuple(gstate, true);
+    }
+
+    struct _PyFunc {
+        PyObject *pyf;  // function to call; _PyFunc keeps 1 reference to f
+
+        // ctor.
+        // _PyFunc must be constructed while Python interpreter is alive.
+        _PyFunc(PyObject *pyf) {
+            PyGILState_STATE gstate = PyGILState_Ensure();
+                Py_INCREF(pyf);
+                this->pyf = pyf;
+            PyGILState_Release(gstate);
+        }
+
+        // all other methods may be called at any time, including when python
+        // interpreter is gone.
+
+        // copy
+        _PyFunc(const _PyFunc& from) {
+            PyGILState_STATE gstate;
+            bool ok;
+
+            tie(gstate, ok) = pygil_ensure();
+            if (!ok) {
+                pyf = NULL; // won't be used
+                return;
+            }
+
+                pyf = from.pyf;
+                Py_INCREF(pyf);
+            PyGILState_Release(gstate);
+        }
+
+        // dtor
+        ~_PyFunc() {
+            PyGILState_STATE gstate;
+            bool ok;
+
+            tie(gstate, ok) = pygil_ensure();
+            PyObject *pyf = this->pyf;
+            this->pyf = NULL;
+            if (!ok) {
+                return;
+            }
+
+                Py_DECREF(pyf);
+            PyGILState_Release(gstate);
+        }
+
+        // call
+        void operator() () const {
+            PyGILState_STATE gstate;
+            bool ok;
+
+            // C++ timer thread might still be running while python interpreter is stopped.
+            // Verify it is not the case not to crash in PyGILState_Ensure().
+            //
+            // Don't call the function if python interpreter is gone - i.e. ignore error here.
+            // Python itself behaves the same way on threading cleanup - see
+            // _golang.pyx::__goviac and pygil_ensure for details.
+            tie(gstate, ok) = pygil_ensure();
+            if (!ok) {
+                return;
+            }
+
+                ok = true;
+                PyObject *ret = PyObject_CallFunction(pyf, NULL);
+                if (ret == NULL && !pyexited) {
+                    PyErr_PrintEx(0);
+                    ok = false;
+                }
+                Py_XDECREF(ret);
+            PyGILState_Release(gstate);
+
+            // XXX exception -> exit program with traceback (same as in go) ?
+            //if (!ok)
+            //    panic("pycall failed");
+        }
+    };
+    """
+    cppclass _PyFunc:
+        _PyFunc(PyObject *pyf)
 
 
 # ---- misc ----
@@ -251,14 +284,16 @@ cdef nogil:
     void sleep_pyexc(double dt)                             except +topyexc:
         sleep(dt)
 
-    void _Ticker_stop_pyexc(PyTicker t)                     except +topyexc:
-        t._stop()
-    bint _Timer_stop_pyexc (PyTimer t)                      except +topyexc:
-        return t._stop()
-    void _Timer_reset_pyexc(PyTimer t, double dt)           except +topyexc:
-        t._reset(dt)
+    Ticker new_ticker_pyexc(double dt)                      except +topyexc:
+        return new_ticker(dt)
+    void ticker_stop_pyexc(Ticker tx)                       except +topyexc:
+        tx.stop()
+    Timer new_timer_pyexc(double dt)                        except +topyexc:
+        return new_timer(dt)
+    Timer _new_timer_pyfunc_pyexc(double dt, PyObject *pyf) except +topyexc:
+        return after_func(dt, _PyFunc(pyf))
 
-
-cdef bint _callpyf(object f):
-    f()
-    return True
+    cbool timer_stop_pyexc(Timer t)                         except +topyexc:
+        return t.stop()
+    void timer_reset_pyexc(Timer t, double dt)              except +topyexc:
+        t.reset(dt)

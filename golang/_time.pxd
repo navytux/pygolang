@@ -28,6 +28,9 @@
 See also https://golang.org/pkg/time for Go time package documentation.
 """
 
+from golang cimport chan, cbool, refptr
+from libcpp cimport nullptr_t
+
 # golang/pyx - the same as std python - represents time as float
 cdef extern from * nogil:
     # XXX how to declare/share constants without C verbatim?
@@ -53,3 +56,36 @@ cdef extern from * nogil:
 cdef extern from "golang/time.h" namespace "golang::time" nogil:
     void   sleep(double dt)
     double now()
+
+    chan[double] tick(double dt)
+    chan[double] after(double dt)
+    Timer        after_func(double dt, ...)    # ... = std::function<void()>
+
+    # pyx _Ticker = raw C++ Ticker
+    cppclass _Ticker "Ticker":
+        chan[double] c
+        void stop()
+
+    # pyx Ticker = C++ refptr<Ticker>
+    cppclass Ticker "golang::refptr<golang::time::Ticker>" (refptr[_Ticker]):
+        # Ticker.X = Ticker->X in C++.
+        chan[double] c      "_ptr()->c"
+        void         stop   "_ptr()->stop" ()
+
+    Ticker new_ticker(double dt)
+
+
+    # pyx _Timer = raw C++ Timer
+    cppclass _Timer "Timer":
+        chan[double] c
+        cbool stop()
+        void  reset(double dt)
+
+    # pyx Timer = C++ refptr<Timer>
+    cppclass Timer "golang::refptr<golang::time::Timer>" (refptr[_Timer]):
+        # Timer.X = Timer->X in C++.
+        chan[double] c      "_ptr()->c"
+        cbool        stop   "_ptr()->stop"  ()
+        void         reset  "_ptr()->reset" (double dt)
+
+    Timer new_timer(double dt)
