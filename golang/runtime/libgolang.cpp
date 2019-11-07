@@ -251,8 +251,7 @@ struct _RecvSendWaiting;
 //
 // (*) for example "thread" runtime works without GIL, while "gevent" runtime
 //     acquires GIL on every semaphore acquire.
-struct _chan {
-    atomic<int> _refcnt;    // reference counter for _chan object
+struct _chan : refobj {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
@@ -266,9 +265,7 @@ struct _chan {
     unsigned    _dataq_r;   // index for next read  (in elements; can be used only if _dataq_n > 0)
     unsigned    _dataq_w;   // index for next write (in elements; can be used only if _dataq_n < _cap)
 
-    void incref();
     void decref();
-    int  refcnt();
 
     void send(const void *ptx);
     bool recv_(void *prx);
@@ -289,6 +286,9 @@ private:
     void __send2 (const void *, _WaitGroup*, _RecvSendWaiting*);
     template<bool onstack> bool _recv2_(void *);
     bool __recv2_(void *, _WaitGroup*, _RecvSendWaiting*);
+
+    friend _chan *_makechan(unsigned elemsize, unsigned size);
+    _chan() {}; // used by _makechan to init _mu, refobj, ...
 };
 
 // _RecvSendWaiting represents a receiver/sender waiting on a chan.
@@ -439,9 +439,8 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         panic("makechan: alloc failed");
-    new (&ch->_mu) sync::Mutex();
+    new (ch) _chan(); // init .refobj, ._mu, ...
 
-    ch->_refcnt   = 1;
     ch->_cap      = size;
     ch->_elemsize = elemsize;
     ch->_closed   = false;
@@ -469,13 +468,6 @@ void _chanxincref(_chan *ch) {
         return;
     ch->incref();
 }
-void _chan::incref() {
-    _chan *ch = this;
-
-    int refcnt_was = ch->_refcnt.fetch_add(+1);
-    if (refcnt_was < 1)
-        panic("chan: incref: refcnt was < 1");
-}
 
 // _chanxdecref decrements reference counter of the channel.
 //
@@ -489,10 +481,7 @@ void _chanxdecref(_chan *ch) {
 void _chan::decref() {
     _chan *ch = this;
 
-    int refcnt_was = ch->_refcnt.fetch_add(-1);
-    if (refcnt_was < 1)
-        panic("chan: decref: refcnt was < 1");
-    if (refcnt_was != 1)
+    if (!ch->__decref())
         return;
 
     // refcnt=0 -> free the channel
@@ -511,10 +500,6 @@ void _chan::decref() {
 // other goroutines, cannot generally assume that the reference counter won't change.
 int _chanrefcnt(_chan *ch) {
     return ch->refcnt();
-}
-int _chan::refcnt() {
-    _chan *ch = this;
-    return ch->_refcnt;
 }
 
 
