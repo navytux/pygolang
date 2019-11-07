@@ -165,3 +165,14 @@ cdef class pychan:
         chan[cbool]     chan_bool       (pychan pych)
         chan[int]       chan_int        (pychan pych)
         chan[double]    chan_double     (pychan pych)
+
+    # pychan.from_chan_X returns pychan wrapping pyx/nogil-level chan[X].
+    # X can be any C-level type, but not PyObject.
+    @staticmethod
+    cdef pychan from_chan_structZ   (chan[structZ] ch)
+    @staticmethod
+    cdef pychan from_chan_bool      (chan[cbool] ch)
+    @staticmethod
+    cdef pychan from_chan_int       (chan[int] ch)
+    @staticmethod
+    cdef pychan from_chan_double    (chan[double] ch)

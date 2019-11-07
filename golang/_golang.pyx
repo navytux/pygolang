@@ -335,9 +335,32 @@ cdef class pychan:
             pychan_asserttype(pych, DTYPE_DOUBLE)
             return _wrapchan[double] (pych._ch)
 
+    # pychan <- chan[X]
+    @staticmethod
+    cdef pychan from_chan_structZ   (chan[structZ] ch):
+        return pychan_from_raw(ch._rawchan(),   DTYPE_STRUCTZ)
+
+    @staticmethod
+    cdef pychan from_chan_bool      (chan[cbool] ch):
+        return pychan_from_raw(ch._rawchan(),   DTYPE_BOOL)
+
+    @staticmethod
+    cdef pychan from_chan_int       (chan[int] ch):
+        return pychan_from_raw(ch._rawchan(),   DTYPE_INT)
+
+    @staticmethod
+    cdef pychan from_chan_double    (chan[double] ch):
+        return pychan_from_raw(ch._rawchan(),   DTYPE_DOUBLE)
+
 cdef void pychan_asserttype(pychan pych, DType dtype) nogil:
     if pych.dtype != dtype:
         panic("pychan: channel type mismatch")
+
+cdef pychan pychan_from_raw(_chan *_ch, DType dtype):
+    cdef pychan pych = pychan.__new__(pychan)
+    pych.dtype = dtype
+    pych._ch   = _ch; _chanxincref(_ch)
+    return pych
 
 
 # pydefault represents default case for pyselect.
