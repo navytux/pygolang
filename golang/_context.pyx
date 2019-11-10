@@ -41,33 +41,33 @@ from cython cimport final
 #
 # A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
-cdef class Context:
+cdef class PyContext:
     # deadline() returns context deadline or None, if there is no deadline.
-    def deadline(Context ctx):  # -> time | None
+    def deadline(PyContext ctx):  # -> time | None
         raise NotImplementedError()
 
     # done returns channel that is closed when the context is canceled.
-    def done(Context ctx):  # -> pychan(dtype='C.structZ')
+    def done(PyContext ctx):  # -> pychan(dtype='C.structZ')
         raise NotImplementedError()
 
     # err returns None if done is not yet closed, or error that explains why context was canceled.
-    def err(Context ctx):   # -> error
+    def err(PyContext ctx):   # -> error
         raise NotImplementedError()
 
     # value returns value associated with key, or None, if context has no key.
-    def value(Context ctx, object key):  # -> value | None
+    def value(PyContext ctx, object key):  # -> value | None
         raise NotImplementedError()
 
 
 # background returns empty context that is never canceled.
-def background():   # -> Context
-    return  _background
+def pybackground(): # -> Context
+    return  _pybackground
 
 # canceled is the error returned by Context.err when context is canceled.
-canceled = RuntimeError("context canceled")
+pycanceled = RuntimeError("context canceled")
 
 # deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
-deadlineExceeded = RuntimeError("deadline exceeded")
+pydeadlineExceeded = RuntimeError("deadline exceeded")
 
 
 # with_cancel creates new context that can be canceled on its own.
@@ -77,15 +77,15 @@ deadlineExceeded = RuntimeError("deadline exceeded")
 #
 # The caller should explicitly call cancel to release context resources as soon
 # the context is no longer needed.
-def with_cancel(parent): # -> ctx, cancel
+def pywith_cancel(parent): # -> ctx, cancel
     ctx = _CancelCtx(parent)
-    return ctx, lambda: ctx._cancel(canceled)
+    return ctx, lambda: ctx._cancel(pycanceled)
 
 # with_value creates new context with key=value.
 #
 # Returned context inherits from parent and in particular has all other
 # (key, value) pairs provided by parent.
-def with_value(parent, object key, object value): # -> ctx
+def pywith_value(parent, object key, object value): # -> ctx
     return _ValueCtx({key: value}, parent)
 
 # with_deadline creates new context with deadline.
@@ -96,27 +96,27 @@ def with_value(parent, object key, object value): # -> ctx
 #
 # The caller should explicitly call cancel to release context resources as soon
 # the context is no longer needed.
-def with_deadline(parent, double deadline): # -> ctx, cancel
+def pywith_deadline(parent, double deadline): # -> ctx, cancel
     # parent's deadline is before deadline -> just use parent
     pdead = parent.deadline()
     if pdead is not None and pdead <= deadline:
-        return with_cancel(parent)
+        return pywith_cancel(parent)
 
     # timeout <= 0   -> already canceled
     timeout = deadline - time.now()
     if timeout <= 0:
-        ctx, cancel = with_cancel(parent)
+        ctx, cancel = pywith_cancel(parent)
         cancel()
         return ctx, cancel
 
     ctx = _TimeoutCtx(timeout, deadline, parent)
-    return ctx, lambda: ctx._cancel(canceled)
+    return ctx, lambda: ctx._cancel(pycanceled)
 
 # with_timeout creates new context with timeout.
 #
 # it is shorthand for with_deadline(parent, now+timeout).
-def with_timeout(parent, double timeout): # -> ctx, cancel
-    return with_deadline(parent, time.now() + timeout)
+def pywith_timeout(parent, double timeout): # -> ctx, cancel
+    return pywith_deadline(parent, time.now() + timeout)
 
 # merge merges 2 contexts into 1.
 #
@@ -131,15 +131,15 @@ def with_timeout(parent, double timeout): # -> ctx, cancel
 #
 # Note: on Go side merge is not part of stdlib context and is provided by
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
-def merge(parent1, parent2):    # -> ctx, cancel
+def pymerge(parent1, parent2):  # -> ctx, cancel
     ctx = _CancelCtx(parent1, parent2)
-    return ctx, lambda: ctx._cancel(canceled)
+    return ctx, lambda: ctx._cancel(pycanceled)
 
 # --------
 
-# _Background implements root context that is never canceled.
+# _PyBackground implements root context that is never canceled.
 @final
-cdef class _Background:
+cdef class _PyBackground:
     def done(bg):
         return _nilchanZ
 
@@ -152,7 +152,7 @@ cdef class _Background:
     def deadline(bg):
         return None
 
-_background = _Background()
+_pybackground = _PyBackground()
 _nilchanZ   = pychan.nil('C.structZ')
 
 # _BaseCtx is the common base for Contexts implemented in this package.
@@ -314,7 +314,7 @@ cdef class _TimeoutCtx(_CancelCtx):
         super(_TimeoutCtx, ctx).__init__(parent)
         assert timeout > 0
         ctx._deadline = deadline
-        ctx._timer    = pytime.after_func(timeout, lambda: ctx._cancel(deadlineExceeded))
+        ctx._timer    = pytime.after_func(timeout, lambda: ctx._cancel(pydeadlineExceeded))
 
     def deadline(_TimeoutCtx ctx):
         return ctx._deadline

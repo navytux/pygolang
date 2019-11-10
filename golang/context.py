@@ -28,12 +28,12 @@ See the following links about Go contexts:
 from __future__ import print_function, absolute_import
 
 from golang._context import \
-    Context,            \
-    background,         \
-    canceled,           \
-    deadlineExceeded,   \
-    with_cancel,        \
-    with_value,         \
-    with_deadline,      \
-    with_timeout,       \
-    merge
+    PyContext               as Context,             \
+    pybackground            as background,          \
+    pycanceled              as canceled,            \
+    pydeadlineExceeded      as deadlineExceeded,    \
+    pywith_cancel           as with_cancel,         \
+    pywith_value            as with_value,          \
+    pywith_deadline         as with_deadline,       \
+    pywith_timeout          as with_timeout,        \
+    pymerge                 as merge
