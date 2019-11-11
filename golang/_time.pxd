@@ -61,13 +61,11 @@ cdef extern from "golang/time.h" namespace "golang::time" nogil:
     chan[double] after(double dt)
     Timer        after_func(double dt, ...)    # ... = std::function<void()>
 
-    # pyx _Ticker = raw C++ Ticker
-    cppclass _Ticker "Ticker":
+    cppclass _Ticker:
         chan[double] c
         void stop()
 
-    # pyx Ticker = C++ refptr<Ticker>
-    cppclass Ticker "golang::refptr<golang::time::Ticker>" (refptr[_Ticker]):
+    cppclass Ticker (refptr[_Ticker]):
         # Ticker.X = Ticker->X in C++.
         chan[double] c      "_ptr()->c"
         void         stop   "_ptr()->stop" ()
@@ -75,14 +73,12 @@ cdef extern from "golang/time.h" namespace "golang::time" nogil:
     Ticker new_ticker(double dt)
 
 
-    # pyx _Timer = raw C++ Timer
-    cppclass _Timer "Timer":
+    cppclass _Timer:
         chan[double] c
         cbool stop()
         void  reset(double dt)
 
-    # pyx Timer = C++ refptr<Timer>
-    cppclass Timer "golang::refptr<golang::time::Timer>" (refptr[_Timer]):
+    cppclass Timer (refptr[_Timer]):
         # Timer.X = Timer->X in C++.
         chan[double] c      "_ptr()->c"
         cbool        stop   "_ptr()->stop"  ()

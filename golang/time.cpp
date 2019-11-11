@@ -34,9 +34,9 @@ namespace time {
 // ---- timers ----
 // FIXME timers are implemented very inefficiently - each timer currently consumes a goroutine.
 
-refptr<Ticker> new_ticker(double dt);
-refptr<Timer>  new_timer (double dt);
-refptr<Timer>  _new_timer(double dt, function<void()>);
+Ticker new_ticker(double dt);
+Timer  new_timer (double dt);
+Timer  _new_timer(double dt, function<void()>);
 
 
 chan<double> tick(double dt) {
@@ -49,23 +49,23 @@ chan<double> after(double dt) {
     return new_timer(dt)->c;
 }
 
-refptr<Timer> after_func(double dt, function<void()> f) {
+Timer after_func(double dt, function<void()> f) {
     return _new_timer(dt, f);
 }
 
 // Ticker
-Ticker::Ticker()  {}
-Ticker::~Ticker() {}
-void Ticker::decref() {
+_Ticker::_Ticker()  {}
+_Ticker::~_Ticker() {}
+void _Ticker::decref() {
     if (__decref())
         delete this;
 }
 
-refptr<Ticker> new_ticker(double dt) {
+Ticker new_ticker(double dt) {
     if (dt <= 0)
         panic("ticker: dt <= 0");
 
-    refptr<Ticker> tx = adoptref(new Ticker());
+    Ticker tx = adoptref(new _Ticker());
     tx->c     = makechan<double>(1); // 1-buffer -- same as in Go
     tx->_dt   = dt;
     tx->_stop = false;
@@ -75,8 +75,8 @@ refptr<Ticker> new_ticker(double dt) {
     return tx;
 }
 
-void Ticker::stop() {
-    Ticker &tx = *this;
+void _Ticker::stop() {
+    _Ticker &tx = *this;
 
     tx._mu.lock();
     tx._stop = true;
@@ -87,8 +87,8 @@ void Ticker::stop() {
     tx._mu.unlock();
 }
 
-void Ticker::_tick() {
-    Ticker &tx = *this;
+void _Ticker::_tick() {
+    _Ticker &tx = *this;
 
     while (1) {
         // XXX adjust for accumulated error δ?
@@ -113,15 +113,15 @@ void Ticker::_tick() {
 
 
 // Timer
-Timer::Timer()  {}
-Timer::~Timer() {}
-void Timer::decref() {
+_Timer::_Timer()  {}
+_Timer::~_Timer() {}
+void _Timer::decref() {
     if (__decref())
         delete this;
 }
 
-refptr<Timer> _new_timer(double dt, function<void()> f) {
-    refptr<Timer> t = adoptref(new Timer());
+Timer _new_timer(double dt, function<void()> f) {
+    Timer t = adoptref(new _Timer());
     t->c    = (f == NULL ? makechan<double>(1) : NULL);
     t->_f   = f;
     t->_dt  = INFINITY;
@@ -130,12 +130,12 @@ refptr<Timer> _new_timer(double dt, function<void()> f) {
     return t;
 }
 
-refptr<Timer> new_timer(double dt) {
+Timer new_timer(double dt) {
     return _new_timer(dt, NULL);
 }
 
-bool Timer::stop() {
-    Timer &t = *this;
+bool _Timer::stop() {
+    _Timer &t = *this;
     bool canceled;
 
     t._mu.lock();
@@ -157,8 +157,8 @@ bool Timer::stop() {
     return canceled;
 }
 
-void Timer::reset(double dt) {
-    Timer &t = *this;
+void _Timer::reset(double dt) {
+    _Timer &t = *this;
 
     t._mu.lock();
     if (t._dt != INFINITY) {
@@ -168,15 +168,15 @@ void Timer::reset(double dt) {
     t._dt  = dt;
     t._ver += 1;
     // TODO rework timers so that new timer does not spawn new goroutine.
-    refptr<Timer> tref = newref(&t); // pass t reference to spawned goroutine
+    Timer tref = newref(&t); // pass t reference to spawned goroutine
     go([tref, dt](int ver) {
         tref->_fire(dt, ver);
     }, t._ver);
     t._mu.unlock();
 }
 
-void Timer::_fire(double dt, int ver) {
-    Timer &t = *this;
+void _Timer::_fire(double dt, int ver) {
+    _Timer &t = *this;
 
     sleep(dt);
     t._mu.lock();

@@ -74,8 +74,10 @@ LIBGOLANG_API void sleep(double dt);
 LIBGOLANG_API double now();
 
 
-class Ticker;
-class Timer;
+class _Ticker;
+class _Timer;
+typedef refptr<_Ticker> Ticker;
+typedef refptr<_Timer>  Timer;
 
 // tick returns channel connected to dt ticker.
 //
@@ -92,17 +94,17 @@ LIBGOLANG_API chan<double> after(double dt);
 //
 // The function will be called in its own goroutine.
 // Returned timer can be used to cancel the call.
-LIBGOLANG_API refptr<Timer> after_func(double dt, std::function<void()> f);
+LIBGOLANG_API Timer after_func(double dt, std::function<void()> f);
 
 
 // new_ticker creates new Ticker that will be firing at dt intervals.
-LIBGOLANG_API refptr<Ticker> new_ticker(double dt);
+LIBGOLANG_API Ticker new_ticker(double dt);
 
 // Ticker arranges for time events to be sent to .c channel on dt-interval basis.
 //
 // If the receiver is slow, Ticker does not queue events and skips them.
 // Ticking can be canceled via .stop() .
-struct Ticker : refobj {
+struct _Ticker : refobj {
     chan<double> c;
 
 private:
@@ -112,9 +114,9 @@ private:
 
     // don't new - create only via new_ticker()
 private:
-    Ticker();
-    ~Ticker();
-    friend refptr<Ticker> new_ticker(double dt);
+    _Ticker();
+    ~_Ticker();
+    friend Ticker new_ticker(double dt);
 public:
     LIBGOLANG_API void decref();
 
@@ -130,12 +132,12 @@ private:
 
 
 // new_timer creates new Timer that will fire after dt.
-LIBGOLANG_API refptr<Timer> new_timer(double dt);
+LIBGOLANG_API Timer new_timer(double dt);
 
 // Timer arranges for time event to be sent to .c channel after dt time.
 //
 // The timer can be stopped (.stop), or reinitialized to another time (.reset).
-struct Timer : refobj {
+struct _Timer : refobj {
     chan<double> c;
 
 private:
@@ -147,9 +149,9 @@ private:
 
     // don't new - create only via new_timer() & co
 private:
-    Timer();
-    ~Timer();
-    friend refptr<Timer> _new_timer(double dt, std::function<void()> f);
+    _Timer();
+    ~_Timer();
+    friend Timer _new_timer(double dt, std::function<void()> f);
 public:
     LIBGOLANG_API void decref();
 
