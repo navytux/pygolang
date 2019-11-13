@@ -86,7 +86,7 @@ def pywith_cancel(parent): # -> ctx, cancel
 # Returned context inherits from parent and in particular has all other
 # (key, value) pairs provided by parent.
 def pywith_value(parent, object key, object value): # -> ctx
-    return _ValueCtx({key: value}, parent)
+    return _ValueCtx(key, value, parent)
 
 # with_deadline creates new context with deadline.
 #
@@ -289,19 +289,20 @@ cdef class _CancelCtx(_BaseCtx):
 
 # _ValueCtx is context that carries key -> value.
 cdef class _ValueCtx(_BaseCtx):
-    # {} (key, value) specific to this context.
+    # (key, value) specific to this context.
     # the rest of the keys are inherited from parents.
     # does not change after setup.
-    cdef dict   _kv
+    cdef object _key
+    cdef object _value
 
-    def __init__(_ValueCtx ctx, dict kv, parent):
+    def __init__(_ValueCtx ctx, object key, object value, parent):
         super(_ValueCtx, ctx).__init__(None, parent)
-        ctx._kv         = kv
+        ctx._key    = key
+        ctx._value  = value
 
     def value(_ValueCtx ctx, object key):
-        v = ctx._kv.get(key)
-        if v is not None:
-            return v
+        if ctx._key == key:
+            return ctx._value
         return super(_ValueCtx, ctx).value(key)
 
 
