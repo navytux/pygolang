@@ -18,54 +18,142 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""_context.pyx implements context.py - see context.py for package overview."""
+"""_context.pyx implements context.pyx - see _context.pxd for package overview."""
 
 from __future__ import print_function, absolute_import
 
-from golang import go as pygo, select as pyselect, default as pydefault, nilchan as pynilchan
-from golang import _sync as _pysync # avoid cycle: context -> sync -> context
-from golang import time as pytime
+from golang cimport pychan, nil, _interface, gobject, newref, adoptref, topyexc
+from golang cimport cxx, time
+from cython cimport final, internal
+from cython.operator cimport typeid
 
-from golang cimport pychan
-from golang cimport time
-from cython cimport final
+from libc.math cimport INFINITY
+from cpython cimport PyObject, Py_INCREF, Py_DECREF
+from libcpp.cast cimport static_cast, dynamic_cast
 
 
-# Context is the interface that every context must implement.
+# _frompyx indicates that a constructur is called from pyx code
+cdef object _frompyx = object()
+
+# _newPyCtx creates new PyContext wrapping ctx.
+cdef PyContext _newPyCtx(Context ctx):
+    cdef PyContext pyctx = PyContext.__new__(PyContext, _frompyx)
+    pyctx.ctx       = ctx
+    pyctx._pydone   = pychan.from_chan_structZ(ctx.done())
+    return pyctx
+
+# Context represents operational context.
 #
 # A context carries deadline, cancellation signal and immutable context-local
 # key -> value dict.
+@final
 cdef class PyContext:
+    cdef Context  ctx
+    cdef pychan   _pydone # pychan wrapping ctx.done()
+
+    def __cinit__(PyContext pyctx, object bywho):
+        if bywho is not _frompyx:
+            raise AssertionError("Context must not be instantiated by user")
+
+    def __dealloc__(PyContext pyctx):
+        ctx = NULL
+
     # deadline() returns context deadline or None, if there is no deadline.
-    def deadline(PyContext ctx):  # -> time | None
-        raise NotImplementedError()
+    def deadline(PyContext pyctx):  # -> time | None
+        d = pyctx.ctx.deadline()
+        if d == INFINITY:
+            return None
+        return d
 
     # done returns channel that is closed when the context is canceled.
-    def done(PyContext ctx):  # -> pychan(dtype='C.structZ')
-        raise NotImplementedError()
+    def done(PyContext pyctx):  # -> pychan(dtype='C.structZ')
+        return pyctx._pydone
 
     # err returns None if done is not yet closed, or error that explains why context was canceled.
-    def err(PyContext ctx):   # -> error
-        raise NotImplementedError()
+    def err(PyContext pyctx):   # -> error
+        with nogil:
+            err = pyctx.ctx.err()
+        if err == nil:
+            return None
+        if err.eq(canceled):
+            return pycanceled
+        if err.eq(deadlineExceeded):
+            return pydeadlineExceeded
+        return RuntimeError(err.Error())
 
     # value returns value associated with key, or None, if context has no key.
     #
     # NOTE keys are compared by object identity, _not_ equality.
     # For example two different object instances that are treated by Python as
     # equal will be considered as _different_ keys.
-    def value(PyContext ctx, object key):  # -> value | None
-        raise NotImplementedError()
+    def value(PyContext pyctx, object key):  # -> value | None
+        cdef _PyValue *_pyvalue
+        xvalue = pyctx.ctx.value(<void *>key)
+        if xvalue == nil:
+            return None
+        _pyvalue = dynamic_cast[_pPyValue](xvalue._ptr())
+        if _pyvalue == nil:
+            raise RuntimeError("value is of unexpected C type: %s" % typeid(xvalue).name())
+        return <object>_pyvalue.pyobj
+
+# _PyValue holds python-level value in a context.
+ctypedef _PyValue *_pPyValue # https://github.com/cython/cython/issues/534
+cdef cppclass _PyValue (_interface, gobject) nogil:
+    PyObject *pyobj # holds 1 reference
+
+    __init__(object obj) with gil:
+        Py_INCREF(obj)
+        this.pyobj = <PyObject*>obj
+
+    void incref():
+        gobject.incref()
+    void decref():
+        cdef _PyValue *self = this  # https://github.com/cython/cython/issues/3233
+        if __decref():
+            del self
+    __dealloc__():
+        with gil:
+            obj = <object>this.pyobj
+            this.pyobj = NULL
+            Py_DECREF(obj)
+
+
+# _newPyCancel creates new _PyCancel wrapping cancel.
+cdef _PyCancel _newPyCancel(cancelFunc cancel):
+    cdef _PyCancel pycancel = _PyCancel.__new__(_PyCancel, _frompyx)
+    pycancel.cancel = cancel
+    return pycancel
+
+# _PyCancel wraps C cancel func.
+@final
+@internal
+cdef class _PyCancel:
+    cdef cancelFunc cancel
+
+    def __cinit__(_PyCancel pycancel, object bywho):
+        if bywho is not _frompyx:
+            raise AssertionError("_PyCancel must not be instantiated by user")
+
+    def __dealloc__(_PyCancel pycancel):
+        pycancel.cancel = nil
+
+    def __call__(_PyCancel pycancel):
+        with nogil:
+            pycancel.cancel()
 
 
 # background returns empty context that is never canceled.
 def pybackground(): # -> Context
     return  _pybackground
 
+cdef PyContext _pybackground = _newPyCtx(background())
+
+
 # canceled is the error returned by Context.err when context is canceled.
-pycanceled = RuntimeError("context canceled")
+pycanceled = RuntimeError(canceled.Error())
 
 # deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
-pydeadlineExceeded = RuntimeError("deadline exceeded")
+pydeadlineExceeded = RuntimeError(deadlineExceeded.Error())
 
 
 # with_cancel creates new context that can be canceled on its own.
@@ -75,16 +163,25 @@ pydeadlineExceeded = RuntimeError("deadline exceeded")
 #
 # The caller should explicitly call cancel to release context resources as soon
 # the context is no longer needed.
-def pywith_cancel(parent): # -> ctx, cancel
-    ctx = _CancelCtx(parent)
-    return ctx, lambda: ctx._cancel(pycanceled)
+def pywith_cancel(PyContext pyparent): # -> ctx, cancel
+    with nogil:
+        _ = with_cancel(pyparent.ctx)
+    cdef Context    ctx    = _.first
+    cdef cancelFunc cancel = _.second
+    return _newPyCtx(ctx), _newPyCancel(cancel)
 
 # with_value creates new context with key=value.
 #
 # Returned context inherits from parent and in particular has all other
 # (key, value) pairs provided by parent.
-def pywith_value(parent, object key, object value): # -> ctx
-    return _ValueCtx(key, value, parent)
+ctypedef _interface *_pinterface # https://github.com/cython/cython/issues/534
+def pywith_value(PyContext pyparent, object key, object value): # -> ctx
+    pyvalue = adoptref(new _PyValue(value))
+    cdef _interface *_ipyvalue = static_cast[_pinterface](pyvalue._ptr())
+    cdef interface  ipyvalue   = <interface>newref(_ipyvalue)
+    with nogil:
+        ctx = with_value(pyparent.ctx, <void *>key, ipyvalue)
+    return _newPyCtx(ctx)
 
 # with_deadline creates new context with deadline.
 #
@@ -94,27 +191,22 @@ def pywith_value(parent, object key, object value): # -> ctx
 #
 # The caller should explicitly call cancel to release context resources as soon
 # the context is no longer needed.
-def pywith_deadline(parent, double deadline): # -> ctx, cancel
-    # parent's deadline is before deadline -> just use parent
-    pdead = parent.deadline()
-    if pdead is not None and pdead <= deadline:
-        return pywith_cancel(parent)
-
-    # timeout <= 0   -> already canceled
-    timeout = deadline - time.now()
-    if timeout <= 0:
-        ctx, cancel = pywith_cancel(parent)
-        cancel()
-        return ctx, cancel
-
-    ctx = _TimeoutCtx(timeout, deadline, parent)
-    return ctx, lambda: ctx._cancel(pycanceled)
+def pywith_deadline(PyContext pyparent, double deadline): # -> ctx, cancel
+    with nogil:
+        _ = with_deadline(pyparent.ctx, deadline)
+    cdef Context    ctx    = _.first
+    cdef cancelFunc cancel = _.second
+    return _newPyCtx(ctx), _newPyCancel(cancel)
 
 # with_timeout creates new context with timeout.
 #
 # it is shorthand for with_deadline(parent, now+timeout).
-def pywith_timeout(parent, double timeout): # -> ctx, cancel
-    return pywith_deadline(parent, time.now() + timeout)
+def pywith_timeout(PyContext pyparent, double timeout): # -> ctx, cancel
+    with nogil:
+        _ = with_timeout(pyparent.ctx, timeout)
+    cdef Context    ctx    = _.first
+    cdef cancelFunc cancel = _.second
+    return _newPyCtx(ctx), _newPyCancel(cancel)
 
 # merge merges 2 contexts into 1.
 #
@@ -129,215 +221,28 @@ def pywith_timeout(parent, double timeout): # -> ctx, cancel
 #
 # Note: on Go side merge is not part of stdlib context and is provided by
 # https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
-def pymerge(parent1, parent2):  # -> ctx, cancel
-    ctx = _CancelCtx(parent1, parent2)
-    return ctx, lambda: ctx._cancel(pycanceled)
-
-# --------
-
-# _PyBackground implements root context that is never canceled.
-@final
-cdef class _PyBackground:
-    def done(bg):
-        return _nilchanZ
-
-    def err(bg):
-        return None
-
-    def value(bg, key):
-        return None
-
-    def deadline(bg):
-        return None
-
-_pybackground = _PyBackground()
-_nilchanZ   = pychan.nil('C.structZ')
-
-# _BaseCtx is the common base for Contexts implemented in this package.
-cdef class _BaseCtx:
-    # parents of this context - either _BaseCtx* or generic Context.
-    # does not change after setup.
-    cdef tuple  _parentv
-
-    cdef object _mu         # sync.PyMutex
-    cdef set    _children   # children of this context - we propagate cancel there (all _BaseCtx)
-    cdef object _err
-    cdef object _done       # pychan | None
-
-    def __init__(_BaseCtx ctx, done, *parentv):     # XXX done -> pychan?
-        ctx._parentv    = parentv
-
-        ctx._mu         = _pysync.PyMutex()
-        ctx._children   = set()
-        ctx._err        = None
-
-        # pychan: if context can be canceled on its own
-        # None:   if context can not be canceled on its own
-        ctx._done       = done
-        if done is None:
-            assert len(parentv) == 1
-
-        ctx._propagateCancel()
-
-    def done(_BaseCtx ctx):
-        if ctx._done is not None:
-            return ctx._done
-        return ctx._parentv[0].done()
-
-    def err(_BaseCtx ctx):
-        with ctx._mu:
-            return ctx._err
-
-    # value returns value for key from one of its parents.
-    # this behaviour is inherited by all contexts except _ValueCtx who amends it.
-    def value(_BaseCtx ctx, object key):
-        for parent in ctx._parentv:
-            v = parent.value(key)
-            if v is not None:
-                return v
-        return None
-
-    # deadline returns the earliest deadline of parents.
-    # this behaviour is inherited by all contexts except _TimeoutCtx who overrides it.
-    def deadline(_BaseCtx ctx):
-        d = None
-        for parent in ctx._parentv:
-            pd = parent.deadline()
-            if d is None or (pd is not None and pd < d):
-                d = pd
-        return d
-
-    # _cancel cancels ctx and its children.
-    def _cancel(_BaseCtx ctx, err):
-        return ctx._cancelFrom(None, err)
-
-    # _cancelFrom cancels ctx and its children.
-    # if cancelFrom != None it indicates which ctx parent cancellation was the cause for ctx cancel.
-    def _cancelFrom(_BaseCtx ctx, cancelFrom, err):
-        with ctx._mu:
-            if ctx._err is not None:
-                return  # already canceled
-
-            ctx._err = err
-            children = ctx._children;   ctx._children = set()
-
-        if ctx._done is not None:
-            ctx._done.close()
-
-        # no longer need to propagate cancel from parent after we are canceled
-        for parent in ctx._parentv:
-            if parent is cancelFrom:
-                continue
-            if isinstance(parent, _BaseCtx):
-                _parent = <_BaseCtx>parent
-                with _parent._mu:
-                    if ctx in _parent._children:
-                        _parent._children.remove(ctx)
-
-        # propagate cancel to children
-        for child in children:
-            child._cancelFrom(ctx, err)
-
-
-    # propagateCancel establishes setup so that whenever a parent is canceled,
-    # ctx and its children are canceled too.
-    def _propagateCancel(_BaseCtx ctx):
-        pforeignv = [] # parents with !pynilchan .done() for foreign contexts
-        for parent in ctx._parentv:
-            # if parent can never be canceled (e.g. it is background) - we
-            # don't need to propagate cancel from it.
-            pdone = parent.done()
-            if pdone == pynilchan:
-                continue
-
-            # parent is cancellable - glue to propagate cancel from it to us
-            if isinstance(parent, _BaseCtx):
-                _parent = <_BaseCtx>parent
-                with _parent._mu:
-                    if _parent._err is not None:
-                        ctx._cancel(_parent._err)
-                    else:
-                        _parent._children.add(ctx)
-            else:
-                if _ready(pdone):
-                    ctx._cancel(parent.err())
-                else:
-                    pforeignv.append(parent)
-
-        if len(pforeignv) == 0:
-            return
-
-        # there are some foreign contexts to propagate cancel from
-        def _():
-            _, _rx = pyselect(
-                ctx._done.recv,                         # 0
-                *[_.done().recv for _ in pforeignv]     # 1 + ...
-            )
-            # 0. nothing - already canceled
-            if _ > 0:
-                ctx._cancel(pforeignv[_-1].err())
-        pygo(_)
-
-
-# _CancelCtx is context that can be canceled.
-cdef class _CancelCtx(_BaseCtx):
-    def __init__(_CancelCtx ctx, *parentv):
-        super(_CancelCtx, ctx).__init__(pychan(dtype='C.structZ'), *parentv)
-
-
-# _ValueCtx is context that carries key -> value.
-cdef class _ValueCtx(_BaseCtx):
-    # (key, value) specific to this context.
-    # the rest of the keys are inherited from parents.
-    # does not change after setup.
-    cdef object _key
-    cdef object _value
-
-    def __init__(_ValueCtx ctx, object key, object value, parent):
-        super(_ValueCtx, ctx).__init__(None, parent)
-        ctx._key    = key
-        ctx._value  = value
-
-    def value(_ValueCtx ctx, object key):
-        if ctx._key is key:
-            return ctx._value
-        return super(_ValueCtx, ctx).value(key)
-
-
-# _TimeoutCtx is context that is canceled on timeout.
-cdef class _TimeoutCtx(_CancelCtx):
-    cdef double _deadline
-    cdef object _timer      # pytime.Timer
-
-    def __init__(_TimeoutCtx ctx, double timeout, double deadline, parent):
-        super(_TimeoutCtx, ctx).__init__(parent)
-        assert timeout > 0
-        ctx._deadline = deadline
-        ctx._timer    = pytime.after_func(timeout, lambda: ctx._cancel(pydeadlineExceeded))
-
-    def deadline(_TimeoutCtx ctx):
-        return ctx._deadline
-
-    # cancel -> stop timer
-    def _cancelFrom(_TimeoutCtx ctx, cancelFrom, err):
-        super(_TimeoutCtx, ctx)._cancelFrom(cancelFrom, err)
-        ctx._timer.stop()
-
-
-
-# _ready returns whether channel ch is ready.
-def _ready(pychan ch):
-    _, _rx = pyselect(
-            ch.recv,    # 0
-            pydefault,  # 1
-    )
-    if _ == 0:
-        return True
-    if _ == 1:
-        return False
+def pymerge(PyContext parent1, PyContext parent2):  # -> ctx, cancel
+    with nogil:
+        _ = merge(parent1.ctx, parent2.ctx)
+    cdef Context    ctx    = _.first
+    cdef cancelFunc cancel = _.second
+    return _newPyCtx(ctx), _newPyCancel(cancel)
 
 
 # ---- for tests ----
 
-def _tctxchildren(_BaseCtx ctx):    # -> ctx._children
-    return ctx._children
+def _tctxAssertChildren(PyContext pyctx, set pychildrenOK):
+    # pychildrenOK must be set[PyContext]
+    for _ in pychildrenOK:
+        assert isinstance(_, PyContext)
+
+    cdef cxx.set[Context] childrenOK
+    for _ in pychildrenOK:
+        childrenOK.insert((<PyContext>_).ctx)
+
+    cdef cxx.set[Context] children = _tctxchildren_pyexc(pyctx.ctx)
+    if children != childrenOK:
+        raise AssertionError("context children differ") # TODO provide details
+
+cdef cxx.set[Context] _tctxchildren_pyexc(Context ctx) nogil except +topyexc:
+    return _tctxchildren(ctx)

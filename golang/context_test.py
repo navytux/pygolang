@@ -20,18 +20,19 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import context, _context, time, nilchan
-from golang._context import _tctxchildren as tctxchildren, _ready as ready
+from golang import nilchan, select, default
+from golang import context, _context, time
+from golang._context import _tctxAssertChildren as tctxAssertChildren
 from golang.time_test import dt
 
 # assertCtx asserts on state of _BaseCtx*
 def assertCtx(ctx, children, deadline=None, err=None, done=False):
-    assert isinstance(ctx, _context._BaseCtx)
+    assert isinstance(ctx, _context.PyContext)
     assert ctx.deadline() == deadline
     assert ctx.err() is err
     ctxdone = ctx.done()
     assert ready(ctxdone) == done
-    assert tctxchildren(ctx) == children
+    tctxAssertChildren(ctx, children)
     for i in range(10): # repeated .done() returns the same pyobject
         assert ctx.done() is ctxdone
 
@@ -262,3 +263,17 @@ def test_deadline():
 
     time.sleep(11*dt)
     assertCtx(ctx,  Z,  deadline=d, err=D, done=Y)
+
+
+# ---- misc ----
+
+# _ready returns whether channel ch is ready.
+def ready(ch):
+    _, _rx = select(
+            ch.recv,    # 0
+            default,    # 1
+    )
+    if _ == 0:
+        return True
+    if _ == 1:
+        return False
