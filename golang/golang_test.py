@@ -29,7 +29,7 @@ import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
 from six.moves import range as xrange
-import gc, weakref
+import gc, weakref, warnings
 
 from golang import _golang_test
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
@@ -987,7 +987,7 @@ def test_func():
     assert obj.mcls(7)      == 7 + 1
 
     # this tests that @func (used by @func(cls)) preserves decorated function signature
-    assert inspect.formatargspec(*inspect.getargspec(MyClass.zzz)) == '(self, v, x=2, **kkkkwww)'
+    assert fmtargspec(MyClass.zzz) == '(self, v, x=2, **kkkkwww)'
 
     assert MyClass.zzz.__module__       == __name__
     assert MyClass.zzz.__name__         == 'zzz'
@@ -1612,3 +1612,19 @@ def assertDoc(want, got):
         _.want = want
         fail("not equal:\n" + X.output_difference(_, got,
                     doctest.ELLIPSIS | doctest.REPORT_UDIFF))
+
+
+# fmtargspec returns formatted arguments for function f.
+#
+# For example:
+#   def f(x, y=3):
+#       ...
+#   fmtargspec(f) -> '(x, y=3)'
+def fmtargspec(f): # -> str
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        return inspect.formatargspec(*inspect.getargspec(f))
+
+def test_fmtargspec():
+    def f(x, y=3, z=4, *argv, **kw): pass
+    assert fmtargspec(f) == '(x, y=3, z=4, *argv, **kw)'
