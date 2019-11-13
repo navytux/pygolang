@@ -55,6 +55,10 @@ cdef class PyContext:
         raise NotImplementedError()
 
     # value returns value associated with key, or None, if context has no key.
+    #
+    # NOTE keys are compared by object identity, _not_ equality.
+    # For example two different object instances that are treated by Python as
+    # equal will be considered as _different_ keys.
     def value(PyContext ctx, object key):  # -> value | None
         raise NotImplementedError()
 
@@ -301,7 +305,7 @@ cdef class _ValueCtx(_BaseCtx):
         ctx._value  = value
 
     def value(_ValueCtx ctx, object key):
-        if ctx._key == key:
+        if ctx._key is key:
             return ctx._value
         return super(_ValueCtx, ctx).value(key)
 

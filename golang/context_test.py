@@ -42,6 +42,35 @@ Y = True
 
 bg = context.background()
 
+# keys for context values
+class Key:
+    def __init__(self, key):
+        self._key = key
+    def __repr__(self):
+        return "Key(%r)" % (self._key,)
+
+    # __hash__ and __eq__ so that Key(x) == Key(x) to verify that keys are
+    # compared by identity, _not_ equality.
+    def __hash__(self):
+        return hash(self._key)
+    def __eq__(lhs, rhs):
+        if not isinstance(rhs, Key):
+            return False
+        return lhs._key == rhs._key
+kA      = Key("a")
+assert kA == kA
+assert not (kA != kA)
+assert kA == Key("a")
+assert kA != Key("b")
+kHello  = Key("hello")
+kHello2 = Key("hello")
+assert kHello is not kHello2
+assert kHello    ==  kHello2
+kAbc    = Key("abc")
+kBeta   = Key("beta")
+kMir    = Key("мир")
+
+
 # test_context exercises with_cancel / with_value and merge.
 # deadlines are tested in test_deadline.
 def test_context():
@@ -49,7 +78,7 @@ def test_context():
     assert bg.done()        == nilchan
     assert bg.deadline()    is None
     assert not ready(bg.done())
-    assert bg.value("hello") is None
+    assert bg.value(kHello) is None
 
     ctx1, cancel1 = context.with_cancel(bg)
     assert ctx1.done() != bg.done()
@@ -60,29 +89,31 @@ def test_context():
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    Z)
 
-    ctx111  = context.with_value(ctx11,  "hello", "alpha")
+    vAlpha = Key("alpha")   # value object; Key is just reused as placeholder
+    ctx111  = context.with_value(ctx11,  kHello, vAlpha)
     assert ctx111.done() == ctx11.done()
-    assert ctx111.value("hello") == "alpha"
-    assert ctx111.value("abc")   is None
+    assert ctx111.value(kHello)  is vAlpha  # original value object is returned
+    assert ctx111.value(kHello2) is None    # _not_ vAlpha: keys are compared by identity
+    assert ctx111.value(kAbc)    is None
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   Z)
 
-    ctx1111 = context.with_value(ctx111, "beta",  "gamma")
+    ctx1111 = context.with_value(ctx111, kBeta,  "gamma")
     assert ctx1111.done() == ctx11.done()
-    assert ctx1111.value("hello") == "alpha"
-    assert ctx1111.value("beta")  == "gamma"
-    assert ctx1111.value("abc")   is None
+    assert ctx1111.value(kHello) is vAlpha
+    assert ctx1111.value(kBeta)  == "gamma"
+    assert ctx1111.value(kAbc)   is None
     assertCtx(ctx1,     {ctx11})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
     assertCtx(ctx1111,  Z)
 
 
-    ctx12 = context.with_value(ctx1, "hello", "world")
+    ctx12 = context.with_value(ctx1, kHello, "world")
     assert ctx12.done() == ctx1.done()
-    assert ctx12.value("hello") == "world"
-    assert ctx12.value("abc")   is None
+    assert ctx12.value(kHello) == "world"
+    assert ctx12.value(kAbc)   is None
     assertCtx(ctx1,     {ctx11, ctx12})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
@@ -91,8 +122,8 @@ def test_context():
 
     ctx121, cancel121 = context.with_cancel(ctx12)
     assert ctx121.done() != ctx12.done()
-    assert ctx121.value("hello") == "world"
-    assert ctx121.value("abc")   is None
+    assert ctx121.value(kHello) == "world"
+    assert ctx121.value(kAbc)   is None
     assertCtx(ctx1,     {ctx11, ctx12})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
@@ -100,11 +131,11 @@ def test_context():
     assertCtx(ctx12,    {ctx121})
     assertCtx(ctx121,   Z)
 
-    ctx1211 = context.with_value(ctx121, "мир", "май")
+    ctx1211 = context.with_value(ctx121, kMir, "май")
     assert ctx1211.done() == ctx121.done()
-    assert ctx1211.value("hello") == "world"
-    assert ctx1211.value("мир")   == "май"
-    assert ctx1211.value("abc")   is None
+    assert ctx1211.value(kHello) == "world"
+    assert ctx1211.value(kMir)   == "май"
+    assert ctx1211.value(kAbc)   is None
     assertCtx(ctx1,     {ctx11, ctx12})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
@@ -116,10 +147,10 @@ def test_context():
     ctxM, cancelM = context.merge(ctx1111, ctx1211)
     assert ctxM.done() != ctx1111.done()
     assert ctxM.done() != ctx1211.done()
-    assert ctxM.value("hello")  == "alpha"
-    assert ctxM.value("мир")    == "май"
-    assert ctxM.value("beta")   == "gamma"
-    assert ctxM.value("abc")    is None
+    assert ctxM.value(kHello)   is vAlpha
+    assert ctxM.value(kMir)     == "май"
+    assert ctxM.value(kBeta)    == "gamma"
+    assert ctxM.value(kAbc)     is None
     assertCtx(ctx1,     {ctx11, ctx12})
     assertCtx(ctx11,    {ctx111})
     assertCtx(ctx111,   {ctx1111})
@@ -164,9 +195,9 @@ def test_deadline():
     assert ctx1.done() != bg.done()
     assertCtx(ctx1, Z, deadline=d2)
 
-    ctx11 = context.with_value(ctx1, "a", "b")
+    ctx11 = context.with_value(ctx1, kA, "b")
     assert ctx11.done() == ctx1.done()
-    assert ctx11.value("a") == "b"
+    assert ctx11.value(kA) == "b"
     assertCtx(ctx1,     {ctx11},        deadline=d2)
     assertCtx(ctx11,    Z,              deadline=d2)
 
@@ -194,7 +225,7 @@ def test_deadline():
     ctxM, cancelM = context.merge(ctx1111, ctx12)
     assert ctxM.done() != ctx1111.done()
     assert ctxM.done() != ctx12.done()
-    assert ctxM.value("a") == "b"
+    assert ctxM.value(kA) == "b"
     assertCtx(ctx1,     {ctx11, ctx12}, deadline=d2)
     assertCtx(ctx11,    {ctx111},       deadline=d2)
     assertCtx(ctx111,   {ctx1111},      deadline=d2)
