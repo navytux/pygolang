@@ -17,12 +17,21 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package context mirrors Go package context.
+"""Package context mirrors and amends Go package context.
 
-See the following links about Go contexts:
+ - `Context` represents operational context that carries deadline, cancellation
+   signal and immutable context-local key -> value dict.
+ - `background` returns empty context that is never canceled.
+ - `with_cancel` creates new context that can be canceled on its own.
+ - `with_deadline` creates new context with deadline.
+ - `with_timeout` creates new context with timeout.
+ - `with_value` creates new context with attached key=value.
+ - `merge` creates new context from 2 parents(*).
 
-    https://blog.golang.org/context
-    https://golang.org/pkg/context
+See also https://golang.org/pkg/context for Go context package documentation.
+See also https://blog.golang.org/context for overview.
+
+(*) not provided in Go version.
 """
 
 from __future__ import print_function, absolute_import

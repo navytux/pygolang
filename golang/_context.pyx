@@ -18,13 +18,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package context mirrors Go package context.
-
-See the following links about Go contexts:
-
-    https://blog.golang.org/context
-    https://golang.org/pkg/context
-"""
+"""_context.pyx implements context.py - see context.py for package overview."""
 
 from __future__ import print_function, absolute_import
 
