@@ -1,6 +1,8 @@
 include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun
 include golang/libgolang.h
 include golang/runtime/libgolang.cpp
+include golang/errors.h
+include golang/errors.cpp
 include golang/sync.h
 include golang/sync.cpp
 include golang/time.h

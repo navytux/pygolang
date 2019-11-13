@@ -193,10 +193,12 @@ setup(
 
     x_dsos      = [DSO('golang.runtime.libgolang',
                         ['golang/runtime/libgolang.cpp',
+                         'golang/errors.cpp',
                          'golang/sync.cpp',
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/errors.h',
                             'golang/sync.h',
                             'golang/time.h'],
                         include_dirs    = ['.', '3rdparty/include'],
