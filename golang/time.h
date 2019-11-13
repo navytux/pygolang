@@ -104,7 +104,7 @@ LIBGOLANG_API Ticker new_ticker(double dt);
 //
 // If the receiver is slow, Ticker does not queue events and skips them.
 // Ticking can be canceled via .stop() .
-struct _Ticker : refobj {
+struct _Ticker : object {
     chan<double> c;
 
 private:
@@ -137,7 +137,7 @@ LIBGOLANG_API Timer new_timer(double dt);
 // Timer arranges for time event to be sent to .c channel after dt time.
 //
 // The timer can be stopped (.stop), or reinitialized to another time (.reset).
-struct _Timer : refobj {
+struct _Timer : object {
     chan<double> c;
 
 private:

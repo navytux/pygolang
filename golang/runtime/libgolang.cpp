@@ -202,23 +202,23 @@ struct _with_lock_guard {
 
 // ---- reference-counted objects ----
 
-refobj::refobj() : _refcnt(1) {}
-refobj::~refobj() {
-    refobj *obj = this;
+object::object() : _refcnt(1) {}
+object::~object() {
+    object *obj = this;
     if (obj->_refcnt != 0)
-        panic("~refobj: refcnt != 0");
+        panic("~object: refcnt != 0");
 }
 
-void refobj::incref() {
-    refobj *obj = this;
+void object::incref() {
+    object *obj = this;
 
     int refcnt_was = obj->_refcnt.fetch_add(+1);
     if (refcnt_was < 1)
         panic("incref: refcnt was < 1");
 }
 
-bool refobj::__decref() {
-    refobj *obj = this;
+bool object::__decref() {
+    object *obj = this;
 
     int refcnt_was = obj->_refcnt.fetch_add(-1);
     if (refcnt_was < 1)
@@ -229,8 +229,8 @@ bool refobj::__decref() {
     return true; // should destroy
 }
 
-int refobj::refcnt() const {
-    const refobj *obj = this;
+int object::refcnt() const {
+    const object *obj = this;
     return obj->_refcnt;
 }
 
@@ -251,7 +251,7 @@ struct _RecvSendWaiting;
 //
 // (*) for example "thread" runtime works without GIL, while "gevent" runtime
 //     acquires GIL on every semaphore acquire.
-struct _chan : refobj {
+struct _chan : object {
     unsigned    _cap;       // channel capacity (in elements)
     unsigned    _elemsize;  // size of element
 
@@ -288,7 +288,7 @@ private:
     bool __recv2_(void *, _WaitGroup*, _RecvSendWaiting*);
 
     friend _chan *_makechan(unsigned elemsize, unsigned size);
-    _chan() {}; // used by _makechan to init _mu, refobj, ...
+    _chan() {}; // used by _makechan to init _mu, object, ...
 };
 
 // _RecvSendWaiting represents a receiver/sender waiting on a chan.
@@ -439,7 +439,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
     ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
     if (ch == NULL)
         panic("makechan: alloc failed");
-    new (ch) _chan(); // init .refobj, ._mu, ...
+    new (ch) _chan(); // init .object, ._mu, ...
 
     ch->_cap      = size;
     ch->_elemsize = elemsize;

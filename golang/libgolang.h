@@ -473,7 +473,7 @@ template<typename T> refptr<T> newref  (T *_obj);
 
 // refptr<T> is smart pointer to T which manages T lifetime via reference counting.
 //
-// T must provide incref/decref methods for example via inheriting from refobj.
+// T must provide incref/decref methods for example via inheriting from object.
 // incref/decref must be safe to use from multiple threads simultaneously.
 template<typename T>
 class refptr {
@@ -585,17 +585,20 @@ inline refptr<T> newref(T *_obj) {
     return p;
 }
 
-// refobj provides base-functionality for reference-counted objects.
+// object is the base-class for on-heap objects.
 //
-// It provides incref & __decref - the user must implement decref(*).
+// It provides reference-counting functionality, which, when used via refptr,
+// provides automatic memory management for allocated objects.
+//
+// object provides incref & __decref - the user must implement decref(*).
 //
 // (*) this way we don't require destructor to be virtual.
-class refobj {
+class object {
     std::atomic<int> _refcnt;    // reference counter for the object
 
 protected:
-    LIBGOLANG_API refobj();
-    LIBGOLANG_API ~refobj();
+    LIBGOLANG_API object();
+    LIBGOLANG_API ~object();
     LIBGOLANG_API bool __decref();
 
 public:

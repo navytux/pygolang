@@ -480,8 +480,8 @@ void _test_defer() {
 }
 
 
-// verify refptr/refobj
-class MyObj : public refobj {
+// verify refptr/object
+class MyObj : public object {
 public:
     void decref() {
         if (__decref())
