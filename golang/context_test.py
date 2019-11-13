@@ -29,8 +29,11 @@ def assertCtx(ctx, children, deadline=None, err=None, done=False):
     assert isinstance(ctx, _context._BaseCtx)
     assert ctx.deadline() == deadline
     assert ctx.err() is err
-    assert ready(ctx.done()) == done
+    ctxdone = ctx.done()
+    assert ready(ctxdone) == done
     assert tctxchildren(ctx) == children
+    for i in range(10): # repeated .done() returns the same pyobject
+        assert ctx.done() is ctxdone
 
 Z = set()   # empty set
 C = context.canceled
@@ -58,7 +61,7 @@ def test_context():
     assertCtx(ctx11,    Z)
 
     ctx111  = context.with_value(ctx11,  "hello", "alpha")
-    assert ctx111.done() is ctx11.done()    # ==  and same pyobject
+    assert ctx111.done() == ctx11.done()
     assert ctx111.value("hello") == "alpha"
     assert ctx111.value("abc")   is None
     assertCtx(ctx1,     {ctx11})
@@ -66,7 +69,7 @@ def test_context():
     assertCtx(ctx111,   Z)
 
     ctx1111 = context.with_value(ctx111, "beta",  "gamma")
-    assert ctx1111.done() is ctx11.done()   # ==  and same pyobject
+    assert ctx1111.done() == ctx11.done()
     assert ctx1111.value("hello") == "alpha"
     assert ctx1111.value("beta")  == "gamma"
     assert ctx1111.value("abc")   is None
@@ -77,7 +80,7 @@ def test_context():
 
 
     ctx12 = context.with_value(ctx1, "hello", "world")
-    assert ctx12.done() is ctx1.done()      # ==  and same pyobject
+    assert ctx12.done() == ctx1.done()
     assert ctx12.value("hello") == "world"
     assert ctx12.value("abc")   is None
     assertCtx(ctx1,     {ctx11, ctx12})
@@ -98,7 +101,7 @@ def test_context():
     assertCtx(ctx121,   Z)
 
     ctx1211 = context.with_value(ctx121, "мир", "май")
-    assert ctx1211.done() is ctx121.done()  # ==  and same pyobject
+    assert ctx1211.done() == ctx121.done()
     assert ctx1211.value("hello") == "world"
     assert ctx1211.value("мир")   == "май"
     assert ctx1211.value("abc")   is None
@@ -162,7 +165,7 @@ def test_deadline():
     assertCtx(ctx1, Z, deadline=d2)
 
     ctx11 = context.with_value(ctx1, "a", "b")
-    assert ctx11.done() is ctx1.done()  # ==  and same pyobject
+    assert ctx11.done() == ctx1.done()
     assert ctx11.value("a") == "b"
     assertCtx(ctx1,     {ctx11},        deadline=d2)
     assertCtx(ctx11,    Z,              deadline=d2)
