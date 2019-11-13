@@ -295,6 +295,7 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace golang {
 
@@ -440,6 +441,11 @@ int select(const std::initializer_list<const _selcase> &casev) {
 template<size_t N> static inline    // select(casev_array)
 int select(const _selcase (&casev)[N]) {
     return _chanselect(&casev[0], N);
+}
+
+static inline                       // select(vector<casev>)
+int select(const std::vector<_selcase> &casev) {
+    return _chanselect(&casev[0], casev.size());
 }
 
 // defer(f) mimics `defer f()` from golang.
