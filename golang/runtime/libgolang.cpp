@@ -1199,6 +1199,8 @@ void _blockforever() {
     bug("_blockforever: woken up");
 }
 
+_interface::~_interface() {}
+
 // ---- for tests ----
 
 // _tchanlenrecvqlen returns len(_ch._recvq)

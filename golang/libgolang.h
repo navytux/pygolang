@@ -475,6 +475,8 @@ template<typename T> refptr<T> newref  (T *_obj);
 //
 // T must provide incref/decref methods for example via inheriting from object.
 // incref/decref must be safe to use from multiple threads simultaneously.
+//
+// See also interface.
 template<typename T>
 class refptr {
     T *_obj;
@@ -606,6 +608,28 @@ public:
     LIBGOLANG_API int  refcnt() const;
 };
 
+// interface is empty interface a-la interface{} in Go.
+//
+// It is the base class of all interfaces.
+//
+// Even if the interface is empty, it requires memory-management methods to be
+// present. See refptr for details.
+struct _interface {
+    virtual void incref() = 0;
+    virtual void decref() = 0;
+
+protected:
+    // don't use destructor -> use decref
+    ~_interface();
+};
+typedef refptr<_interface> interface;
+
+
+// error is the interface describing errors.
+struct _error : _interface {
+    virtual std::string Error() = 0;
+};
+typedef refptr<_error> error;
 
 }   // golang::
 

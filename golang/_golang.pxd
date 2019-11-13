@@ -46,6 +46,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 
 from libcpp cimport nullptr_t, nullptr as nil
 from libcpp.utility cimport pair
+from libcpp.string  cimport string
 from libc.stdint cimport uint64_t
 cdef extern from *:
     ctypedef bint cbool "bool"
@@ -150,6 +151,27 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         cbool __decref()    # protected
         void  incref()
         int   refcnt() const
+
+
+    # empty interface ~ interface{}
+    cppclass _interface:
+        void incref()
+        void decref()
+
+    cppclass interface (refptr[_interface]):
+        # interface.X = interface->X in C++
+        void incref "_ptr()->incref" ()
+        void decref "_ptr()->decref" ()
+
+
+    # error interface
+    cppclass _error (_interface):
+        string Error()
+
+    cppclass error (refptr[_error]):
+        # error.X = error->X in C++
+        string Error    "_ptr()->Error" ()
+
 
 # ---- python bits ----
 
