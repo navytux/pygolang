@@ -19,12 +19,14 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package sync mirrors and amends Go package sync.
 
- - `WorkGroup` allows to spawn group of goroutines working on a common task.
+ - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
  - `Once` allows to execute an action only once.
  - `WaitGroup` allows to wait for a collection of tasks to finish.
  - `Sema` and `Mutex` provide low-level synchronization.
 
 See also https://golang.org/pkg/sync for Go sync package documentation.
+
+(*) not provided in Go version.
 """
 
 from __future__ import print_function, absolute_import

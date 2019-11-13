@@ -17,7 +17,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package sync mirrors Go package time.
+"""Package sync mirrors Go package sync.
 
 See _sync.pxd for package documentation.
 """
