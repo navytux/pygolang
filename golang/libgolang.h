@@ -605,6 +605,20 @@ public:
 
 
 }   // golang::
+
+
+// std::hash<refptr>
+namespace std {
+
+template<typename T> struct hash<golang::refptr<T>> {
+    std::size_t operator()(const golang::refptr<T>& p) const noexcept {
+        return hash<T*>()(p._ptr());
+    }
+};
+
+}   // std::
+
+
 #endif  // __cplusplus
 
 #endif  // _NXD_LIBGOLANG_H
