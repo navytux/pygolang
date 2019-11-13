@@ -198,6 +198,7 @@ setup(
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/cxx.h',
                             'golang/errors.h',
                             'golang/sync.h',
                             'golang/time.h'],
