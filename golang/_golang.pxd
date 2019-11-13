@@ -130,9 +130,26 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         cbool operator!= (nullptr_t)    const
         void  operator=  (nullptr_t)    const
 
+        # compare wrt refptr; =refptr
+        # XXX workaround for https://github.com/cython/cython/issues/1357:
+        #     compare by .eq() instead of ==
+        #cbool operator== (refptr)       const
+        #cbool operator!= (refptr)       const
+        #cbool operator=  (refptr)       const
+        cbool eq "operator==" (refptr)  const
+        cbool ne "operator!=" (refptr)  const
+
         # get raw pointer
         T* _ptr()                       const
 
+    refptr[T] adoptref[T](T *_obj)
+    refptr[T] newref  [T](T *_obj)
+
+
+    cppclass gobject "golang::object":
+        cbool __decref()    # protected
+        void  incref()
+        int   refcnt() const
 
 # ---- python bits ----
 
