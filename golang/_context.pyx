@@ -48,8 +48,6 @@ cdef PyContext _newPyCtx(Context ctx):
 # key -> value dict.
 @final
 cdef class PyContext:
-    cdef Context  ctx
-    cdef pychan   _pydone # pychan wrapping ctx.done()
 
     def __cinit__(PyContext pyctx, object bywho):
         if bywho is not _frompyx:

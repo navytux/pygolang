@@ -72,3 +72,14 @@ cdef extern from "golang/context.h" namespace "golang::context" nogil:
 
     # for testing
     cxx.set[Context] _tctxchildren(Context ctx)
+
+
+# ---- python bits ----
+
+from golang cimport pychan
+from cython cimport final
+
+@final
+cdef class PyContext:
+    cdef Context  ctx
+    cdef pychan   _pydone # pychan wrapping ctx.done()
