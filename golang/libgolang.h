@@ -454,7 +454,9 @@ int select(const std::vector<_selcase> &casev) {
 
 // defer(f) mimics `defer f()` from golang.
 // NOTE contrary to Go f is called at end of current scope, not function.
-#define defer(f) golang::_deferred _defer_ ## __COUNTER__ (f)
+#define defer(f) golang::_deferred _defer_(__COUNTER__) (f)
+#define _defer_(counter)    _defer_2(counter)
+#define _defer_2(counter)   _defer_##counter
 struct _deferred {
     typedef func<void()> F;
     F f;

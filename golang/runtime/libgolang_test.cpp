@@ -27,9 +27,11 @@
 #include <tuple>
 #include <utility>
 #include <string.h>
+#include <vector>
 using namespace golang;
 using std::move;
 using std::tie;
+using std::vector;
 
 #define __STR(X)  #X
 #define STR(X)    __STR(X)
@@ -466,16 +468,19 @@ void _test_select_inplace() {
 
 
 // verify that defer works.
-void __test_defer(bool *pcalled) {
+void __test_defer(vector<int> *pcalled) {
     defer([&]() {
-        *pcalled = true;
+        pcalled->push_back(1);
+    });
+    defer([&]() {
+        pcalled->push_back(2);
     });
     return;
 }
 void _test_defer() {
-    bool called = false;
+    vector<int> called, ok({2, 1});
     __test_defer(&called);
-    ASSERT(called);
+    ASSERT(called == ok);
 }
 
 
