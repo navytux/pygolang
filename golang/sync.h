@@ -110,7 +110,7 @@ class Once {
 public:
     LIBGOLANG_API Once();
     LIBGOLANG_API ~Once();
-    LIBGOLANG_API void do_(const std::function<void(void)> &f);
+    LIBGOLANG_API void do_(const func<void()> &f);
 
 private:
     Once(const Once&);      // don't copy

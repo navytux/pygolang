@@ -41,8 +41,8 @@ from libcpp.utility cimport pair
 # XXX for std::function cython does not provide operator() and =nullptr
 #from libcpp.functional cimport function
 #ctypedef function[void()] cancelFunc
-cdef extern from "<functional>" namespace "std" nogil:
-    cppclass cancelFunc "std::function<void()>":
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    cppclass cancelFunc "golang::func<void()>":
         void operator() ()
         void operator= (nullptr_t)
 

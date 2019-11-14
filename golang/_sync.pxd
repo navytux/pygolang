@@ -37,7 +37,7 @@ cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
         void unlock()
 
     cppclass Once:
-        void do "do_" (...)     # ... = std::function
+        void do "do_" (...)     # ... = func<void()>
 
     cppclass WaitGroup:
         void done()

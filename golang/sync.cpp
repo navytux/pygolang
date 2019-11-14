@@ -34,7 +34,7 @@ Once::Once() {
 
 Once::~Once() {}
 
-void Once::do_(const std::function<void(void)> &f) {
+void Once::do_(const func<void()> &f) {
     Once *once = this;
     once->_mu.lock();
     defer([&]() {

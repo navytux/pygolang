@@ -28,7 +28,6 @@
 #include <utility>
 #include <string.h>
 using namespace golang;
-using std::function;
 using std::move;
 using std::tie;
 
@@ -186,7 +185,7 @@ template<typename T> void waitBlocked_TX(chan<T> ch) {
 //    .
 //
 //    f    ->  heap
-static void usestack_and_call(function<void()> f, int nframes=128) {
+static void usestack_and_call(func<void()> f, int nframes=128) {
     if (nframes == 0) {
         f();
         return;

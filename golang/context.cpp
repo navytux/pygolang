@@ -30,7 +30,6 @@
 #include <vector>
 using std::pair;
 using std::make_pair;
-using std::function;
 using std::vector;
 
 
@@ -306,7 +305,7 @@ struct _TimeoutCtx : _CancelCtx {
 };
 
 
-pair<Context, function<void()>>
+pair<Context, func<void()>>
 with_cancel(Context parent) {
     refptr<_CancelCtx> cctx = adoptref(new _CancelCtx({parent}));
     Context            ctx  = newref  (static_cast<_Context*>(cctx._ptr()));
@@ -318,7 +317,7 @@ with_value(Context parent, const void *key, interface value) {
     return adoptref(static_cast<_Context*>(new _ValueCtx(key, value, parent)));
 }
 
-pair<Context, function<void()>>
+pair<Context, func<void()>>
 with_deadline(Context parent, double deadline) {
     // parent's deadline is before deadline -> just use parent
     double pdead = parent->deadline();
@@ -328,8 +327,8 @@ with_deadline(Context parent, double deadline) {
     // timeout <= 0   -> already canceled
     double timeout = deadline - time::now();
     if (timeout <= 0) {
-        Context           ctx;
-        function<void()>  cancel;
+        Context       ctx;
+        func<void()>  cancel;
         tie(ctx, cancel) = with_cancel(parent);
         cancel();
         return make_pair(ctx, cancel);
@@ -340,12 +339,12 @@ with_deadline(Context parent, double deadline) {
     return make_pair(ctx, [tctx]() { tctx->_cancel(canceled); });
 }
 
-pair<Context, function<void()>>
+pair<Context, func<void()>>
 with_timeout(Context parent, double timeout) {
     return with_deadline(parent, time::now() + timeout);
 }
 
-pair<Context, function<void()>>
+pair<Context, func<void()>>
 merge(Context parent1, Context parent2) {
     refptr<_CancelCtx> cctx = adoptref(new _CancelCtx({parent1, parent2}));
     Context            ctx  = newref  (static_cast<_Context*>(cctx._ptr()));

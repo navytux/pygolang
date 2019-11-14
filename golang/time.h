@@ -94,7 +94,7 @@ LIBGOLANG_API chan<double> after(double dt);
 //
 // The function will be called in its own goroutine.
 // Returned timer can be used to cancel the call.
-LIBGOLANG_API Timer after_func(double dt, std::function<void()> f);
+LIBGOLANG_API Timer after_func(double dt, func<void()> f);
 
 
 // new_ticker creates new Ticker that will be firing at dt intervals.
@@ -141,7 +141,7 @@ struct _Timer : object {
     chan<double> c;
 
 private:
-    std::function<void()>  _f;
+    func<void()> _f;
 
     sync::Mutex  _mu;
     double       _dt;  // +inf - stopped, otherwise - armed
@@ -151,7 +151,7 @@ private:
 private:
     _Timer();
     ~_Timer();
-    friend Timer _new_timer(double dt, std::function<void()> f);
+    friend Timer _new_timer(double dt, func<void()> f);
 public:
     LIBGOLANG_API void decref();
 

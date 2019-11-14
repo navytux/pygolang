@@ -59,7 +59,7 @@ cdef extern from "golang/time.h" namespace "golang::time" nogil:
 
     chan[double] tick(double dt)
     chan[double] after(double dt)
-    Timer        after_func(double dt, ...)    # ... = std::function<void()>
+    Timer        after_func(double dt, ...)    # ... = func<void()>
 
     cppclass _Ticker:
         chan[double] c

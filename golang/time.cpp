@@ -24,8 +24,6 @@
 
 #include <math.h>
 
-using std::function;
-
 
 // golang::time:: (except sleep and now)
 namespace golang {
@@ -36,7 +34,7 @@ namespace time {
 
 Ticker new_ticker(double dt);
 Timer  new_timer (double dt);
-Timer  _new_timer(double dt, function<void()>);
+Timer  _new_timer(double dt, func<void()>);
 
 
 chan<double> tick(double dt) {
@@ -49,7 +47,7 @@ chan<double> after(double dt) {
     return new_timer(dt)->c;
 }
 
-Timer after_func(double dt, function<void()> f) {
+Timer after_func(double dt, func<void()> f) {
     return _new_timer(dt, f);
 }
 
@@ -120,7 +118,7 @@ void _Timer::decref() {
         delete this;
 }
 
-Timer _new_timer(double dt, function<void()> f) {
+Timer _new_timer(double dt, func<void()> f) {
     Timer t = adoptref(new _Timer());
     t->c    = (f == NULL ? makechan<double>(1) : NULL);
     t->_f   = f;

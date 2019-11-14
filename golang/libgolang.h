@@ -299,10 +299,14 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 
 namespace golang {
 
+// func is alias for std::function.
+template<typename F>
+using func = std::function<F>;
+
 // go provides type-safe wrapper over _taskgo.
-template<typename F, typename... Argv>  // F = std::function<void(Argv...)>
-static inline void go(F /*std::function<void(Argv...)>*/ f, Argv... argv) {
-    typedef std::function<void(void)> Frun;
+template<typename F, typename... Argv>  // F = func<void(Argv...)>
+static inline void go(F /*func<void(Argv...)>*/ f, Argv... argv) {
+    typedef func<void()> Frun;
     Frun *frun = new Frun (std::bind(f, argv...));
     _taskgo([](void *_frun) {
         std::unique_ptr<Frun> frun (reinterpret_cast<Frun*>(_frun));
@@ -452,7 +456,7 @@ int select(const std::vector<_selcase> &casev) {
 // NOTE contrary to Go f is called at end of current scope, not function.
 #define defer(f) golang::_deferred _defer_ ## __COUNTER__ (f)
 struct _deferred {
-    typedef std::function<void(void)> F;
+    typedef func<void()> F;
     F f;
 
     _deferred(F f) : f(f) {}

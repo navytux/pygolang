@@ -78,7 +78,7 @@ extern LIBGOLANG_API const error deadlineExceeded;
 //
 // The caller should explicitly call cancel to release context resources as soon
 // the context is no longer needed.
-LIBGOLANG_API std::pair<Context, std::function<void()>>
+LIBGOLANG_API std::pair<Context, func<void()>>
     with_cancel(Context parent); // -> ctx, cancel
 
 // with_value creates new context with key=value.
@@ -96,13 +96,13 @@ LIBGOLANG_API Context
 //
 // The caller should explicitly call cancel to release context resources as soon
 // the context is no longer needed.
-LIBGOLANG_API std::pair<Context, std::function<void()>>
+LIBGOLANG_API std::pair<Context, func<void()>>
     with_deadline(Context parent, double deadline); // -> ctx, cancel
 
 // with_timeout creates new context with timeout.
 //
 // it is shorthand for with_deadline(parent, now+timeout).
-LIBGOLANG_API std::pair<Context, std::function<void()>>
+LIBGOLANG_API std::pair<Context, func<void()>>
     with_timeout(Context parent, double timeout); // -> ctx, cancel
 
 // merge merges 2 contexts into 1.
@@ -118,7 +118,7 @@ LIBGOLANG_API std::pair<Context, std::function<void()>>
 //
 // Note: on Go side merge is not part of stdlib context and is provided by
 // https://godoc.org/lab.nexedi.com/kirr/go123/xcontext#hdr-Merging_contexts
-LIBGOLANG_API std::pair<Context, std::function<void()>>
+LIBGOLANG_API std::pair<Context, func<void()>>
     merge(Context parent1, Context parent2);  // -> ctx, cancel
 
 // for testing
