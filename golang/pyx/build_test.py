@@ -23,9 +23,11 @@ from __future__ import print_function, absolute_import
 from golang.golang_test import pyrun, pyout
 from os.path import dirname
 
+testprog = dirname(__file__) + "/testprog"
+
 # verify that we can build/run external package that uses pygolang in pyx mode.
 def test_pyx_build():
-    pyxuser = dirname(__file__) + "/testprog/golang_pyx_user"
+    pyxuser = testprog + "/golang_pyx_user"
     pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser)
 
     # run built test.
@@ -37,3 +39,9 @@ def test_pyx_build():
         "import golang;" +
         "from pyxuser import test; test.main()"], cwd=pyxuser)
     assert _ == b"test.pyx: OK\n"
+
+
+# verify that custom classes can be used via cmdclass
+def test_pyx_build_cmdclass():
+    _ = pyout(["cmdclass_custom.py", "build_ext"], cwd=testprog)
+    assert b"pyx.build:RUN_BUILD_EXT" in _

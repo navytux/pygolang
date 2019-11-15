@@ -111,10 +111,10 @@ class build_ext(_dso_build_ext):
 # setup should be used instead of setuptools.setup
 def setup(**kw):
     # setuptools_dso.setup hardcodes setuptools_dso.build_ext to be used.
-    # temporarily inject our code there.
+    # temporarily inject what user specified in cmdclass, or our code there.
     _ = setuptools_dso.build_ext
     try:
-        setuptools_dso.build_ext = build_ext
+        setuptools_dso.build_ext = kw.get('cmdclass', {}).get('build_ext', build_ext)
         setuptools_dso.setup(**kw)
     finally:
         setuptools_dso.build_ext = _
