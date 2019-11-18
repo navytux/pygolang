@@ -44,6 +44,7 @@ from cython cimport final
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
         STACK_DEAD_WHILE_PARKED, panic
 from golang.runtime cimport _runtime_thread
+from golang.runtime._runtime_pymisc cimport PyExc, pyexc_fetch, pyexc_restore
 
 
 # _goviapy & _togo serve go
@@ -58,76 +59,94 @@ cdef class _togo:
 
 
 # internal functions that work under gil
-cdef nogil:
+cdef:
     # XXX better panic with pyexc object and detect that at recover side?
 
-    bint _go(void (*f)(void *), void *arg):
-        with gil:
-            _ = _togo(); _.f = f; _.arg = arg
-            g = Greenlet(_goviapy, _)
-            g.start()
-            return True
+    bint _go(void (*f)(void *) nogil, void *arg):
+        _ = _togo(); _.f = f; _.arg = arg
+        g = Greenlet(_goviapy, _)
+        g.start()
+        return True
 
     _libgolang_sema* _sema_alloc():
-        with gil:
-            pygsema = Semaphore()
-            Py_INCREF(pygsema)
-            return <_libgolang_sema*>pygsema
+        pygsema = Semaphore()
+        Py_INCREF(pygsema)
+        return <_libgolang_sema*>pygsema
 
     bint _sema_free(_libgolang_sema *gsema):
-        with gil:
-            pygsema = <PYGSema>gsema
-            Py_DECREF(pygsema)
-            return True
+        pygsema = <PYGSema>gsema
+        Py_DECREF(pygsema)
+        return True
 
     bint _sema_acquire(_libgolang_sema *gsema):
-        with gil:
-            pygsema = <PYGSema>gsema
-            pygsema.acquire()
-            return True
+        pygsema = <PYGSema>gsema
+        pygsema.acquire()
+        return True
 
     bint _sema_release(_libgolang_sema *gsema):
-        with gil:
-            pygsema = <PYGSema>gsema
-            pygsema.release()
-            return True
+        pygsema = <PYGSema>gsema
+        pygsema.release()
+        return True
 
     bint _nanosleep(uint64_t dt):
         cdef double dt_s = dt * 1E-9
-        with gil:
-            pygsleep(dt_s)
-            return True
+        pygsleep(dt_s)
+        return True
 
 
 # nogil runtime API
 cdef nogil:
 
     void go(void (*f)(void *), void *arg):
-        ok = _go(f, arg)
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            ok = _go(f, arg)
+            pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: go: failed")
 
     _libgolang_sema* sema_alloc():
-        sema = _sema_alloc()
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            sema = _sema_alloc()
+            pyexc_restore(exc)
         return sema # libgolang checks for NULL return
 
     void sema_free(_libgolang_sema *gsema):
-        ok = _sema_free(gsema)
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            ok = _sema_free(gsema)
+            pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sema: free: failed")
 
     void sema_acquire(_libgolang_sema *gsema):
-        ok = _sema_acquire(gsema)
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            ok = _sema_acquire(gsema)
+            pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sema: acquire: failed")
 
     void sema_release(_libgolang_sema *gsema):
-        ok = _sema_release(gsema)
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            ok = _sema_release(gsema)
+            pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sema: release: failed")
 
     void nanosleep(uint64_t dt):
-        ok = _nanosleep(dt)
+        cdef PyExc exc
+        with gil:
+            pyexc_fetch(&exc)
+            ok = _nanosleep(dt)
+            pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sleep: failed")
 

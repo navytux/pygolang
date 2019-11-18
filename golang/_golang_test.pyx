@@ -28,6 +28,8 @@ from __future__ import print_function, absolute_import
 
 from golang cimport go, chan, _chan, makechan, pychan, nil, select, \
     default, structZ, panic, pypanic, topyexc, cbool
+from golang cimport time
+from cpython cimport PyObject, PyErr_SetString, PyErr_Clear, PyErr_Occurred
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     int _tchanrecvqlen(_chan *ch)
@@ -150,6 +152,51 @@ def test_go_nogil():
     with nogil:
         _test_go_nogil()
 
+
+# verify that runtime calls preserve current Python exception
+# ( for example gevent runtime uses python-level calls internally which might
+#   interfere with current py state )
+def test_runtime_vs_pyexc():
+    cdef PyObject *pyexc
+    assert PyErr_Occurred() == NULL # no exception initially
+
+    # set "current" exception
+    PyErr_SetString(RuntimeError, "abc")
+    pyexc = PyErr_Occurred()
+    assert pyexc != NULL
+    assert pyexc == PyErr_Occurred()
+
+    # makechan (also tests sema alloc)
+    cdef chan[int] ch = makechan[int](1)
+    assert PyErr_Occurred() == pyexc
+
+    # chan send/recv (also test sema acquire/release)
+    ch.send(3)
+    assert PyErr_Occurred() == pyexc
+    assert ch.recv() == 3
+    assert PyErr_Occurred() == pyexc
+
+    # chan free (also tests sema free)
+    ch = nil
+
+    # go
+    go(_noop)
+    assert PyErr_Occurred() == pyexc
+
+    # sleep
+    time.sleep(0.001)
+    assert PyErr_Occurred() == pyexc
+
+    # now
+    time.now()
+    assert PyErr_Occurred() == pyexc
+
+    # clear current exception, or else test driver will see calling us as failure
+    PyErr_Clear()
+    assert PyErr_Occurred() == NULL
+
+cdef void _noop() nogil:
+    pass
 
 # runtime/libgolang_test_c.c
 cdef extern from * nogil:

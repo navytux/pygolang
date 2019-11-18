@@ -97,17 +97,16 @@ IF POSIX:
 ELSE:
     # !posix via-gil timing fallback
     import time as pytimemod
+    from golang.runtime._runtime_pymisc cimport PyExc, pyexc_fetch, pyexc_restore
 
-    cdef nogil:
+    cdef:
         bint _nanosleep(double dt_s):
-            with gil:
-                pytimemod.sleep(dt_s)
-                return True
+            pytimemod.sleep(dt_s)
+            return True
 
         (double, bint) _nanotime():
             cdef double t_s
-            with gil:
-                t_s = pytimemod.time()
+            t_s = pytimemod.time()
             return t_s, True
 
 
@@ -154,7 +153,11 @@ cdef nogil:
     ELSE:
         void nanosleep(uint64_t dt):
             cdef double dt_s = dt * 1E-9 # no overflow possible
-            ok = _nanosleep(dt_s)
+            cdef PyExc exc
+            with gil:
+                pyexc_fetch(&exc)
+                ok = _nanosleep(dt_s)
+                pyexc_restore(exc)
             if not ok:
                 panic("pyxgo: thread: nanosleep: pytime.sleep failed")
 
@@ -171,7 +174,12 @@ cdef nogil:
             return ts.tv_sec*i1E9 + ts.tv_nsec
     ELSE:
         uint64_t nanotime():
-            t_s, ok = _nanotime()
+            cdef double t_s
+            cdef PyExc exc
+            with gil:
+                pyexc_fetch(&exc)
+                t_s, ok = _nanotime()
+                pyexc_restore(exc)
             if not ok:
                 panic("pyxgo: thread: nanotime: pytime.time failed")
             t_ns = t_s * 1E9
