@@ -57,8 +57,8 @@ cdef class _togo:
     cdef void *arg
 
 
+# internal functions that work under gil
 cdef nogil:
-
     # XXX better panic with pyexc object and detect that at recover side?
 
     bint _go(void (*f)(void *), void *arg):
@@ -68,55 +68,64 @@ cdef nogil:
             g.start()
             return True
 
-    void go(void (*f)(void *), void *arg):
-        ok = _go(f, arg)
-        if not ok:
-            panic("pyxgo: gevent: go: failed")
-
-
-    _libgolang_sema* sema_alloc():
+    _libgolang_sema* _sema_alloc():
         with gil:
             pygsema = Semaphore()
             Py_INCREF(pygsema)
             return <_libgolang_sema*>pygsema
-        # libgolang checks for NULL return
 
     bint _sema_free(_libgolang_sema *gsema):
         with gil:
             pygsema = <PYGSema>gsema
             Py_DECREF(pygsema)
             return True
-    void sema_free(_libgolang_sema *gsema):
-        ok = _sema_free(gsema)
-        if not ok:
-            panic("pyxgo: gevent: sema: free: failed")
 
     bint _sema_acquire(_libgolang_sema *gsema):
         with gil:
             pygsema = <PYGSema>gsema
             pygsema.acquire()
             return True
-    void sema_acquire(_libgolang_sema *gsema):
-        ok = _sema_acquire(gsema)
-        if not ok:
-            panic("pyxgo: gevent: sema: acquire: failed")
 
     bint _sema_release(_libgolang_sema *gsema):
         with gil:
             pygsema = <PYGSema>gsema
             pygsema.release()
             return True
-    void sema_release(_libgolang_sema *gsema):
-        ok = _sema_release(gsema)
-        if not ok:
-            panic("pyxgo: gevent: sema: release: failed")
-
 
     bint _nanosleep(uint64_t dt):
         cdef double dt_s = dt * 1E-9
         with gil:
             pygsleep(dt_s)
             return True
+
+
+# nogil runtime API
+cdef nogil:
+
+    void go(void (*f)(void *), void *arg):
+        ok = _go(f, arg)
+        if not ok:
+            panic("pyxgo: gevent: go: failed")
+
+    _libgolang_sema* sema_alloc():
+        sema = _sema_alloc()
+        return sema # libgolang checks for NULL return
+
+    void sema_free(_libgolang_sema *gsema):
+        ok = _sema_free(gsema)
+        if not ok:
+            panic("pyxgo: gevent: sema: free: failed")
+
+    void sema_acquire(_libgolang_sema *gsema):
+        ok = _sema_acquire(gsema)
+        if not ok:
+            panic("pyxgo: gevent: sema: acquire: failed")
+
+    void sema_release(_libgolang_sema *gsema):
+        ok = _sema_release(gsema)
+        if not ok:
+            panic("pyxgo: gevent: sema: release: failed")
+
     void nanosleep(uint64_t dt):
         ok = _nanosleep(dt)
         if not ok:

@@ -95,8 +95,21 @@ IF POSIX:
     from posix.time cimport clock_gettime, nanosleep as posix_nanosleep, timespec, CLOCK_REALTIME
     from libc.errno cimport errno, EINTR
 ELSE:
-    # for !posix timing fallback
+    # !posix via-gil timing fallback
     import time as pytimemod
+
+    cdef nogil:
+        bint _nanosleep(double dt_s):
+            with gil:
+                pytimemod.sleep(dt_s)
+                return True
+
+        (double, bint) _nanotime():
+            cdef double t_s
+            with gil:
+                t_s = pytimemod.time()
+            return t_s, True
+
 
 DEF i1E9 = 1000000000
 #           987654321
@@ -139,13 +152,9 @@ cdef nogil:
             if err == -1:
                 panic("pyxgo: thread: nanosleep: nanosleep failed") # XXX +errno
     ELSE:
-        bint _nanosleep(uint64_t dt):
-            cdef double dt_s = dt * 1E-9 # no overflow possible
-            with gil:
-                pytimemod.sleep(dt_s)
-                return True
         void nanosleep(uint64_t dt):
-            ok = _nanosleep(dt)
+            cdef double dt_s = dt * 1E-9 # no overflow possible
+            ok = _nanosleep(dt_s)
             if not ok:
                 panic("pyxgo: thread: nanosleep: pytime.sleep failed")
 
@@ -161,19 +170,14 @@ cdef nogil:
                 panic("pyxgo: thread: nanotime: clock_gettime -> overflow")
             return ts.tv_sec*i1E9 + ts.tv_nsec
     ELSE:
-        (uint64_t, bint) _nanotime():
-            cdef double t_s
-            with gil:
-                t_s = pytimemod.time()
+        uint64_t nanotime():
+            t_s, ok = _nanotime()
+            if not ok:
+                panic("pyxgo: thread: nanotime: pytime.time failed")
             t_ns = t_s * 1E9
             if t_ns > UINT64_MAX:
                 panic("pyxgo: thread: nanotime: time overflow")
-            return <uint64_t>t_ns, True
-        uint64_t nanotime():
-            t, ok = _nanotime()
-            if not ok:
-                panic("pyxgo: thread: nanotime: pytime.time failed")
-            return t
+            return <uint64_t>t_ns
 
 
     # XXX const
