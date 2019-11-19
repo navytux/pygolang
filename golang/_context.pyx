@@ -49,6 +49,10 @@ cdef PyContext _newPyCtx(Context ctx):
 @final
 cdef class PyContext:
 
+    @staticmethod
+    cdef PyContext from_ctx(Context ctx):
+        return _newPyCtx(ctx)
+
     def __cinit__(PyContext pyctx, object bywho):
         if bywho is not _frompyx:
             raise AssertionError("Context must not be instantiated by user")

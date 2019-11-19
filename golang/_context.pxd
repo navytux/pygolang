@@ -83,3 +83,7 @@ from cython cimport final
 cdef class PyContext:
     cdef Context  ctx
     cdef pychan   _pydone # pychan wrapping ctx.done()
+
+    # PyContext.from_ctx returns PyContext wrapping pyx/nogil-level Context ctx.
+    @staticmethod
+    cdef PyContext from_ctx (Context ctx)
