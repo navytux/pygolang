@@ -180,6 +180,8 @@ def Extension(name, sources, **kw):
     dependv.append('%s/golang/time.h'       % pygo)
     dependv.append('%s/golang/time.pxd'     % pygo)
     dependv.append('%s/golang/_time.pxd'    % pygo)
+    dependv.append('%s/golang/pyx/runtime.h'    % pygo)
+    dependv.append('%s/golang/pyx/runtime.pxd'  % pygo)
     kw['depends'] = dependv
 
     # workaround pip bug that for virtualenv case headers are installed into

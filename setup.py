@@ -25,6 +25,7 @@ from setuptools import find_packages
 from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
+from distutils import sysconfig
 from os.path import dirname, join
 import sys, re
 
@@ -207,7 +208,16 @@ setup(
                         include_dirs    = ['.', '3rdparty/include'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
                         extra_compile_args = ['-std=gnu++11'], # not c++11 as linux/list.h uses typeof
+                        soversion       = '0.1'),
+
+                    DSO('golang.runtime.libpyxruntime',
+                        ['golang/runtime/libpyxruntime.cpp'],
+                        depends = ['golang/pyx/runtime.h'],
+                        include_dirs    = ['.', sysconfig.get_python_inc()],
+                        define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
+                        extra_compile_args = ['-std=c++11'],
                         soversion       = '0.1')],
+
     ext_modules = [
                     Ext('golang._golang',
                         ['golang/_golang.pyx']),
@@ -219,6 +229,10 @@ setup(
                     Ext('golang.runtime._runtime_gevent',
                         ['golang/runtime/_runtime_gevent.pyx'],
                         language = 'c'),
+
+                    Ext('golang.pyx.runtime',
+                        ['golang/pyx/runtime.pyx'],
+                        dsos = ['golang.runtime.libpyxruntime']),
 
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
@@ -234,7 +248,8 @@ setup(
                         ['golang/_sync_test.pyx']),
 
                     Ext('golang._time',
-                        ['golang/_time.pyx']),
+                        ['golang/_time.pyx'],
+                        dsos = ['golang.runtime.libpyxruntime']),
                   ],
     include_package_data = True,
 

@@ -23,10 +23,9 @@ from __future__ import print_function, absolute_import
 
 from golang cimport pychan, topyexc
 from golang cimport sync
+from golang.pyx cimport runtime
 from cpython cimport PyObject
 from cython cimport final
-
-import atexit as pyatexit
 
 
 def pynow(): # -> t
@@ -133,142 +132,6 @@ cdef class PyTimer:
             timer_reset_pyexc(pyt.t, dt)
 
 
-# _PyFunc represents python function scheduled to be called via PyTimer(f=...).
-# _PyFunc can be used from nogil code.
-# _PyFunc is safe to use wrt race to python interpreter shutdown.
-cdef extern from * nogil:
-    """
-    #include <golang/sync.h>
-    using namespace golang;
-
-    #include <utility>
-    using std::tuple;
-    using std::make_tuple;
-    using std::tie;
-
-    // pyexited indicates whether Python interpreter exited.
-    static sync::Mutex  *pyexitedMu = new sync::Mutex(); // never freed not race at exit
-    static bool         pyexited = false;                // on mu dtor vs mu use
-    """
-    sync.Mutex *pyexitedMu
-    bint       pyexited
-
-cdef _time_pyatexit():
-    global pyexited
-    with nogil:
-        pyexitedMu.lock()
-        pyexited = True
-        pyexitedMu.unlock()
-
-pyatexit.register(_time_pyatexit)
-
-cdef extern from * nogil:
-    """
-    // pygil_ensure is like `with gil` but also takes into account possibility
-    // of python interpreter shutdown.
-    static tuple<PyGILState_STATE, bool> pygil_ensure() {
-        PyGILState_STATE gstate;
-
-        // A C++ thread might still be running while python interpreter is stopped.
-        // Verify it is not the case not to crash in PyGILState_Ensure().
-        //
-        // Tell caller not to run any py code if python interpreter is gone and ignore any error.
-        // Python itself behaves the same way on threading cleanup - see e.g.
-        // comments in our _golang.pyx::__goviac() about that and also e.g.
-        // https://www.riverbankcomputing.com/pipermail/pyqt/2004-July/008196.html
-        pyexitedMu->lock();
-        if (pyexited) {
-            pyexitedMu->unlock();
-            return make_tuple(PyGILState_STATE(0), false);
-        }
-
-        gstate = PyGILState_Ensure();
-        pyexitedMu->unlock();
-        return make_tuple(gstate, true);
-    }
-
-    struct _PyFunc {
-        PyObject *pyf;  // function to call; _PyFunc keeps 1 reference to f
-
-        // ctor.
-        // _PyFunc must be constructed while Python interpreter is alive.
-        _PyFunc(PyObject *pyf) {
-            PyGILState_STATE gstate = PyGILState_Ensure();
-                Py_INCREF(pyf);
-                this->pyf = pyf;
-            PyGILState_Release(gstate);
-        }
-
-        // all other methods may be called at any time, including when python
-        // interpreter is gone.
-
-        // copy
-        _PyFunc(const _PyFunc& from) {
-            PyGILState_STATE gstate;
-            bool ok;
-
-            tie(gstate, ok) = pygil_ensure();
-            if (!ok) {
-                pyf = NULL; // won't be used
-                return;
-            }
-
-                pyf = from.pyf;
-                Py_INCREF(pyf);
-            PyGILState_Release(gstate);
-        }
-
-        // dtor
-        ~_PyFunc() {
-            PyGILState_STATE gstate;
-            bool ok;
-
-            tie(gstate, ok) = pygil_ensure();
-            PyObject *pyf = this->pyf;
-            this->pyf = NULL;
-            if (!ok) {
-                return;
-            }
-
-                Py_DECREF(pyf);
-            PyGILState_Release(gstate);
-        }
-
-        // call
-        void operator() () const {
-            PyGILState_STATE gstate;
-            bool ok;
-
-            // C++ timer thread might still be running while python interpreter is stopped.
-            // Verify it is not the case not to crash in PyGILState_Ensure().
-            //
-            // Don't call the function if python interpreter is gone - i.e. ignore error here.
-            // Python itself behaves the same way on threading cleanup - see
-            // _golang.pyx::__goviac and pygil_ensure for details.
-            tie(gstate, ok) = pygil_ensure();
-            if (!ok) {
-                return;
-            }
-
-                ok = true;
-                PyObject *ret = PyObject_CallFunction(pyf, NULL);
-                if (ret == NULL && !pyexited) {
-                    PyErr_PrintEx(0);
-                    ok = false;
-                }
-                Py_XDECREF(ret);
-            PyGILState_Release(gstate);
-
-            // XXX exception -> exit program with traceback (same as in go) ?
-            //if (!ok)
-            //    panic("pycall failed");
-        }
-    };
-    """
-    cppclass _PyFunc:
-        _PyFunc(PyObject *pyf)
-
-
 # ---- misc ----
 pysecond        = second
 pynanosecond    = nanosecond
@@ -291,7 +154,7 @@ cdef nogil:
     Timer new_timer_pyexc(double dt)                        except +topyexc:
         return new_timer(dt)
     Timer _new_timer_pyfunc_pyexc(double dt, PyObject *pyf) except +topyexc:
-        return after_func(dt, _PyFunc(pyf))
+        return after_func(dt, runtime.PyFunc(pyf))
 
     cbool timer_stop_pyexc(Timer t)                         except +topyexc:
         return t.stop()

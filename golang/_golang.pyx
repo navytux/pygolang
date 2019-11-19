@@ -30,8 +30,9 @@ See _golang.pxd for package overview.
 
 from __future__ import print_function, absolute_import
 
-# init libgolang runtime early
+# init libgolang runtime & friends early
 _init_libgolang()
+_init_libpyxruntime()
 
 from cpython cimport PyObject, Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
 ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
@@ -525,6 +526,10 @@ cdef void _init_libgolang() except*:
         pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
     _libgolang_init(runtime_ops)
 
+
+cdef void _init_libpyxruntime() except*:
+    # this initializes libpyxruntime and registers its pyatexit hook
+    import golang.pyx.runtime
 
 
 # ---- misc ----
