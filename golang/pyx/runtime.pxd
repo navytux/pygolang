@@ -20,13 +20,29 @@
 """Package pyx/runtime.pyx complements golang.pyx and provides support for
 Python/Cython runtimes that can be used from nogil code.
 
+ - `PyError` represents Python exception, that can be caught/reraised from
+    nogil code, and is interoperated with libgolang `error`.
  - `PyFunc` represents Python function that can be called from nogil code.
 """
 
+from golang  cimport error, _error, refptr, gobject
 from cpython cimport PyObject
+from libcpp.string  cimport string
 
 
 cdef extern from "golang/pyx/runtime.h" namespace "golang::pyx::runtime" nogil:
+    const error ErrPyStopped
+
+    cppclass _PyError (_error, gobject):
+        string Error()
+
+    cppclass PyError (refptr[_PyError]):
+        # PyError.X = PyError->X in C++
+        string Error "_ptr()->Error" ()
+
+    error PyErr_Fetch()
+    void  PyErr_ReRaise(PyError pyerr)
+
     cppclass PyFunc:
         __init__(PyObject *pyf)
-        void operator() ()
+        error operator() ()

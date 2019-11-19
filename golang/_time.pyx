@@ -154,6 +154,8 @@ cdef nogil:
     Timer new_timer_pyexc(double dt)                        except +topyexc:
         return new_timer(dt)
     Timer _new_timer_pyfunc_pyexc(double dt, PyObject *pyf) except +topyexc:
+        # NOTE C++ implicitly casts func<void()> <- func<error()>
+        # XXX  error (= Py Exception) -> exit program with traceback (same as in go) ?
         return after_func(dt, runtime.PyFunc(pyf))
 
     cbool timer_stop_pyexc(Timer t)                         except +topyexc:

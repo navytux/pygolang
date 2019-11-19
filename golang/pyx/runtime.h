@@ -23,6 +23,8 @@
 // Library Libpyxruntime complements Libgolang and provides support for
 // Python/Cython runtimes that can be used from nogil code.
 //
+//  - `PyError` represents Python exception, that can be caught/reraised from
+//     nogil code, and is interoperated with libgolang `error`.
 //  - `PyFunc` represents Python function that can be called from nogil code.
 
 #include <golang/libgolang.h>
@@ -39,6 +41,46 @@
 namespace golang {
 namespace pyx {
 namespace runtime {
+
+// ErrPyStopped indicates that Python interpreter is stopped.
+extern LIBPYXRUNTIME_API const error ErrPyStopped;
+
+// PyError wraps Python exception into error.
+// PyError can be used from nogil code.
+typedef refptr<class _PyError> PyError;
+class _PyError final : public _error, object {
+    // retrieved by PyErr_Fetch; each one is holding 1 reference to pointed object
+    PyObject *pyexc_type;
+    PyObject *pyexc_value;
+    PyObject *pyexc_tb;
+
+    // don't new - create only via runtime::PyErr_Fetch();
+private:
+    _PyError();
+    ~_PyError();
+    friend error PyErr_Fetch();
+    friend void  PyErr_ReRaise(PyError pyerr);
+public:
+    LIBPYXRUNTIME_API void incref();
+    LIBPYXRUNTIME_API void decref();
+
+    // error interface
+    std::string Error();
+
+private:
+    _PyError(const _PyError&);  // don't copy
+    _PyError(_PyError&&);       // don't move
+};
+
+// PyErr_Fetch fetches and clears current Python error.
+// It can be called from nogil code.
+// It returns either PyError, ErrPyStopped or nil if there is no error.
+LIBPYXRUNTIME_API error PyErr_Fetch();
+
+// PyErr_ReRaise reraises Python error with original traceback.
+// It can be called from nogil code.
+LIBPYXRUNTIME_API void PyErr_ReRaise(PyError pyerr);
+
 
 // PyFunc represents python function that can be called.
 // PyFunc can be used from nogil code.
@@ -59,7 +101,7 @@ public:
 
     // call.
     // returned error is either PyError or ErrPyStopped.
-    LIBPYXRUNTIME_API void operator() () const;
+    LIBPYXRUNTIME_API error operator() () const;
 };
 
 // libpyxruntime must be initialized before use via _init.

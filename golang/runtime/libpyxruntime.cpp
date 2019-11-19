@@ -24,7 +24,9 @@
 
 #include "golang/pyx/runtime.h"
 #include "golang/sync.h"
+#include "golang/errors.h"
 using namespace golang;
+using std::string;
 
 #include <utility>
 using std::tuple;
@@ -83,6 +85,88 @@ static tuple<PyGILState_STATE, bool> pygil_ensure() {
     return make_tuple(gstate, true);
 }
 
+// errors
+const error ErrPyStopped = errors::New("Python interpreter is stopped");
+
+error PyErr_Fetch() {
+    PyObject *pyexc_type, *pyexc_value, *pyexc_tb;
+    PyGILState_STATE gstate;
+    bool ok;
+
+    tie(gstate, ok) = pygil_ensure();
+    if (!ok) {
+        return ErrPyStopped;
+    }
+
+        ::PyErr_Fetch(&pyexc_type, &pyexc_value, &pyexc_tb);
+        // we now own references to fetched pyexc_*
+    PyGILState_Release(gstate);
+
+    // no error
+    if (pyexc_type == NULL && pyexc_value == NULL && pyexc_tb == NULL)
+        return NULL;
+
+    // -> _PyError
+    _PyError* _e = new _PyError();
+    _e->pyexc_type  = pyexc_type;
+    _e->pyexc_value = pyexc_value;
+    _e->pyexc_tb    = pyexc_tb;
+    return adoptref(static_cast<_error*>(_e));
+}
+
+void PyErr_ReRaise(PyError pyerr) {
+    PyGILState_STATE gstate;
+    bool ok;
+
+    tie(gstate, ok) = pygil_ensure();
+    if (!ok) {
+        return; // python interpreter is stopped
+    }
+
+        // PyErr_Restore takes 1 reference to restored objects.
+        // We want to keep pyerr itself alive and valid.
+        Py_XINCREF(pyerr->pyexc_type);
+        Py_XINCREF(pyerr->pyexc_value);
+        Py_XINCREF(pyerr->pyexc_tb);
+
+        ::PyErr_Restore(pyerr->pyexc_type, pyerr->pyexc_value, pyerr->pyexc_tb);
+    PyGILState_Release(gstate);
+}
+
+_PyError::_PyError()  {}
+_PyError::~_PyError() {
+    PyGILState_STATE gstate;
+    bool ok;
+
+    tie(gstate, ok) = pygil_ensure();
+    PyObject *pyexc_type    = this->pyexc_type;
+    PyObject *pyexc_value   = this->pyexc_value;
+    PyObject *pyexc_tb      = this->pyexc_tb;
+    this->pyexc_type  = NULL;
+    this->pyexc_value = NULL;
+    this->pyexc_tb    = NULL;
+    if (!ok) {
+        return;
+    }
+
+        Py_XDECREF(pyexc_type);
+        Py_XDECREF(pyexc_value);
+        Py_XDECREF(pyexc_tb);
+    PyGILState_Release(gstate);
+}
+
+void _PyError::incref() {
+    object::incref();
+}
+void _PyError::decref() {
+    if (__decref())
+        delete this;
+}
+
+
+string _PyError::Error() {
+    return "<PyError>"; // TODO consider putting exception details into error string
+}
 
 
 // PyFunc
@@ -123,7 +207,7 @@ PyFunc::~PyFunc() {
     PyGILState_Release(gstate);
 }
 
-void PyFunc::operator() () const {
+error PyFunc::operator() () const {
     PyGILState_STATE gstate;
     bool ok;
 
@@ -135,21 +219,18 @@ void PyFunc::operator() () const {
     // _golang.pyx::__goviac and pygil_ensure for details.
     tie(gstate, ok) = pygil_ensure();
     if (!ok) {
-        return;
+        return ErrPyStopped;
     }
 
-        ok = true;
+        error err;
         PyObject *ret = PyObject_CallFunction(pyf, NULL);
-        if (ret == NULL && !pyexited) {
-            PyErr_PrintEx(0);
-            ok = false;
+        if (ret == NULL) {
+            err = PyErr_Fetch();
         }
         Py_XDECREF(ret);
     PyGILState_Release(gstate);
 
-    // XXX exception -> exit program with traceback (same as in go) ?
-    //if (!ok)
-    //    panic("pycall failed");
+    return err;
 }
 
 
