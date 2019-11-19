@@ -102,15 +102,20 @@
 
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
-  #ifdef BUILDING_LIBGOLANG
-    #define LIBGOLANG_API __declspec(dllexport)
-  #else
-    #define LIBGOLANG_API __declspec(dllimport)
-  #endif
+  #define LIBGOLANG_DSO_EXPORT __declspec(dllexport)
+  #define LIBGOLANG_DSO_IMPORT __declspec(dllimport)
 #elif __GNUC__ >= 4
-    #define LIBGOLANG_API __attribute__ ((visibility ("default")))
+  #define LIBGOLANG_DSO_EXPORT __attribute__ ((visibility ("default")))
+  #define LIBGOLANG_DSO_IMPORT __attribute__ ((visibility ("default")))
 #else
-    #define LIBGOLANG_API
+  #define LIBGOLANG_DSO_EXPORT
+  #define LIBGOLANG_DSO_IMPORT
+#endif
+
+#if BUILDING_LIBGOLANG
+#  define LIBGOLANG_API LIBGOLANG_DSO_EXPORT
+#else
+#  define LIBGOLANG_API LIBGOLANG_DSO_IMPORT
 #endif
 
 
