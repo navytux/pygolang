@@ -39,16 +39,21 @@ namespace runtime {
 
 // pyexited indicates whether Python interpreter exited.
 static sync::Mutex     *pyexitedMu  = NULL; // allocated in _init and never freed not to race
-static bool            pyexited = false;    // at exit on mu dtor vs mu use
+static sync::WaitGroup *pygilTaking = NULL; // at exit on dtor vs use.
+static bool            pyexited = false;
 
 void _init() {
     pyexitedMu  = new sync::Mutex();
+    pygilTaking = new sync::WaitGroup();
 }
 
 void _pyatexit_nogil() {
     pyexitedMu->lock();
     pyexited = true;
     pyexitedMu->unlock();
+
+    // make sure all in-flight calls to pygil_ensure are finished
+    pygilTaking->wait();
 }
 
 
@@ -70,8 +75,11 @@ static tuple<PyGILState_STATE, bool> pygil_ensure() {
         return make_tuple(PyGILState_STATE(0), false);
     }
 
-    gstate = PyGILState_Ensure();
+    pygilTaking->add(1);
     pyexitedMu->unlock();
+    gstate = PyGILState_Ensure();
+    pygilTaking->done();
+
     return make_tuple(gstate, true);
 }
 

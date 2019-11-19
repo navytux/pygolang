@@ -239,6 +239,10 @@ setup(
                          'golang/runtime/libgolang_test_c.c',
                          'golang/runtime/libgolang_test.cpp']),
 
+                    Ext('golang.pyx._runtime_test',
+                        ['golang/pyx/_runtime_test.pyx'],
+                        dsos = ['golang.runtime.libpyxruntime']),
+
                     Ext('golang._context',
                         ['golang/_context.pyx']),
 
