@@ -226,6 +226,7 @@ cdef extern from * nogil:
     extern void _test_select_inplace();
     extern void _test_defer();
     extern void _test_refptr();
+    extern void _test_global();
     extern void _test_sync_once_cpp();
     """
     void _test_chan_cpp_refcount()              except +topyexc
@@ -238,6 +239,7 @@ cdef extern from * nogil:
     void _test_select_inplace()                 except +topyexc
     void _test_defer()                          except +topyexc
     void _test_refptr()                         except +topyexc
+    void _test_global()                         except +topyexc
     void _test_sync_once_cpp()                  except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
@@ -269,6 +271,9 @@ def test_defer():
 def test_refptr():
     with nogil:
         _test_refptr()
+def test_global():
+    with nogil:
+        _test_global()
 def test_sync_once_cpp():   # TODO move -> _sync_test.pyx
     with nogil:
         _test_sync_once_cpp()

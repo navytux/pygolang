@@ -43,7 +43,7 @@ namespace pyx {
 namespace runtime {
 
 // ErrPyStopped indicates that Python interpreter is stopped.
-extern LIBPYXRUNTIME_API const error ErrPyStopped;
+extern LIBPYXRUNTIME_API const global<error> ErrPyStopped;
 
 // PyError wraps Python exception into error.
 // PyError can be used from nogil code.

@@ -65,8 +65,8 @@ Context background() {
 }
 
 
-const error canceled          = errors::New("context canceled");
-const error deadlineExceeded  = errors::New("deadline exceeded");
+const global<error> canceled          = errors::New("context canceled");
+const global<error> deadlineExceeded  = errors::New("deadline exceeded");
 
 
 // _BaseCtx is the common base for Contexts implemented in this package.

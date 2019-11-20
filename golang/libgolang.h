@@ -481,6 +481,7 @@ private:
 template<typename T> class refptr;
 template<typename T> refptr<T> adoptref(T *_obj);
 template<typename T> refptr<T> newref  (T *_obj);
+template<typename R> class global;
 
 // refptr<T> is smart pointer to T which manages T lifetime via reference counting.
 //
@@ -491,6 +492,9 @@ template<typename T> refptr<T> newref  (T *_obj);
 template<typename T>
 class refptr {
     T *_obj;
+
+    typedef T obj_type;
+    friend global<refptr<T>>;
 
 public:
     // nil if not explicitly initialized
@@ -555,6 +559,77 @@ public:
     // compare wrt refptr
     inline bool operator==(const refptr& p2) const { return (_obj == p2._obj);  }
     inline bool operator!=(const refptr& p2) const { return (_obj != p2._obj);  }
+
+    // dereference, so that e.g. p->method() automatically works as p._obj->method().
+    inline T* operator-> () const   { return _obj;  }
+    inline T& operator*  () const   { return *_obj; }
+
+    // access to raw pointer
+    inline T *_ptr() const          { return _obj;  }
+};
+
+// global<refptr<T>> is like refptr<T> but does not deallocate the object on pointer destruction.
+//
+// The sole reason for global to exist is to avoid race condition on program exit
+// when global refptr<T> pointer is destructed, but another thread that
+// continues to run, accesses the pointer.
+//
+// global<X> should be interoperable where X is used, for example:
+//
+//      const global<error> ErrSomething = errors::New("abc")
+//      error err = ...;
+//      if (err == ErrSomething)
+//          ...
+template<typename R>
+class global {
+    // implementation note:
+    //  - don't use base parent for refptr and global with common functionality
+    //    in parent, because e.g. copy-constructors cannot-be inherited.
+    //  - don't use _refptr<T, bool global> template not to make compiler error
+    //    messages longer for common refptr<T> case.
+    //
+    // -> just mimic refptr<T> functionality with a bit of duplication.
+    typedef typename R::obj_type T;
+    T *_obj;
+
+public:
+    // global does not release reference to its object, nor clears ._obj
+    inline ~global() {}
+
+    // cast global<refptr<T>> -> to refptr<T>
+    operator refptr<T> () const {
+        return newref<T>(_obj);
+    }
+
+    // nil if not explicitly initialized
+    inline global()                 { _obj = NULL;  }
+
+    // init from refptr<T>
+    inline global(const refptr<T>& from) {
+        _obj = from._obj;
+        if (_obj != NULL)
+            _obj->incref();
+    }
+
+    // = nil
+    inline global(nullptr_t)        { _obj = NULL;  }
+    inline global& operator=(nullptr_t) {
+        if (_obj != NULL)
+            _obj->decref();
+        _obj = NULL;
+        return *this;
+    }
+
+    // copy - no need due to refptr<T> cast
+    // move - no need due to refptr<T> cast
+
+    // compare wrt nil
+    inline bool operator==(nullptr_t) const { return (_obj == NULL);    }
+    inline bool operator!=(nullptr_t) const { return (_obj != NULL);    }
+
+    // compare wrt refptr
+    inline bool operator==(const refptr<T>& p2) const { return (_obj == p2._obj);  }
+    inline bool operator!=(const refptr<T>& p2) const { return (_obj != p2._obj);  }
 
     // dereference, so that e.g. p->method() automatically works as p._obj->method().
     inline T* operator-> () const   { return _obj;  }

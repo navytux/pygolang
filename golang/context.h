@@ -66,10 +66,10 @@ typedef refptr<_Context> Context;
 LIBGOLANG_API Context background();
 
 // canceled is the error returned by Context.err when context is canceled.
-extern LIBGOLANG_API const error canceled;
+extern LIBGOLANG_API const global<error> canceled;
 
 // deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
-extern LIBGOLANG_API const error deadlineExceeded;
+extern LIBGOLANG_API const global<error> deadlineExceeded;
 
 // with_cancel creates new context that can be canceled on its own.
 //

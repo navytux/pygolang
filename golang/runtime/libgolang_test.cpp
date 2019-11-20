@@ -588,6 +588,99 @@ void _test_refptr() {
     // p goes out of scope and destroys obj
 }
 
+void _test_global() {
+    global<refptr<MyObj>> g;
+    ASSERT(g == NULL);
+    ASSERT(!(g != NULL));
+    ASSERT(g._ptr() == NULL);
+
+    MyObj *obj = new MyObj();
+    refptr<MyObj> p = adoptref(obj);
+    ASSERT(obj->refcnt() == 1);
+    obj->i = 3;
+
+    ASSERT(g._ptr() == NULL);
+    ASSERT(p._ptr() == obj);
+    ASSERT(!(g == p));
+    ASSERT(!(p == g));
+    ASSERT(g != p);
+    ASSERT(p != g);
+
+    // copy =       global <- refptr
+    g = p;
+    ASSERT(obj->refcnt() == 2);
+    ASSERT(g._ptr() == obj);
+    ASSERT(p._ptr() == obj);
+    ASSERT(!(g == NULL));
+    ASSERT(g != NULL);
+    ASSERT(g == p);
+    ASSERT(p == g);
+    ASSERT(!(g != p));
+    ASSERT(!(p != g));
+
+    ASSERT(g->i == 3);      // ->
+    g->i = 4;
+    ASSERT(obj->i == 4);
+    ASSERT((*g).i == 4);    // *
+    (*g).i = 3;
+    ASSERT(obj->i == 3);
+
+    // global = nil     - obj reference is released
+    ASSERT(obj->refcnt() == 2);
+    g = NULL;
+    ASSERT(obj->refcnt() == 1);
+    ASSERT(g._ptr() == NULL);
+
+    // copy ctor    global <- refptr
+    {
+        global<refptr<MyObj>> h(p);
+        ASSERT(obj->refcnt() == 2);
+        ASSERT(g._ptr() == NULL);
+        ASSERT(h._ptr() == obj);
+        ASSERT(p._ptr() == obj);
+        ASSERT(!(h == g));
+        ASSERT(!(g == h));
+        ASSERT(h == p);
+        ASSERT(p == h);
+        ASSERT(h != g);
+        ASSERT(g != h);
+        ASSERT(!(h != p));
+        ASSERT(!(p != h));
+
+        // h goes out of scope, but obj reference is _not_ released
+    }
+    ASSERT(obj->refcnt() == 2); // NOTE _not_ 1
+
+    // reinit g again
+    g = p;
+    ASSERT(obj->refcnt() == 3);
+    ASSERT(g._ptr() == obj);
+    ASSERT(p._ptr() == obj);
+
+
+    // copy ctor    refptr <- global
+    {
+        refptr<MyObj> q(g);
+        ASSERT(obj->refcnt() == 4);
+        ASSERT(g._ptr() == obj);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == obj);
+        // q goes out of scope - obj decref'ed
+    }
+    ASSERT(obj->refcnt() == 3);
+
+    // copy =       refptr <- global
+    {
+        refptr<MyObj> q;
+        q = g;
+        ASSERT(obj->refcnt() == 4);
+        ASSERT(g._ptr() == obj);
+        ASSERT(p._ptr() == obj);
+        ASSERT(q._ptr() == obj);
+        // q goes out of scope - obj decref'ed
+    }
+    ASSERT(obj->refcnt() == 3);
+}
 
 // ---- sync:: ----
 

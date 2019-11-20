@@ -86,7 +86,7 @@ static tuple<PyGILState_STATE, bool> pygil_ensure() {
 }
 
 // errors
-const error ErrPyStopped = errors::New("Python interpreter is stopped");
+const global<error> ErrPyStopped = errors::New("Python interpreter is stopped");
 
 error PyErr_Fetch() {
     PyObject *pyexc_type, *pyexc_value, *pyexc_tb;
