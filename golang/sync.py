@@ -22,7 +22,7 @@
  - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
  - `Once` allows to execute an action only once.
  - `WaitGroup` allows to wait for a collection of tasks to finish.
- - `Sema` and `Mutex` provide low-level synchronization.
+ - `Sema`(*) and `Mutex` provide low-level synchronization.
 
 See also https://golang.org/pkg/sync for Go sync package documentation.
 

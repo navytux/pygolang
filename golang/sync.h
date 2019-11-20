@@ -20,11 +20,11 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Package sync mirrors Go package sync.
+// Package sync mirrors and amends Go package sync.
 //
 //  - `Once` allows to execute an action only once.
 //  - `WaitGroup` allows to wait for a collection of tasks to finish.
-//  - `Sema` and `Mutex` provide low-level synchronization.
+//  - `Sema`(*) and `Mutex` provide low-level synchronization.
 //
 // See also https://golang.org/pkg/sync for Go sync package documentation.
 //
@@ -33,7 +33,9 @@
 //
 // Subset of sync package functionality is also provided via C-level API:
 //
-//  - `_makesema` and `_sema*` provide semaphore functionality.
+//  - `_makesema` and `_sema*` provide semaphore functionality(*).
+//
+// (*) not provided in Go version.
 
 #include <golang/libgolang.h>
 
