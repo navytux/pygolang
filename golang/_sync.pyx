@@ -113,15 +113,15 @@ cdef class PyWaitGroup:
 
     def done(PyWaitGroup pywg):
         with nogil:
-            wg_done_pyexc(&pywg.wg)
+            waitgroup_done_pyexc(&pywg.wg)
 
     def add(PyWaitGroup pywg, int delta):
         with nogil:
-            wg_add_pyexc(&pywg.wg, delta)
+            waitgroup_add_pyexc(&pywg.wg, delta)
 
     def wait(PyWaitGroup pywg):
         with nogil:
-            wg_wait_pyexc(&pywg.wg)
+            waitgroup_wait_pyexc(&pywg.wg)
 
 
 # ---- misc ----
@@ -138,9 +138,9 @@ cdef nogil:
     void mutexunlock_pyexc(Mutex *mu)       except +topyexc:
         mu.unlock()
 
-    void wg_done_pyexc(WaitGroup *wg)               except +topyexc:
+    void waitgroup_done_pyexc(WaitGroup *wg)                except +topyexc:
         wg.done()
-    void wg_add_pyexc(WaitGroup *wg, int delta)     except +topyexc:
+    void waitgroup_add_pyexc(WaitGroup *wg, int delta)      except +topyexc:
         wg.add(delta)
-    void wg_wait_pyexc(WaitGroup *wg)               except +topyexc:
+    void waitgroup_wait_pyexc(WaitGroup *wg)                except +topyexc:
         wg.wait()
