@@ -22,6 +22,7 @@
 
 // Package sync mirrors and amends Go package sync.
 //
+//  - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
 //  - `Once` allows to execute an action only once.
 //  - `WaitGroup` allows to wait for a collection of tasks to finish.
 //  - `Sema`(*) and `Mutex` provide low-level synchronization.
@@ -38,6 +39,7 @@
 // (*) not provided in Go version.
 
 #include <golang/libgolang.h>
+#include <golang/context.h>
 
 // ---- C-level API ----
 
@@ -136,6 +138,72 @@ private:
     WaitGroup(const WaitGroup&);    // don't copy
     WaitGroup(WaitGroup&&);         // don't move
 };
+
+// WorkGroup is a group of goroutines working on a common task.
+//
+// Use .go() to spawn goroutines, and .wait() to wait for all of them to
+// complete, for example:
+//
+//   sync::WorkGroup wg = sync::NewWorkGroup(ctx);
+//   wg->go(f1);
+//   wg->go(f2);
+//   error err = wg->wait();
+//
+// Every spawned function accepts context related to the whole work and derived
+// from ctx used to initialize WorkGroup, for example:
+//
+//   error f1(context::Context ctx) {
+//       ...
+//   }
+//
+// Whenever a function returns error, the work context is canceled indicating
+// to other spawned goroutines that they have to cancel their work. .wait()
+// waits for all spawned goroutines to complete and returns error, if any, from
+// the first failed subtask.
+//
+// NOTE if spawned function panics, the panic is currently _not_ propagated to .wait().
+//
+// WorkGroup is modelled after https://godoc.org/golang.org/x/sync/errgroup but
+// is not equal to it.
+typedef refptr<class _WorkGroup> WorkGroup;
+class _WorkGroup : public object {
+    context::Context    _ctx;
+    func<void()>        _cancel;
+    WaitGroup           _wg;
+    Mutex               _mu;
+    error               _err;
+
+    // don't new - create only via NewWorkGroup()
+private:
+    _WorkGroup();
+    ~_WorkGroup();
+    friend WorkGroup NewWorkGroup(context::Context ctx);
+public:
+    LIBGOLANG_API void decref();
+
+public:
+    LIBGOLANG_API void go(func<error(context::Context)> f);
+    LIBGOLANG_API error wait();
+
+private:
+    _WorkGroup(const _WorkGroup&);  // don't copy
+    _WorkGroup(_WorkGroup&&);       // don't move
+
+    // internal API used by sync.pyx
+    friend inline context::Context _WorkGroup_ctx(_WorkGroup *_wg);
+};
+
+// NewWorkGroup creates new WorkGroup working under ctx.
+//
+// See WorkGroup documentation for details.
+LIBGOLANG_API WorkGroup NewWorkGroup(context::Context ctx);
+
+// sync.pyx uses WorkGroup._ctx directly for efficiency.
+#ifdef _LIBGOLANG_SYNC_INTERNAL_API
+inline context::Context _WorkGroup_ctx(_WorkGroup *_wg) {
+    return _wg->_ctx;
+}
+#endif
 
 }}   // golang::sync::
 #endif  // __cplusplus

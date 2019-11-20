@@ -96,4 +96,55 @@ void WaitGroup::wait() {
     done.recv();
 }
 
+// WorkGroup
+_WorkGroup::_WorkGroup()  {}
+_WorkGroup::~_WorkGroup() {}
+void _WorkGroup::decref() {
+    if (__decref())
+        delete this;
+}
+
+WorkGroup NewWorkGroup(context::Context ctx) {
+    WorkGroup g = adoptref(new _WorkGroup());
+
+    tie(g->_ctx, g->_cancel) = context::with_cancel(ctx);
+    return g;
+}
+
+void _WorkGroup::go(func<error(context::Context)> f) {
+    // NOTE = refptr<_WorkGroup> because we pass ref to g to spawned worker.
+    WorkGroup g = newref(this);
+
+    g->_wg.add(1);
+
+    golang::go([g, f]() {       // NOTE g ref passed to spawned worker
+        defer([&]() {
+            g->_wg.done();
+        });
+
+        error err = f(g->_ctx); // TODO consider also propagating panic
+        if (err == NULL)
+            return;
+
+        g->_mu.lock();
+        defer([&]() {
+            g->_mu.unlock();
+        });
+
+        if (g->_err == NULL) {
+            // this goroutine is the first failed task
+            g->_err = err;
+            g->_cancel();
+        }
+    });
+}
+
+error _WorkGroup::wait() {
+    _WorkGroup& g = *this;
+
+    g._wg.wait();
+    g._cancel();
+    return g._err;
+}
+
 }}  // golang::sync::

@@ -26,7 +26,7 @@ from pytest import raises
 from golang.golang_test import import_pyx_tests, panics
 from golang.time_test import dt
 from six.moves import range as xrange
-import six
+import sys, six
 
 import_pyx_tests("golang._sync_test")
 
@@ -142,6 +142,13 @@ def test_waitgroup():
         wg.done()
 
 
+# PyErr_Restore_traceback_ok indicates whether python exceptions are restored with correct traceback.
+# It is always the case for CPython, but PyPy < 7.3 had a bug:
+# https://bitbucket.org/pypy/pypy/issues/3120/pyerr_restore-does-not-restore-traceback
+PyErr_Restore_traceback_ok = True
+if 'PyPy' in sys.version and sys.pypy_version_info < (7,3):
+    PyErr_Restore_traceback_ok = False
+
 def test_workgroup():
     ctx, cancel = context.with_cancel(context.background())
     mu = sync.Mutex()
@@ -187,8 +194,9 @@ def test_workgroup():
         wg.wait()
     assert exc.type       is MyError
     assert exc.value.args == ('aaa',)
-    assert 'Iam__' in exc.traceback[-1].locals
-    assert 'Iam_f' in exc.traceback[-2].locals
+    if PyErr_Restore_traceback_ok:
+        assert 'Iam__' in exc.traceback[-1].locals
+        assert 'Iam_f' in exc.traceback[-2].locals
     assert l == [1, 2]
 
     # t1=fail, t2=wait cancel, fail
@@ -213,8 +221,9 @@ def test_workgroup():
         wg.wait()
     assert exc.type       is MyError
     assert exc.value.args == ('bbb',)
-    assert 'Iam__' in exc.traceback[-1].locals
-    assert 'Iam_f' in exc.traceback[-2].locals
+    if PyErr_Restore_traceback_ok:
+        assert 'Iam__' in exc.traceback[-1].locals
+        assert 'Iam_f' in exc.traceback[-2].locals
     assert l == [1, 2]
 
 

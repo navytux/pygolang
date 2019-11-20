@@ -247,7 +247,9 @@ setup(
                         ['golang/_context.pyx']),
 
                     Ext('golang._sync',
-                        ['golang/_sync.pyx']),
+                        ['golang/_sync.pyx'],
+                        dsos = ['golang.runtime.libpyxruntime'],
+                        define_macros = [('_LIBGOLANG_SYNC_INTERNAL_API', None)]),
                     Ext('golang._sync_test',
                         ['golang/_sync_test.pyx']),
 

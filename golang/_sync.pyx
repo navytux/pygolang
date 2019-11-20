@@ -23,7 +23,17 @@ from __future__ import print_function, absolute_import
 
 from cython  cimport final
 from cpython cimport PyObject
-from golang  cimport topyexc
+from golang  cimport nil, newref, topyexc
+from golang  cimport context
+from golang.pyx cimport runtime
+ctypedef runtime._PyError* runtime_pPyError # https://github.com/cython/cython/issues/534
+
+# internal API sync.h exposes only to sync.pyx
+cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
+    context.Context _WorkGroup_ctx(_WorkGroup *_wg)
+
+from libcpp.cast cimport dynamic_cast
+
 
 @final
 cdef class PySema:
@@ -124,6 +134,102 @@ cdef class PyWaitGroup:
             waitgroup_wait_pyexc(&pywg.wg)
 
 
+@final
+cdef class PyWorkGroup:
+    """WorkGroup is a group of goroutines working on a common task.
+
+    Use .go() to spawn goroutines, and .wait() to wait for all of them to
+    complete, for example:
+
+      wg = WorkGroup(ctx)
+      wg.go(f1)
+      wg.go(f2)
+      wg.wait()
+
+    Every spawned function accepts context related to the whole work and derived
+    from ctx used to initialize WorkGroup, for example:
+
+      def f1(ctx):
+          ...
+
+    Whenever a function returns error (raises exception), the work context is
+    canceled indicating to other spawned goroutines that they have to cancel their
+    work. .wait() waits for all spawned goroutines to complete and returns/raises
+    error, if any, from the first failed subtask.
+
+    WorkGroup is modelled after https://godoc.org/golang.org/x/sync/errgroup but
+    is not equal to it.
+    """
+    cdef WorkGroup         wg
+    cdef context.PyContext _pyctx   # PyContext wrapping wg._ctx
+
+    def __init__(PyWorkGroup pywg, context.PyContext pyctx):
+        with nogil:
+            pywg.wg = workgroup_new_pyexc(pyctx.ctx)
+        pywg._pyctx = context.PyContext.from_ctx(_WorkGroup_ctx(pywg.wg._ptr()))
+
+    def __dealloc__(PyWorkGroup pywg):
+        pywg.wg = NULL
+
+    def go(PyWorkGroup pywg, f, *argv, **kw):
+        # run f(._pyctx, ...) via _PyCtxFunc whose operator()(ctx)
+        # verifies that ctx == ._pyctx.ctx and tails to pyrunf().
+        def pyrunf():
+            f(pywg._pyctx, *argv, **kw)
+        with nogil:
+            workgroup_go_pyctxfunc_pyexc(pywg.wg, pywg._pyctx.ctx, <PyObject*>pyrunf)
+
+    def wait(PyWaitGroup g):
+        cdef error err
+        with nogil:
+            err = workgroup_wait_pyexc(g.wg)
+
+        if err == nil:
+            return
+
+        # check that err is python error
+        cdef runtime._PyError *_pyerr = dynamic_cast[runtime_pPyError](err._ptr())
+        cdef runtime.PyError   pyerr  = newref(_pyerr)
+        if pyerr == nil:
+            # NOTE this also includes runtime.ErrPyStopped
+            raise AssertionError("non-python error: " + err.Error())
+
+        # reraise pyerr with original traceback
+        pyerr_reraise(pyerr)
+
+# _PyCtxFunc complements PyWorkGroup.go() : it's operator()(ctx) verifies that
+# ctx is expected context and further calls python function without any arguments.
+# PyWorkGroup.go() arranges to use python functions that are bound to PyContext
+# corresponding to ctx.
+cdef extern from * nogil:
+    """
+    using namespace golang;
+    struct _PyCtxFunc : pyx::runtime::PyFunc {
+        context::Context _ctx;  // function is bound to this context
+
+        _PyCtxFunc(context::Context ctx, PyObject *pyf)
+                : PyFunc(pyf) {
+            this->_ctx = ctx;
+        }
+
+        // dtor - default is ok
+        // copy - default is ok
+
+        // WorkGroup calls f(ctx). We check that ctx is expected WorkGroup._ctx
+        // and call pyf() instead (which PyWorkgroup setup to be closure to call f(pywg._pyctx)).
+        error operator() (context::Context ctx) {
+            if (this->_ctx != ctx)
+                panic("_PyCtxFunc: called with unexpected context");
+            return PyFunc::operator() ();
+        }
+    };
+    """
+    cppclass _PyCtxFunc (runtime.PyFunc):
+        __init__(context.Context ctx, PyObject *pyf)
+        error operator() ()
+
+
+
 # ---- misc ----
 
 cdef nogil:
@@ -144,3 +250,13 @@ cdef nogil:
         wg.add(delta)
     void waitgroup_wait_pyexc(WaitGroup *wg)                except +topyexc:
         wg.wait()
+
+    WorkGroup workgroup_new_pyexc(context.Context ctx)      except +topyexc:
+        return NewWorkGroup(ctx)
+    void workgroup_go_pyctxfunc_pyexc(WorkGroup wg, context.Context ctx, PyObject *pyf) except +topyexc:
+        wg.go(_PyCtxFunc(ctx, pyf))
+    error workgroup_wait_pyexc(WorkGroup wg)                except +topyexc:
+        return wg.wait()
+
+    void pyerr_reraise(runtime.PyError pyerr)   except *:
+        runtime.PyErr_ReRaise(pyerr)

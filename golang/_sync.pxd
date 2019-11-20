@@ -19,6 +19,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package sync mirrors and amends Go package sync.
 
+ - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
  - `Once` allows to execute an action only once.
  - `WaitGroup` allows to wait for a collection of tasks to finish.
  - `Sema`(*) and `Mutex` provide low-level synchronization.
@@ -27,6 +28,9 @@ See also https://golang.org/pkg/sync for Go sync package documentation.
 
 (*) not provided in Go version.
 """
+
+from golang cimport error, refptr
+from golang cimport context
 
 cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
     cppclass Sema:
@@ -45,3 +49,15 @@ cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
         void done()
         void add(int delta)
         void wait()
+
+    # WorkGroup
+    cppclass _WorkGroup:
+        void  go(...)                       # ... = func<error(context::Context)>
+        error wait()
+
+    cppclass WorkGroup (refptr[_WorkGroup]):
+        # WorkGroup.X = WorkGroup->X in C++.
+        void  go    "_ptr()->go"    (...)   # ... = func<error(context::Context)>
+        error wait  "_ptr()->wait"  ()
+
+    WorkGroup NewWorkGroup(context.Context ctx)
