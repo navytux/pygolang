@@ -21,8 +21,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
-# small tests that verifies pyx-level channel API.
-# the work of channels themselves is exercised thoroughly mostly in golang_test.py
+# small tests that verifies pyx-level sync API.
+# the work of sync package itself is exercised thoroughly mostly in sync_test.py
 
 from __future__ import print_function, absolute_import
 
