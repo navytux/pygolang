@@ -131,7 +131,7 @@ class _GoFrame:
         # py2: simulate exception chaining (PEP 3134)
         if six.PY2:
             if exc_val is not None:
-                if not hasattr(exc_val, '__context__'):
+                if getattr(exc_val, '__context__', None) is None:
                     exc_val.__context__   = __goframe__.exc_ctx
                 if not hasattr(exc_val, '__cause__'):
                     exc_val.__cause__     = None

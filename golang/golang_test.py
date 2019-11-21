@@ -1243,8 +1243,9 @@ def test_defer_excchain():
     # exceptions in deferred calls are chained
     def d1():
         raise RuntimeError("d1: aaa")
-    def d2():
-        1/0
+    @func
+    def d2():   # NOTE regular raise inside @func
+        1/0     # which initially sets .__context__ to None
     def d3():
         raise RuntimeError("d3: bbb")
 
