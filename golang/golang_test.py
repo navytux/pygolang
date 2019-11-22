@@ -24,7 +24,7 @@ from golang import go, chan, select, default, nilchan, _PanicError, func, panic,
 from golang import sync
 from pytest import raises, mark, fail
 from _pytest._code import Traceback
-from os.path import dirname, realpath
+from os.path import dirname
 import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
@@ -1597,7 +1597,7 @@ def assertDoc(want, got):
         got  = got .decode('utf-8')
 
     # normalize got to PYGOLANG
-    dir_pygolang = realpath(dirname(__file__) + "/..")  # pygolang
+    dir_pygolang = dirname((dirname(__file__))) # pygolang/golang/golang_test.py -> pygolang
     got = got.replace(dir_pygolang, "PYGOLANG")
 
     # ^$ -> <BLANKLINE>
