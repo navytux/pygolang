@@ -31,12 +31,6 @@ See also https://golang.org/pkg/sync for Go sync package documentation.
 
 from __future__ import print_function, absolute_import
 
-import sys
-from golang import go, defer, func
-from golang import context
-
-import six
-
 from golang._sync import \
     PySema      as Sema,        \
     PyMutex     as Mutex,       \
