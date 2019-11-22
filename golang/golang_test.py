@@ -1246,11 +1246,22 @@ def test_defer_excchain():
     @func
     def d2():   # NOTE regular raise inside @func
         1/0     # which initially sets .__context__ to None
+    @func
     def d3():
-        raise RuntimeError("d3: bbb")
+        # d33->d32->d31 subchain that has to be correctly glued with neighbours as:
+        # "d4: bbb" -> d33->d32->d31 -> 1/0
+        def d31(): raise RuntimeError("d31")
+        def d32(): raise RuntimeError("d32")
+        def d33(): raise RuntimeError("d33")
+        defer(d33)
+        defer(d32)
+        defer(d31)
+    def d4():
+        raise RuntimeError("d4: bbb")
 
     @func
     def _():
+        defer(d4)
         defer(d3)
         defer(d2)
         defer(d1)
@@ -1259,17 +1270,44 @@ def test_defer_excchain():
     with raises(RuntimeError) as exci:
         _()
 
-    e3 = exci.value
-    assert type(e3) is RuntimeError
-    assert e3.args == ("d3: bbb",)
-    assert e3.__cause__     is None
-    assert e3.__context__   is not None
+    e4 = exci.value
+    assert type(e4) is RuntimeError
+    assert e4.args == ("d4: bbb",)
+    assert e4.__cause__     is None
+    assert e4.__context__   is not None
     if six.PY3: # .__traceback__ of top-level exception
-        assert e3.__traceback__ is not None
-        tb3 = Traceback(e3.__traceback__)
-        assert tb3[-1].name == "d3"
+        assert e4.__traceback__ is not None
+        tb4 = Traceback(e4.__traceback__)
+        assert tb4[-1].name == "d4"
 
-    e2 = e3.__context__
+    e33 = e4.__context__
+    assert type(e33) is RuntimeError
+    assert e33.args == ("d33",)
+    assert e33.__cause__        is None
+    assert e33.__context__      is not None
+    assert e33.__traceback__    is not None
+    tb33 = Traceback(e33.__traceback__)
+    assert tb33[-1].name == "d33"
+
+    e32 = e33.__context__
+    assert type(e32) is RuntimeError
+    assert e32.args == ("d32",)
+    assert e32.__cause__        is None
+    assert e32.__context__      is not None
+    assert e32.__traceback__    is not None
+    tb32 = Traceback(e32.__traceback__)
+    assert tb32[-1].name == "d32"
+
+    e31 = e32.__context__
+    assert type(e31) is RuntimeError
+    assert e31.args == ("d31",)
+    assert e31.__cause__        is None
+    assert e31.__context__      is not None
+    assert e31.__traceback__    is not None
+    tb31 = Traceback(e31.__traceback__)
+    assert tb31[-1].name == "d31"
+
+    e2 = e31.__context__
     assert type(e2) is ZeroDivisionError
     #assert e2.args == ("division by zero",) # text is different in between py23
     assert e2.__cause__     is None

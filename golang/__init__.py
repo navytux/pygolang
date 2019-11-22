@@ -131,8 +131,29 @@ class _GoFrame:
         # py2: simulate exception chaining (PEP 3134)
         if six.PY2:
             if exc_val is not None:
-                if getattr(exc_val, '__context__', None) is None:
-                    exc_val.__context__   = __goframe__.exc_ctx
+                # exc_val is current outer exception raised by e.g. earlier
+                # defers; it can be itself chained.
+                # .exc_ctx is current inner exception we saved before calling
+                # code that raised exc_val. For example:
+                #
+                #   _GoFrame.__exit__:
+                #       saves .exc_ctx      # .exc_ctx = A1
+                #       with __goframe__:
+                #           call other defer from .deferv
+                #       __exit__(exc_val):  # exc_val = B3 (-> linked to B2 -> B1)
+                #
+                # the order in which exceptions were raised is: A1 B1 B2 B3
+                # thus A1 is the context of B1, or in other words, .exc_ctx
+                # should be linked to from tail of exc_val exception chain.
+                exc_tail = exc_val
+                while 1:
+                    _ = getattr(exc_tail, '__context__', None)
+                    if _ is None:
+                        break
+                    exc_tail = _
+                exc_tail.__context__ = __goframe__.exc_ctx
+
+                # make sure .__cause__ and .__suppress_context__ are always present
                 if not hasattr(exc_val, '__cause__'):
                     exc_val.__cause__     = None
                 if not hasattr(exc_val, '__suppress_context__'):
