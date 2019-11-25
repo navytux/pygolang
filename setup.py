@@ -216,7 +216,8 @@ setup(
                         include_dirs    = ['.', sysconfig.get_python_inc()],
                         define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
                         extra_compile_args = ['-std=c++11'],
-                        soversion       = '0.1')],
+                        soversion       = '0.1',
+                        dsos = ['golang.runtime.libgolang'])],
 
     ext_modules = [
                     Ext('golang._golang',
