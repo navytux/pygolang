@@ -9,6 +9,8 @@ include golang/context.cpp
 include golang/cxx.h
 include golang/errors.h
 include golang/errors.cpp
+include golang/fmt.h
+include golang/fmt.cpp
 include golang/sync.h
 include golang/sync.cpp
 include golang/time.h

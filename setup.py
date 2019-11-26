@@ -196,6 +196,7 @@ setup(
                         ['golang/runtime/libgolang.cpp',
                          'golang/context.cpp',
                          'golang/errors.cpp',
+                         'golang/fmt.cpp',
                          'golang/sync.cpp',
                          'golang/time.cpp'],
                         depends = [
@@ -203,6 +204,7 @@ setup(
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
+                            'golang/fmt.h',
                             'golang/sync.h',
                             'golang/time.h'],
                         include_dirs    = ['.', '3rdparty/include'],

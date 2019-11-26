@@ -20,12 +20,14 @@
 // Test that exercises C++-level libgolang.h API and functionality.
 
 #include "golang/libgolang.h"
+#include "golang/fmt.h"
 #include "golang/sync.h"
 #include "golang/time.h"
 
 #include <stdio.h>
 #include <tuple>
 #include <utility>
+#include <sstream>
 #include <string.h>
 #include <vector>
 using namespace golang;
@@ -680,6 +682,71 @@ void _test_global() {
         // q goes out of scope - obj decref'ed
     }
     ASSERT(obj->refcnt() == 3);
+}
+
+// ---- fmt:: ----
+
+// std::
+namespace std {
+
+// string -> string (not in STL, huh ?!)
+string to_string(const string& s) { return s; }
+
+// vector<T> -> string
+template<typename T>
+string to_string(const vector<T>& v) {
+    std::ostringstream ss;
+    ss << "[";
+    int i = 0;
+    for (auto x : v) {
+        if (i++ != 0)
+            ss << " ";
+        ss << x << ",";
+    }
+    ss << "]";
+
+    return ss.str();
+}
+
+}   // std::
+
+template<typename T, typename U>
+void __assert_eq(const string &expr, const T &have, const U &want) {
+    if (have != want) {
+        string emsg = expr + "\n";
+        emsg += "have: '" + std::to_string(have) + "'\n";
+        emsg += "want: '" + std::to_string(want) + "'";
+
+        panic(strdup(emsg.c_str()));    // XXX strdup because panic just saves char* pointer
+    }
+};
+
+#define ASSERT_EQ(A, B) __assert_eq(#A, A, B)
+
+void _test_fmt_sprintf_cpp() {
+    // NOTE not using vargs helper, since sprintf itself uses vargs and we want
+    // to test varg logic there for correctness too.
+    ASSERT_EQ(fmt::sprintf("hello world")        , "hello world");
+    ASSERT_EQ(fmt::sprintf("hello %d zzz", 123)  , "hello 123 zzz");
+    ASSERT_EQ(fmt::sprintf("%s %s: %s", "read", "myfile", "myerror") , "read myfile: myerror");
+
+    // with string format (not `const char *`)
+    const char *myerror = "myerror";
+    string f = "%s %s: %s";
+    const char *myfile = "myfile";
+    ASSERT_EQ(fmt::sprintf(f, "read", myfile, myerror) , "read myfile: myerror");
+}
+
+void _test_fmt_errorf_cpp() {
+    ASSERT_EQ(fmt::errorf("hello world")->Error()        , "hello world");
+    ASSERT_EQ(fmt::errorf("hello %d zzz", 123)->Error()  , "hello 123 zzz");
+    ASSERT_EQ(fmt::errorf("%s %s: %s", "read", "myfile", "myerror")->Error() , "read myfile: myerror");
+
+    // with string format (not `const char *`)
+    const char *myerror = "myerror";
+    string f = "%s %s: %s";
+    const char *myfile = "myfile";
+    ASSERT_EQ(fmt::errorf(f, "read", myfile, myerror)->Error() , "read myfile: myerror");
 }
 
 // ---- sync:: ----
