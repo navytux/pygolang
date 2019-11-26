@@ -176,6 +176,8 @@ def Extension(name, sources, **kw):
     dependv.append('%s/golang/_errors.pxd'  % pygo)
     dependv.append('%s/golang/fmt.h'        % pygo)
     dependv.append('%s/golang/fmt.pxd'      % pygo)
+    dependv.append('%s/golang/strings.h'    % pygo)
+    dependv.append('%s/golang/strings.pxd'  % pygo)
     dependv.append('%s/golang/sync.h'       % pygo)
     dependv.append('%s/golang/sync.pxd'     % pygo)
     dependv.append('%s/golang/_sync.pxd'    % pygo)

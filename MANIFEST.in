@@ -11,6 +11,8 @@ include golang/errors.h
 include golang/errors.cpp
 include golang/fmt.h
 include golang/fmt.cpp
+include golang/strings.h
+include golang/strings.cpp
 include golang/sync.h
 include golang/sync.cpp
 include golang/time.h
