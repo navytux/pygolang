@@ -26,7 +26,6 @@
 #include "golang/sync.h"
 #include "golang/errors.h"
 using namespace golang;
-using std::string;
 
 #include <utility>
 using std::tuple;

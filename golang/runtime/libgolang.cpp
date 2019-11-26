@@ -54,7 +54,6 @@ using std::bad_alloc;
 using std::exception;
 using std::max;
 using std::numeric_limits;
-using std::string;
 using std::unique_ptr;
 using std::vector;
 

@@ -25,9 +25,8 @@ Python/Cython runtimes that can be used from nogil code.
  - `PyFunc` represents Python function that can be called from nogil code.
 """
 
-from golang  cimport error, _error, refptr, gobject
+from golang  cimport error, _error, refptr, gobject, string
 from cpython cimport PyObject
-from libcpp.string  cimport string
 
 
 cdef extern from "golang/pyx/runtime.h" namespace "golang::pyx::runtime" nogil:

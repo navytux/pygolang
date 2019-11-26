@@ -21,7 +21,6 @@
 // See errors.h for package overview.
 
 #include "golang/errors.h"
-using std::string;
 
 
 // golang::errors::

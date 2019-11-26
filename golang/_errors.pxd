@@ -24,8 +24,7 @@
 See also https://golang.org/pkg/errors for Go errors package documentation.
 """
 
-from golang cimport error
-from libcpp.string cimport string
+from golang cimport error, string
 
 cdef extern from "golang/errors.h" namespace "golang::errors" nogil:
     error New(const string& text)

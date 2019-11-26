@@ -46,7 +46,6 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 
 from libcpp cimport nullptr_t, nullptr as nil
 from libcpp.utility cimport pair
-from libcpp.string  cimport string
 from libc.stdint cimport uint64_t
 cdef extern from *:
     ctypedef bint cbool "bool"
@@ -61,6 +60,7 @@ cdef extern from *:
 #
 # -> golang.pyx users need to add `except +topyexc` to their functions that are
 # on the edge of Python/nogil world.
+from libcpp.string cimport string  # golang::string = std::string
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     void panic(const char *)
     const char *recover()

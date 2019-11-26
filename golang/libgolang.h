@@ -298,11 +298,15 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace golang {
+
+// string is alias for std::string.
+using string = std::string;
 
 // func is alias for std::function.
 template<typename F>
@@ -713,7 +717,7 @@ typedef refptr<_interface> interface;
 
 // error is the interface describing errors.
 struct _error : _interface {
-    virtual std::string Error() = 0;
+    virtual string Error() = 0;
 };
 typedef refptr<_error> error;
 

@@ -65,7 +65,7 @@ public:
     LIBPYXRUNTIME_API void decref();
 
     // error interface
-    std::string Error();
+    string Error();
 
 private:
     _PyError(const _PyError&);  // don't copy

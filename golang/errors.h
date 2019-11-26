@@ -33,7 +33,7 @@ namespace golang {
 namespace errors {
 
 // New creates new error with provided text.
-LIBGOLANG_API error New(const std::string& text);
+LIBGOLANG_API error New(const string& text);
 
 }}  // golang::errors::
 
