@@ -124,6 +124,17 @@
 //      }
 //
 //
+// Interfaces
+//
+// C++-level API provides limited support for interfaces:
+//
+//  - `interface` is empty interface a-la interface{} in Go.
+//  - `error` is the interface describing errors.
+//
+// There is no support for at-runtime interface construction for an object:
+// a class must inherit from all interfaces that it wants to implement.
+//
+//
 // C-level API
 //
 //  - `_taskgo` spawns new task.
