@@ -328,14 +328,30 @@ Concurrency
 In addition to `go` and channels, the following packages are provided to help
 handle concurrency in structured ways:
 
-- `golang.context` provides contexts to propagate deadlines, cancellation and
+- |golang.context|_ (py__, pyx__) provides contexts to propagate deadlines, cancellation and
   task-scoped values among spawned goroutines [*]_.
 
-- `golang.sync` provides `sync.WorkGroup` to spawn group of goroutines working
+  .. |golang.context| replace:: `golang.context`
+  .. _golang.context: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/context.h
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/context.py
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_context.pxd
+
+- |golang.sync|_ (py__, pyx__) provides `sync.WorkGroup` to spawn group of goroutines working
   on a common task. It also provides low-level primitives - for example
   `sync.Once`, `sync.WaitGroup` and `sync.Mutex` - that are sometimes useful too.
 
-- `golang.time` provides timers integrated with channels.
+  .. |golang.sync| replace:: `golang.sync`
+  .. _golang.sync: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/sync.h
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/sync.py
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_sync.pxd
+
+- |golang.time|_ (py__, pyx__) provides timers integrated with channels.
+
+  .. |golang.time| replace:: `golang.time`
+  .. _golang.time: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/time.h
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/time.py
+  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_time.pxd
+
 
 .. [*] See `Go Concurrency Patterns: Context`__ for overview.
 
@@ -354,8 +370,11 @@ without escaping printable UTF-8 characters::
 `qq` accepts both `str` and `bytes` (`unicode` and `str` on Python2)
 and also any other type that can be converted to `str`.
 
-Package `golang.strconv` provides direct access to conversion routines, for
+Package |golang.strconv|_ provides direct access to conversion routines, for
 example `strconv.quote` and `strconv.unquote`.
+
+.. |golang.strconv| replace:: `golang.strconv`
+.. _golang.strconv: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/strconv.py
 
 
 Benchmarking and testing
@@ -378,13 +397,17 @@ gives something like::
     Benchmarkadd    50000000        0.020 µs/op
     Benchmarkadd    50000000        0.020 µs/op
 
-Package `golang.testing` provides corresponding runtime bits, e.g. `testing.B`.
+Package |golang.testing|_ provides corresponding runtime bits, e.g. `testing.B`.
 
 `py.bench` produces output in `Go benchmark format`__, and so benchmark results
 can be analyzed and compared with standard Go tools, for example with
 `benchstat`__.
-Additionally package `golang.x.perf.benchlib` can be used to load and process
+Additionally package |golang.x.perf.benchlib|_ can be used to load and process
 such benchmarking data in Python.
 
+.. |golang.testing| replace:: `golang.testing`
+.. _golang.testing: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/testing.py
+.. |golang.x.perf.benchlib| replace:: `golang.x.perf.benchlib`
+.. _golang.x.perf.benchlib: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/x/perf/benchlib.py
 __ https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 __ https://godoc.org/golang.org/x/perf/cmd/benchstat
