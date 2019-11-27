@@ -35,7 +35,7 @@ from __future__ import print_function, absolute_import
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
         PyThread_type_lock, WAIT_LOCK
 
-# FIXME On Darwin, even though this is considered as POSIX, Python uses
+# NOTE On Darwin, even though this is considered as POSIX, Python uses
 # mutex+condition variable to implement its lock, and, as of 20190828, Py2.7
 # implementation, even though similar issue was fixed for Py3 in 2012, contains
 # synchronization bug: the condition is signalled after mutex unlock while the
@@ -57,18 +57,17 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 # - https://bugs.python.org/issue38106
 # - https://bitbucket.org/pypy/pypy/issues/3072
 #
-# -> TODO maintain our own semaphore code or stop printing the warning when/if
-#    fixed CPython/PyPy versions are released.
+# and fixed in CPython 2.7.17 and PyPy 7.2 .
 import sys, platform
 if 'darwin' in sys.platform:
     pyimpl = platform.python_implementation()
     pyver  = sys.version_info
     buggy  = buglink = None
-    if 'CPython' in pyimpl and pyver < (3, 0):
-        buggy   = "cpython2/darwin"
+    if 'CPython' in pyimpl and pyver < (3, 0) and pyver < (2,7,17):
+        buggy   = "cpython2/darwin < 2.7.17"
         buglink = "https://bugs.python.org/issue38106"
-    if 'PyPy' in pyimpl:
-        buggy   = "pypy/darwin"
+    if 'PyPy' in pyimpl and sys.pypy_version_info < (7,2):
+        buggy   = "pypy/darwin < 7.2"
         buglink = "https://bitbucket.org/pypy/pypy/issues/3072"
     if buggy:
         print("WARNING: pyxgo: thread: %s has race condition bug in runtime"
