@@ -68,6 +68,62 @@
 //          panic("bug");
 //
 //
+// Memory management
+//
+// C++-level API provides limited support for automatic memory management:
+//
+//  - `refptr` and `object` provide way to manage objects lifetime automatically.
+//  - `newref` and `adoptref` can be used to convert raw pointer into refptr<T>.
+//  - `global` should be used for global refptr pointers.
+//
+// For example:
+//
+//      // MyObject is defined via 2 classes: _MyObject + MyObject
+//      typedef refptr<struct _MyObject> MyObject;
+//      struct _MyObject : object {
+//          int x;
+//
+//          // don't new - create only view NewMyObject()
+//      private:
+//          _MyObject();
+//          ~_MyObject();
+//          friend MyObject NewMyObject(int x);
+//      public:
+//          void decref();
+//
+//          // MyObject API
+//          void do_something() {
+//              ...
+//          }
+//      };
+//
+//      MyObject NewMyObject(int x) {
+//          MyObject obj = adoptref(new _MyObject());
+//          obj->x = x;
+//          return obj;
+//      }
+//
+//      _MyObject::_MyObject()  {}
+//      _MyObject::~_MyObject() {}
+//      void _MyObject::decref() {
+//          if (__decref())
+//              delete this;
+//      }
+//
+//      ...
+//
+//      global<MyObject> gobj = NewMyObject(1); // global object instance
+//
+//      void myfunc() {
+//          MyObject obj = NewMyObject(123);
+//          ...
+//          obj->x;                 // use data field of the object
+//          obj->do_something();    // call method of the object
+//          ...
+//          // obj is automatically deallocated on function exit
+//      }
+//
+//
 // C-level API
 //
 //  - `_taskgo` spawns new task.
