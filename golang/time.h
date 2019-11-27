@@ -74,10 +74,8 @@ LIBGOLANG_API void sleep(double dt);
 LIBGOLANG_API double now();
 
 
-class _Ticker;
-class _Timer;
-typedef refptr<_Ticker> Ticker;
-typedef refptr<_Timer>  Timer;
+typedef refptr<struct _Ticker> Ticker;
+typedef refptr<struct _Timer>  Timer;
 
 // tick returns channel connected to dt ticker.
 //
