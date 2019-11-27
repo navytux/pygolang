@@ -38,6 +38,7 @@
 //  - `go` spawns new task.
 //  - `chan<T>`, and `select` provide channels with Go semantic and automatic
 //    lifetime management.
+//  - `defer` schedules cleanup.
 //  - `panic` throws exception that represent C-level panic.
 //
 // For example:
@@ -58,6 +59,10 @@
 //          // case 1 selected: i sent to ch
 //      if (_ == 2)
 //          // case 2 selected: j received from ch
+//
+//      defer([]() {
+//          printf("leaving...\n");
+//      });
 //
 //      if (<bug condition>)
 //          panic("bug");
