@@ -1,6 +1,174 @@
 Pygolang change history
 -----------------------
 
+0.0.5 (2019-11-27)
+~~~~~~~~~~~~~~~~~~
+
+- Add support for typed Python channels. For
+  example `chan(dtype='C.int')` creates channel whose elements type is C `int`
+  instead of Python object. Besides providing runtime type-safety, this allows
+  to build interaction in between Python and nogil worlds (`commit 1`__, 2__,
+  3__, 4__, 5__, 6__, 7__, 8__, 9__, 10__, 11__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f2847307
+  __ https://lab.nexedi.com/kirr/pygolang/commit/d6c8862d
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2590e9a7
+  __ https://lab.nexedi.com/kirr/pygolang/commit/47111d3e
+  __ https://lab.nexedi.com/kirr/pygolang/commit/30561db4
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f6fab7b5
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2c8063f4
+  __ https://lab.nexedi.com/kirr/pygolang/commit/3121b290
+  __ https://lab.nexedi.com/kirr/pygolang/commit/77719d8a
+  __ https://lab.nexedi.com/kirr/pygolang/commit/69b80926
+  __ https://lab.nexedi.com/kirr/pygolang/commit/07f9430d
+
+- Provide automatic memory management for C++/Cython/nogil classes.
+  Used approach complements `"Automatic multithreaded-safe memory managed
+  classes in Cython"` (Gwenaël Samain et al. 2019, `blog post`__) (`commit 1`__,
+  2__, 3__, 4__, 5__, 6__, 7__).
+
+  __ https://www.nexedi.com/blog/NXD-Document.Blog.Cypclass
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e82b4fab
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e614d641
+  __ https://lab.nexedi.com/kirr/pygolang/commit/af4a8d80
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b2253abf
+  __ https://lab.nexedi.com/kirr/pygolang/commit/274afa3f
+  __ https://lab.nexedi.com/kirr/pygolang/commit/fd2a6fab
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7f0672aa
+
+- Provide minimal support for interfaces with empty and `error` interfaces
+  provided by base library (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5a99b769
+  __ https://lab.nexedi.com/kirr/pygolang/commit/45c8cddd
+
+- Provide `sync.Mutex` and `sync.Sema` as part of both Python and Cython/nogil
+  API (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/d99bb6b7
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9c795ca7
+  __ https://lab.nexedi.com/kirr/pygolang/commit/34b7a1f4
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2c1be15e
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e6788170
+  __ https://lab.nexedi.com/kirr/pygolang/commit/548f2df1
+
+- Provide C++/Cython/nogil API for `time` package. Python-level `time` becomes a
+  small wrapper around Cython/nogil one (`commit 1`__, 2__, 3__, 4__, 5__, 6__,
+  7__, 8__, 9__, 10__, 11__, 12__, 13__, 14__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/32f34607
+  __ https://lab.nexedi.com/kirr/pygolang/commit/0e838833
+  __ https://lab.nexedi.com/kirr/pygolang/commit/106c1b95
+  __ https://lab.nexedi.com/kirr/pygolang/commit/4f6a9e09
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7c929b25
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8c2ac5e9
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a0ba1226
+  __ https://lab.nexedi.com/kirr/pygolang/commit/873cf8aa
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8399ff2d
+  __ https://lab.nexedi.com/kirr/pygolang/commit/419c8950
+  __ https://lab.nexedi.com/kirr/pygolang/commit/1a9dae3b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b073f6df
+  __ https://lab.nexedi.com/kirr/pygolang/commit/0e6088ec
+  __ https://lab.nexedi.com/kirr/pygolang/commit/73182038
+
+- Provide C++/Cython/nogil API for `context` package. Python-level `context`
+  becomes a small wrapper around Cython/nogil one (`commit 1`__, 2__, 3__, 4__,
+  5__, 6__, 7__, 8__, 9__, 10__, 11__, 12__, 13__, 14__, 15__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/149ae661
+  __ https://lab.nexedi.com/kirr/pygolang/commit/cc7069e0
+  __ https://lab.nexedi.com/kirr/pygolang/commit/223d7950
+  __ https://lab.nexedi.com/kirr/pygolang/commit/89381488
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9662785b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/34e3c404
+  __ https://lab.nexedi.com/kirr/pygolang/commit/ba2ab242
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9869dc45
+  __ https://lab.nexedi.com/kirr/pygolang/commit/20761c55
+  __ https://lab.nexedi.com/kirr/pygolang/commit/f76c11f3
+  __ https://lab.nexedi.com/kirr/pygolang/commit/281defb2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/66e1e756
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9216e2db
+  __ https://lab.nexedi.com/kirr/pygolang/commit/2a359791
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a6c1c984
+
+- Provide C++/Cython/nogil API for `sync` package. Python-level `sync` becomes a
+  small wrapper around Cython/nogil one (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__, 8__, 9__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/0fb53e33
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b316e504
+  __ https://lab.nexedi.com/kirr/pygolang/commit/c5c576d2
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5146a416
+  __ https://lab.nexedi.com/kirr/pygolang/commit/4fc6e49c
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a36efe6d
+  __ https://lab.nexedi.com/kirr/pygolang/commit/4fb9b51c
+  __ https://lab.nexedi.com/kirr/pygolang/commit/33cf3113
+  __ https://lab.nexedi.com/kirr/pygolang/commit/6d94fccf
+
+- Add `errors` package with `errors.New` to create new error with provided text (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a245ab56
+
+- Add `fmt` package with `fmt.sprintf` and `fmt.errorf` to format text into
+  strings and errors (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/309963f8
+
+- Add `strings` package with utilities like `strings.has_prefix`,
+  `strings.split` and similar (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/0efd4a9a
+
+- Add `cxx` package with `cxx.dict` and `cxx.set` providing ergonomic interface
+  over STL hash map and set (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9785f2d3
+
+- Teach `defer` to chain exceptions (PEP 3134) and adjust traceback dumps to
+  include exception cause/context even on Python2 (`commit 1`__, 2__, 3__, 4__, 5__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/6729fe92
+  __ https://lab.nexedi.com/kirr/pygolang/commit/bb9a94c3
+  __ https://lab.nexedi.com/kirr/pygolang/commit/7faaecbc
+  __ https://lab.nexedi.com/kirr/pygolang/commit/06cac90b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/1477dd02
+
+- Provide `defer` as part of C++ API too (`commit 1`__, 2__, 3__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/1d153a45
+  __ https://lab.nexedi.com/kirr/pygolang/commit/14a249cb
+  __ https://lab.nexedi.com/kirr/pygolang/commit/39f40159
+
+- Provide `build_ext` as part of `pyx.build` package API. This allows projects
+  to customize the way their Pygolang-based extensions are built (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8f9e5619
+  __ https://lab.nexedi.com/kirr/pygolang/commit/b4feee6f
+
+- Fix `recover` to clean current exception (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/9e6ff8bd
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5f76f363
+
+- Fix `select` to not leak object reference on error path (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e9180de1
+
+- Fix gevent runtime to preserve Python exception state during runtime calls
+  (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/689dc862
+  __ https://lab.nexedi.com/kirr/pygolang/commit/47fac0a9
+
+
+| |_| |_| |_| |_| |_| |_| |_| |_| *This release is driven by* |wendelin.core|_ *v2 needs*.
+| |_| |_| |_| |_| |_| |_| |_| |_| *This release is dedicated to the memory of* |Бася|_.
+
+.. |wendelin.core| replace:: *wendelin.core*
+.. _wendelin.core: https://pypi.org/project/wendelin.core
+.. |Бася| replace:: *Бася*
+.. _Бася: https://navytux.spb.ru/memory/%D0%91%D0%B0%D1%81%D1%8F/
+
+
 0.0.4 (2019-09-17)
 ~~~~~~~~~~~~~~~~~~
 
@@ -119,9 +287,6 @@ Pygolang change history
 - Add benchmarks for `chan`, `select`, `@func` and `defer` (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/3c55ca59
-
-.. readme_renderer/pypi don't support `.. class:: align-center`
-.. |_| unicode:: 0xA0   .. nbsp
 
 |_| |_| |_| |_| |_| |_| |_| |_| *This release is dedicated to the memory of* |Вера Павловна Супрун|_.
 
@@ -276,3 +441,7 @@ Pygolang change history
 - Initial release; `gimport` functionality only (commit__).
 
   __ https://lab.nexedi.com/kirr/pygolang/commit/9c61f254
+
+
+.. readme_renderer/pypi don't support `.. class:: align-center`
+.. |_| unicode:: 0xA0   .. nbsp
