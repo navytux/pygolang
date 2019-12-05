@@ -119,15 +119,23 @@ def setup(**kw):
     finally:
         setuptools_dso.build_ext = _
 
-# Extension should be used to build extensions that use pygolang.
+# DSO should be used to build DSOs that use libgolang.
 #
 # For example:
 #
 #   setup(
 #       ...
-#       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
+#       x_dsos = [DSO('mypkg.mydso', ['mypkg/mydso.cpp'])],
 #   )
-def Extension(name, sources, **kw):
+def DSO(name, sources, **kw):
+    _, kw = _with_build_defaults(kw)
+    dso = setuptools_dso.DSO(name, sources, **kw)
+    return dso
+
+
+# _with_build_defaults returns copy of kw amended with build options common for
+# both DSO and Extension.
+def _with_build_defaults(kw):   # -> (pygo, kw')
     # find pygolang root
     gopkg = _findpkg("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
@@ -160,31 +168,50 @@ def Extension(name, sources, **kw):
     _[0:0] = ccdefault              # if another e.g. -std=... was already there -
     kw['extra_compile_args'] = _    # - it will override us
 
-    # some depends to workaround a bit lack of proper dependency tracking in
-    # setuptools/distutils.
+    # some C-level depends to workaround a bit lack of proper dependency
+    # tracking in setuptools/distutils.
     dependv = kw.get('depends', [])[:]
     dependv.append('%s/golang/libgolang.h'  % pygo)
+    dependv.append('%s/golang/context.h'    % pygo)
+    dependv.append('%s/golang/cxx.h'        % pygo)
+    dependv.append('%s/golang/errors.h'     % pygo)
+    dependv.append('%s/golang/fmt.h'        % pygo)
+    dependv.append('%s/golang/strings.h'    % pygo)
+    dependv.append('%s/golang/sync.h'       % pygo)
+    dependv.append('%s/golang/time.h'       % pygo)
+    dependv.append('%s/golang/pyx/runtime.h'    % pygo)
+    kw['depends'] = dependv
+
+    return pygo, kw
+
+
+# Extension should be used to build extensions that use pygolang.
+#
+# For example:
+#
+#   setup(
+#       ...
+#       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
+#   )
+def Extension(name, sources, **kw):
+    pygo, kw = _with_build_defaults(kw)
+
+    # some pyx-level depends to workaround a bit lack of proper dependency
+    # tracking in setuptools/distutils.
+    dependv = kw.get('depends', [])[:]
     dependv.append('%s/golang/_golang.pxd'  % pygo)
     dependv.append('%s/golang/__init__.pxd' % pygo)
-    dependv.append('%s/golang/context.h'    % pygo)
     dependv.append('%s/golang/context.pxd'  % pygo)
     dependv.append('%s/golang/_context.pxd' % pygo)
-    dependv.append('%s/golang/cxx.h'        % pygo)
     dependv.append('%s/golang/cxx.pxd'      % pygo)
-    dependv.append('%s/golang/errors.h'     % pygo)
     dependv.append('%s/golang/errors.pxd'   % pygo)
     dependv.append('%s/golang/_errors.pxd'  % pygo)
-    dependv.append('%s/golang/fmt.h'        % pygo)
     dependv.append('%s/golang/fmt.pxd'      % pygo)
-    dependv.append('%s/golang/strings.h'    % pygo)
     dependv.append('%s/golang/strings.pxd'  % pygo)
-    dependv.append('%s/golang/sync.h'       % pygo)
     dependv.append('%s/golang/sync.pxd'     % pygo)
     dependv.append('%s/golang/_sync.pxd'    % pygo)
-    dependv.append('%s/golang/time.h'       % pygo)
     dependv.append('%s/golang/time.pxd'     % pygo)
     dependv.append('%s/golang/_time.pxd'    % pygo)
-    dependv.append('%s/golang/pyx/runtime.h'    % pygo)
     dependv.append('%s/golang/pyx/runtime.pxd'  % pygo)
     kw['depends'] = dependv
 

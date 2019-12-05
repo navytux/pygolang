@@ -41,6 +41,20 @@ def test_pyx_build():
     assert _ == b"test.pyx: OK\n"
 
 
+# verify that we can build/run external dso that uses libgolang.
+def test_dso_build():
+    dsouser = testprog + "/golang_dso_user"
+    pyrun(["setup.py", "build_dso", "-i"], cwd=dsouser)
+    pyrun(["setup.py", "build_ext", "-i"], cwd=dsouser)
+
+    # run built test.
+    _ = pyout(["-c",
+        # XXX `import golang` is a hack - see test_pyx_build for details.
+        "import golang;" +
+        "from dsouser import test; test.main()"], cwd=dsouser)
+    assert _ == b"dso.cpp: OK\n"
+
+
 # verify that custom classes can be used via cmdclass
 def test_pyx_build_cmdclass():
     _ = pyout(["cmdclass_custom.py", "build_ext"], cwd=testprog)
