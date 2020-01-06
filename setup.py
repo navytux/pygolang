@@ -1,5 +1,5 @@
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -156,7 +156,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.2'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.4'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
