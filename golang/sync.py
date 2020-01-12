@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -26,7 +26,9 @@
 
 See also https://golang.org/pkg/sync for Go sync package documentation.
 
-(*) not provided in Go version.
+(*) not provided in Go standard library, but package
+    https://godoc.org/lab.nexedi.com/kirr/go123/xsync
+    provides corresponding Go equivalents.
 """
 
 from __future__ import print_function, absolute_import

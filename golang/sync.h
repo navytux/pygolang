@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_SYNC_H
 #define	_NXD_LIBGOLANG_SYNC_H
 
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -36,7 +36,9 @@
 //
 //  - `_makesema` and `_sema*` provide semaphore functionality(*).
 //
-// (*) not provided in Go version.
+// (*) not provided in Go standard library, but package
+//     https://godoc.org/lab.nexedi.com/kirr/go123/xsync
+//     provides corresponding Go equivalents.
 
 #include <golang/libgolang.h>
 #include <golang/context.h>
