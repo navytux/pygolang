@@ -5,7 +5,7 @@
 # distutils: language = c++
 # distutils: depends = libgolang.h
 #
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -66,7 +66,7 @@ cdef void topyexc() except *:
     # recover_ is declared `except +` - if it was another - not panic -
     # exception, it will be converted to py exc by cython automatically.
     arg = recover_()
-    if arg != NULL:
+    if arg != nil:
         pyarg = <bytes>arg
         if PY_MAJOR_VERSION >= 3:
             pyarg = pyarg.decode("utf-8")
@@ -188,7 +188,7 @@ cdef class pychan:
         return pynil(parse_dtype(dtype))
 
     def __dealloc__(pychan pych):
-        if pych._ch == NULL:
+        if pych._ch == nil:
             return
 
         # pychan[X!=object]: just decref the raw chan and we are done.
@@ -264,7 +264,7 @@ cdef class pychan:
         cdef PyObject *_rxpy
         if pych.dtype == DTYPE_PYOBJECT:
             _rxpy = (<PyObject **>&_rx)[0]
-            if _rxpy != NULL:
+            if _rxpy != nil:
                 # we received the object and the channel dropped pointer to it.
                 rx = <object>_rxpy
                 Py_DECREF(rx)
@@ -287,7 +287,7 @@ cdef class pychan:
         return _chanlen_pyexc(pych._ch)
 
     def __repr__(pychan pych):
-        if pych._ch == NULL:
+        if pych._ch == nil:
             if pych.dtype == DTYPE_PYOBJECT:
                 return "nilchan"
             else:
@@ -309,7 +309,7 @@ cdef class pychan:
         # if one of the sides is nil[*] (untyped nil).
         if a.dtype == b.dtype:
             return True
-        if a._ch != NULL:
+        if a._ch != nil:
             return False
         if a.dtype == DTYPE_PYOBJECT or b.dtype == DTYPE_PYOBJECT:
             return True
@@ -425,7 +425,7 @@ def pyselect(*pycasev):
                     pypanic("pyselect: send expected: %r" % (pysend,))
 
                 tx = <object>(_tcase.ob_item[1])
-                casev[i] = _selsend(pych._ch, NULL)
+                casev[i] = _selsend(pych._ch, nil)
                 casev[i].flags = _INPLACE_DATA
                 casev[i].user  = pych.dtype
 
@@ -481,17 +481,17 @@ def pyselect(*pycasev):
     cdef PyObject *_rxpy
     cdef DType rxtype = <DType>casev[selected].user
     if rxtype == DTYPE_PYOBJECT:
-        # we received NULL or the object; if it is object, corresponding channel
+        # we received nil or the object; if it is object, corresponding channel
         # dropped pointer to it (see pychan.recv_ for details).
         _rxpy = (<PyObject **>&_rx)[0]
-        if _rxpy != NULL:
+        if _rxpy != nil:
             rx = <object>_rxpy
             Py_DECREF(rx)
 
     else:
         rx = c_to_py(rxtype, &_rx)
 
-    if casev[selected].rxok != NULL:
+    if casev[selected].rxok != nil:
         return selected, (rx, rxok)
     else:
         return selected, rx
@@ -522,8 +522,8 @@ cdef void _init_libgolang() except*:
     runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8") # py3
     cdef const _libgolang_runtime_ops *runtime_ops = \
         <const _libgolang_runtime_ops*>PyCapsule_Import(runtimecaps, 0)
-    if runtime_ops == NULL:
-        pypanic("init: %s: libgolang_runtime_ops=NULL" % runtimemod)
+    if runtime_ops == nil:
+        pypanic("init: %s: libgolang_runtime_ops=nil" % runtimemod)
     _libgolang_init(runtime_ops)
 
 

@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -21,7 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport pychan, topyexc
+from golang cimport nil, pychan, topyexc
 from golang cimport sync
 from golang.pyx cimport runtime
 from cpython cimport PyObject
@@ -74,7 +74,7 @@ cdef class PyTicker:
         pytx.c = pychan.from_chan_double( pytx.tx.c )
 
     def __dealloc__(PyTicker pytx):
-        pytx.tx = NULL
+        pytx.tx = nil
 
     # stop cancels the ticker.
     #
@@ -104,7 +104,7 @@ cdef class PyTimer:
         pyt.c = pychan.from_chan_double( pyt.t.c )
 
     def __dealloc__(PyTimer pyt):
-        pyt.t = NULL
+        pyt.t = nil
 
     # stop cancels the timer.
     #

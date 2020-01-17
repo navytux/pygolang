@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -169,7 +169,7 @@ cdef class PyWorkGroup:
         pywg._pyctx = context.PyContext.from_ctx(_WorkGroup_ctx(pywg.wg._ptr()))
 
     def __dealloc__(PyWorkGroup pywg):
-        pywg.wg = NULL
+        pywg.wg = nil
 
     def go(PyWorkGroup pywg, f, *argv, **kw):
         # run f(._pyctx, ...) via _PyCtxFunc whose operator()(ctx)

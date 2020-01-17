@@ -2,7 +2,7 @@
 # cython: language_level=2
 # distutils: language=c++
 #
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -75,13 +75,13 @@ cdef nogil:
         cdef double Wstart, now
         while 1:
             i += 1
-            # wait till .sema != NULL and pop it
+            # wait till .sema != nil and pop it
             Wstart = time.now()
             j = 0
             while 1:
                 state.mu.lock()
                 sema = state.sema
-                if sema != NULL:
+                if sema != nil:
                     state.sema = NULL
                 stop = state.stop
                 state.mu.unlock()
@@ -89,7 +89,7 @@ cdef nogil:
                 if stop:
                     state.done.close()
                     return
-                if sema != NULL:
+                if sema != nil:
                     break
 
                 now = time.now()
@@ -109,8 +109,8 @@ cdef nogil:
 
     void _test_sema_wakeup() except +topyexc:
         cdef WorkState *state = <WorkState *>calloc(1, sizeof(WorkState))
-        if state == NULL:
-            panic("malloc -> NULL")
+        if state == nil:
+            panic("malloc -> nil")
         state.sema = NULL
         _mutex_init(&state.mu)
         state.stop = False

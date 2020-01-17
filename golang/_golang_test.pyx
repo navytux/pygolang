@@ -2,7 +2,7 @@
 # cython: language_level=2
 # distutils: language=c++
 #
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -38,11 +38,11 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
 # pylen_{recv,send}q returns len(_chan._{recv,send}q)
 def pylen_recvq(pychan pych not None): # -> int
-    if pych._ch == NULL:
+    if pych._ch == nil:
         raise AssertionError('len(.recvq) on nil channel')
     return _tchanrecvqlen(pych._ch)
 def pylen_sendq(pychan pych not None): # -> int
-    if pych._ch == NULL:
+    if pych._ch == nil:
         raise AssertionError('len(.sendq) on nil channel')
     return _tchansendqlen(pych._ch)
 
@@ -82,7 +82,7 @@ cdef class pypanicWhenBlocked:
         return t
 
     def __exit__(pypanicWhenBlocked t, typ, val, tb):
-        _tblockforever = NULL
+        _tblockforever = nil
 
 cdef void _panicblocked() nogil:
     panic("t: blocks forever")
@@ -158,12 +158,12 @@ def test_go_nogil():
 #   interfere with current py state )
 def test_runtime_vs_pyexc():
     cdef PyObject *pyexc
-    assert PyErr_Occurred() == NULL # no exception initially
+    assert PyErr_Occurred() == nil # no exception initially
 
     # set "current" exception
     PyErr_SetString(RuntimeError, "abc")
     pyexc = PyErr_Occurred()
-    assert pyexc != NULL
+    assert pyexc != nil
     assert pyexc == PyErr_Occurred()
 
     # makechan (also tests sema alloc)
@@ -193,7 +193,7 @@ def test_runtime_vs_pyexc():
 
     # clear current exception, or else test driver will see calling us as failure
     PyErr_Clear()
-    assert PyErr_Occurred() == NULL
+    assert PyErr_Occurred() == nil
 
 cdef void _noop() nogil:
     pass
