@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -46,14 +46,14 @@ using std::vector;
 // verify chan<T> automatic reference counting.
 void _test_chan_cpp_refcount() {
     chan<int> ch;
-    ASSERT(ch == NULL);
-    ASSERT(!(ch != NULL));
-    ASSERT(ch._rawchan() == NULL);
+    ASSERT(ch == nil);
+    ASSERT(!(ch != nil));
+    ASSERT(ch._rawchan() == nil);
 
     ch = makechan<int>();
-    ASSERT(!(ch == NULL));
-    ASSERT(ch != NULL);
-    ASSERT(ch._rawchan() != NULL);
+    ASSERT(!(ch == nil));
+    ASSERT(ch != nil);
+    ASSERT(ch._rawchan() != nil);
     _chan *_ch = ch._rawchan();
     ASSERT(_chanrefcnt(_ch) == 1);
 
@@ -71,8 +71,8 @@ void _test_chan_cpp_refcount() {
     // copy =
     {
         chan<int> ch2;
-        ASSERT(ch2 == NULL);
-        ASSERT(ch2._rawchan() == NULL);
+        ASSERT(ch2 == nil);
+        ASSERT(ch2._rawchan() == nil);
 
         ch2 = ch;
         ASSERT(ch2._rawchan() == _ch);
@@ -80,9 +80,9 @@ void _test_chan_cpp_refcount() {
         ASSERT(ch2 == ch);
         ASSERT(!(ch2 != ch));
 
-        ch2 = NULL;
-        ASSERT(ch2 == NULL);
-        ASSERT(ch2._rawchan() == NULL);
+        ch2 = nil;
+        ASSERT(ch2 == nil);
+        ASSERT(ch2._rawchan() == nil);
         ASSERT(_chanrefcnt(_ch) == 1);
         ASSERT(!(ch2 == ch));
         ASSERT(ch2 != ch);
@@ -91,18 +91,18 @@ void _test_chan_cpp_refcount() {
 
     // move ctor
     chan<int> ch2(move(ch));
-    ASSERT(ch == NULL);
-    ASSERT(ch._rawchan() == NULL);
-    ASSERT(ch2 != NULL);
+    ASSERT(ch == nil);
+    ASSERT(ch._rawchan() == nil);
+    ASSERT(ch2 != nil);
     ASSERT(ch2._rawchan() == _ch);
     ASSERT(_chanrefcnt(_ch) == 1);
 
     // move =
     ch = move(ch2);
-    ASSERT(ch != NULL);
+    ASSERT(ch != nil);
     ASSERT(ch._rawchan() == _ch);
-    ASSERT(ch2 == NULL);
-    ASSERT(ch2._rawchan() == NULL);
+    ASSERT(ch2 == nil);
+    ASSERT(ch2._rawchan() == nil);
     ASSERT(_chanrefcnt(_ch) == 1);
 
     // ch goes out of scope and destroys raw channel
@@ -117,7 +117,7 @@ struct Point {
 void _test_chan_cpp() {
     chan<structZ> done = makechan<structZ>();
     chan<int>     chi  = makechan<int>(1);
-    chan<Point>   chp  = makechan<Point>(); chp = NULL;
+    chan<Point>   chp  = makechan<Point>(); chp = nil;
 
     int   i, j, _;
     Point p;
@@ -155,7 +155,7 @@ void _test_chan_cpp() {
 // waitBlocked waits until at least nrx recv and ntx send operations block
 // waiting on the channel.
 void waitBlocked(_chan *ch, int nrx, int ntx) {
-    if (ch == NULL)
+    if (ch == nil)
         panic("wait blocked: called on nil channel");
 
     double t0 = time::now();
@@ -308,12 +308,12 @@ void __test_close_wakeup_all(bool vs_select) {
         // as other workers vvv don't use ch after wakeup from ch.recv().
         if (!vs_select)
             ASSERT(_chanrefcnt(ch._rawchan()) == 1);
-        ch = NULL;
+        ch = nil;
         done.send(structZ{});
     });
     waitBlocked(_ch, /*nrx=*/1, /*ntx=*/0);
     ASSERT(_chanrefcnt(_ch) == 2);
-    ch = NULL;
+    ch = nil;
     ASSERT(_chanrefcnt(_ch) == 1);
 
     // many other ch.recv or select({ch.recv}) subscribers queued to ch.recvq
@@ -321,7 +321,7 @@ void __test_close_wakeup_all(bool vs_select) {
     for (i=0; i < N; i++) {
         go([_ch, done, vs_select]() {
             if (!vs_select) {
-                _chanrecv(_ch, NULL);
+                _chanrecv(_ch, nil);
             } else {
                 int rx;
                 select({
@@ -363,7 +363,7 @@ void __test_select_win_while_queue() {
 
     Data *data_send = (Data *)calloc(1, sizeof(Data));
     Data *data_recv = (Data *)calloc(1, sizeof(Data));
-    if (data_send == NULL || data_recv == NULL)
+    if (data_send == nil || data_recv == nil)
         throw std::bad_alloc();
     for (i=0; i<Ndata; i++)
         data_send->_[i] = i % 0xff;
@@ -407,7 +407,7 @@ void _test_select_inplace() {
     // inplace tx
     go([ch]() {
         _selcase sel[1];
-        sel[0] = ch.sends(NULL);
+        sel[0] = ch.sends(nil);
         *(int *)&sel[0].itxrx = 12345;
         sel[0].flags = _INPLACE_DATA;
         int _ = select(sel);
@@ -421,34 +421,34 @@ void _test_select_inplace() {
     _selcase sel[1];
     sel[0] = ch.recvs();
     sel[0].flags = _INPLACE_DATA;
-    const char *err = NULL;
+    const char *err = nil;
     try {
         select(sel);
     } catch (...) {
         err = recover();
     }
-    ASSERT(err != NULL);
+    ASSERT(err != nil);
     ASSERT(!strcmp(err, "select: recv into inplace data"));
 
     // _selcase ptx/prx
     _selcase cas = _default;
 
-    err = NULL;
+    err = nil;
     try {
         cas.ptx();
     } catch (...) {
         err = recover();
     }
-    ASSERT(err != NULL);
+    ASSERT(err != nil);
     ASSERT(!strcmp(err, "_selcase: ptx: op != send"));
 
-    err = NULL;
+    err = nil;
     try {
         cas.prx();
     } catch (...) {
         err = recover();
     }
-    ASSERT(err != NULL);
+    ASSERT(err != nil);
     ASSERT(!strcmp(err, "_selcase: prx: op != recv"));
 
     cas = ch.sends(&i);
@@ -459,13 +459,13 @@ void _test_select_inplace() {
     cas = ch.recvs(&i);
     ASSERT(cas.prx() == &i);
     cas.flags = _INPLACE_DATA;
-    err = NULL;
+    err = nil;
     try {
         cas.prx();
     } catch (...) {
         err = recover();
     }
-    ASSERT(err != NULL);
+    ASSERT(err != nil);
     ASSERT(!strcmp(err, "_selcase: prx: recv with inplace data"));
 }
 
@@ -501,9 +501,9 @@ public:
 
 void _test_refptr() {
     refptr<MyObj> p;
-    ASSERT(p == NULL);
-    ASSERT(!(p != NULL));
-    ASSERT(p._ptr() == NULL);
+    ASSERT(p == nil);
+    ASSERT(!(p != nil));
+    ASSERT(p._ptr() == nil);
 
     MyObj *obj = new MyObj();
     ASSERT(obj->refcnt() == 1);
@@ -551,8 +551,8 @@ void _test_refptr() {
     {
         refptr<MyObj> q;
         ASSERT(obj->refcnt() == 1);
-        ASSERT(q == NULL);
-        ASSERT(q._ptr() == NULL);
+        ASSERT(q == nil);
+        ASSERT(q._ptr() == nil);
         ASSERT(!(p == q));
         ASSERT(p != q);
 
@@ -563,10 +563,10 @@ void _test_refptr() {
         ASSERT(p == q);
         ASSERT(!(p != q));
 
-        q = NULL;
+        q = nil;
         ASSERT(obj->refcnt() == 1);
         ASSERT(p._ptr() == obj);
-        ASSERT(q._ptr() == NULL);
+        ASSERT(q._ptr() == nil);
         ASSERT(!(p == q));
         ASSERT(p != q);
     }
@@ -575,34 +575,34 @@ void _test_refptr() {
     // move ctor
     refptr<MyObj> q(move(p));
     ASSERT(obj->refcnt() == 1);
-    ASSERT(p == NULL);
-    ASSERT(p._ptr() == NULL);
-    ASSERT(q != NULL);
+    ASSERT(p == nil);
+    ASSERT(p._ptr() == nil);
+    ASSERT(q != nil);
     ASSERT(q._ptr() == obj);
 
     // move =
     p = move(q);
     ASSERT(obj->refcnt() == 1);
-    ASSERT(p != NULL);
+    ASSERT(p != nil);
     ASSERT(p._ptr() == obj);
-    ASSERT(q == NULL);
-    ASSERT(q._ptr() == NULL);
+    ASSERT(q == nil);
+    ASSERT(q._ptr() == nil);
 
     // p goes out of scope and destroys obj
 }
 
 void _test_global() {
     global<refptr<MyObj>> g;
-    ASSERT(g == NULL);
-    ASSERT(!(g != NULL));
-    ASSERT(g._ptr() == NULL);
+    ASSERT(g == nil);
+    ASSERT(!(g != nil));
+    ASSERT(g._ptr() == nil);
 
     MyObj *obj = new MyObj();
     refptr<MyObj> p = adoptref(obj);
     ASSERT(obj->refcnt() == 1);
     obj->i = 3;
 
-    ASSERT(g._ptr() == NULL);
+    ASSERT(g._ptr() == nil);
     ASSERT(p._ptr() == obj);
     ASSERT(!(g == p));
     ASSERT(!(p == g));
@@ -614,8 +614,8 @@ void _test_global() {
     ASSERT(obj->refcnt() == 2);
     ASSERT(g._ptr() == obj);
     ASSERT(p._ptr() == obj);
-    ASSERT(!(g == NULL));
-    ASSERT(g != NULL);
+    ASSERT(!(g == nil));
+    ASSERT(g != nil);
     ASSERT(g == p);
     ASSERT(p == g);
     ASSERT(!(g != p));
@@ -630,15 +630,15 @@ void _test_global() {
 
     // global = nil     - obj reference is released
     ASSERT(obj->refcnt() == 2);
-    g = NULL;
+    g = nil;
     ASSERT(obj->refcnt() == 1);
-    ASSERT(g._ptr() == NULL);
+    ASSERT(g._ptr() == nil);
 
     // copy ctor    global <- refptr
     {
         global<refptr<MyObj>> h(p);
         ASSERT(obj->refcnt() == 2);
-        ASSERT(g._ptr() == NULL);
+        ASSERT(g._ptr() == nil);
         ASSERT(h._ptr() == obj);
         ASSERT(p._ptr() == obj);
         ASSERT(!(h == g));

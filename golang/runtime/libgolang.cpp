@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -57,9 +57,10 @@ using std::numeric_limits;
 using std::unique_ptr;
 using std::vector;
 
-static void *zalloc(size_t size);
-
+// golang::
 namespace golang {
+
+static void *zalloc(size_t size);
 
 // ---- panic ----
 
@@ -79,7 +80,7 @@ struct PanicError : exception {
 }
 
 // recover recovers from exception thrown by panic.
-// it returns: !NULL - there was panic with that argument. NULL - there was no panic.
+// it returns: !nil - there was panic with that argument. nil - there was no panic.
 // if another exception was thrown - recover rethrows it.
 const char *recover() {
     // if PanicError was thrown - recover from it
@@ -89,7 +90,7 @@ const char *recover() {
         return exc.arg;
     }
 
-    return NULL;
+    return nil;
 }
 
 
@@ -110,11 +111,11 @@ struct Bug : exception {
 
 // ---- runtime ----
 
-// initially NULL to crash if runtime was not initialized
-static const _libgolang_runtime_ops *_runtime = NULL;
+// initially nil to crash if runtime was not initialized
+static const _libgolang_runtime_ops *_runtime = nil;
 
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
-    if (_runtime != NULL) // XXX better check atomically
+    if (_runtime != nil) // XXX better check atomically
         panic("libgolang: double init");
     _runtime = runtime_ops;
 }
@@ -132,7 +133,7 @@ namespace sync {
 
 // _makesema creates new semaphore.
 //
-// it always returns !NULL and panics on memory allocation failue.
+// it always returns !nil and panics on memory allocation failue.
 _sema *_makesema() {
     _sema *sema = (_sema *)_runtime->sema_alloc();
     if (!sema)
@@ -161,7 +162,7 @@ Sema::Sema() {
 Sema::~Sema() {
     Sema *sema = this;
     _semafree(sema->_gsema);
-    sema->_gsema = NULL;
+    sema->_gsema = nil;
 }
 
 void Sema::acquire() {
@@ -297,7 +298,7 @@ struct _RecvSendWaiting {
 
     list_head   in_rxtxq; // in recv or send queue of the channel (_chan._recvq|_sendq -> _)
 
-    // recv: on wakeup: sender|closer -> receiver; NULL means "don't copy received value"
+    // recv: on wakeup: sender|closer -> receiver; nil means "don't copy received value"
     // send: ptr-to data to send
     void    *pdata;
     // on wakeup: whether recv/send succeeded  (send fails on close)
@@ -345,12 +346,12 @@ _RecvSendWaiting::_RecvSendWaiting() {
 // init initializes waiter to be part of group waiting on ch.
 void _RecvSendWaiting::init(_WaitGroup *group, _chan *ch) {
     _RecvSendWaiting *w = this;
-    if (w->group != NULL)
+    if (w->group != nil)
         bug("_RecvSendWaiting: double init");
     w->group = group;
     w->chan  = ch;
     INIT_LIST_HEAD(&w->in_rxtxq);
-    w->pdata = NULL;
+    w->pdata = nil;
     w->ok    = false;
     w->sel_n = -1;
 }
@@ -365,7 +366,7 @@ void _RecvSendWaiting::wakeup(bool ok) {
 _WaitGroup::_WaitGroup() {
     _WaitGroup *group = this;
     group->_sema.acquire();
-    group->which = NULL;
+    group->which = nil;
 }
 
 // try_to_win tries to win waiter after it was dequeued from a channel's {_send|_recv}q.
@@ -376,7 +377,7 @@ bool _WaitGroup::try_to_win(_RecvSendWaiting *waiter) { // -> won
 
     bool won;
     group->_mu.lock();
-        if (group->which != NULL) {
+        if (group->which != nil) {
             won = false;
         }
         else {
@@ -403,7 +404,7 @@ void _WaitGroup::wait() {
 // notification.
 void _WaitGroup::wakeup() {
     _WaitGroup *group = this;
-    if (group->which == NULL)
+    if (group->which == nil)
         bug("wakeup: group.which=nil");
     group->_sema.release();
 }
@@ -426,17 +427,17 @@ _RecvSendWaiting *_dequeWaiter(list_head *queue) {
         }
     }
 
-    return NULL;
+    return nil;
 }
 
 // _makechan creates new _chan(elemsize, size).
 //
 // returned channel has refcnt=1.
-// _makechan always returns !NULL and panics on memory allocation failure.
+// _makechan always returns !nil and panics on memory allocation failure.
 _chan *_makechan(unsigned elemsize, unsigned size) {
     _chan *ch;
     ch = (_chan *)zalloc(sizeof(_chan) + size*elemsize);
-    if (ch == NULL)
+    if (ch == nil)
         panic("makechan: alloc failed");
     new (ch) _chan(); // init .object, ._mu, ...
 
@@ -452,7 +453,7 @@ _chan *_makechan(unsigned elemsize, unsigned size) {
 
 // __wrapchan serves _wrapchan<T>.
 void __wrapchan(_chan *ch, unsigned elemsize) {
-    if (ch == NULL)
+    if (ch == nil)
         return; // nil, no elemsize checking
     if (ch->_elemsize != elemsize)
         panic("wrapchan: elemsize mismatch");
@@ -463,7 +464,7 @@ void __wrapchan(_chan *ch, unsigned elemsize) {
 //
 // it is noop if ch=nil.
 void _chanxincref(_chan *ch) {
-    if (ch == NULL)
+    if (ch == nil)
         return;
     ch->incref();
 }
@@ -473,7 +474,7 @@ void _chanxincref(_chan *ch) {
 // if refcnt goes to zero, the channel is deallocated.
 // it is noop if ch=nil.
 void _chanxdecref(_chan *ch) {
-    if (ch == NULL)
+    if (ch == nil)
         return;
     ch->decref();
 }
@@ -509,8 +510,8 @@ void _blockforever();
 //
 // sizeof(*ptx) must be ch._elemsize.
 void _chansend(_chan *ch, const void *ptx) {
-    if (ch == NULL)      // NOTE: cannot do this check in _chan::send
-        _blockforever(); // (C++ assumes `this` is never NULL and optimizes it out)
+    if (ch == nil)       // NOTE: cannot do this check in _chan::send
+        _blockforever(); // (C++ assumes `this` is never nil and optimizes it out)
     ch->send(ptx);
 }
 template<> void _chan::_send2</*onstack=*/true> (const void *ptx);
@@ -540,7 +541,7 @@ template<> void _chan::_send2</*onstack=*/false>(const void *ptx) { _chan *ch = 
 
         // ptx stack -> heap (if ptx is on stack)   TODO avoid copy if ptx is !onstack
         void *ptx_onheap = malloc(ch->_elemsize);
-        if (ptx_onheap == NULL) {
+        if (ptx_onheap == nil) {
             ch->_mu.unlock();
             throw bad_alloc();
         }
@@ -572,9 +573,9 @@ void _chan::__send2(const void *ptx, _WaitGroup *g, _RecvSendWaiting *me) {  _ch
 // ok is true - if receive was delivered by a successful send.
 // ok is false - if receive is due to channel being closed and empty.
 //
-// sizeof(*prx) must be ch._elemsize | prx=NULL.
+// sizeof(*prx) must be ch._elemsize | prx=nil.
 bool _chanrecv_(_chan *ch, void *prx) {
-    if (ch == NULL)
+    if (ch == nil)
         _blockforever();
     return ch->recv_(prx);
 }
@@ -603,13 +604,13 @@ template<> bool _chan::_recv2_</*onstack=*/false>(void *prx) {  _chan *ch = this
         unique_ptr<_WaitGroup>        g  (new _WaitGroup);
         unique_ptr<_RecvSendWaiting>  me (new _RecvSendWaiting);
 
-        if (prx == NULL)
+        if (prx == nil)
             return __recv2_(prx, g.get(), me.get());
 
         // prx stack -> onheap + copy back (if prx is on stack) TODO avoid copy if prx is !onstack
         unsigned ch_elemsize = ch->_elemsize;
         void *prx_onheap = malloc(ch_elemsize);
-        if (prx_onheap == NULL) {
+        if (prx_onheap == nil) {
             ch->_mu.unlock();
             throw bad_alloc();
         }
@@ -638,9 +639,9 @@ bool _chan::__recv2_(void *prx, _WaitGroup *g, _RecvSendWaiting *me) {  _chan *c
 
 // recv receives from the channel.
 //
-// if prx != NULL received value is put into *prx.
+// if prx != nil received value is put into *prx.
 void _chanrecv(_chan *ch, void *prx) {
-    if (ch == NULL)
+    if (ch == nil)
         _blockforever();
     ch->recv(prx);
 }
@@ -667,11 +668,11 @@ bool _chan::_trysend(const void *ptx) { // -> done
     // synchronous channel
     if (ch->_cap == 0) {
         _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
-        if (recv == NULL)
+        if (recv == nil)
             return false;
 
         ch->_mu.unlock();
-        if (recv->pdata != NULL)
+        if (recv->pdata != nil)
             memcpy(recv->pdata, ptx, ch->_elemsize);
         recv->wakeup(/*ok=*/true);
         return true;
@@ -683,7 +684,7 @@ bool _chan::_trysend(const void *ptx) { // -> done
 
         ch->_dataq_append(ptx);
         _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
-        if (recv != NULL) {
+        if (recv != nil) {
             ch->_dataq_popleft(recv->pdata);
             ch->_mu.unlock();
             recv->wakeup(/*ok=*/true);
@@ -702,7 +703,7 @@ bool _chan::_trysend(const void *ptx) { // -> done
 // if !done - returns with ._mu still being held.
 //
 // if !done - (*prx, *pok) are left unmodified.
-// if prx=NULL received value is not copied into *prx.
+// if prx=nil received value is not copied into *prx.
 bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     _chan *ch = this;
 
@@ -713,7 +714,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
 
         // wakeup a blocked writer, if there is any
         _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
-        if (send != NULL) {
+        if (send != nil) {
             ch->_dataq_append(send->pdata);
             ch->_mu.unlock();
             send->wakeup(/*ok=*/true);
@@ -727,7 +728,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
     // closed
     if (ch->_closed) {
         ch->_mu.unlock();
-        if (prx != NULL)
+        if (prx != nil)
             memset(prx, 0, ch->_elemsize);
         *pok = false;
         return true;
@@ -735,11 +736,11 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
 
     // sync | empty: there is waiting writer
     _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
-    if (send == NULL)
+    if (send == nil)
         return false;
 
     ch->_mu.unlock();
-    if (prx != NULL)
+    if (prx != nil)
         memcpy(prx, send->pdata, ch->_elemsize);
     *pok = true;
     send->wakeup(/*ok=*/true);
@@ -748,7 +749,7 @@ bool _chan::_tryrecv(void *prx, bool *pok) { // -> done
 
 // close closes sending side of the channel.
 void _chanclose(_chan *ch) {
-    if (ch == NULL)
+    if (ch == nil)
         panic("close of nil channel");
     ch->close();
 }
@@ -768,10 +769,10 @@ void _chan::close() {
         // schedule: wake-up all readers
         while (1) {
             _RecvSendWaiting *recv = _dequeWaiter(&ch->_recvq);
-            if (recv == NULL)
+            if (recv == nil)
                 break;
 
-            if (recv->pdata != NULL)
+            if (recv->pdata != nil)
                 memset(recv->pdata, 0, ch->_elemsize);
             wakeupv.push_back(recv);
         }
@@ -779,7 +780,7 @@ void _chan::close() {
         // schedule: wake-up all writers (they will panic)
         while (1) {
             _RecvSendWaiting *send = _dequeWaiter(&ch->_sendq);
-            if (send == NULL)
+            if (send == nil)
                 break;
 
             wakeupv.push_back(send);
@@ -793,7 +794,7 @@ void _chan::close() {
 
 // len returns current number of buffered elements.
 unsigned _chanlen(_chan *ch) {
-    if (ch == NULL)
+    if (ch == nil)
         return 0; // len(nil) = 0
     return ch->len();
 }
@@ -808,7 +809,7 @@ unsigned _chan::len() {
 
 // cap returns channel capacity.
 unsigned _chancap(_chan *ch) {
-    if (ch == NULL)
+    if (ch == nil)
         return 0; // cap(nil) = 0
     return ch->cap();
 }
@@ -834,7 +835,7 @@ void _chan::_dataq_append(const void *ptx) {
 
 // _dataq_popleft pops oldest element from ch._dataq into *prx.
 // called with ch._mu locked.
-// if prx=NULL the element is popped, but not copied anywhere.
+// if prx=nil the element is popped, but not copied anywhere.
 void _chan::_dataq_popleft(void *prx) {
     _chan *ch = this;
 
@@ -843,7 +844,7 @@ void _chan::_dataq_popleft(void *prx) {
     if (ch->_dataq_r >= ch->_cap)
         bug("chan: dataq.popleft: r >= cap");
 
-    if (prx != NULL)
+    if (prx != nil)
         memcpy(prx, &((char *)(ch+1))[ch->_dataq_r * ch->_elemsize], ch->_elemsize);
     ch->_dataq_r++; ch->_dataq_r %= ch->_cap;
     ch->_dataq_n--;
@@ -855,13 +856,13 @@ void _chan::_dataq_popleft(void *prx) {
 // _default represents default case for _select.
 static _selcase _mkdefault() {
     _selcase _ = {
-        .ch     = NULL,
+        .ch     = nil,
         .op     = _DEFAULT,
         .flags  = (_selflags)0,
         .user   = 0xff,
     };
-    _   .ptxrx  = NULL;
-    _   .rxok   = NULL;
+    _   .ptxrx  = nil;
+    _   .rxok   = nil;
     return _;
 }
 const _selcase _default = _mkdefault();
@@ -933,7 +934,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
         // send
         else if (cas->op == _CHANSEND) {
-            if (ch != NULL) {   // nil chan is never ready
+            if (ch != nil) {    // nil chan is never ready
                 ch->_mu.lock();
                 if (1) {
                     bool done = ch->_trysend(cas->ptx());
@@ -947,7 +948,7 @@ int _chanselect(const _selcase *casev, int casec) {
 
         // recv
         else if (cas->op == _CHANRECV) {
-            if (ch != NULL) {   // nil chan is never ready
+            if (ch != nil) {    // nil chan is never ready
                 // recv into inplace data is not supported
                 // ( in the future we might want to support it for symmetry with
                 //   send, but it will requre to drop const from casev )
@@ -958,7 +959,7 @@ int _chanselect(const _selcase *casev, int casec) {
                 if (1) {
                     bool ok, done = ch->_tryrecv(cas->prx(), &ok);
                     if (done) {
-                        if (cas->rxok != NULL)
+                        if (cas->rxok != nil)
                             *cas->rxok = ok;
                         return n;
                     }
@@ -1016,7 +1017,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     for (i = 0; i < casec; i++) {
         const _selcase *cas = &casev[i];
         casev_onheap[i] = *cas;
-        if (cas->ch == NULL) // nil chan
+        if (cas->ch == nil) // nil chan
             continue;
         if (cas->op == _CHANSEND) {
             if (!(cas->flags & _INPLACE_DATA))
@@ -1032,7 +1033,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
 
     // tx are appended sequentially; all rx go to &rxtxdata[0]
     char *rxtxdata = (char *)malloc(max(rxmax, txtotal));
-    if (rxtxdata == NULL)
+    if (rxtxdata == nil)
         throw bad_alloc();
     defer([&]() {
         free(rxtxdata);
@@ -1041,7 +1042,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     char *ptx = rxtxdata;
     for (i = 0; i <casec; i++) {
         _selcase *cas = &casev_onheap[i];
-        if (cas->ch == NULL) // nil chan
+        if (cas->ch == nil) // nil chan
             continue;
         if (cas->op == _CHANSEND) {
             if (!(cas->flags & _INPLACE_DATA)) {
@@ -1066,7 +1067,7 @@ template<> int _chanselect2</*onstack=*/false>(const _selcase *casev, int casec,
     _selcase *cas = &casev_onheap[selected];
     if (cas->op == _CHANRECV) {
         const _selcase *cas0 = &casev[selected];
-        if (cas0->ptxrx != NULL)
+        if (cas0->ptxrx != nil)
             memcpy(cas0->ptxrx, cas->ptxrx, cas->ch->_elemsize);
     }
 
@@ -1078,7 +1079,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
     //  XXX or let caller stack-allocate? but then we force it to know sizeof(_RecvSendWaiting)
     _RecvSendWaiting *waitv = (_RecvSendWaiting *)calloc(sizeof(_RecvSendWaiting), casec);
     int               waitc = 0;
-    if (waitv == NULL)
+    if (waitv == nil)
         throw bad_alloc();
     // on exit: remove all registered waiters from their wait queues.
     defer([&]() {
@@ -1091,7 +1092,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
 
         bzero((void *)waitv, waitc*sizeof(waitv[0]));
         free(waitv);
-        waitv = NULL;
+        waitv = nil;
     });
 
 
@@ -1099,14 +1100,14 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
         const _selcase *cas = &casev[n];
         _chan *ch = cas->ch;
 
-        if (ch == NULL) // nil chan is never ready
+        if (ch == nil) // nil chan is never ready
             continue;
 
         ch->_mu.lock();
         with_lock(g->_mu) { // with, because _trysend may panic
             // a case that we previously queued already won while we were
             // queuing other cases.
-            if (g->which != NULL) {
+            if (g->which != nil) {
                 ch->_mu.unlock();
                 goto wait_case_ready;
             }
@@ -1115,7 +1116,7 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             if (cas->op == _CHANSEND) {
                 bool done = ch->_trysend(cas->ptx());
                 if (done) {
-                    g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
+                    g->which = &_sel_txrx_prepoll_won; // !nil not to let already queued cases win
                     return n;
                 }
 
@@ -1135,8 +1136,8 @@ static int __chanselect2(const _selcase *casev, int casec, const vector<int>& nv
             else if (cas->op == _CHANRECV) {
                 bool ok, done = ch->_tryrecv(cas->prx(), &ok);
                 if (done) {
-                    g->which = &_sel_txrx_prepoll_won; // !NULL not to let already queued cases win
-                    if (cas->rxok != NULL)
+                    g->which = &_sel_txrx_prepoll_won; // !nil not to let already queued cases win
+                    if (cas->rxok != nil)
                         *cas->rxok = ok;
                     return n;
                 }
@@ -1176,7 +1177,7 @@ wait_case_ready:
         return selected;
     }
     else if (cas->op == _CHANRECV) {
-        if (cas->rxok != NULL)
+        if (cas->rxok != nil)
             *cas->rxok = sel->ok;
         return selected;
     }
@@ -1185,9 +1186,9 @@ wait_case_ready:
 }
 
 // _blockforever blocks current goroutine forever.
-void (*_tblockforever)() = NULL;
+void (*_tblockforever)() = nil;
 void _blockforever() {
-    if (_tblockforever != NULL)
+    if (_tblockforever != nil)
         _tblockforever();
     // take a lock twice. It will forever block on the second lock attempt.
     // Under gevent, similarly to Go, this raises "LoopExit: This operation
@@ -1261,10 +1262,15 @@ double now() {
 
 // ---- misc ----
 
+// golang::
+namespace golang {
+
 // zalloc allocates zeroed memory.
 static void *zalloc(size_t size) {
     void *mem = malloc(size);
-    if (mem != NULL)
+    if (mem != nil)
         memset(mem, 0, size);
     return mem;
 }
+
+}   // golang::

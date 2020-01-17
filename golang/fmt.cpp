@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -38,7 +38,7 @@ string _vsprintf(const char *format, va_list argp) {
     // based on https://stackoverflow.com/a/26221725/9456786
     va_list argp2;
     va_copy(argp2, argp);
-    size_t nchar = ::vsnprintf(NULL, 0, format, argp2);
+    size_t nchar = ::vsnprintf(nil, 0, format, argp2);
     va_end(argp2);
 
     std::unique_ptr<char[]> buf( new char[nchar /*for \0*/+1] );

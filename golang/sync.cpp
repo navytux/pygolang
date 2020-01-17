@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -84,13 +84,13 @@ void WaitGroup::add(int delta) {
 void WaitGroup::wait() {
     WaitGroup& wg = *this;
 
-    chan<structZ> done = NULL;
+    chan<structZ> done = nil;
     wg._mu.lock();
     if (wg._count != 0)
         done = wg._done;
     wg._mu.unlock();
 
-    if (done == NULL)   // wg._count was =0
+    if (done == nil)    // wg._count was =0
         return;
 
     done.recv();
@@ -123,7 +123,7 @@ void _WorkGroup::go(func<error(context::Context)> f) {
         });
 
         error err = f(g->_ctx); // TODO consider also propagating panic
-        if (err == NULL)
+        if (err == nil)
             return;
 
         g->_mu.lock();
@@ -131,7 +131,7 @@ void _WorkGroup::go(func<error(context::Context)> f) {
             g->_mu.unlock();
         });
 
-        if (g->_err == NULL) {
+        if (g->_err == nil) {
             // this goroutine is the first failed task
             g->_err = err;
             g->_cancel();

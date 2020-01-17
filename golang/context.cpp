@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -53,9 +53,9 @@ struct _Background final : _Context, object {
     }
 
     double          deadline()              { return INFINITY;  }
-    chan<structZ>   done()                  { return NULL;      }
-    error           err()                   { return NULL;      }
-    interface       value(const void *key)  { return NULL;      }
+    chan<structZ>   done()                  { return nil;       }
+    error           err()                   { return nil;       }
+    interface       value(const void *key)  { return nil;       }
 };
 
 static Context _background = adoptref(static_cast<_Context *>(new _Background()));
@@ -98,7 +98,7 @@ struct _BaseCtx : _Context, object {
         // chan: if context can be canceled on its own
         // nil:  if context can not be canceled on its own
         ctx._done       = done;
-        if (done == NULL) {
+        if (done == nil) {
             if (parentv.size() != 1)
                 panic("BUG: _BaseCtx: done==nil, but len(parentv) != 1");
         }
@@ -109,7 +109,7 @@ struct _BaseCtx : _Context, object {
     chan<structZ> done() {
         _BaseCtx& ctx = *this;
 
-        if (ctx._done != NULL)
+        if (ctx._done != nil)
             return ctx._done;
         return ctx._parentv[0]->done();
     }
@@ -130,10 +130,10 @@ struct _BaseCtx : _Context, object {
 
         for (auto parent : ctx._parentv) {
             interface v = parent->value(key);
-            if (v != NULL)
+            if (v != nil)
                 return v;
         }
-        return NULL;
+        return nil;
     }
 
     double deadline() {
@@ -152,7 +152,7 @@ struct _BaseCtx : _Context, object {
     // _cancel cancels ctx and its children.
     void _cancel(error err) {
         _BaseCtx& ctx = *this;
-        return ctx._cancelFrom(NULL, err);
+        return ctx._cancelFrom(nil, err);
     }
 
     // _cancelFrom cancels ctx and its children.
@@ -162,7 +162,7 @@ struct _BaseCtx : _Context, object {
 
         set<refptr<_BaseCtx>> children;
         ctx._mu.lock();
-            if (ctx._err != NULL) {
+            if (ctx._err != nil) {
                 ctx._mu.unlock();
                 return; // already canceled
             }
@@ -171,7 +171,7 @@ struct _BaseCtx : _Context, object {
             ctx._children.swap(children);
         ctx._mu.unlock();
 
-        if (ctx._done != NULL)
+        if (ctx._done != nil)
             ctx._done.close();
 
         // no longer need to propagate cancel from parent after we are canceled
@@ -180,7 +180,7 @@ struct _BaseCtx : _Context, object {
             if (parent == cancelFrom)
                 continue;
             _BaseCtx *_parent = dynamic_cast<_BaseCtx *>(parent._ptr());
-            if (_parent != NULL) {
+            if (_parent != nil) {
                 _parent->_mu.lock();
                     _parent->_children.erase(bctx);
                 _parent->_mu.unlock();
@@ -204,14 +204,14 @@ struct _BaseCtx : _Context, object {
             // if parent can never be canceled (e.g. it is background) - we
             // don't need to propagate cancel from it.
             chan<structZ> pdone = parent->done();
-            if (pdone == NULL)
+            if (pdone == nil)
                 continue;
 
             // parent is cancellable - glue to propagate cancel from it to us
             _BaseCtx *_parent = dynamic_cast<_BaseCtx *>(parent._ptr());
-            if (_parent != NULL) {
+            if (_parent != nil) {
                 _parent->_mu.lock();
-                    if (_parent->_err != NULL)
+                    if (_parent->_err != nil)
                         ctx._cancel(_parent->_err);
                     else
                         _parent->_children.insert(bctx);
@@ -259,7 +259,7 @@ struct _ValueCtx : _BaseCtx {
     interface   _value;
 
     _ValueCtx(const void *key, interface value, Context parent)
-            : _BaseCtx(NULL, {parent}) {
+            : _BaseCtx(nil, {parent}) {
         _ValueCtx& ctx = *this;
 
         ctx._key   = key;
@@ -363,7 +363,7 @@ static bool _ready(chan<structZ> ch) {
 // _tctxchildren returns context's children, assuming context is instance of _BaseCtx.
 set<Context> _tctxchildren(Context ctx) {
     _BaseCtx *_bctx = dynamic_cast<_BaseCtx*>(ctx._ptr());
-    if (_bctx == NULL)
+    if (_bctx == nil)
         panic("context is not instance of golang.context._BaseCtx");
 
     set<Context> children;

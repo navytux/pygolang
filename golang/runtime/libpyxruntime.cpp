@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -39,8 +39,8 @@ namespace runtime {
 
 
 // pyexited indicates whether Python interpreter exited.
-static sync::Mutex     *pyexitedMu  = NULL; // allocated in _init and never freed not to race
-static sync::WaitGroup *pygilTaking = NULL; // at exit on dtor vs use.
+static sync::Mutex     *pyexitedMu  = nil; // allocated in _init and never freed not to race
+static sync::WaitGroup *pygilTaking = nil; // at exit on dtor vs use.
 static bool            pyexited = false;
 
 void _init() {
@@ -102,8 +102,8 @@ error PyErr_Fetch() {
     PyGILState_Release(gstate);
 
     // no error
-    if (pyexc_type == NULL && pyexc_value == NULL && pyexc_tb == NULL)
-        return NULL;
+    if (pyexc_type == nil && pyexc_value == nil && pyexc_tb == nil)
+        return nil;
 
     // -> _PyError
     _PyError* _e = new _PyError();
@@ -141,9 +141,9 @@ _PyError::~_PyError() {
     PyObject *pyexc_type    = this->pyexc_type;
     PyObject *pyexc_value   = this->pyexc_value;
     PyObject *pyexc_tb      = this->pyexc_tb;
-    this->pyexc_type  = NULL;
-    this->pyexc_value = NULL;
-    this->pyexc_tb    = NULL;
+    this->pyexc_type  = nil;
+    this->pyexc_value = nil;
+    this->pyexc_tb    = nil;
     if (!ok) {
         return;
     }
@@ -182,7 +182,7 @@ PyFunc::PyFunc(const PyFunc& from) {
 
     tie(gstate, ok) = pygil_ensure();
     if (!ok) {
-        pyf = NULL; // won't be used
+        pyf = nil; // won't be used
         return;
     }
 
@@ -197,7 +197,7 @@ PyFunc::~PyFunc() {
 
     tie(gstate, ok) = pygil_ensure();
     PyObject *pyf = this->pyf;
-    this->pyf = NULL;
+    this->pyf = nil;
     if (!ok) {
         return;
     }
@@ -222,8 +222,8 @@ error PyFunc::operator() () const {
     }
 
         error err;
-        PyObject *ret = PyObject_CallFunction(pyf, NULL);
-        if (ret == NULL) {
+        PyObject *ret = PyObject_CallFunction(pyf, nil);
+        if (ret == nil) {
             err = PyErr_Fetch();
         }
         Py_XDECREF(ret);

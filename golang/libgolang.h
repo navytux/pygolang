@@ -412,14 +412,14 @@ class chan {
     _chan *_ch;
 
 public:
-    inline chan() { _ch = NULL; } // nil channel if not explicitly initialized
+    inline chan() { _ch = nil; } // nil channel if not explicitly initialized
     friend chan<T> makechan<T>(unsigned size);
     friend chan<T> _wrapchan<T>(_chan *_ch);
-    inline ~chan() { _chanxdecref(_ch); _ch = NULL; }
+    inline ~chan() { _chanxdecref(_ch); _ch = nil; }
 
     // = nil
-    inline chan(nullptr_t) { _ch = NULL; }
-    inline chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = NULL; return *this; }
+    inline chan(nullptr_t) { _ch = nil; }
+    inline chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = nil; return *this; }
     // copy
     inline chan(const chan& from) { _ch = from._ch; _chanxincref(_ch); }
     inline chan& operator=(const chan& from) {
@@ -429,10 +429,10 @@ public:
         return *this;
     }
     // move
-    inline chan(chan&& from) { _ch = from._ch; from._ch = NULL; }
+    inline chan(chan&& from) { _ch = from._ch; from._ch = nil; }
     inline chan& operator=(chan&& from) {
         if (this != &from) {
-            _chanxdecref(_ch); _ch = from._ch; from._ch = NULL;
+            _chanxdecref(_ch); _ch = from._ch; from._ch = nil;
         }
         return *this;
     }
@@ -457,7 +457,7 @@ public:
     //
     // if pok is provided the case is extended to `[*prx, *pok] = ch.recv_()`
     // if both prx and pok are omitted the case is reduced to `ch.recv()`.
-    [[nodiscard]] inline _selcase recvs(T *prx=NULL, bool *pok=NULL) const {
+    [[nodiscard]] inline _selcase recvs(T *prx=nil, bool *pok=nil) const {
         return _selrecv_(_ch, prx, pok);
     }
 
@@ -466,8 +466,8 @@ public:
     inline unsigned cap()             const  { return _chancap(_ch); }
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const  { return (_ch == NULL); }
-    inline bool operator!=(nullptr_t) const  { return (_ch != NULL); }
+    inline bool operator==(nullptr_t) const  { return (_ch == nil); }
+    inline bool operator!=(nullptr_t) const  { return (_ch != nil); }
 
     // compare wrt chan
     inline bool operator==(const chan<T>& ch2) const { return (_ch == ch2._ch); }
@@ -494,7 +494,7 @@ chan<T> makechan(unsigned size) {
 }
 
 // _wrapchan<T> wraps raw channel with chan<T>.
-// raw channel must be either NULL or its element size must correspond to T.
+// raw channel must be either nil or its element size must correspond to T.
 LIBGOLANG_API void __wrapchan(_chan *_ch, unsigned elemsize);
 template<typename T> static inline
 chan<T> _wrapchan(_chan *_ch) {
@@ -577,36 +577,36 @@ class refptr {
 
 public:
     // nil if not explicitly initialized
-    inline refptr()                 { _obj = NULL;  }
+    inline refptr()                 { _obj = nil;  }
 
     inline ~refptr() {
-        if (_obj != NULL) {
+        if (_obj != nil) {
             _obj->decref();
-            _obj = NULL;
+            _obj = nil;
         }
     }
 
     // = nil
-    inline refptr(nullptr_t)        { _obj = NULL;  }
+    inline refptr(nullptr_t)        { _obj = nil;  }
     inline refptr& operator=(nullptr_t) {
-        if (_obj != NULL)
+        if (_obj != nil)
             _obj->decref();
-        _obj = NULL;
+        _obj = nil;
         return *this;
     }
 
     // copy
     inline refptr(const refptr& from) {
         _obj = from._obj;
-        if(_obj != NULL)
+        if (_obj != nil)
             _obj->incref();
     }
     inline refptr& operator=(const refptr& from) {
         if (this != &from) {
-            if (_obj != NULL)
+            if (_obj != nil)
                 _obj->decref();
             _obj = from._obj;
-            if (_obj != NULL)
+            if (_obj != nil)
                 _obj->incref();
         }
         return *this;
@@ -615,14 +615,14 @@ public:
     // move
     inline refptr(refptr&& from) {
         _obj = from._obj;
-        from._obj = NULL;
+        from._obj = nil;
     }
     inline refptr& operator=(refptr&& from) {
         if (this != &from) {
-            if (_obj != NULL)
+            if (_obj != nil)
                 _obj->decref();
             _obj = from._obj;
-            from._obj = NULL;
+            from._obj = nil;
         }
         return *this;
     }
@@ -632,8 +632,8 @@ public:
     friend refptr<T> newref<T>  (T *_obj);
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const { return (_obj == NULL);    }
-    inline bool operator!=(nullptr_t) const { return (_obj != NULL);    }
+    inline bool operator==(nullptr_t) const { return (_obj == nil); }
+    inline bool operator!=(nullptr_t) const { return (_obj != nil); }
 
     // compare wrt refptr
     inline bool operator==(const refptr& p2) const { return (_obj == p2._obj);  }
@@ -681,21 +681,21 @@ public:
     }
 
     // nil if not explicitly initialized
-    inline global()                 { _obj = NULL;  }
+    inline global()                 { _obj = nil;   }
 
     // init from refptr<T>
     inline global(const refptr<T>& from) {
         _obj = from._obj;
-        if (_obj != NULL)
+        if (_obj != nil)
             _obj->incref();
     }
 
     // = nil
-    inline global(nullptr_t)        { _obj = NULL;  }
+    inline global(nullptr_t)        { _obj = nil;   }
     inline global& operator=(nullptr_t) {
-        if (_obj != NULL)
+        if (_obj != nil)
             _obj->decref();
-        _obj = NULL;
+        _obj = nil;
         return *this;
     }
 
@@ -703,8 +703,8 @@ public:
     // move - no need due to refptr<T> cast
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const { return (_obj == NULL);    }
-    inline bool operator!=(nullptr_t) const { return (_obj != NULL);    }
+    inline bool operator==(nullptr_t) const { return (_obj == nil); }
+    inline bool operator!=(nullptr_t) const { return (_obj != nil); }
 
     // compare wrt refptr
     inline bool operator==(const refptr<T>& p2) const { return (_obj == p2._obj);  }
@@ -747,7 +747,7 @@ template<typename T>
 inline refptr<T> newref(T *_obj) {
     refptr<T> p;
     p._obj = _obj;
-    if (_obj != NULL)
+    if (_obj != nil)
         _obj->incref();
     return p;
 }

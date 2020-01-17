@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -39,7 +39,7 @@ Timer  _new_timer(double dt, func<void()>);
 
 chan<double> tick(double dt) {
     if (dt <= 0)
-        return NULL;
+        return nil;
     return new_ticker(dt)->c;
 }
 
@@ -120,7 +120,7 @@ void _Timer::decref() {
 
 Timer _new_timer(double dt, func<void()> f) {
     Timer t = adoptref(new _Timer());
-    t->c    = (f == NULL ? makechan<double>(1) : NULL);
+    t->c    = (f == nil ? makechan<double>(1) : nil);
     t->_f   = f;
     t->_dt  = INFINITY;
     t->_ver = 0;
@@ -129,7 +129,7 @@ Timer _new_timer(double dt, func<void()> f) {
 }
 
 Timer new_timer(double dt) {
-    return _new_timer(dt, NULL);
+    return _new_timer(dt, nil);
 }
 
 bool _Timer::stop() {
@@ -186,7 +186,7 @@ void _Timer::_fire(double dt, int ver) {
 
     // send under ._mu so that .stop can be sure that if it sees
     // ._dt = INFINITY, there is no ongoing .c send.
-    if (t._f == NULL) {
+    if (t._f == nil) {
         t.c.send(now());
         t._mu.unlock();
         return;
