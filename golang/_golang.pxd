@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -44,7 +44,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 """
 
 
-from libcpp cimport nullptr_t, nullptr as nil
+from libcpp cimport nullptr_t, nullptr as nil # golang::nil = nullptr
 from libcpp.utility cimport pair
 from libc.stdint cimport uint64_t
 cdef extern from *:

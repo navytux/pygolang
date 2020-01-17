@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2020  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -376,6 +376,9 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #include <vector>
 
 namespace golang {
+
+// nil is alias for nullptr and NULL.
+constexpr nullptr_t nil = nullptr;
 
 // string is alias for std::string.
 using string = std::string;
