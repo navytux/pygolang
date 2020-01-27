@@ -44,7 +44,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 """
 
 
-from libcpp cimport nullptr_t, nullptr as nil # golang::nil = nullptr
+from libcpp cimport nullptr_t as Nil, nullptr as nil # golang::nil = nullptr
 from libcpp.utility cimport pair
 from libc.stdint cimport uint64_t
 cdef extern from *:
@@ -88,9 +88,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         unsigned cap()                      const
 
         # compare wrt nil; =nil
-        cbool operator==(nullptr_t)         const
-        cbool operator!=(nullptr_t)         const
-        void operator=(nullptr_t)
+        cbool operator==(Nil)               const
+        cbool operator!=(Nil)               const
+        void operator=(Nil)
 
         # for tests
         _chan *_rawchan()   const
@@ -127,9 +127,9 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     # memory management of C++ nogil classes
     cppclass refptr[T]:
         # compare wrt nil; =nil
-        cbool operator== (nullptr_t)    const
-        cbool operator!= (nullptr_t)    const
-        void  operator=  (nullptr_t)    const
+        cbool operator== (Nil)          const
+        cbool operator!= (Nil)          const
+        void  operator=  (Nil)          const
 
         # compare wrt refptr; =refptr
         # XXX workaround for https://github.com/cython/cython/issues/1357:

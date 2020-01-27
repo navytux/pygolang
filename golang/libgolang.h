@@ -366,6 +366,7 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 #ifdef __cplusplus
 
 #include <atomic>
+#include <cstddef>
 #include <exception>
 #include <functional>
 #include <initializer_list>
@@ -377,8 +378,9 @@ LIBGOLANG_API extern void (*_tblockforever)(void);
 
 namespace golang {
 
-// nil is alias for nullptr and NULL.
-constexpr nullptr_t nil = nullptr;
+// nil is alias for nullptr and NULL; Nil - for std::nullptr_t;
+using Nil = std::nullptr_t;
+constexpr Nil nil = nullptr;
 
 // string is alias for std::string.
 using string = std::string;
@@ -418,8 +420,8 @@ public:
     inline ~chan() { _chanxdecref(_ch); _ch = nil; }
 
     // = nil
-    inline chan(nullptr_t) { _ch = nil; }
-    inline chan& operator=(nullptr_t) { _chanxdecref(_ch); _ch = nil; return *this; }
+    inline chan(Nil) { _ch = nil; }
+    inline chan& operator=(Nil) { _chanxdecref(_ch); _ch = nil; return *this; }
     // copy
     inline chan(const chan& from) { _ch = from._ch; _chanxincref(_ch); }
     inline chan& operator=(const chan& from) {
@@ -462,12 +464,12 @@ public:
     }
 
     // length/capacity
-    inline unsigned len()             const  { return _chanlen(_ch); }
-    inline unsigned cap()             const  { return _chancap(_ch); }
+    inline unsigned len()       const  { return _chanlen(_ch); }
+    inline unsigned cap()       const  { return _chancap(_ch); }
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const  { return (_ch == nil); }
-    inline bool operator!=(nullptr_t) const  { return (_ch != nil); }
+    inline bool operator==(Nil) const  { return (_ch == nil); }
+    inline bool operator!=(Nil) const  { return (_ch != nil); }
 
     // compare wrt chan
     inline bool operator==(const chan<T>& ch2) const { return (_ch == ch2._ch); }
@@ -587,8 +589,8 @@ public:
     }
 
     // = nil
-    inline refptr(nullptr_t)        { _obj = nil;  }
-    inline refptr& operator=(nullptr_t) {
+    inline refptr(Nil)              { _obj = nil;  }
+    inline refptr& operator=(Nil) {
         if (_obj != nil)
             _obj->decref();
         _obj = nil;
@@ -632,8 +634,8 @@ public:
     friend refptr<T> newref<T>  (T *_obj);
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const { return (_obj == nil); }
-    inline bool operator!=(nullptr_t) const { return (_obj != nil); }
+    inline bool operator==(Nil) const { return (_obj == nil); }
+    inline bool operator!=(Nil) const { return (_obj != nil); }
 
     // compare wrt refptr
     inline bool operator==(const refptr& p2) const { return (_obj == p2._obj);  }
@@ -691,8 +693,8 @@ public:
     }
 
     // = nil
-    inline global(nullptr_t)        { _obj = nil;   }
-    inline global& operator=(nullptr_t) {
+    inline global(Nil)              { _obj = nil;   }
+    inline global& operator=(Nil) {
         if (_obj != nil)
             _obj->decref();
         _obj = nil;
@@ -703,8 +705,8 @@ public:
     // move - no need due to refptr<T> cast
 
     // compare wrt nil
-    inline bool operator==(nullptr_t) const { return (_obj == nil); }
-    inline bool operator!=(nullptr_t) const { return (_obj != nil); }
+    inline bool operator==(Nil) const { return (_obj == nil); }
+    inline bool operator!=(Nil) const { return (_obj != nil); }
 
     // compare wrt refptr
     inline bool operator==(const refptr<T>& p2) const { return (_obj == p2._obj);  }

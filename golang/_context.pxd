@@ -34,7 +34,7 @@ See also https://blog.golang.org/context for overview.
 (*) not provided in Go version.
 """
 
-from golang cimport chan, structZ, error, refptr, interface
+from golang cimport chan, structZ, error, refptr, interface, Nil
 from golang cimport cxx
 from libcpp.utility cimport pair
 
@@ -44,7 +44,7 @@ from libcpp.utility cimport pair
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     cppclass cancelFunc "golang::func<void()>":
         void operator() ()
-        void operator= (nullptr_t)
+        void operator= (Nil)
 
 cdef extern from "golang/context.h" namespace "golang::context" nogil:
     cppclass _Context:
