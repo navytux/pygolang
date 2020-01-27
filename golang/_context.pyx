@@ -58,7 +58,7 @@ cdef class PyContext:
             raise AssertionError("Context must not be instantiated by user")
 
     def __dealloc__(PyContext pyctx):
-        ctx = nil
+        pyctx.ctx = nil
 
     # deadline() returns context deadline or None, if there is no deadline.
     def deadline(PyContext pyctx):  # -> time | None
