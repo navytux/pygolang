@@ -29,7 +29,6 @@ See also https://golang.org/pkg/time for Go time package documentation.
 """
 
 from golang cimport chan, cbool, refptr
-from libcpp cimport nullptr_t
 
 # golang/pyx - the same as std python - represents time as float
 cdef extern from * nogil:
