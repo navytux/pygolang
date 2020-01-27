@@ -82,7 +82,8 @@ cdef class pypanicWhenBlocked:
         return t
 
     def __exit__(pypanicWhenBlocked t, typ, val, tb):
-        _tblockforever = nil
+        global _tblockforever
+        _tblockforever = NULL
 
 cdef void _panicblocked() nogil:
     panic("t: blocks forever")
