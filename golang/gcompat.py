@@ -21,26 +21,5 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import strconv
-import six
-
-# qq is substitute for %q, which is missing in python.
-#
-# (python's automatic escape uses smartquotes quoting with either ' or ").
-#
-# like %s, %q automatically converts its argument to string.
-def qq(obj):
-    # make sure obj is text | bytes
-    # py2: unicode | str
-    # py3: str     | bytes
-    if not isinstance(obj, (six.text_type, six.binary_type)):
-        obj = str(obj)
-
-    qobj = strconv.quote(obj)
-
-    # `printf('%s', qq(obj))` should work. For this make sure qobj is always a
-    # str - not bytes under py3 (if it was bytes it will print e.g. as b'...')
-    if six.PY3 and isinstance(qobj, bytes):
-        qobj = qobj.decode('UTF-8')     # TODO use u
-
-    return qobj
+# TODO deprecate qq in favour of -> fmt.Sprintf("%q") ?
+from golang._golang import pyqq as qq
