@@ -828,7 +828,7 @@ def pyqq(obj):
 
     # `printf('%s', qq(obj))` should work. For this make sure qobj is always a
     # str - not bytes under py3 (if it was bytes it will print e.g. as b'...')
-    if six.PY3 and isinstance(qobj, bytes):
-        qobj = qobj.decode('UTF-8')     # TODO use u
+    if six.PY3:
+        qobj = pyu(qobj)
 
     return qobj
