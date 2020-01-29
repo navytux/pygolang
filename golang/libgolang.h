@@ -798,6 +798,12 @@ struct _error : _interface {
 };
 typedef refptr<_error> error;
 
+// an error can additionally provide Unwrap method if it wraps another error.
+struct _errorWrapper : _error {
+    virtual error Unwrap() = 0;
+};
+typedef refptr<_errorWrapper> errorWrapper;
+
 }   // golang::
 
 

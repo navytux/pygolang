@@ -30,9 +30,19 @@ from golang cimport topyexc
 cdef extern from * nogil:
     """
     extern void _test_errors_new_cpp();
+    extern void _test_errors_unwrap_cpp();
+    extern void _test_errors_is_cpp();
     """
     void _test_errors_new_cpp()                 except +topyexc
+    void _test_errors_unwrap_cpp()              except +topyexc
+    void _test_errors_is_cpp()                  except +topyexc
 
 def test_errors_new_cpp():
     with nogil:
         _test_errors_new_cpp()
+def test_errors_unwrap_cpp():
+    with nogil:
+        _test_errors_unwrap_cpp()
+def test_errors_is_cpp():
+    with nogil:
+        _test_errors_is_cpp()

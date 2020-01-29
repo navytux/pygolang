@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -20,11 +20,16 @@
 """Package errors mirrors Go package errors.
 
  - `New` creates new error with provided text.
+ - `Unwrap` tries to extract wrapped error.
+ - `Is` tests whether an item in error's chain matches target.
 
 See also https://golang.org/pkg/errors for Go errors package documentation.
+See also https://blog.golang.org/go1.13-errors for error chaining overview.
 """
 
-from golang cimport error, string
+from golang cimport error, string, cbool
 
 cdef extern from "golang/errors.h" namespace "golang::errors" nogil:
     error New(const string& text)
+    error Unwrap(error err)
+    cbool Is(error err, error target)

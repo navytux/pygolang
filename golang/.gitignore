@@ -1,6 +1,8 @@
 /_context.cpp
 /_cxx_test.cpp
+/_errors.cpp
 /_errors_test.cpp
+/_fmt.cpp
 /_fmt_test.cpp
 /_golang.cpp
 /_golang_test.cpp

@@ -35,6 +35,9 @@ using namespace golang;
 // string -> string (not in STL, huh ?!)
 string to_string(const string& s) { return s; }
 
+// error -> string
+string to_string(error err) { return (err == nil) ? "nil" : err->Error(); }
+
 // vector<T> -> string
 template<typename T>
 string to_string(const vector<T>& v) {

@@ -1,5 +1,5 @@
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -49,6 +49,34 @@ struct _TextError final : _error, object {
 
 error New(const string& text) {
     return adoptref(static_cast<_error*>(new _TextError(text)));
+}
+
+
+error Unwrap(error err) {
+    if (err == nil)
+        return nil;
+
+    _errorWrapper* _werr = dynamic_cast<_errorWrapper*>(err._ptr());
+    if (_werr == nil)
+        return nil;
+
+    return _werr->Unwrap();
+}
+
+bool Is(error err, error target) {
+    if (target == nil)
+        return (err == nil);
+
+    for(;;) {
+        if (err == nil)
+            return false;
+
+        if (typeid(*err) == typeid(*target))
+            if (err->Error() == target->Error()) // XXX hack instead of dynamic == (not available in C++)
+                return true;
+
+        err = Unwrap(err);
+    }
 }
 
 }}  // golang::errors::

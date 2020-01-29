@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -22,9 +22,12 @@
  - `sprintf` formats text into string.
  - `errorf`  formats text into error.
 
-NOTE: formatting rules are those of libc, not Go.
+NOTE: with exception of %w, formatting rules are those of libc, not Go(*).
 
 See also https://golang.org/pkg/fmt for Go fmt package documentation.
+
+(*) errorf additionally handles Go-like %w to wrap an error similarly to
+    https://blog.golang.org/go1.13-errors .
 """
 
 from golang cimport string, error

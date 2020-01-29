@@ -173,6 +173,15 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
         string Error    "_ptr()->Error" ()
 
 
+    # error wrapper interface
+    cppclass _errorWrapper (_error):
+        error Unwrap()
+
+    cppclass errorWrapper (refptr[_errorWrapper]):
+        # errorWrapper.X = errorWrapper->X in C++
+        error Unwrap    "_ptr()->Unwrap" ()
+
+
 # ---- python bits ----
 
 cdef void topyexc() except *
