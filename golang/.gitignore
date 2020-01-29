@@ -1,4 +1,5 @@
 /_context.cpp
+/_errors_test.cpp
 /_fmt_test.cpp
 /_golang.cpp
 /_golang_test.cpp

@@ -10,6 +10,7 @@ include golang/context.cpp
 include golang/cxx.h
 include golang/errors.h
 include golang/errors.cpp
+include golang/errors_test.cpp
 include golang/fmt.h
 include golang/fmt.cpp
 include golang/fmt_test.cpp

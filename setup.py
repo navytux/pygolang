@@ -251,6 +251,10 @@ setup(
                     Ext('golang._context',
                         ['golang/_context.pyx']),
 
+                    Ext('golang._errors_test',
+                        ['golang/_errors_test.pyx',
+                         'golang/errors_test.cpp']),
+
                     Ext('golang._fmt_test',
                         ['golang/_fmt_test.pyx',
                          'golang/fmt_test.cpp']),
