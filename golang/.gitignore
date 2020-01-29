@@ -1,6 +1,7 @@
 /_context.cpp
 /_golang.cpp
 /_golang_test.cpp
+/_strings_test.cpp
 /_sync.cpp
 /_sync_test.cpp
 /_time.cpp

@@ -251,6 +251,10 @@ setup(
                     Ext('golang._context',
                         ['golang/_context.pyx']),
 
+                    Ext('golang._strings_test',
+                        ['golang/_strings_test.pyx',
+                         'golang/strings_test.cpp']),
+
                     Ext('golang._sync',
                         ['golang/_sync.pyx'],
                         dsos = ['golang.runtime.libpyxruntime'],
