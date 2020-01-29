@@ -28,20 +28,14 @@
 #include <stdio.h>
 #include <tuple>
 #include <utility>
-#include <sstream>
 #include <string.h>
 #include <vector>
+
+#include "golang/_testing.h"
 using namespace golang;
 using std::move;
 using std::tie;
 using std::vector;
-
-#define __STR(X)  #X
-#define STR(X)    __STR(X)
-#define ASSERT(COND) do {   \
-    if (!(COND))            \
-        panic(__FILE__ ":" STR(__LINE__) " assert `" #COND "` failed"); \
-} while(0)
 
 // verify chan<T> automatic reference counting.
 void _test_chan_cpp_refcount() {
@@ -686,43 +680,6 @@ void _test_global() {
 }
 
 // ---- fmt:: ----
-
-// std::
-namespace std {
-
-// string -> string (not in STL, huh ?!)
-string to_string(const string& s) { return s; }
-
-// vector<T> -> string
-template<typename T>
-string to_string(const vector<T>& v) {
-    std::ostringstream ss;
-    ss << "[";
-    int i = 0;
-    for (auto x : v) {
-        if (i++ != 0)
-            ss << " ";
-        ss << x << ",";
-    }
-    ss << "]";
-
-    return ss.str();
-}
-
-}   // std::
-
-template<typename T, typename U>
-void __assert_eq(const string &expr, const T &have, const U &want) {
-    if (have != want) {
-        string emsg = expr + "\n";
-        emsg += "have: '" + std::to_string(have) + "'\n";
-        emsg += "want: '" + std::to_string(want) + "'";
-
-        panic(strdup(emsg.c_str()));    // XXX strdup because panic just saves char* pointer
-    }
-};
-
-#define ASSERT_EQ(A, B) __assert_eq(#A, A, B)
 
 void _test_fmt_sprintf_cpp() {
     // NOTE not using vargs helper, since sprintf itself uses vargs and we want
