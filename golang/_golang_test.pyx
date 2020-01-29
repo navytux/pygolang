@@ -228,8 +228,6 @@ cdef extern from * nogil:
     extern void _test_defer();
     extern void _test_refptr();
     extern void _test_global();
-    extern void _test_fmt_sprintf_cpp();
-    extern void _test_fmt_errorf_cpp();
     """
     void _test_chan_cpp_refcount()              except +topyexc
     void _test_chan_cpp()                       except +topyexc
@@ -242,8 +240,6 @@ cdef extern from * nogil:
     void _test_defer()                          except +topyexc
     void _test_refptr()                         except +topyexc
     void _test_global()                         except +topyexc
-    void _test_fmt_sprintf_cpp()                except +topyexc
-    void _test_fmt_errorf_cpp()                 except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
         _test_chan_cpp_refcount()
@@ -277,12 +273,6 @@ def test_refptr():
 def test_global():
     with nogil:
         _test_global()
-def test_fmt_sprintf_cpp(): # TODO move -> _fmt_test.pyx
-    with nogil:
-        _test_fmt_sprintf_cpp()
-def test_fmt_errorf_cpp():
-    with nogil:
-        _test_fmt_errorf_cpp()
 
 
 # helpers for pychan(dtype=X)  py <-> c  tests.
