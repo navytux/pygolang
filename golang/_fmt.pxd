@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
-#                          Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -19,8 +19,19 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package fmt mirrors Go package fmt.
 
-See _fmt.pxd for package documentation.
+ - `sprintf` formats text into string.
+ - `errorf`  formats text into error.
+
+NOTE: formatting rules are those of libc, not Go.
+
+See also https://golang.org/pkg/fmt for Go fmt package documentation.
 """
 
-# redirect cimport: golang.fmt -> golang._fmt (see __init__.pxd for rationale)
-from golang._fmt cimport *
+from golang cimport string, error
+
+cdef extern from "golang/fmt.h" namespace "golang::fmt" nogil:
+    string sprintf(const string &format, ...)
+    error  errorf (const string &format, ...)
+
+    string sprintf(const char *format, ...)
+    error  errorf (const char *format, ...)
