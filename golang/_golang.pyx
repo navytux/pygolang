@@ -69,7 +69,7 @@ cdef void topyexc() except *:
     if arg != nil:
         pyarg = <bytes>arg
         if PY_MAJOR_VERSION >= 3:
-            pyarg = pyarg.decode("utf-8")
+            pyarg = pyu(pyarg)
         pypanic(pyarg)
 
 cdef extern from "golang/libgolang.h" nogil:
@@ -519,7 +519,7 @@ cdef void _init_libgolang() except*:
     # process of importing golang (it tries to access "X" attribute of half-created
     # golang module). -> preimport runtimemod via regular import first.
     __import__(runtimemod)
-    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8") # py3
+    runtimecaps = (runtimemod + ".libgolang_runtime_ops").encode("utf-8") # py3, cannot use pyb yet
     cdef const _libgolang_runtime_ops *runtime_ops = \
         <const _libgolang_runtime_ops*>PyCapsule_Import(runtimecaps, 0)
     if runtime_ops == nil:
@@ -765,3 +765,48 @@ cdef DType parse_dtype(dtype) except <DType>-1:
     if _ is None:
         raise TypeError("pychan: invalid dtype: %r" % (dtype,))
     return _
+
+
+# ---- strings ----
+
+from golang import strconv as pystrconv
+
+def pyb(s): # -> bytes
+    """b converts str/unicode/bytes s to UTF-8 encoded bytestring.
+
+       Bytes input is preserved as-is:
+
+          b(bytes_input) == bytes_input
+
+       Unicode input is UTF-8 encoded. The encoding always succeeds.
+       b is reverse operation to u - the following invariant is always true:
+
+          b(u(bytes_input)) == bytes_input
+
+       TypeError is raised if type(s) is not one of the above.
+
+       See also: u.
+    """
+    bs, _ = pystrconv._bstr(s)
+    return bs
+
+def pyu(s): # -> unicode
+    """u converts str/unicode/bytes s to unicode string.
+
+       Unicode input is preserved as-is:
+
+          u(unicode_input) == unicode_input
+
+       Bytes input is UTF-8 decoded. The decoding always succeeds and input
+       information is not lost: non-valid UTF-8 bytes are decoded into
+       surrogate codes ranging from U+DC80 to U+DCFF.
+       u is reverse operation to b - the following invariant is always true:
+
+          u(b(unicode_input)) == unicode_input
+
+       TypeError is raised if type(s) is not one of the above.
+
+       See also: b.
+    """
+    us, _ = pystrconv._ustr(s)
+    return us

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -22,32 +22,61 @@
 from __future__ import print_function, absolute_import
 
 import six, unicodedata, codecs
+from six import text_type as unicode        # py2: unicode      py3: str
+from six import unichr                      # py2: unichr       py3: chr
+from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
 from six.moves import range as xrange
 
 
-# _bstr converts str/unicode/bytes s to UTF-8 encoded bytestring.
-#
-# TypeError is raised if type(s) is not one of the above.
+# _bstr is like b but also returns whether input was unicode.
 def _bstr(s):   # -> sbytes, wasunicode
     wasunicode = False
     if isinstance(s, bytes):                    # py2: str      py3: bytes
         pass
-    elif isinstance(s, six.text_type):          # py2: unicode  py3: str
+    elif isinstance(s, unicode):                # py2: unicode  py3: str
         wasunicode = True
     else:
-        raise TypeError("_bstr: invalid type %s" % type(s))
+        raise TypeError("b: invalid type %s" % type(s))
 
-    if wasunicode:                              # py2: unicode  py3: str    -> bytes
-        s = s.encode('UTF-8')
+    if wasunicode:                              # py2: unicode  py3: str
+        if six.PY3:
+            s = s.encode('UTF-8', 'surrogateescape')
+        else:
+            # py2 does not have surrogateescape error handler, and even if we
+            # provide one, builtin unicode.encode() does not treat
+            # \udc80-\udcff as error. -> Do the encoding ourselves.
+            s = _utf8_encode_surrogateescape(s)
 
     return s, wasunicode
+
+# _ustr is like u but also returns whether input was bytes.
+def _ustr(s):   # -> sunicode, wasbytes
+    wasbytes = True
+    if isinstance(s, bytes):                    # py2: str      py3: bytes
+        pass
+    elif isinstance(s, unicode):                # py2: unicode  py3: str
+        wasbytes = False
+    else:
+        raise TypeError("u: invalid type %s" % type(s))
+
+    if wasbytes:
+        if six.PY3:
+            s = s.decode('UTF-8', 'surrogateescape')
+        else:
+            # py2 does not have surrogateescape error handler, and even if we
+            # provide one, builtin bytes.decode() does not treat surrogate
+            # sequences as error. -> Do the decoding ourselves.
+            s = _utf8_decode_surrogateescape(s)
+
+    return s, wasbytes
+
 
 # quote quotes unicode|bytes string into valid "..." unicode|bytes string always quoted with ".
 def quote(s):
     s, wasunicode = _bstr(s)
     qs = _quote(s)
     if wasunicode:
-        qs = qs.decode('UTF-8')
+        qs, _ = _ustr(qs)
     return qs
 
 def _quote(s):
@@ -122,8 +151,8 @@ def unquote_next(s):
     s, wasunicode = _bstr(s)
     us, tail = _unquote_next(s)
     if wasunicode:
-        us = us.decode('UTF-8')
-        tail = tail.decode('UTF-8')
+        us, _   = _ustr(us)
+        tail, _ = _ustr(tail)
     return us, tail
 
 def _unquote_next(s):
@@ -220,3 +249,53 @@ def _utf8_decode_rune(s):
 
     # invalid UTF-8
     return _rune_error, 1
+
+
+# _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
+def _utf8_decode_surrogateescape(s): # -> unicode
+    assert isinstance(s, bytes)
+    outv = []
+    emit = outv.append
+
+    while len(s) > 0:
+        r, width = _utf8_decode_rune(s)
+        if r == _rune_error:
+            b = ord(s[0])
+            assert 0x80 <= b <= 0xff
+            emit(unichr(0xdc00 + b))
+
+        # python2 "correctly" decodes surrogates - don't allow that as
+        # surrogates are not valid UTF-8:
+        # https://github.com/python/cpython/blob/v3.8.1-118-gdbb37aac142/Objects/stringlib/codecs.h#L153-L157
+        # (python3 raises UnicodeDecodeError for surrogates)
+        elif 0xd800 <= ord(r) < 0xdfff:
+            for c in s[:width]:
+                b = ord(c)
+                if c >= 0x80:
+                    emit(unichr(0xdc00 + b))
+                else:
+                    emit(unichr(b))
+
+        else:
+            emit(r)
+
+        s = s[width:]
+
+    return u''.join(outv)
+
+
+# _utf8_encode_surrogateescape mimics s.encode('utf-8', 'surrogateescape') from py3.
+def _utf8_encode_surrogateescape(s): # -> bytes
+    assert isinstance(s, unicode)
+    outv = []
+    emit = outv.append
+
+    for uc in s:
+        c = ord(uc)
+        if 0xdc80 <= c <= 0xdcff:
+            # surrogate - emit unescaped byte
+            emit(bchr(c & 0xff))
+        else:
+            emit(uc.encode('utf-8', 'strict'))
+
+    return b''.join(outv)

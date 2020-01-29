@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -40,6 +40,8 @@ def test_golang_builtins():
     assert go     is golang.go
     assert chan   is golang.chan
     assert select is golang.select
+    assert b      is golang.b
+    assert u      is golang.u
 
     # indirectly verify golang.__all__
     for k in golang.__all__:
@@ -92,17 +94,12 @@ def test_executable():
     out = pyout(['-c', 'import sys; print(sys.version)'])
     assert ('[GPython %s]' % golang.__version__) in str(out)
 
-# b converts s to UTF-8 encoded bytes.
-def b(s):
-    from golang.strconv import _bstr
-    s, _ = _bstr(s)
-    return s
-
 # verify pymain.
 #
 # !gpython_only to make sure we get the same output when run via pymain (under
 # gpython) and plain python (!gpython).
 def test_pymain():
+    from golang import b
     from os.path import join, dirname, realpath
     here     = dirname(__file__)
     testdata = join(dirname(__file__), 'testdata')

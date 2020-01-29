@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -33,7 +33,8 @@ from __future__ import print_function, absolute_import
 
 __version__ = "0.0.5"
 
-__all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic', 'recover', 'func', 'gimport']
+__all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
+           'recover', 'func', 'b', 'u', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
@@ -294,7 +295,7 @@ if six.PY2:
     import golang._patch.ipython_py2
 
 
-# ---- go + channels ----
+# ---- go + channels, panic, etc... ----
 
 from ._golang import    \
     pygo        as go,      \
@@ -303,4 +304,6 @@ from ._golang import    \
     pydefault   as default, \
     pynilchan   as nilchan, \
     _PanicError,            \
-    pypanic     as panic
+    pypanic     as panic,   \
+    pyb         as b,       \
+    pyu         as u

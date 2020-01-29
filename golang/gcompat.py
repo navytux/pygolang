@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -41,6 +41,6 @@ def qq(obj):
     # `printf('%s', qq(obj))` should work. For this make sure qobj is always a
     # str - not bytes under py3 (if it was bytes it will print e.g. as b'...')
     if six.PY3 and isinstance(qobj, bytes):
-        qobj = qobj.decode('UTF-8')
+        qobj = qobj.decode('UTF-8')     # TODO use u
 
     return qobj

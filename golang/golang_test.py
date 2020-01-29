@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -20,8 +20,10 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import go, chan, select, default, nilchan, _PanicError, func, panic, defer, recover
+from golang import go, chan, select, default, nilchan, _PanicError, func, panic, \
+        defer, recover, u, b
 from golang import sync
+from golang.strconv_test import byterange
 from pytest import raises, mark, fail
 from _pytest._code import Traceback
 from os.path import dirname
@@ -1551,6 +1553,70 @@ def bench_defer(b):
         _()
 
 
+# verify b, u
+def test_strings():
+    testv = (
+        # bytes          <->            unicode
+        (b'',                           u''),
+        (b'hello',                      u'hello'),
+        (b'hello\nworld',               u'hello\nworld'),
+        (b'\xd0\xbc\xd0\xb8\xd1\x80',   u'мир'),
+
+        # invalid utf-8
+        (b'\xd0',                       u'\udcd0'),
+        (b'a\xd0b',                     u'a\udcd0b'),
+        # invalid utf-8 with byte < 0x80
+        (b'\xe2\x28\xa1',               u'\udce2(\udca1'),
+
+        # more invalid utf-8
+        # https://stackoverflow.com/questions/1301402/example-invalid-utf8-string
+        (b"\xc3\x28",                   u'\udcc3('),        # Invalid 2 Octet Sequence
+        (b"\xa0\xa1",                   u'\udca0\udca1'),   # Invalid Sequence Identifier
+        (b"\xe2\x82\xa1",               u'\u20a1'),         # Valid 3 Octet Sequence '₡'
+        (b"\xe2\x28\xa1",               u'\udce2(\udca1'),  # Invalid 3 Octet Sequence (in 2nd Octet)
+        (b"\xe2\x82\x28",               u'\udce2\udc82('),  # Invalid 3 Octet Sequence (in 3rd Octet)
+        (b"\xf0\x90\x8c\xbc",           u'\U0001033c'),     # Valid 4 Octet Sequence '𐌼'
+        (b"\xf0\x28\x8c\xbc",           u'\udcf0(\udc8c\udcbc'), # Invalid 4 Octet Sequence (in 2nd Octet)
+        (b"\xf0\x90\x28\xbc",           u'\udcf0\udc90(\udcbc'), # Invalid 4 Octet Sequence (in 3rd Octet)
+        (b"\xf0\x28\x8c\x28",           u'\udcf0(\udc8c('), # Invalid 4 Octet Sequence (in 4th Octet)
+        (b"\xf8\xa1\xa1\xa1\xa1",                           # Valid 5 Octet Sequence (but not Unicode!)
+                                        u'\udcf8\udca1\udca1\udca1\udca1'),
+        (b"\xfc\xa1\xa1\xa1\xa1\xa1",                       # Valid 6 Octet Sequence (but not Unicode!)
+                                        u'\udcfc\udca1\udca1\udca1\udca1\udca1'),
+
+        # surrogate
+        (b'\xed\xa0\x80',               u'\udced\udca0\udc80'),
+
+        # x00 - x1f
+        (byterange(0,32),
+         u"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
+         u"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"),
+
+        # non-printable utf-8
+        (b'\x7f\xc2\x80\xc2\x81\xc2\x82\xc2\x83\xc2\x84\xc2\x85\xc2\x86\xc2\x87',
+                                        u"\u007f\u0080\u0081\u0082\u0083\u0084\u0085\u0086\u0087"),
+    )
+
+    for tbytes, tunicode in testv:
+        assert b(tbytes)   == tbytes
+        assert u(tunicode) == tunicode
+
+        assert b(tunicode) == tbytes
+        assert u(tbytes)   == tunicode
+
+        assert b(u(tbytes))     == tbytes
+        assert u(b(tunicode))   == tunicode
+
+
+    # invalid types
+    with raises(TypeError): b(1)
+    with raises(TypeError): u(1)
+    with raises(TypeError): b(object())
+    with raises(TypeError): u(object())
+
+    # TODO also handle bytearray?
+
+
 # ---- misc ----
 
 # _pyrun runs `sys.executable argv... <stdin`.
@@ -1630,10 +1696,8 @@ def test_panics():
 # - PYGOLANG means real pygolang prefix
 # - empty lines are changed to <BLANKLINE>
 def assertDoc(want, got):
-    if isinstance(want, bytes):
-        want = want.decode('utf-8')
-    if isinstance(got, bytes):
-        got  = got .decode('utf-8')
+    want = u(want)
+    got  = u(got)
 
     # normalize got to PYGOLANG
     dir_pygolang = dirname((dirname(__file__))) # pygolang/golang/golang_test.py -> pygolang
