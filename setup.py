@@ -256,7 +256,8 @@ setup(
                         dsos = ['golang.runtime.libpyxruntime'],
                         define_macros = [('_LIBGOLANG_SYNC_INTERNAL_API', None)]),
                     Ext('golang._sync_test',
-                        ['golang/_sync_test.pyx']),
+                        ['golang/_sync_test.pyx',
+                         'golang/sync_test.cpp']),
 
                     Ext('golang._time',
                         ['golang/_time.pyx'],

@@ -22,7 +22,6 @@
 #include "golang/libgolang.h"
 #include "golang/fmt.h"
 #include "golang/strings.h"
-#include "golang/sync.h"
 #include "golang/time.h"
 
 #include <stdio.h>
@@ -799,26 +798,4 @@ void _test_strings_split() {
     ASSERT_EQ(strings::split("ab cd e"      ,  ' ')         , V({"ab", "cd", "e"}));
     ASSERT_EQ(strings::split(" ab cd e"     ,  ' ')         , V({"", "ab", "cd", "e"}));
     ASSERT_EQ(strings::split("  ab cd e"    ,  ' ')         , V({"", "", "ab", "cd", "e"}));
-}
-
-// ---- sync:: ----
-
-// verify that sync::Once works.
-void _test_sync_once_cpp() {
-    sync::Once once;
-    int ncall = 0;
-    ASSERT(ncall == 0);
-    once.do_([&]() {
-        ncall++;
-    });
-    ASSERT(ncall == 1);
-    once.do_([&]() {
-        ncall++;
-    });
-    ASSERT(ncall == 1);
-    once.do_([&]() {
-        ncall++;
-        panic("should not panic");
-    });
-    ASSERT(ncall == 1);
 }

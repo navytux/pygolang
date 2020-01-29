@@ -174,3 +174,14 @@ cdef void _test_once() nogil except +topyexc:
 def test_once():
     with nogil:
         _test_once()
+
+
+# sync_test.cpp
+cdef extern from * nogil:
+    """
+    extern void _test_sync_once_cpp();
+    """
+    void _test_sync_once_cpp()                  except +topyexc
+def test_sync_once_cpp():
+    with nogil:
+        _test_sync_once_cpp()

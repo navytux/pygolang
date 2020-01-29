@@ -16,6 +16,7 @@ include golang/strings.h
 include golang/strings.cpp
 include golang/sync.h
 include golang/sync.cpp
+include golang/sync_test.cpp
 include golang/time.h
 include golang/time.cpp
 include golang/_testing.h

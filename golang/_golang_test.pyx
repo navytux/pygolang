@@ -235,7 +235,6 @@ cdef extern from * nogil:
     extern void _test_strings_has_suffix();
     extern void _test_strings_trim_suffix();
     extern void _test_strings_split();
-    extern void _test_sync_once_cpp();
     """
     void _test_chan_cpp_refcount()              except +topyexc
     void _test_chan_cpp()                       except +topyexc
@@ -255,7 +254,6 @@ cdef extern from * nogil:
     void _test_strings_has_suffix()             except +topyexc
     void _test_strings_trim_suffix()            except +topyexc
     void _test_strings_split()                  except +topyexc
-    void _test_sync_once_cpp()                  except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
         _test_chan_cpp_refcount()
@@ -310,9 +308,6 @@ def test_strings_trim_suffix():
 def test_strings_split():
     with nogil:
         _test_strings_split()
-def test_sync_once_cpp():   # TODO move -> _sync_test.pyx
-    with nogil:
-        _test_sync_once_cpp()
 
 
 # helpers for pychan(dtype=X)  py <-> c  tests.
