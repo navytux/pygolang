@@ -65,11 +65,11 @@ namespace _testing {
         panic(__FILE__ ":" STR(__LINE__) " assert `" #COND "` failed"); \
 } while(0)
 
-#define ASSERT_EQ(A, B) golang::_testing::__assert_eq(#A, A, B)
+#define ASSERT_EQ(A, B) golang::_testing::__assert_eq(__FILE__ ":" STR(__LINE__), #A, A, B)
 template<typename T, typename U>
-void __assert_eq(const string &expr, const T &have, const U &want) {
+void __assert_eq(const string& loc, const string &expr, const T &have, const U &want) {
     if (have != want) {
-        string emsg = expr + "\n";
+        string emsg = loc + ": " + expr + "\n";
         emsg += "have: '" + std::to_string(have) + "'\n";
         emsg += "want: '" + std::to_string(want) + "'";
 
