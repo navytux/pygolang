@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
-#                          Kirill Smelkov <kirr@nexedi.com>
+# distutils: language=c++
+#
+# Copyright (C) 2020  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -17,16 +20,23 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package cxx provides C++ amendments to be used by libgolang and its users."""
 
-cimport libcpp.unordered_map
-cimport libcpp.unordered_set
+from __future__ import print_function, absolute_import
 
-cdef extern from "<golang/cxx.h>" namespace "golang::cxx" nogil:
-    cppclass dict[Key, Value] (libcpp.unordered_map.unordered_map[Key, Value]):
-        bint has(Key k) const
-        # TODO get/get_
-        # TODO pop/pop_
+from golang cimport topyexc
 
-    cppclass set[Key] (libcpp.unordered_set.unordered_set[Key]):
-        bint has(Key k) const
+
+# cxx_test.cpp
+cdef extern from * nogil:
+    """
+    extern void _test_cxx_dict();
+    extern void _test_cxx_set();
+    """
+    void _test_cxx_dict()                       except +topyexc
+    void _test_cxx_set()                        except +topyexc
+def test_cxx_dict():
+    with nogil:
+        _test_cxx_dict()
+def test_cxx_set():
+    with nogil:
+        _test_cxx_set()

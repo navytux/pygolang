@@ -1,8 +1,8 @@
 #ifndef _NXD_LIBGOLANG_CXX_H
 #define _NXD_LIBGOLANG_CXX_H
 
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -31,6 +31,8 @@ namespace golang {
 namespace cxx {
 
 using std::tuple;
+using std::tie;
+using std::make_tuple;
 
 // dict wraps unordered_map into ergonomic interface.
 template<typename Key, typename Value>
@@ -41,8 +43,14 @@ struct dict : std::unordered_map<Key, Value> {
         return d.find(k) != d.end();
     }
 
-    // get implements `d[k] -> (v, ok)`.
-    tuple<Value, bool> get(const Key &k) const {
+    // get implements `d[k] -> v`.
+    Value get(const Key &k) const {
+        Value v; bool _; tie(v, _) = get_(k);
+        return v;
+    }
+
+    // get_ implements `d[k] -> (v, ok)`.
+    tuple<Value, bool> get_(const Key &k) const {
         const dict &d = *this;
         auto _ = d.find(k);
         if (_ == d.end())
@@ -50,8 +58,14 @@ struct dict : std::unordered_map<Key, Value> {
         return make_tuple(_->second, true);
     }
 
-    // pop implements `d[k] -> (v, ok); del d[k]`.
-    tuple<Value, bool> pop(const Key &k) {
+    // pop implements `d[k] -> v; del d[k]`.
+    Value pop(const Key &k) {
+        Value v; bool _; tie(v, _) = pop_(k);
+        return v;
+    }
+
+    // pop_ implements `d[k] -> (v, ok); del d[k]`.
+    tuple<Value, bool> pop_(const Key &k) {
         dict &d = *this;
         auto _ = d.find(k);
         if (_ == d.end())

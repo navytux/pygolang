@@ -251,6 +251,10 @@ setup(
                     Ext('golang._context',
                         ['golang/_context.pyx']),
 
+                    Ext('golang._cxx_test',
+                        ['golang/_cxx_test.pyx',
+                         'golang/cxx_test.cpp']),
+
                     Ext('golang._errors_test',
                         ['golang/_errors_test.pyx',
                          'golang/errors_test.cpp']),
