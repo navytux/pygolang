@@ -35,9 +35,62 @@ def pyNew(text): # -> error
     return pyerror.from_error(errors_New_pyexc(pyb(text)))
 
 
+def _pyUnwrap(err): # -> error
+    """_Unwrap tries to unwrap error.
+    """
+    if err is None:
+        return
+    if not isinstance(err, BaseException):
+        raise TypeError("errors.UnwrapIter: err is not exception: type(err)=%r" % type(err))
+
+    cdef pyerror pye
+    cdef error   e
+
+    if type(err) is not pyerror:
+        # err is python-level error (pyerror-based or just BaseException child)
+        eunwrap = getattr(err, 'Unwrap', _missing)
+        pyw = None
+        if eunwrap is not _missing:
+            pyw = eunwrap()
+        return pyw
+    else:
+        # err is wrapper around C-level error
+        pye = err
+        e   = errors_Unwrap_pyexc(pye.err)
+        return pyerror.from_error(e)
+
+
+def pyIs(err, target): # -> bool
+    """Is returns whether target matches any error in err's error chain."""
+
+    # err and target must be exception or None
+    if not (isinstance(err, BaseException) or err is None):
+        raise TypeError("errors.Is: err is not exception or None: type(err)=%r" % type(err))
+    if not (isinstance(target, BaseException) or target is None):
+        raise TypeError("errors.Is: target is not exception or None: type(target)=%r" % type(target))
+
+    if target is None:
+        return (err is None)
+
+    while 1:
+        if err is None:
+            return False
+
+        if type(err) is type(target):
+            if err == target:
+                return True
+
+        err = _pyUnwrap(err)
+
+
 # ---- misc ----
+
+cdef _missing = object()
 
 cdef nogil:
 
     error errors_New_pyexc(const char* text)            except +topyexc:
         return errors.New(text)
+
+    error errors_Unwrap_pyexc(error err)                except +topyexc:
+        return errors.Unwrap(err)

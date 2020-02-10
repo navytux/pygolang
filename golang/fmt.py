@@ -17,17 +17,19 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package errors mirrors Go package errors.
+"""Package fmt mirrors Go package fmt.
 
- - `New` creates new error with provided text.
- - `Is` tests whether an item in error's chain matches target.
+ - `Errorf`  formats text into error.
 
-See also https://golang.org/pkg/errors for Go errors package documentation.
-See also https://blog.golang.org/go1.13-errors for error chaining overview.
+NOTE: with exception of %w, formatting rules are those of Python, not Go(*).
+
+See also https://golang.org/pkg/fmt for Go fmt package documentation.
+
+(*) Errorf additionally handles Go-like %w to wrap an error similarly to
+    https://blog.golang.org/go1.13-errors .
 """
 
 from __future__ import print_function, absolute_import
 
-from golang._errors import \
-    pyNew       as New,     \
-    pyIs        as Is
+from golang._fmt import \
+    pyErrorf    as Errorf

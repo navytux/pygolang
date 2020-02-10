@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 from golang import error, b
-from golang import errors
+from golang import errors, _errors
 from golang.golang_test import import_pyx_tests
 from golang._errors_test import pyerror_mkchain as error_mkchain
 from pytest import raises
@@ -60,6 +60,36 @@ class EError(error):
     # no .Unwrap()
 
     # NOTE error provides good __eq__ and __hash__ out of the box.
+
+
+# EErrorWrap is custom error class that inherits from error and provides .Unwrap()
+class EErrorWrap(error):
+    def __init__(myw, text, err):
+        myw.text = text
+        myw.err  = err
+
+    def Error(myw):  return "%s: %s" % (myw.text, myw.err)
+    def Unwrap(myw): return myw.err
+
+# XWrap is custom error class that provides .Unwrap(), but does not inherit
+# from error, nor provides .Error().
+class XWrap(BaseException): # NOTE does not inherit from error
+    def __init__(xw, text, err):
+        xw.text = text
+        xw.err  = err
+
+    def Unwrap(xw):  return xw.err
+    def __str__(xw): return "%s: %s" % (xw.text, xw.err)
+    # no .Error()
+
+    def __eq__(a, b):
+        return (type(a) is type(b)) and \
+                (a.text == b.text) and (a.err == b.err)
+
+
+# Unwrap1(e) is approximate for `errors.Unwrap(e)` in Go.
+def Unwrap1(e):
+    return _errors._pyUnwrap(e)
 
 
 # test for golang.error class.
@@ -117,6 +147,23 @@ def test_error():
     assertEeq(epy, EError("load", 3))
     assertEne(epy, EError("load", 4))
 
+    wpy = EErrorWrap("mywrap", epy)
+    assert type(wpy)    is EErrorWrap
+    assert wpy.Error()  == "mywrap: my load: 3"
+    assert str(wpy)     == "mywrap: my load: 3"
+    assert repr(wpy)    == "golang.errors_test.EErrorWrap('mywrap', golang.errors_test.EError('load', 3))"
+    assert wpy.Unwrap() is epy
+    assert epy.Unwrap() is None
+
+    epy = RuntimeError("zzz")
+    wpy = EErrorWrap("qqq", epy)
+    assert type(wpy) is EErrorWrap
+    assert wpy.Error()  == "qqq: zzz"
+    assert str(wpy)     == "qqq: zzz"
+    assert repr(wpy)    == "golang.errors_test.EErrorWrap('qqq', %r)" % epy
+    assert wpy.Unwrap() is epy
+    with raises(AttributeError): epy.Unwrap
+
 
 def test_new():
     E = errors.New
@@ -133,3 +180,78 @@ def test_new():
 
     with raises(TypeError):
         E(1)
+
+
+def test_unwrap():
+    E  = errors.New
+    Ec = error_mkchain
+
+    # err must be exception or None
+    assert Unwrap1(None) is None
+    assert Unwrap1(BaseException()) is None
+    with raises(TypeError): Unwrap1(1)
+    with raises(TypeError): Unwrap1(object())
+
+    ewrap = Ec(["abc", "def", "zzz"])
+    e1 = Unwrap1(ewrap)
+    assertEeq(e1, Ec(["def", "zzz"]))
+    e2 = Unwrap1(e1)
+    assertEeq(e2, E("zzz"))
+    assert Unwrap1(e2) is None
+
+    # Python-level error class that define .Wrap()
+    e = EError("try", "fail")
+    w = EErrorWrap("topic", e)
+    e1 = Unwrap1(w)
+    assert e1 is e
+    assert Unwrap1(e1) is None
+
+    # same, but wrapped is !error
+    e = RuntimeError("zzz")
+    w = EErrorWrap("qqq", e)
+    e1 = Unwrap1(w)
+    assert e1 is e
+    assert Unwrap1(e1) is None
+
+
+def test_is():
+    E = errors.New
+    Ec = error_mkchain
+
+    assert errors.Is(None,    None)     == True
+    assert errors.Is(E("a"),  None)     == False
+    assert errors.Is(None,    E("b"))   == False
+
+    # don't accept !error err
+    assert errors.Is(BaseException(), None) == False
+    with raises(TypeError): errors.Is(1, None)
+    with raises(TypeError): errors.Is(object(), None)
+
+
+    ewrap = Ec(["hello", "world", "мир"])
+
+    assert errors.Is(ewrap, E("мир"))   == True
+    assert errors.Is(ewrap, E("май"))   == False
+
+    assert errors.Is(ewrap, Ec(["world", "мир"]))   == True
+    assert errors.Is(ewrap, Ec(["hello", "мир"]))   == False
+    assert errors.Is(ewrap, Ec(["hello", "май"]))   == False
+    assert errors.Is(ewrap, Ec(["world", "май"]))   == False
+
+    assert errors.Is(ewrap, Ec(["hello", "world", "мир"]))  == True
+    assert errors.Is(ewrap, Ec(["a",     "world", "мир"]))  == False
+    assert errors.Is(ewrap, Ec(["hello", "b",     "мир"]))  == False
+    assert errors.Is(ewrap, Ec(["hello", "world", "c"]))    == False
+
+    assert errors.Is(ewrap, Ec(["x", "hello", "world", "мир"])) == False
+
+    # test with XWrap that defines .Unwrap() but not .Error()
+    ewrap = XWrap("qqq", Ec(["abc", "привет"]))
+    assert errors.Is(ewrap, E("zzz"))               == False
+    assert errors.Is(ewrap, E("привет"))            == True
+    assert errors.Is(ewrap, Ec(["abc", "привет"]))  == True
+    assert errors.Is(ewrap, ewrap)                  == True
+    w2 = XWrap("qqq", Ec(["abc", "def"]))
+    assert errors.Is(ewrap, w2)                     == False
+    w2 = XWrap("qqq", Ec(["abc", "привет"]))
+    assert errors.Is(ewrap, w2)                     == True
