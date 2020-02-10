@@ -1553,6 +1553,9 @@ def bench_defer(b):
         _()
 
 
+# test_error lives in errors_test.py
+
+
 # verify b, u
 def test_strings():
     testv = (

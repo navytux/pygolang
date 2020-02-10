@@ -29,7 +29,7 @@ from golang.time_test import dt
 def assertCtx(ctx, children, deadline=None, err=None, done=False):
     assert isinstance(ctx, _context.PyContext)
     assert ctx.deadline() == deadline
-    assert ctx.err() is err
+    assert ctx.err() == err
     ctxdone = ctx.done()
     assert ready(ctxdone) == done
     tctxAssertChildren(ctx, children)

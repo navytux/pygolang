@@ -21,43 +21,23 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
+"""_errors.pyx implements errors.pyx - see _errors.pxd for package overview."""
 
 from __future__ import print_function, absolute_import
 
-from golang cimport error, pyerror, nil, topyexc
-from golang cimport errors, fmt
+from golang cimport pyerror, nil, topyexc
+from golang import b as pyb
+from golang cimport errors
 
 
-# pyerror_mkchain creates error chain from [] of text.
-def pyerror_mkchain(textv):
-    cdef error err
-    cdef const char *s
-    for text in reversed(textv):
-        if err == nil:
-            err = errors.New(text)
-        else:
-            s = text
-            err = fmt.errorf("%s: %w", s, err)
-    return pyerror.from_error(err)
+def pyNew(text): # -> error
+    """New creates new error with provided text."""
+    return pyerror.from_error(errors_New_pyexc(pyb(text)))
 
 
-# errors_test.cpp
-cdef extern from * nogil:
-    """
-    extern void _test_errors_new_cpp();
-    extern void _test_errors_unwrap_cpp();
-    extern void _test_errors_is_cpp();
-    """
-    void _test_errors_new_cpp()                 except +topyexc
-    void _test_errors_unwrap_cpp()              except +topyexc
-    void _test_errors_is_cpp()                  except +topyexc
+# ---- misc ----
 
-def test_errors_new_cpp():
-    with nogil:
-        _test_errors_new_cpp()
-def test_errors_unwrap_cpp():
-    with nogil:
-        _test_errors_unwrap_cpp()
-def test_errors_is_cpp():
-    with nogil:
-        _test_errors_is_cpp()
+cdef nogil:
+
+    error errors_New_pyexc(const char* text)            except +topyexc:
+        return errors.New(text)

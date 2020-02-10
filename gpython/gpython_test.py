@@ -40,6 +40,7 @@ def test_golang_builtins():
     assert go     is golang.go
     assert chan   is golang.chan
     assert select is golang.select
+    assert error  is golang.error
     assert b      is golang.b
     assert u      is golang.u
 

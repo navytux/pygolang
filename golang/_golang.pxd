@@ -235,3 +235,16 @@ cdef class pychan:
     cdef pychan from_chan_int       (chan[int] ch)
     @staticmethod
     cdef pychan from_chan_double    (chan[double] ch)
+
+
+# pyerror wraps an error into python object.
+#
+# There can be multiple pyerror(s) wrapping a particular raw error object.
+# Nil C-level error corresponds to None at Python-level.
+cdef class pyerror(Exception):
+    cdef error    err   # raw error object
+
+    # pyerror.from_error returns pyerror wrapping pyx/nogil-level error.
+    # from_error(nil) -> returns None.
+    @staticmethod
+    cdef object from_error (error err) # -> pyerror | None

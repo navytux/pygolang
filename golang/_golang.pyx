@@ -831,3 +831,94 @@ def pyqq(obj):
         qobj = pyu(qobj)
 
     return qobj
+
+
+# ---- error ----
+
+from golang cimport errors
+from libcpp.typeinfo cimport type_info
+from cython.operator cimport typeid
+from libc.string cimport strcmp
+
+# _frompyx indicates that a constructor is called from pyx code
+cdef object _frompyx = object()
+
+cdef class pyerror(Exception):
+    # pyerror <- error
+    @staticmethod
+    cdef object from_error(error err):
+        if err == nil:
+            return None
+
+        cdef pyerror pyerr = pyerror.__new__(pyerror, _frompyx)
+        pyerr.err = err
+        return pyerr
+
+    def __cinit__(pyerror pyerr, *argv):
+        pyerr.err = nil
+        pyerr.args = ()
+        if len(argv)==1 and argv[0] is _frompyx:
+            return  # keep .err=nil - the object is being created via pyerror.from_error
+        pyerr.args = argv
+
+        # pyerror("abc") call
+        if type(pyerr) is pyerror:
+            arg, = argv
+            pyerr.err  = errors_New_pyexc(pyb(arg))
+            return
+
+        raise TypeError("subclassing error is not supported yet")
+
+    def __dealloc__(pyerror pyerr):
+        pyerr.err = nil
+
+    def Error(pyerror pyerr):
+        """Error returns string that represents the error."""
+        assert pyerr.err != nil
+        return pyerr.err.Error()
+
+    def Unwrap(pyerror pyerr):
+        """Unwrap tries to extract wrapped error."""
+        w = errors_Unwrap_pyexc(pyerr.err)
+        return pyerror.from_error(w)
+
+    # pyerror == pyerror
+    def __hash__(pyerror pyerr):
+        # TODO use std::hash directly
+        cdef const type_info* typ = &typeid(pyerr.err._ptr()[0])
+        return hash(typ.name()) ^ hash(pyerr.err.Error())
+    def __ne__(pyerror a, object rhs):
+        return not (a == rhs)
+    def __eq__(pyerror a, object rhs):
+        if type(a) is not type(rhs):
+            return False
+
+        cdef pyerror b = rhs
+        cdef const type_info* atype = &typeid(a.err._ptr()[0])
+        cdef const type_info* btype = &typeid(b.err._ptr()[0])
+        if strcmp(atype.name(), btype.name()) != 0:
+            return False
+
+        # XXX hack instead of dynamic == (not available in C++)
+        return (a.err.Error() == b.err.Error())
+
+
+    def __str__(pyerror pyerr):
+        return pyerr.Error()
+
+    def __repr__(pyerror pyerr):
+        typ = type(pyerr)
+        cdef const type_info* ctype = &typeid(pyerr.err._ptr()[0])
+        # TODO demangle type name (e.g. abi::__cxa_demangle)
+        return "<%s.%s object ctype=%s error=%s>" % (typ.__module__, typ.__name__, ctype.name(), pyqq(pyerr.Error()))
+
+
+# ---- misc ----
+
+cdef nogil:
+
+    error errors_New_pyexc(const char* text)            except +topyexc:
+        return errors.New(text)
+
+    error errors_Unwrap_pyexc(error err)                except +topyexc:
+        return errors.Unwrap(err)

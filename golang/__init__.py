@@ -34,7 +34,7 @@ from __future__ import print_function, absolute_import
 __version__ = "0.0.5"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-           'recover', 'func', 'b', 'u', 'gimport']
+           'recover', 'func', 'error', 'b', 'u', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
@@ -295,7 +295,7 @@ if six.PY2:
     import golang._patch.ipython_py2
 
 
-# ---- go + channels, panic, etc... ----
+# ---- go + channels, panic, error, etc... ----
 
 from ._golang import    \
     pygo        as go,      \
@@ -305,5 +305,6 @@ from ._golang import    \
     pynilchan   as nilchan, \
     _PanicError,            \
     pypanic     as panic,   \
+    pyerror     as error,   \
     pyb         as b,       \
     pyu         as u

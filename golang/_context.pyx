@@ -22,7 +22,7 @@
 
 from __future__ import print_function, absolute_import
 
-from golang cimport pychan, nil, _interface, gobject, newref, adoptref, topyexc
+from golang cimport pychan, pyerror, nil, _interface, gobject, newref, adoptref, topyexc
 from golang cimport cxx, time
 from cython cimport final, internal
 from cython.operator cimport typeid
@@ -75,13 +75,7 @@ cdef class PyContext:
     def err(PyContext pyctx):   # -> error
         with nogil:
             err = pyctx.ctx.err()
-        if err == nil:
-            return None
-        if err.eq(canceled):
-            return pycanceled
-        if err.eq(deadlineExceeded):
-            return pydeadlineExceeded
-        return RuntimeError(err.Error())
+        return pyerror.from_error(err)
 
     # value returns value associated with key, or None, if context has no key.
     #
@@ -152,10 +146,10 @@ cdef PyContext _pybackground = _newPyCtx(background())
 
 
 # canceled is the error returned by Context.err when context is canceled.
-pycanceled = RuntimeError(canceled.Error())
+pycanceled = pyerror.from_error(canceled)
 
 # deadlineExceeded is the error returned by Context.err when time goes past context's deadline.
-pydeadlineExceeded = RuntimeError(deadlineExceeded.Error())
+pydeadlineExceeded = pyerror.from_error(deadlineExceeded)
 
 
 # with_cancel creates new context that can be canceled on its own.
