@@ -241,8 +241,14 @@ cdef class pychan:
 #
 # There can be multiple pyerror(s) wrapping a particular raw error object.
 # Nil C-level error corresponds to None at Python-level.
+#
+# Pyerror can be also used as base class for Python-level exception types:
+#
+#  - objects with type being exact pyerror are treated as wrappers around C-level error.
+#  - objects with other types inherited from pyerror are treated as Python-level error.
 cdef class pyerror(Exception):
-    cdef error    err   # raw error object
+    cdef error    err   # raw error object; nil for Python-level case
+    cdef readonly args  # .args for Python-level case
 
     # pyerror.from_error returns pyerror wrapping pyx/nogil-level error.
     # from_error(nil) -> returns None.

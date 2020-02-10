@@ -50,6 +50,18 @@ def assertEne(e1, e2):
     #assert hash(e1) != hash(e2)
 
 
+# EError is custom error class that inherits from error.
+class EError(error):
+    def __init__(myerr, op, ret):
+        myerr.op  = op
+        myerr.ret = ret
+
+    def Error(myerr): return "my %s: %s" % (myerr.op, myerr.ret)
+    # no .Unwrap()
+
+    # NOTE error provides good __eq__ and __hash__ out of the box.
+
+
 # test for golang.error class.
 def test_error():
     assert error_mkchain([]) is None
@@ -88,6 +100,22 @@ def test_error():
         assert repr(e).endswith(' error="hello мир">')
         assert e.Unwrap() is None
         assertEeq(e, e)
+
+    # create an error from py via error subclass
+    class EErr(error): pass
+    m = EErr("abc")
+    assertEeq(m, m)
+    assertEne(m, error("abc"))  # EErr("abc") != error("abc")
+
+    epy = EError("load", 3)
+    assert type(epy)    is EError
+    assert epy.Error()  == "my load: 3"
+    assert str(epy)     == "my load: 3"
+    assert repr(epy)    == "golang.errors_test.EError('load', 3)"
+    assert epy.Unwrap() is None
+    assertEeq(epy, epy)
+    assertEeq(epy, EError("load", 3))
+    assertEne(epy, EError("load", 4))
 
 
 def test_new():

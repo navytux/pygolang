@@ -867,13 +867,21 @@ cdef class pyerror(Exception):
             pyerr.err  = errors_New_pyexc(pyb(arg))
             return
 
-        raise TypeError("subclassing error is not supported yet")
+        # class MyError(error); MyError(...)
+        # just store .args and be done with it (we already did ^^^)
+        pass
 
     def __dealloc__(pyerror pyerr):
         pyerr.err = nil
 
     def Error(pyerror pyerr):
         """Error returns string that represents the error."""
+        # python-level case
+        if type(pyerr) is not pyerror:
+            # subclass should override Error, but provide at least something by default
+            return repr(pyerr)
+
+        # wrapper around C-level error
         assert pyerr.err != nil
         return pyerr.err.Error()
 
@@ -884,6 +892,11 @@ cdef class pyerror(Exception):
 
     # pyerror == pyerror
     def __hash__(pyerror pyerr):
+        # python-level case
+        if type(pyerr) is not pyerror:
+            return hash(type(pyerr)) ^ hash(pyerr.args)
+
+        # wrapper around C-level error
         # TODO use std::hash directly
         cdef const type_info* typ = &typeid(pyerr.err._ptr()[0])
         return hash(typ.name()) ^ hash(pyerr.err.Error())
@@ -893,6 +906,11 @@ cdef class pyerror(Exception):
         if type(a) is not type(rhs):
             return False
 
+        # python-level case
+        if type(a) is not pyerror:
+            return a.args == rhs.args
+
+        # wrapper around C-level error
         cdef pyerror b = rhs
         cdef const type_info* atype = &typeid(a.err._ptr()[0])
         cdef const type_info* btype = &typeid(b.err._ptr()[0])
@@ -908,6 +926,11 @@ cdef class pyerror(Exception):
 
     def __repr__(pyerror pyerr):
         typ = type(pyerr)
+        # python-level case
+        if typ is not pyerror:
+            return "%s.%s%r" % (typ.__module__, typ.__name__, pyerr.args)
+
+        # wrapper around C-level error
         cdef const type_info* ctype = &typeid(pyerr.err._ptr()[0])
         # TODO demangle type name (e.g. abi::__cxa_demangle)
         return "<%s.%s object ctype=%s error=%s>" % (typ.__module__, typ.__name__, ctype.name(), pyqq(pyerr.Error()))
