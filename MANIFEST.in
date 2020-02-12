@@ -14,6 +14,8 @@ include golang/errors_test.cpp
 include golang/fmt.h
 include golang/fmt.cpp
 include golang/fmt_test.cpp
+include golang/io.h
+include golang/io.cpp
 include golang/strings.h
 include golang/strings.cpp
 include golang/strings_test.cpp

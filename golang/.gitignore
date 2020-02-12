@@ -6,6 +6,7 @@
 /_fmt_test.cpp
 /_golang.cpp
 /_golang_test.cpp
+/_io.cpp
 /_strings_test.cpp
 /_sync.cpp
 /_sync_test.cpp

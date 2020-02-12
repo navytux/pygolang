@@ -197,6 +197,7 @@ setup(
                          'golang/context.cpp',
                          'golang/errors.cpp',
                          'golang/fmt.cpp',
+                         'golang/io.cpp',
                          'golang/strings.cpp',
                          'golang/sync.cpp',
                          'golang/time.cpp'],
@@ -206,6 +207,7 @@ setup(
                             'golang/cxx.h',
                             'golang/errors.h',
                             'golang/fmt.h',
+                            'golang/io.h',
                             'golang/strings.h',
                             'golang/sync.h',
                             'golang/time.h'],
@@ -266,6 +268,9 @@ setup(
                     Ext('golang._fmt_test',
                         ['golang/_fmt_test.pyx',
                          'golang/fmt_test.cpp']),
+
+                    Ext('golang._io',
+                        ['golang/_io.pyx']),
 
                     Ext('golang._strings_test',
                         ['golang/_strings_test.pyx',
