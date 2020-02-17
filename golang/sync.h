@@ -25,7 +25,7 @@
 //  - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
 //  - `Once` allows to execute an action only once.
 //  - `WaitGroup` allows to wait for a collection of tasks to finish.
-//  - `Sema`(*) and `Mutex` provide low-level synchronization.
+//  - `Sema`(*), `Mutex` and `RWMutex` provide low-level synchronization.
 //
 // See also https://golang.org/pkg/sync for Go sync package documentation.
 //
@@ -100,6 +100,32 @@ public:
 private:
     Mutex(const Mutex&);    // don't copy
     Mutex(Mutex&&);         // don't move
+};
+
+// RWMutex provides readers-writer mutex with preference for writers.
+//
+// https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock .
+class RWMutex {
+    Mutex           _g;
+    chan<structZ>   _wakeupq; // closed & recreated every time to wakeup all waiters
+
+    int  _nread_active;   // number of readers holding the lock
+    int  _nwrite_waiting; // number of writers waiting for the lock
+    bool _write_active;   // whether a writer is holding the lock
+
+public:
+    LIBGOLANG_API RWMutex();
+    LIBGOLANG_API ~RWMutex();
+    LIBGOLANG_API void Lock();
+    LIBGOLANG_API void Unlock();
+    LIBGOLANG_API void RLock();
+    LIBGOLANG_API void RUnlock();
+
+private:
+    void _wakeup_all();
+
+    RWMutex(const RWMutex&);    // don't copy
+    RWMutex(RWMutex&&);         // don't move
 };
 
 // Once allows to execute an action only once.

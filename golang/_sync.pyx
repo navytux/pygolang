@@ -76,6 +76,40 @@ cdef class PyMutex:
 
 
 @final
+cdef class PyRWMutex:
+    cdef RWMutex mu
+
+    # FIXME cannot catch/pyreraise panic of .mu ctor
+    # https://github.com/cython/cython/issues/3165
+
+    def Lock(PyRWMutex pymu):
+        with nogil:
+            rwmutex_lock_pyexc(&pymu.mu)
+
+    def Unlock(PyRWMutex pymu):
+        # NOTE nogil needed for unlock since RWMutex _locks_ internal mu even in unlock
+        with nogil:
+            rwmutex_unlock_pyexc(&pymu.mu)
+
+    def RLock(PyRWMutex pymu):
+        with nogil:
+            rwmutex_rlock_pyexc(&pymu.mu)
+
+    def RUnlock(PyRWMutex pymu):
+        # NOTE nogil needed for runlock (see ^^^)
+        with nogil:
+            rwmutex_runlock_pyexc(&pymu.mu)
+
+    # with support (write by default)
+    __enter__ = Lock
+    def __exit__(PyRWMutex pymu, exc_typ, exc_val, exc_tb):
+        pymu.Unlock()
+
+    # TODO .RLocker() that returns X : X.Lock() -> .RLock() and for unlock correspondingly ?
+    # TODO then `with mu.RLocker()` would mean "with read lock".
+
+
+@final
 cdef class PyOnce:
     """Once allows to execute an action only once.
 
@@ -243,6 +277,15 @@ cdef nogil:
         mu.lock()
     void mutexunlock_pyexc(Mutex *mu)       except +topyexc:
         mu.unlock()
+
+    void rwmutex_lock_pyexc(RWMutex *mu)    except +topyexc:
+        mu.Lock()
+    void rwmutex_unlock_pyexc(RWMutex *mu)  except +topyexc:
+        mu.Unlock()
+    void rwmutex_rlock_pyexc(RWMutex *mu)   except +topyexc:
+        mu.RLock()
+    void rwmutex_runlock_pyexc(RWMutex *mu) except +topyexc:
+        mu.RUnlock()
 
     void waitgroup_done_pyexc(WaitGroup *wg)                except +topyexc:
         wg.done()

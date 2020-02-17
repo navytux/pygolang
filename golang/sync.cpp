@@ -26,6 +26,95 @@
 namespace golang {
 namespace sync {
 
+// RWMutex
+RWMutex::RWMutex() {
+    RWMutex& mu = *this;
+
+    mu._wakeupq = makechan<structZ>();
+    mu._nread_active    = 0;
+    mu._nwrite_waiting  = 0;
+    mu._write_active    = false;
+}
+
+RWMutex::~RWMutex() {}
+
+// RWMutex implementation is based on
+// https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock#Using_a_condition_variable_and_a_mutex
+// but a channel ._wakeupq is used instead of condition variable.
+
+// _wakeup_all simulates broadcast cond notification by waking up all current
+// waiters and reallocating ._wakeupq for next round of queued waiters and
+// wakeup.
+//
+// Must be called under ._g locked.
+void RWMutex::_wakeup_all() {
+    RWMutex& mu = *this;
+
+    mu._wakeupq.close();
+    mu._wakeupq = makechan<structZ>();
+}
+
+void RWMutex::RLock() {
+    RWMutex& mu = *this;
+
+    mu._g.lock();
+    while (mu._nwrite_waiting > 0 || mu._write_active) {
+        chan<structZ> wakeupq = mu._wakeupq;
+        mu._g.unlock();
+        wakeupq.recv();
+        mu._g.lock();
+    }
+
+    mu._nread_active++;
+    mu._g.unlock();
+}
+
+void RWMutex::RUnlock() {
+    RWMutex& mu = *this;
+
+    mu._g.lock();
+    if (mu._nread_active <= 0) {
+        mu._g.unlock();
+        panic("sync: RUnlock of unlocked RWMutex");
+    }
+    mu._nread_active--;
+    if (mu._nread_active == 0)
+        mu._wakeup_all();
+    mu._g.unlock();
+}
+
+void RWMutex::Lock() {
+    RWMutex& mu = *this;
+
+    mu._g.lock();
+    mu._nwrite_waiting++;
+    while (mu._nread_active > 0 || mu._write_active) {
+        chan<structZ> wakeupq = mu._wakeupq;
+        mu._g.unlock();
+        wakeupq.recv();
+        mu._g.lock();
+    }
+
+    mu._nwrite_waiting--;
+    mu._write_active = true;
+    mu._g.unlock();
+}
+
+void RWMutex::Unlock() {
+    RWMutex& mu = *this;
+
+    mu._g.lock();
+    if (!mu._write_active) {
+        mu._g.unlock();
+        panic("sync: Unlock of unlocked RWMutex");
+    }
+    mu._write_active = false;
+    mu._wakeup_all();
+
+    mu._g.unlock();
+}
+
+
 // Once
 Once::Once() {
     Once *once = this;

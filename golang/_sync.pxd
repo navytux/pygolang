@@ -22,7 +22,7 @@
  - `WorkGroup` allows to spawn group of goroutines working on a common task(*).
  - `Once` allows to execute an action only once.
  - `WaitGroup` allows to wait for a collection of tasks to finish.
- - `Sema`(*) and `Mutex` provide low-level synchronization.
+ - `Sema`(*), `Mutex` and `RWMutex` provide low-level synchronization.
 
 See also https://golang.org/pkg/sync for Go sync package documentation.
 
@@ -43,6 +43,12 @@ cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
     cppclass Mutex:
         void lock()
         void unlock()
+
+    cppclass RWMutex:
+        void Lock()
+        void Unlock()
+        void RLock()
+        void RUnlock()
 
     cppclass Once:
         void do "do_" (...)     # ... = func<void()>

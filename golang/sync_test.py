@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -20,7 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import go, chan
+from golang import go, chan, select, default
 from golang import sync, context, time
 from pytest import raises
 from golang.golang_test import import_pyx_tests, panics
@@ -61,8 +61,84 @@ def _test_mutex(mu, lock, unlock):
     done.recv()
     assert l == ['c', 'd']
 
-def test_mutex():   _test_mutex(sync.Mutex(), 'lock',    'unlock')
-def test_sema():    _test_mutex(sync.Sema(),  'acquire', 'release')
+def test_mutex():           _test_mutex(sync.Mutex(),   'lock',    'unlock')
+def test_sema():            _test_mutex(sync.Sema(),    'acquire', 'release')
+def test_rwmutex_basic():   _test_mutex(sync.RWMutex(), 'Lock',    'Unlock')
+
+def test_rwmutex():
+    mu = sync.RWMutex()
+
+    # Unlock  without lock -> panic
+    # RUnlock without lock -> panic
+    with panics("sync: Unlock of unlocked RWMutex"):    mu.Unlock()
+    with panics("sync: RUnlock of unlocked RWMutex"):   mu.RUnlock()
+
+    # Lock vs Lock; was also tested in test_rwmutex_basic
+    mu.Lock()
+    l = []
+    done = chan()
+    def _():
+        mu.Lock()
+        l.append('b')
+        mu.Unlock()
+        done.close()
+    go(_)
+    time.sleep(1*dt)
+    l.append('a')
+    mu.Unlock()
+    done.recv()
+    assert l == ['a', 'b']
+
+    # Lock vs RLock
+    l  = []  # accessed as R R R ... R  W  R R R ... R
+    Nr1 = 10 # Nreaders queued before W
+    Nr2 = 15 # Nreaders queued after  W
+    mu.RLock()
+    locked = chan(Nr1+1+Nr2) # main <- R|W: mu locked
+    rcont  = chan()          # main -> R: continue
+    def R(): # readers
+        mu.RLock()
+        locked.send(('R', len(l)))
+        rcont.recv()
+        mu.RUnlock()
+    for i in range(Nr1):
+        go(R)
+
+    # make sure all Nr1 readers entered mu.RLock
+    for i in range(Nr1):
+        assert locked.recv() == ('R', 0)
+
+    # spawn W
+    def W(): # 1 writer
+        mu.Lock()
+        time.sleep(Nr2*dt)  # give R2 readers more chance to call mu.RLock and run first
+        locked.send('W')
+        l.append('a')
+        mu.Unlock()
+    go(W)
+
+    # spawn more readers to verify that Lock has priority over RLock
+    time.sleep(1*dt)    # give W more chance to call mu.Lock first
+    for i in range(Nr2):
+        go(R)
+
+    # release main rlock, make sure nor W nor more R are yet ready, and let all readers continue
+    time.sleep((1+1)*dt)
+    mu.RUnlock()
+    time.sleep(1*dt)
+    for i in range(100):
+        _, _rx = select(
+            default,        # 0
+            locked.recv,    # 1
+        )
+        assert _ == 0
+    rcont.close()
+
+    # W must get the lock first and all R2 readers only after it
+    assert locked.recv() == 'W'
+    for i in range(Nr2):
+        assert locked.recv() == ('R', 1)
+
 
 # verify that sema.acquire can be woken up by sema.release not from the same
 # thread which did the original sema.acquire.

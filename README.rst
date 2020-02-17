@@ -338,7 +338,8 @@ handle concurrency in structured ways:
 
 - |golang.sync|_ (py__, pyx__) provides `sync.WorkGroup` to spawn group of goroutines working
   on a common task. It also provides low-level primitives - for example
-  `sync.Once`, `sync.WaitGroup` and `sync.Mutex` - that are sometimes useful too.
+  `sync.Once`, `sync.WaitGroup`, `sync.Mutex` and `sync.RWMutex` - that are
+  sometimes useful too.
 
   .. |golang.sync| replace:: `golang.sync`
   .. _golang.sync: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/sync.h
