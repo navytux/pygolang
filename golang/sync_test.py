@@ -22,7 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default
 from golang import sync, context, time
-from pytest import raises
+from pytest import raises, mark
 from golang.golang_test import import_pyx_tests, panics
 from golang.time_test import dt
 from six.moves import range as xrange
@@ -89,13 +89,19 @@ def test_rwmutex():
     done.recv()
     assert l == ['a', 'b']
 
+# verify Lock/Unlock vs RLock/RUnlock interaction.
+# if unlock_via_downgrade=Y, Lock is released via UnlockToRLock + RUnlock.
+@mark.parametrize('unlock_via_downgrade', [False, True])
+def test_rwmutex_lock_vs_rlock(unlock_via_downgrade):
+    mu = sync.RWMutex()
+
     # Lock vs RLock
     l  = []  # accessed as R R R ... R  W  R R R ... R
     Nr1 = 10 # Nreaders queued before W
     Nr2 = 15 # Nreaders queued after  W
     mu.RLock()
-    locked = chan(Nr1+1+Nr2) # main <- R|W: mu locked
-    rcont  = chan()          # main -> R: continue
+    locked = chan(Nr1 + 1*3 + Nr2) # main <- R|W: mu locked
+    rcont  = chan()                # main -> R: continue
     def R(): # readers
         mu.RLock()
         locked.send(('R', len(l)))
@@ -114,7 +120,15 @@ def test_rwmutex():
         time.sleep(Nr2*dt)  # give R2 readers more chance to call mu.RLock and run first
         locked.send('W')
         l.append('a')
-        mu.Unlock()
+        if not unlock_via_downgrade:
+            locked.send('_WUnlock')
+            mu.Unlock()
+        else:
+            locked.send('_WUnlockToRLock')
+            mu.UnlockToRLock()
+            time.sleep(Nr2*dt)
+            locked.send('_WRUnlock')
+            mu.RUnlock()
     go(W)
 
     # spawn more readers to verify that Lock has priority over RLock
@@ -136,8 +150,14 @@ def test_rwmutex():
 
     # W must get the lock first and all R2 readers only after it
     assert locked.recv() == 'W'
+    if not unlock_via_downgrade:
+        assert locked.recv() == '_WUnlock'
+    else:
+        assert locked.recv() == '_WUnlockToRLock'
     for i in range(Nr2):
         assert locked.recv() == ('R', 1)
+    if unlock_via_downgrade:
+        assert locked.recv() == '_WRUnlock'
 
 
 # verify that sema.acquire can be woken up by sema.release not from the same

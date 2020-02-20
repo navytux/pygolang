@@ -121,6 +121,13 @@ public:
     LIBGOLANG_API void RLock();
     LIBGOLANG_API void RUnlock();
 
+    // UnlockToRLock atomically downgrades write-locked RWMutex into read-locked.
+    //
+    // NOTE opposite operation - atomic upgrade from read-locked into
+    // write-locked - is generally not possible due to deadlock if 2 threads
+    // try to upgrade at the same time.
+    LIBGOLANG_API void UnlockToRLock();
+
 private:
     void _wakeup_all();
 

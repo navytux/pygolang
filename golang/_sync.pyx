@@ -100,6 +100,11 @@ cdef class PyRWMutex:
         with nogil:
             rwmutex_runlock_pyexc(&pymu.mu)
 
+    def UnlockToRLock(PyRWMutex pymu):
+        # NOTE nogil needed (see ^^^)
+        with nogil:
+            rwmutex_unlocktorlock_pyexc(&pymu.mu)
+
     # with support (write by default)
     __enter__ = Lock
     def __exit__(PyRWMutex pymu, exc_typ, exc_val, exc_tb):
@@ -286,6 +291,8 @@ cdef nogil:
         mu.RLock()
     void rwmutex_runlock_pyexc(RWMutex *mu) except +topyexc:
         mu.RUnlock()
+    void rwmutex_unlocktorlock_pyexc(RWMutex *mu)   except +topyexc:
+        mu.UnlockToRLock()
 
     void waitgroup_done_pyexc(WaitGroup *wg)                except +topyexc:
         wg.done()

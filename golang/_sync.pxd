@@ -49,6 +49,7 @@ cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
         void Unlock()
         void RLock()
         void RUnlock()
+        void UnlockToRLock()
 
     cppclass Once:
         void do "do_" (...)     # ... = func<void()>

@@ -114,6 +114,20 @@ void RWMutex::Unlock() {
     mu._g.unlock();
 }
 
+void RWMutex::UnlockToRLock() {
+    RWMutex& mu = *this;
+
+    mu._g.lock();
+    if (!mu._write_active) {
+        mu._g.unlock();
+        panic("sync: UnlockToRLock of unlocked RWMutex");
+    }
+    mu._write_active = false;
+    mu._nread_active++;
+    mu._wakeup_all();
+    mu._g.unlock();
+}
+
 
 // Once
 Once::Once() {
