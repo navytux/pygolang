@@ -9,6 +9,7 @@ Package `golang` provides Go-like features for Python:
 - `chan` and `select` provide channels with Go semantic.
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
+- `error` and package `errors` provide error chaining.
 - `b` and `u` provide way to make sure an object is either bytes or unicode.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
@@ -169,6 +170,60 @@ If `defer` is used, the function that uses it must be wrapped with `@func`
 decorator.
 
 
+Errors
+------
+
+In concurrent systems operational stack generally differs from execution code
+flow, which makes code stack traces significantly less useful to understand an
+error. Pygolang provides support for error chaining that gives ability to build
+operational error stack and to inspect resulting errors:
+
+`error` is error type that can be used by itself or subclassed. By
+providing `.Unwrap()` method, an error can optionally wrap another error this
+way forming an error chain. `errors.Is` reports whether an item in error chain
+matches target. `fmt.Errorf` provides handy way to build wrapping errors.
+For example::
+
+   e1 = error("problem")
+   e2 = fmt.Errorf("doing something for %s: %w", "joe", e1)
+   print(e2)         # prints "doing something for joe: problem"
+   errors.Is(e2, e1) # gives True
+
+   # OpError is example class to represents an error of operation op(path).
+   class OpError(error):
+      def __init__(e, op, path, err):
+         e.op   = op
+         e.path = path
+         e.err  = err
+
+      # .Error() should be used to define what error's string is.
+      # it is automatically used by error to also provide both .__str__ and .__repr__.
+      def Error(e):
+         return "%s %s: %s" % (e.op, e.path, e.err)
+
+      # provided .Unwrap() indicates that this error is chained.
+      def Unwrap(e):
+         return e.err
+
+   mye = OpError("read", "file.txt", io.ErrUnexpectedEOF)
+   print(mye)                          # prints "read file.txt: unexpected EOF"
+   errors.Is(mye, io.EOF)              # gives False
+   errors.Is(mye. io.ErrUnexpectedEOF) # gives True
+
+Both wrapped and wrapping error can be of arbitrary Python type - not
+necessarily of `error` or its subclass.
+
+`error` is also used to represent at Python level an error returned by
+Cython/nogil call (see `Cython/nogil API`_) and preserves Cython/nogil error
+chain for inspection at Python level.
+
+Pygolang error chaining integrates with Python error chaining and takes
+`.__cause__` attribute into account for exception created via `raise X from Y`
+(`PEP 3134`__).
+
+__ https://www.python.org/dev/peps/pep-3134/
+
+
 Strings
 -------
 
@@ -298,6 +353,22 @@ in between *nogil* and Python worlds. For example::
       # send/receive on the channel simultaneously.
       cdef pychan pych = pychan.from_chan_int(ch)  # pychan <- chan[int]
       return pych
+
+
+`error` is the interface that represents errors. `errors.New` and `fmt.errorf`
+provide way to build errors from text. An error can optionally wrap another
+error by implementing `errorWrapper` interface and providing `.Unwrap()` method.
+`errors.Is` reports whether an item in error chain matches target. `fmt.errorf`
+with `%w` specifier provide handy way to build wrapping errors. For example::
+
+   e1 = errors.New("problem")
+   e2 = fmt.errorf("doing something for %s: %w", "joe", e1)
+   e2.Error()        # gives "doing something for joe: problem"
+   errors.Is(e2, e1) # gives True
+
+An `error` can be exposed to Python via `pyerror` cdef class wrapper
+instantiated by `pyerror.from_error()`. `pyerror` preserves Cython/nogil error
+chain for inspection by Python-level `error.Is`.
 
 
 `panic` stops normal execution of current goroutine by throwing a C-level

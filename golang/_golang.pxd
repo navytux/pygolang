@@ -24,6 +24,7 @@ Cython/nogil API
 
 - `go` spawns lightweight thread.
 - `chan[T]`, `makechan[T]` and `select` provide C-level channels with Go semantic.
+- `error` is the interface that represents errors.
 - `panic` stops normal execution of current goroutine by throwing a C-level exception.
 
 Everything in Cython/nogil API do not depend on Python runtime and in
@@ -40,6 +41,7 @@ Golang.py runtime
 In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 
 - Python-level channels are represented by pychan + pyselect.
+- Python-level error is represented by pyerror.
 - Python-level panic is represented by pypanic.
 """
 

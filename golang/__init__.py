@@ -23,6 +23,7 @@
 - `chan` and `select` provide channels with Go semantic.
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
+- `error` and package `errors` provide error chaining.
 - `b` and `u` provide way to make sure an object is either bytes or unicode.
 - `gimport` allows to import python modules by full path in a Go workspace.
 

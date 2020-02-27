@@ -39,6 +39,7 @@
 //  - `chan<T>`, and `select` provide channels with Go semantic and automatic
 //    lifetime management.
 //  - `defer` schedules cleanup.
+//  - `error` is the interface that represents errors.
 //  - `panic` throws exception that represent C-level panic.
 //
 // For example:
