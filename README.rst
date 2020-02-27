@@ -9,6 +9,7 @@ Package `golang` provides Go-like features for Python:
 - `chan` and `select` provide channels with Go semantic.
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
+- `b` and `u` provide way to make sure an object is either bytes or unicode.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 Package `golang.pyx` provides__ similar features for Cython/nogil.
@@ -166,6 +167,24 @@ practically natively modelled with `try`/`except`.
 
 If `defer` is used, the function that uses it must be wrapped with `@func`
 decorator.
+
+
+Strings
+-------
+
+`b` and `u` provide way to make sure an object is either bytes or unicode.
+`b(obj)` converts str/unicode/bytes obj to UTF-8 encoded bytestring, while
+`u(obj)` converts str/unicode/bytes obj to unicode string. For example::
+
+   b("привет мир")   # -> gives bytes corresponding to UTF-8 encoding of "привет мир".
+
+   def f(s):
+      s = u(s)       # make sure s is unicode, decoding as UTF-8(*) if it was bytes.
+      ...            # (*) but see below about lack of decode errors.
+
+The conversion in both encoding and decoding never fails and never looses
+information: `b(u(·))` and `u(b(·))` are always identity for bytes and unicode
+correspondingly, even if bytes input is not valid UTF-8.
 
 
 Import
