@@ -298,6 +298,8 @@ cdef class pychan:
     # pychan == pychan
     def __hash__(pychan pych):
         return <Py_hash_t>pych._ch
+    # NOTE __ne__ not needed: pychan does not have base class and for that
+    # case cython automatically generates __ne__ based on __eq__.
     def __eq__(pychan a, object rhs):
         if not isinstance(rhs, pychan):
             return False

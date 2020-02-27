@@ -889,24 +889,27 @@ def test_chan_dtype_misc(dtype):
         assert nilch is nilchan
 
     assert hash(nilch) == hash(nilchan)
-    assert nilch == nilch                   # nil[X] == nil[X]
-    assert nilch == nilchan                 # nil[X] == nil[*]
-    assert nilchan == nilch                 # nil[*] == nil[X]
+    assert      (nilch == nilch)            # nil[X] == nil[X]
+    assert not  (nilch != nilch)
+    assert      (nilch == nilchan)          # nil[X] == nil[*]
+    assert not  (nilch != nilchan)
+    assert      (nilchan == nilch)          # nil[*] == nil[X]
+    assert not  (nilchan != nilch)
 
     # channels can be compared, different channels differ
     assert nilch != None    # just in case
     ch1 = chan(dtype=dtype)
     ch2 = chan(dtype=dtype)
     ch3 = chan()
-    assert ch1 != ch2;  assert ch1 == ch1
-    assert ch1 != ch3;  assert ch2 == ch2
-    assert ch2 != ch3;  assert ch3 == ch3
+    assert ch1 != ch2;  assert not (ch1 == ch2);  assert ch1 == ch1; assert not (ch1 != ch1)
+    assert ch1 != ch3;  assert not (ch1 == ch3);  assert ch2 == ch2; assert not (ch2 != ch2)
+    assert ch2 != ch3;  assert not (ch2 == ch3);  assert ch3 == ch3; assert not (ch3 != ch3)
     assert hash(nilch) != hash(ch1)
     assert hash(nilch) != hash(ch2)
     assert hash(nilch) != hash(ch3)
-    assert nilch != ch1
-    assert nilch != ch2
-    assert nilch != ch3
+    assert nilch != ch1;  assert not (nilch == ch1)
+    assert nilch != ch2;  assert not (nilch == ch2)
+    assert nilch != ch3;  assert not (nilch == ch3)
 
     # .nil on chan instance     XXX doesn't work (yet ?)
     """
