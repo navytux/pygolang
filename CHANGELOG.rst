@@ -1,6 +1,74 @@
 Pygolang change history
 -----------------------
 
+0.0.6 (2020-02-28)
+~~~~~~~~~~~~~~~~~~
+
+- Provide support for error chaining. In concurrent systems
+  operational stack generally differs from execution code flow, which makes
+  code stack traces significantly less useful to understand an error.
+  Error chaining gives ability to build operational
+  error stack and to inspect resulting errors.
+  (`commit 1`__, 2__, 3__, 4__, 5__, 6__, `overview 1`__, `overview 2`__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/fd95c88a
+  __ https://lab.nexedi.com/kirr/pygolang/commit/17798442
+  __ https://lab.nexedi.com/kirr/pygolang/commit/78d0c76f
+  __ https://lab.nexedi.com/kirr/pygolang/commit/337de0d7
+  __ https://lab.nexedi.com/kirr/pygolang/commit/03f88c0b
+  __ https://lab.nexedi.com/kirr/pygolang/commit/80ab5863
+  __ https://blog.golang.org/go1.13-errors
+  __ https://commandcenter.blogspot.com/2017/12/error-handling-in-upspin.html
+
+- Provide `unicode` ↔ `bytes` conversion:
+  `b(obj)` converts str/unicode/bytes obj to UTF-8 encoded bytestring, while
+  `u(obj)` converts str/unicode/bytes obj to unicode string. The conversion in
+  both encoding and decoding never fails and never looses information:
+  `b(u(·))` and `u(b(·))` are always identity for bytes and unicode
+  correspondingly, even if bytes input is not valid UTF-8.
+  (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/bcb95cd5
+  __ https://lab.nexedi.com/kirr/pygolang/commit/073d81a8
+  __ https://lab.nexedi.com/kirr/pygolang/commit/5cc679ac
+  __ https://lab.nexedi.com/kirr/pygolang/commit/0561926a
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8c459a99
+  __ https://lab.nexedi.com/kirr/pygolang/commit/3073ac98
+  __ https://lab.nexedi.com/kirr/pygolang/commit/e028cf28
+
+- Provide `sync.RWMutex` (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/1ad3c2d5
+  __ https://lab.nexedi.com/kirr/pygolang/commit/a9345a98
+
+- Provide `nil` as alias for `nullptr` and NULL (`commit 1`__, 2__, 3__, 4__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/60f6db6f
+  __ https://lab.nexedi.com/kirr/pygolang/commit/fc1c3e24
+  __ https://lab.nexedi.com/kirr/pygolang/commit/01ade7ac
+  __ https://lab.nexedi.com/kirr/pygolang/commit/230c81c4
+
+- Add `io` package with `io.EOF` and `io.ErrUnexpectedEOF` (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/36ab859c
+
+- Correct `cxx.dict` API to follow libgolang comma-ok style (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/58fcdd87
+
+- Provide `pyx.build.DSO` for projects to build dynamic libraries that
+  use/link-to libgolang (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/64765688
+  __ https://lab.nexedi.com/kirr/pygolang/commit/cd67996e
+
+- Fix `pyx.build.build_ext` to allow customization (commit__).
+
+  __ https://lab.nexedi.com/kirr/pygolang/commit/8af78fc5
+
+| |_| |_| |_| |_| |_| |_| |_| |_| *This release is driven by* |wendelin.core|_ *v2 needs*.
+
+
 0.0.5 (2019-11-27)
 ~~~~~~~~~~~~~~~~~~
 

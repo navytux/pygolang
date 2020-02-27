@@ -162,7 +162,7 @@
 //
 // Additional packages
 //
-// Libgolang, besides goroutines and channels, also provide additional packages
+// Libgolang, besides goroutines and channels, provides additional packages
 // that mirror Go analogs. See for example golang/time.h, golang/sync.h, etc.
 //
 //
