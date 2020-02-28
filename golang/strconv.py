@@ -21,6 +21,7 @@
 
 from __future__ import print_function, absolute_import
 
+import sys
 import six, unicodedata, codecs
 from six import text_type as unicode        # py2: unicode      py3: str
 from six import unichr                      # py2: unichr       py3: chr
@@ -120,7 +121,7 @@ def _quote(s):
                 emit(br'\x%02x' % ord(c))
 
             # printable utf-8 characters go as is
-            elif unicodedata.category(unichr(r))[0] in _printable_cat0:
+            elif unicodedata.category(_xunichr(r))[0] in _printable_cat0:
                 emit(s[i:isize])
 
             # everything else goes in numeric byte escapes
@@ -224,6 +225,9 @@ _printable_cat0 = frozenset(['L', 'N', 'P', 'S'])   # letters, numbers, punctuat
 
 _rune_error = 0xFFFD # unicode replacement character
 
+_ucs2_build        = (sys.maxunicode ==     0xffff)     #    ucs2
+assert _ucs2_build or sys.maxunicode >= 0x0010ffff      # or ucs4
+
 # _utf8_decode_rune decodes next UTF8-character from byte string s.
 #
 # _utf8_decode_rune(s) -> (r, size)
@@ -243,6 +247,15 @@ def _utf8_decode_rune(s):
 
         if len(r) == 1:
             return ord(r), l
+
+        # see comment in _utf8_encode_surrogateescape
+        if _ucs2_build and len(r) == 2:
+            try:
+                return _xuniord(r), l
+            # e.g. TypeError: ord() expected a character, but string of length 2 found
+            except TypeError:
+                l -= 1
+                continue
 
         l -= 1
         continue
@@ -277,7 +290,7 @@ def _utf8_decode_surrogateescape(s): # -> unicode
                     emit(unichr(b))
 
         else:
-            emit(unichr(r))
+            emit(_xunichr(r))
 
         s = s[width:]
 
@@ -290,12 +303,74 @@ def _utf8_encode_surrogateescape(s): # -> bytes
     outv = []
     emit = outv.append
 
-    for uc in s:
+    while len(s) > 0:
+        uc = s[0]; s = s[1:]
         c = ord(uc)
+
         if 0xdc80 <= c <= 0xdcff:
             # surrogate - emit unescaped byte
             emit(bchr(c & 0xff))
-        else:
-            emit(uc.encode('utf-8', 'strict'))
+            continue
+
+        # in builds with --enable-unicode=ucs2 (default for py2 on macos and windows)
+        # python represents unicode points > 0xffff as _two_ unicode characters:
+        #
+        #   uh = u - 0x10000
+        #   c1 = 0xd800 + (uh >> 10)      ; [d800, dbff]
+        #   c2 = 0xdc00 + (uh & 0x3ff)    ; [dc00, dfff]
+        #
+        # if detected - merge those two unicode characters for .encode('utf-8') below
+        #
+        # this should be only relevant for python2, as python3 switched to "flexible"
+        # internal unicode representation: https://www.python.org/dev/peps/pep-0393
+        if _ucs2_build and (0xd800 <= c <= 0xdbff):
+            if len(s) > 0:
+                uc2 = s[0]
+                c2 = ord(uc2)
+                if 0xdc00 <= c2 <= 0xdfff:
+                    uc = uc + uc2
+                    s = s[1:]
+
+        emit(uc.encode('utf-8', 'strict'))
 
     return b''.join(outv)
+
+
+# _xuniord returns ordinal for a unicode character u.
+#
+# it works correctly even if u is represented as 2 unicode surrogate points on
+# ucs2 python build.
+if not _ucs2_build:
+    _xuniord = ord
+else:
+    def _xuniord(u):
+        assert isinstance(u, unicode)
+        if len(u) == 1:
+            return ord(u)
+
+        # see _utf8_encode_surrogateescape for details
+        if len(u) == 2:
+            c1 = ord(u[0])
+            c2 = ord(u[1])
+            if (0xd800 <= c1 <= 0xdbff) and (0xdc00 <= c2 <= 0xdfff):
+                return 0x10000 | ((c1 - 0xd800) << 10) | (c2 - 0xdc00)
+
+        # let it crash
+        return ord(u)
+
+
+# _xunichr returns unicode character for an ordinal i.
+#
+# it works correctly even on ucs2 python builds, where ordinals >= 0x10000 are
+# represented as 2 unicode pointe.
+if not _ucs2_build:
+    _xunichr = unichr
+else:
+    def _xunichr(i):
+        if i < 0x10000:
+            return unichr(i)
+
+        # see _utf8_encode_surrogateescape for details
+        uh = i - 0x10000
+        return unichr(0xd800 + (uh >> 10)) + \
+               unichr(0xdc00 + (uh & 0x3ff))

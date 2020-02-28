@@ -1601,6 +1601,10 @@ def test_strings():
         # non-printable utf-8
         (b'\x7f\xc2\x80\xc2\x81\xc2\x82\xc2\x83\xc2\x84\xc2\x85\xc2\x86\xc2\x87',
                                         u"\u007f\u0080\u0081\u0082\u0083\u0084\u0085\u0086\u0087"),
+
+        # some characters with U >= 0x10000
+        (b'\xf0\x9f\x99\x8f',           u'\U0001f64f'),    # 🙏
+        (b'\xf0\x9f\x9a\x80',           u'\U0001f680'),    # 🚀
     )
 
     for tbytes, tunicode in testv:
