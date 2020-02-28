@@ -290,7 +290,13 @@ setup(
                   ],
     include_package_data = True,
 
-    install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"'],
+    install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"',
+                        # pyx.build -> setuptools_dso uses multiprocessing
+                        # FIXME geventmp fails on python2, but setuptools_dso
+                        # uses multiprocessing only on Python3, so for now we
+                        # are ok. https://github.com/karellen/geventmp/pull/2
+                        'geventmp;python_version>="3"',
+                       ],
     extras_require   = extras_require,
 
     entry_points= {'console_scripts': [
