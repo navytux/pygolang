@@ -120,7 +120,7 @@ def _quote(s):
                 emit(br'\x%02x' % ord(c))
 
             # printable utf-8 characters go as is
-            elif unicodedata.category(r)[0] in _printable_cat0:
+            elif unicodedata.category(unichr(r))[0] in _printable_cat0:
                 emit(s[i:isize])
 
             # everything else goes in numeric byte escapes
@@ -170,12 +170,12 @@ def _unquote_next(s):
         if width == 0:
             raise ValueError('no closing "')
 
-        if r == u'"':
+        if r == ord('"'):
             s = s[1:]
             break
 
         # regular UTF-8 character
-        if r != u'\\':
+        if r != ord('\\'):
             emit(s[:width])
             s = s[width:]
             continue
@@ -222,7 +222,7 @@ def _unquote_next(s):
 
 _printable_cat0 = frozenset(['L', 'N', 'P', 'S'])   # letters, numbers, punctuation, symbols
 
-_rune_error = u'\uFFFD' # unicode replacement character
+_rune_error = 0xFFFD # unicode replacement character
 
 # _utf8_decode_rune decodes next UTF8-character from byte string s.
 #
@@ -231,7 +231,7 @@ def _utf8_decode_rune(s):
     assert isinstance(s, bytes)
 
     if len(s) == 0:
-        return '', 0
+        return _rune_error, 0
 
     l = min(len(s), 4)  # max size of an UTF-8 encoded character
     while l > 0:
@@ -242,7 +242,7 @@ def _utf8_decode_rune(s):
             continue
 
         if len(r) == 1:
-            return r, l
+            return ord(r), l
 
         l -= 1
         continue
@@ -268,7 +268,7 @@ def _utf8_decode_surrogateescape(s): # -> unicode
         # surrogates are not valid UTF-8:
         # https://github.com/python/cpython/blob/v3.8.1-118-gdbb37aac142/Objects/stringlib/codecs.h#L153-L157
         # (python3 raises UnicodeDecodeError for surrogates)
-        elif 0xd800 <= ord(r) < 0xdfff:
+        elif 0xd800 <= r < 0xdfff:
             for c in s[:width]:
                 b = ord(c)
                 if c >= 0x80:
@@ -277,7 +277,7 @@ def _utf8_decode_surrogateescape(s): # -> unicode
                     emit(unichr(b))
 
         else:
-            emit(r)
+            emit(unichr(r))
 
         s = s[width:]
 
