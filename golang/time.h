@@ -1,8 +1,8 @@
 #ifndef _NXD_LIBGOLANG_TIME_H
 #define	_NXD_LIBGOLANG_TIME_H
 
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -66,6 +66,15 @@ LIBGOLANG_API uint64_t _nanotime(void);
 // golang::time::
 namespace golang {
 namespace time {
+
+// golang/pyx/c++ - the same as std python - represents time as float
+constexpr double second       = 1.0;
+constexpr double nanosecond   = 1E-9 * second;
+constexpr double microsecond  = 1E-6 * second;
+constexpr double millisecond  = 1E-3 * second;
+constexpr double minute       = 60   * second;
+constexpr double hour         = 60   * minute;
+
 
 // sleep pauses current goroutine for at least dt seconds.
 LIBGOLANG_API void sleep(double dt);

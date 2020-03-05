@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -30,29 +30,14 @@ See also https://golang.org/pkg/time for Go time package documentation.
 
 from golang cimport chan, cbool, refptr
 
-# golang/pyx - the same as std python - represents time as float
-cdef extern from * nogil:
-    # XXX how to declare/share constants without C verbatim?
-    """
-    #ifndef _golang_time_pxd_h
-    #define _golang_time_pxd_h
-    # define    golang_time_second      (1.0)
-    # define    golang_time_nanosecond  (1E-9 * golang_time_second)
-    # define    golang_time_microsecond (1E-6 * golang_time_second)
-    # define    golang_time_millisecond (1E-3 * golang_time_second)
-    # define    golang_time_minute      (60   * golang_time_second)
-    # define    golang_time_hour        (60   * golang_time_minute)
-    #endif // _golang_time_pxd_h
-    """
-    const double second         "golang_time_second"
-    const double nanosecond     "golang_time_nanosecond"
-    const double microsecond    "golang_time_microsecond"
-    const double millisecond    "golang_time_millisecond"
-    const double minute         "golang_time_minute"
-    const double hour           "golang_time_hour"
-
-
 cdef extern from "golang/time.h" namespace "golang::time" nogil:
+    const double second
+    const double nanosecond
+    const double microsecond
+    const double millisecond
+    const double minute
+    const double hour
+
     void   sleep(double dt)
     double now()
 
