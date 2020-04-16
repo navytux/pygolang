@@ -342,3 +342,77 @@ cdef nogil:
         pych.chan_double().send(obj)
     void    _pychan_double_close(pychan pych)               except +topyexc:
         pych.chan_double().close()
+
+
+# ---- benchmarks ----
+
+# bench_go_nogil mirrors golang_test.py:bench_go
+def bench_go_nogil(b):
+    cdef int N = b.N
+    with nogil:
+        _bench_go_nogil(N)
+
+cdef void _bench_go_nogil(int N) nogil except +topyexc:
+    cdef chan[int] done = makechan[int]()
+    for i in range(N):
+        go(_bench_go_nogil__func1, done)
+        done.recv()
+
+cdef void _bench_go_nogil__func1(chan[int] done) nogil:
+    done.send(1)
+
+# bench_chan_nogil mirrors golang_test.py:bench_chan
+def bench_chan_nogil(b):
+    cdef int N = b.N
+    with nogil:
+        _bench_chan_nogil(N)
+
+cdef void _bench_chan_nogil(int N) nogil except +topyexc:
+    cdef chan[int]     ch   = makechan[int]()
+    cdef chan[structZ] done = makechan[structZ]()
+
+    go(_bench_chan_nogil__func1, ch, done)
+    for i in range(N):
+        ch.send(1)
+    ch.close()
+    done.recv()
+
+cdef void _bench_chan_nogil__func1(chan[int] ch, chan[structZ] done) nogil:
+    while 1:
+        _, ok = recv_(ch)
+        if not ok:
+            done.close()
+            return
+
+# bench_select_nogil mirrors golang_test.py:bench_select
+def bench_select_nogil(b):
+    cdef int N = b.N
+    with nogil:
+        _bench_select_nogil(N)
+
+cdef void _bench_select_nogil(int N) nogil except +topyexc:
+    cdef chan[int]     ch1  = makechan[int]()
+    cdef chan[int]     ch2  = makechan[int]()
+    cdef chan[structZ] done = makechan[structZ]()
+
+    go(_bench_select_nogil__func1, ch1, ch2, done)
+    for i in range(N):
+        if i&1: ch1.send(1)
+        else:   ch2.send(1)
+
+    ch1.close()
+    done.recv()
+
+cdef void _bench_select_nogil__func1(chan[int] ch1, chan[int] ch2, chan[structZ] done) nogil:
+    cdef int   i
+    cdef cbool ok
+
+    while 1:
+        _ = select([
+            ch1.recvs(&i, &ok),    # 0
+            ch2.recvs(&i, &ok),    # 1
+        ])
+        if _ == 0:
+            if not ok:
+                done.close()
+                return

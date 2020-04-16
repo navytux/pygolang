@@ -32,23 +32,34 @@ from subprocess import Popen, PIPE
 import six
 from six.moves import range as xrange
 import gc, weakref, warnings
+import re
 
 from golang import _golang_test
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
-# pyx/c/c++ tests -> test_pyx_* in caller's globals.
+# pyx/c/c++ tests/benchmarks -> {test,bench}_pyx_* in caller's globals.
 def import_pyx_tests(modpath):
     mod = importlib.import_module(modpath)
     callf = inspect.currentframe().f_back   # caller's frame
     callg = callf.f_globals                 # caller's globals
+    tbre  = re.compile("(test|bench)_(.+)")
     for f in dir(mod):
-        if f.startswith('test_'):
-            gf = 'test_pyx_' + f[len('test_'):] # test_chan_nogil -> test_pyx_chan_nogil
+        m = tbre.match(f)
+        if m is not None:
+            kind, name = m.group(1), m.group(2)
+            gf = kind + "_pyx_" + name # test_chan_nogil -> test_pyx_chan_nogil
+
             # define a python function with gf name (if we use f directly pytest
             # will say "cannot collect 'test_pyx_chan_nogil' because it is not a function")
-            def _(func=getattr(mod, f)):
-                func()
+            if kind == "test":
+                def _(func=getattr(mod, f)):
+                    func()
+            elif kind == "bench":
+                def _(b, func=getattr(mod, f)):
+                    func(b)
+            else:
+                panic("unreachable")
             _.__name__ = gf
             callg[gf] = _
 
@@ -61,6 +72,7 @@ def test_go_leaked():
     pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
+# pyx/nogil mirror is in _golang_test.pyx
 def bench_go(b):
     done = chan()
     def _():
@@ -317,6 +329,7 @@ def test_chan_sendrecv_2way():
 
 
 # benchmark sync chan send/recv.
+# pyx/nogil mirror is in _golang_test.pyx
 def bench_chan(b):
     ch   = chan()
     done = chan()
@@ -698,6 +711,7 @@ def test_select_refleak():
 
 
 # benchmark sync chan send vs recv on select side.
+# pyx/nogil mirror is in _golang_test.pyx
 def bench_select(b):
     ch1  = chan()
     ch2  = chan()
