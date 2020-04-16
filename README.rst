@@ -303,7 +303,7 @@ can be used to multiplex on several channels. For example::
          cdef cbool ok
          cdef int j = 33
          _ = select([
-             chi.recvs(&i)          # 0
+             chi.recvs(&i),         # 0
              chi.recvs(&i, &ok),    # 1
              chi.sends(&j),         # 2
              chp.recvs(&p),         # 3
