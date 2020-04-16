@@ -233,6 +233,9 @@ def Extension(name, sources, **kw):
     pyxenv = kw.get('cython_compile_time_env', {})
     pyxenv.setdefault('POSIX',  POSIX)
     pyxenv.setdefault('PYPY',   PYPY)
+    gverhex = _gevent_version_hex()
+    if gverhex is not None:
+        pyxenv.setdefault('GEVENT_VERSION_HEX', gverhex)
     kw['cython_compile_time_env'] = pyxenv
 
     # XXX hack, because setuptools_dso.Extension is not Cython.Extension
@@ -243,3 +246,23 @@ def Extension(name, sources, **kw):
     ext.cython_compile_time_env = pyxenv
 
     return ext
+
+# _gevent_version_hex returns gevent version in the format of PY_VERSION_HEX.
+# None is returned if gevent is not available.
+def _gevent_version_hex():
+    try:
+        import gevent
+    except ImportError:
+        return None
+    v = gevent.version_info
+
+    # https://docs.python.org/3/c-api/apiabiversion.html
+    rel = {'dev': 0, 'alpha': 0xa, 'beta': 0xb, 'rc': 0xc, 'final': 0xf}
+    vhex =  \
+        (v.major                << (3*8))   | \
+        (v.minor                << (2*8))   | \
+        (v.micro                << (1*8))   | \
+        (rel[v.releaselevel]    <<    4)    | \
+        (v.serial               <<    0)
+
+    return vhex

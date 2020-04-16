@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -24,13 +24,16 @@ from __future__ import print_function, absolute_import
 # Gevent runtime uses gevent's greenlets and semaphores.
 # When sema.acquire() blocks, gevent switches us from current to another greenlet.
 
-IF not PYPY:
+# gevent >= 1.5 stopped to provide pxd to its API
+# https://github.com/gevent/gevent/issues/1568
+#
+# on pypy gevent does not compile greenlet.py and semaphore.py citing that
+# "there is no greenlet.h on pypy"
+IF (GEVENT_VERSION_HEX < 0x01050000) and (not PYPY):
     from gevent._greenlet cimport Greenlet
     from gevent.__semaphore cimport Semaphore
     ctypedef Semaphore PYGSema
 ELSE:
-    # on pypy gevent does not compile greenlet.py and semaphore.py citing that
-    # "there is no greenlet.h on pypy"
     from gevent.greenlet import Greenlet
     from gevent._semaphore import Semaphore
     ctypedef object PYGSema
