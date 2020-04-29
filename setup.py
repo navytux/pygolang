@@ -178,10 +178,10 @@ setup(
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
-    url         = 'https://lab.nexedi.com/kirr/pygolang',
+    url         = 'https://lab.nexedi.com/nexedi/pygolang',
     project_urls= {
-        'Bug Tracker':   'https://lab.nexedi.com/kirr/pygolang/issues',
-        'Source Code':   'https://lab.nexedi.com/kirr/pygolang',
+        'Bug Tracker':   'https://lab.nexedi.com/nexedi/pygolang/issues',
+        'Source Code':   'https://lab.nexedi.com/nexedi/pygolang',
         'Documentation': 'https://pypi.org/project/pygolang',
     },
     license     = 'GPLv3+ with wide exception for Open-Source',

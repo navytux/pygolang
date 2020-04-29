@@ -393,13 +393,13 @@ See also |testprog/golang_pyx_user/|_ for demo project that uses Pygolang in
 Cython/nogil mode.
 
 .. |libgolang.h| replace:: `libgolang.h`
-.. _libgolang.h: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/libgolang.h
+.. _libgolang.h: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/libgolang.h
 
 .. |golang.pxd| replace:: `golang.pxd`
-.. _golang.pxd: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_golang.pxd
+.. _golang.pxd: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/_golang.pxd
 
 .. |testprog/golang_pyx_user/| replace:: `testprog/golang_pyx_user/`
-.. _testprog/golang_pyx_user/: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/pyx/testprog/golang_pyx_user
+.. _testprog/golang_pyx_user/: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/pyx/testprog/golang_pyx_user
 
 --------
 
@@ -422,9 +422,9 @@ handle concurrency in structured ways:
   task-scoped values among spawned goroutines [*]_.
 
   .. |golang.context| replace:: `golang.context`
-  .. _golang.context: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/context.h
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/context.py
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_context.pxd
+  .. _golang.context: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/context.h
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/context.py
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/_context.pxd
 
 - |golang.sync|_ (py__, pyx__) provides `sync.WorkGroup` to spawn group of goroutines working
   on a common task. It also provides low-level primitives - for example
@@ -432,16 +432,16 @@ handle concurrency in structured ways:
   sometimes useful too.
 
   .. |golang.sync| replace:: `golang.sync`
-  .. _golang.sync: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/sync.h
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/sync.py
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_sync.pxd
+  .. _golang.sync: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/sync.h
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/sync.py
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/_sync.pxd
 
 - |golang.time|_ (py__, pyx__) provides timers integrated with channels.
 
   .. |golang.time| replace:: `golang.time`
-  .. _golang.time: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/time.h
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/time.py
-  __ https://lab.nexedi.com/kirr/pygolang/tree/master/golang/_time.pxd
+  .. _golang.time: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/time.h
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/time.py
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/_time.pxd
 
 
 .. [*] See `Go Concurrency Patterns: Context`__ for overview.
@@ -465,7 +465,7 @@ Package |golang.strconv|_ provides direct access to conversion routines, for
 example `strconv.quote` and `strconv.unquote`.
 
 .. |golang.strconv| replace:: `golang.strconv`
-.. _golang.strconv: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/strconv.py
+.. _golang.strconv: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/strconv.py
 
 
 Benchmarking and testing
@@ -497,8 +497,8 @@ Additionally package |golang.x.perf.benchlib|_ can be used to load and process
 such benchmarking data in Python.
 
 .. |golang.testing| replace:: `golang.testing`
-.. _golang.testing: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/testing.py
+.. _golang.testing: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/testing.py
 .. |golang.x.perf.benchlib| replace:: `golang.x.perf.benchlib`
-.. _golang.x.perf.benchlib: https://lab.nexedi.com/kirr/pygolang/tree/master/golang/x/perf/benchlib.py
+.. _golang.x.perf.benchlib: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/x/perf/benchlib.py
 __ https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 __ https://godoc.org/golang.org/x/perf/cmd/benchstat
