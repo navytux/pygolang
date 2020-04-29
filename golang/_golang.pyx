@@ -828,13 +828,54 @@ def pyqq(obj):
     qobj = pystrconv.quote(obj)
 
     # `printf('%s', qq(obj))` should work. For this make sure qobj is always
-    # of str type (unicode on py3, bytes on py2).
+    # a-la str type (unicode on py3, bytes on py2), that can be transparently
+    # converted to unicode or bytes as needed.
     if PY_MAJOR_VERSION >= 3:
-        qobj = pyu(qobj)
+        qobj = _pyunicode(pyu(qobj))
     else:
-        qobj = pyb(qobj)
+        qobj = _pystr(pyb(qobj))
 
     return qobj
+
+
+# XXX cannot `cdef class`: github.com/cython/cython/issues/711
+class _pystr(bytes):
+    """_str is like bytes but can be automatically converted to Python unicode
+    string via UTF-8 decoding.
+
+    The decoding never fails nor looses information - see u for details.
+    """
+
+    # don't allow to set arbitrary attributes.
+    # won't be needed after switch to -> `cdef class`
+    __slots__ = ()
+
+
+    # __bytes__ - no need
+    def __unicode__(self):  return pyu(self)
+
+    def __str__(self):
+        if PY_MAJOR_VERSION >= 3:
+            return pyu(self)
+        else:
+            return self
+
+
+cdef class _pyunicode(unicode):
+    """_unicode is like unicode(py2)|str(py3) but can be automatically converted
+    to bytes via UTF-8 encoding.
+
+    The encoding always succeeds - see b for details.
+    """
+
+    def __bytes__(self):    return pyb(self)
+    # __unicode__ - no need
+
+    def __str__(self):
+        if PY_MAJOR_VERSION >= 3:
+            return self
+        else:
+            return pyb(self)
 
 
 # ---- error ----

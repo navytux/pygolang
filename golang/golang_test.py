@@ -1660,6 +1660,18 @@ def test_qq():
     assert isinstance(qq(b('мир')), str)    # qq(b) -> str (bytes·py2, unicode·py3)
     assert isinstance(qq( u'мир'),  str)    # qq(u) -> str (bytes·py2, unicode·py3)
 
+    # however what qq returns can be mixed with both unicode and bytes
+    assert b'hello %s !' % qq(b('мир')) == b('hello "мир" !')   # b % qq(b)
+    assert b'hello %s !' % qq(u('мир')) == b('hello "мир" !')   # b % qq(u) -> b
+    assert u'hello %s !' % qq(u('мир')) == u('hello "мир" !')   # u % qq(u)
+    assert u'hello %s !' % qq(b('мир')) ==  u'hello "мир" !'    # u % qq(b) -> u
+
+    # custom attributes cannot be injected to what qq returns
+    x = qq('мир')
+    if not ('PyPy' in sys.version): # https://foss.heptapod.net/pypy/pypy/issues/2763
+        with raises(AttributeError):
+            x.hello = 1
+
 
 # ---- misc ----
 
