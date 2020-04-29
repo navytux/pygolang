@@ -34,9 +34,15 @@ def byterange(start, stop):
 
     return b
 
+# asstr converts unicode|bytes to str type of current python.
 def asstr(s):
-    if PY3 and isinstance(s, bytes):
-        s = s.decode('utf-8')
+    if PY3:
+        if isinstance(s, bytes):
+            s = s.decode('utf-8')
+    # PY2
+    else:
+        if isinstance(s, unicode):
+            s = s.encode('utf-8')
     return s
 
 def test_quote():

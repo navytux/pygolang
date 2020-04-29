@@ -827,10 +827,12 @@ def pyqq(obj):
 
     qobj = pystrconv.quote(obj)
 
-    # `printf('%s', qq(obj))` should work. For this make sure qobj is always a
-    # str - not bytes under py3 (if it was bytes it will print e.g. as b'...')
+    # `printf('%s', qq(obj))` should work. For this make sure qobj is always
+    # of str type (unicode on py3, bytes on py2).
     if PY_MAJOR_VERSION >= 3:
         qobj = pyu(qobj)
+    else:
+        qobj = pyb(qobj)
 
     return qobj
 

@@ -22,6 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, \
         defer, recover, u, b
+from golang.gcompat import qq
 from golang import sync
 from golang.strconv_test import byterange
 from pytest import raises, mark, fail
@@ -1650,6 +1651,14 @@ def test_strings():
     _ = u(u'мир труд май')
     assert isinstance(_, unicode)
     assert u(_) is _
+
+
+def test_qq():
+    # NOTE qq is also tested as part of strconv.quote
+
+    # qq(any) returns string type
+    assert isinstance(qq(b('мир')), str)    # qq(b) -> str (bytes·py2, unicode·py3)
+    assert isinstance(qq( u'мир'),  str)    # qq(u) -> str (bytes·py2, unicode·py3)
 
 
 # ---- misc ----
