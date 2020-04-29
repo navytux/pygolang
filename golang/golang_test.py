@@ -30,6 +30,7 @@ from os.path import dirname
 import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
+from six import text_type as unicode
 from six.moves import range as xrange
 import gc, weakref, warnings
 import re
@@ -1639,6 +1640,16 @@ def test_strings():
     with raises(TypeError): u(object())
 
     # TODO also handle bytearray?
+
+    # b(b(·)) = identity
+    _ = b(u'миру мир 123')
+    assert isinstance(_, bytes)
+    assert b(_) is _
+
+    # u(u(·)) = identity
+    _ = u(u'мир труд май')
+    assert isinstance(_, unicode)
+    assert u(_) is _
 
 
 # ---- misc ----
