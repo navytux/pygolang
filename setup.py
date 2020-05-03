@@ -156,7 +156,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.4'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.6'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
