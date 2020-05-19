@@ -1758,7 +1758,9 @@ def assertDoc(want, got):
     got  = u(got)
 
     # normalize got to PYGOLANG
-    got = got.replace(dir_pygolang, "PYGOLANG")
+    udir_pygolang = abbrev_home(dir_pygolang)    # /home/x/.../pygolang -> ~/.../pygolang
+    got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
+    got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
     # ^$ -> <BLANKLINE>
     while "\n\n" in want:
@@ -1794,3 +1796,12 @@ def test_fmtargspec():
 def readfile(path):
     with open(path, "r") as f:
         return f.read()
+
+# abbrev_home returns path with user home prefix abbreviated with ~.
+def abbrev_home(path):
+    home = os.path.expanduser('~')
+    if path == home:
+        return '~'
+    if path.startswith(home+'/'):
+        return '~'+path[len(home):]
+    return path
