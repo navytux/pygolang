@@ -1,0 +1,27 @@
+...
+_____________________________________ main _____________________________________
+../__init__.py:...: in _
+    return f(*argv, **kw)
+golang_test_defer_excchain.py:42: in main
+    raise RuntimeError("err")
+E   RuntimeError: err
+
+During handling of the above exception, another exception occurred:
+../__init__.py:...: in __exit__
+    ...
+golang_test_defer_excchain.py:31: in d1
+    raise RuntimeError("d1: aaa")
+E   RuntimeError: d1: aaa
+
+During handling of the above exception, another exception occurred:
+../__init__.py:...: in __exit__
+    ...
+golang_test_defer_excchain.py:33: in d2
+    1/0
+E   ZeroDivisionError: ...
+
+During handling of the above exception, another exception occurred:
+golang_test_defer_excchain.py:35: in d3
+    raise RuntimeError("d3: bbb")
+E   RuntimeError: d3: bbb
+=========================== ...

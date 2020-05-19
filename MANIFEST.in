@@ -25,6 +25,6 @@ include golang/sync_test.cpp
 include golang/time.h
 include golang/time.cpp
 include golang/_testing.h
-recursive-include golang    *.py *.pxd *.pyx *.toml *.txt
+recursive-include golang    *.py *.pxd *.pyx *.toml *.txt*
 recursive-include gpython   *.py
 recursive-include 3rdparty  *.h

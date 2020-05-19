@@ -1553,6 +1553,29 @@ def test_defer_excchain_dump():
     assert stdout == b""
     assertDoc(tbok, stderr)
 
+# ----//---- (ipython)
+def test_defer_excchain_dump_ipython():
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-ipython")
+    retcode, stdout, stderr = _pyrun(["-m", "IPython", "--quick", "--colors=NoColor",
+                                "-m", "golang_test_defer_excchain"],
+                                env={"COLUMNS": "80"}, # force ipython5 avoid thinking termwidth=0
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode == 0
+    # ipython5 uses .pyc for filenames instead of .py
+    stdout = re.sub(br'\.pyc\b', b'.py', stdout) # normalize .pyc -> .py
+    assertDoc(tbok, stdout)
+    assert b"Unknown failure executing module: <golang_test_defer_excchain>" in stderr
+
+# ----//---- (pytest)
+def test_defer_excchain_dump_pytest():
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
+    retcode, stdout, stderr = _pyrun(["-m", "pytest", "-o", "python_functions=main",
+                                "--tb=short", "golang_test_defer_excchain.py"],
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode != 0
+    assert stderr == b""
+    assertDoc(tbok, stdout)
+
 
 # defer overhead.
 def bench_try_finally(b):
