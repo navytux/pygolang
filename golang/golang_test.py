@@ -40,6 +40,12 @@ from golang import _golang_test
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
+# directories
+dir_golang   = dirname(__file__)        # .../pygolang/golang
+dir_pygolang = dirname(dir_golang)      # .../pygolang
+dir_testprog = dir_golang + "/testprog" # .../pygolang/golang/testprog
+
+
 # pyx/c/c++ tests/benchmarks -> {test,bench}_pyx_* in caller's globals.
 def import_pyx_tests(modpath):
     mod = importlib.import_module(modpath)
@@ -71,7 +77,7 @@ import_pyx_tests("golang._golang_test")
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
-    pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
+    pyrun([dir_testprog + "/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
 # pyx/nogil mirror is in _golang_test.pyx
@@ -1540,7 +1546,6 @@ RuntimeError: aaa
 # verify that dump of unhandled chained exception traceback works correctly (even on py2).
 def test_defer_excchain_dump():
     # run golang_test_defer_excchain.py and verify its output via doctest.
-    dir_testprog = dirname(__file__) + "/testprog"      # pygolang/golang/testprog
     with open(dir_testprog + "/golang_test_defer_excchain.txt", "r") as f:
         tbok = f.read()
     retcode, stdout, stderr = _pyrun(["golang_test_defer_excchain.py"],
@@ -1683,9 +1688,7 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
     # script will succeed on `import golang` when running in-tree.
     kw = kw.copy()
-    dir_golang = dirname(__file__)  #     .../pygolang/golang
-    dir_top    = dir_golang + '/..' # ~>  .../pygolang
-    pathv = [dir_top]
+    pathv = [dir_pygolang]
     env = kw.pop('env', os.environ.copy())
     envpath = env.get('PYTHONPATH')
     if envpath is not None:
@@ -1756,7 +1759,6 @@ def assertDoc(want, got):
     got  = u(got)
 
     # normalize got to PYGOLANG
-    dir_pygolang = dirname((dirname(__file__))) # pygolang/golang/golang_test.py -> pygolang
     got = got.replace(dir_pygolang, "PYGOLANG")
 
     # ^$ -> <BLANKLINE>
