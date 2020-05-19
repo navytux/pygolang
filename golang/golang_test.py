@@ -1546,8 +1546,7 @@ RuntimeError: aaa
 # verify that dump of unhandled chained exception traceback works correctly (even on py2).
 def test_defer_excchain_dump():
     # run golang_test_defer_excchain.py and verify its output via doctest.
-    with open(dir_testprog + "/golang_test_defer_excchain.txt", "r") as f:
-        tbok = f.read()
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt")
     retcode, stdout, stderr = _pyrun(["golang_test_defer_excchain.py"],
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
     assert retcode != 0
@@ -1789,3 +1788,9 @@ def fmtargspec(f): # -> str
 def test_fmtargspec():
     def f(x, y=3, z=4, *argv, **kw): pass
     assert fmtargspec(f) == '(x, y=3, z=4, *argv, **kw)'
+
+
+# readfile returns content of file @path.
+def readfile(path):
+    with open(path, "r") as f:
+        return f.read()
