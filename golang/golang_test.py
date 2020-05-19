@@ -1395,6 +1395,107 @@ def test_defer_excchain_vs_recover():
     tb2 = Traceback(e2.__traceback__)
     assert tb2[-1].name == "p2"
 
+# verify that recover returns exception with .__traceback__ and excchain context set (even on py2).
+def test_recover_traceback_and_excchain():
+    # raise -> recover
+    @func
+    def f1():
+        def r1():
+            e = recover()
+            assert e is not None
+            assert type(e) is RuntimeError
+            assert e.args == ("qqq",)
+            assert e.__cause__    is None
+            assert e.__context__  is None
+            assert e.__suppress_context__ == False
+            assert e.__traceback__ is not None
+            tb = Traceback(e.__traceback__)
+            assert tb[-1].name == "p1"
+            assert tb[-2].name == "p2"
+            assert tb[-3].name == "p3"
+            assert tb[-4].name == "f1"
+            # [-5] == _func._
+        defer(r1)
+
+        def p1(): raise RuntimeError("qqq")
+        def p2(): p1()
+        def p3(): p2()
+        p3()
+    f1()
+
+    # raise -> defer(raise2) -> recover
+    @func
+    def f2():
+        def r2():
+            e2 = recover()
+            assert e2 is not None
+            assert type(e2) is RuntimeError
+            assert e2.args == ("epp2",)
+            assert e2.__cause__     is None
+            assert e2.__context__   is not None
+            assert e2.__suppress_context__ == False
+            assert e2.__traceback__ is not None
+            t2 = Traceback(e2.__traceback__)
+            assert t2[-1].name == "pp2"
+            # [-2] == _GoFrame.__exit__
+
+            e1 = e2.__context__
+            assert type(e1) is RuntimeError
+            assert e1.args == ("epp1",)
+            assert e1.__cause__     is None
+            assert e1.__context__   is None
+            assert e1.__suppress_context__ == False
+            assert e1.__traceback__ is not None
+            t1 = Traceback(e1.__traceback__)
+            assert t1[-1].name == "pp1"
+            assert t1[-2].name == "f2"
+            # [-3] == _func._
+        defer(r2)
+
+        def pp2(): raise RuntimeError("epp2")
+        defer(pp2)
+
+        def pp1(): raise RuntimeError("epp1")
+        pp1()
+    f2()
+
+    # raise -> recover -> wrap+reraise
+    @func
+    def f3():
+        def r3():
+            e1 = recover()
+            assert e1 is not None
+            e2 = RuntimeError("bad2")
+            e2.__context__  = e1
+            raise e2
+        defer(r3)
+
+        def bad1(): raise RuntimeError("bad1")
+        bad1()
+
+    with raises(RuntimeError) as exci:
+        f3()
+
+    e2 = exci.value
+    assert type(e2) is RuntimeError
+    assert e2.args == ("bad2",)
+    assert e2.__cause__     is None
+    assert e2.__context__   is not None
+    if six.PY3: # .__traceback__ for top-level exception is not set on py2
+        assert e2.__traceback__ is not None
+        t2 = Traceback(e2.__traceback__)
+        assert t2[-1].name == "r3"
+    e1 = e2.__context__
+    assert type(e1) is RuntimeError
+    assert e1.args == ("bad1",)
+    assert e1.__cause__     is None
+    assert e1.__context__   is None
+    assert e1.__traceback__ is not None
+    t1 = Traceback(e1.__traceback__)
+    assert t1[-1].name == "bad1"
+    assert t1[-2].name == "f3"
+
+
 # verify that traceback.{print_exception,format_exception} work on chained
 # exception correctly.
 def test_defer_excchain_traceback():

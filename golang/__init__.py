@@ -197,7 +197,7 @@ def recover():
         # called not under go func/defer
         return None
 
-    _, exc, _ = sys.exc_info()
+    _, exc, exc_tb = sys.exc_info()
     if exc is not None:
         goframe.recovered = True
         # recovered: clear current exception context
@@ -205,6 +205,13 @@ def recover():
         if six.PY2:
             goframe.exc_ctx    = None
             goframe.exc_ctx_tb = None
+
+            # the exception is caught. Now is the correct time to set its .__traceback__
+            #
+            # we don't need to set .__context__ and the like here - _GoFrame.__exit__
+            # makes sure to add those attributes to any exception recover might catch -
+            # because hereby part of recover is always run under defer.
+            exc.__traceback__ = exc_tb
 
     if type(exc) is _PanicError:
         exc = exc.args[0]
