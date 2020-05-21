@@ -1,0 +1,74 @@
+...
+RuntimeError                              Traceback (most recent call last)
+PYGOLANG/golang/__init__.py in _(f, *argv, **kw)
+...
+--> ...             return f(*argv, **kw)
+...
+
+PYGOLANG/golang/testprog/golang_test_defer_excchain.py in main()
+     41     defer(d1)
+---> 42     raise RuntimeError("err")
+     43 
+
+RuntimeError: err
+
+During handling of the above exception, another exception occurred:
+
+RuntimeError                              Traceback (most recent call last)
+PYGOLANG/golang/__init__.py in __exit__(__goframe__, exc_type, exc_val, exc_tb)
+...
+
+PYGOLANG/golang/testprog/golang_test_defer_excchain.py in d1()
+     30 def d1():
+---> 31     raise RuntimeError("d1: aaa")
+     32 def d2():
+
+RuntimeError: d1: aaa
+
+During handling of the above exception, another exception occurred:
+
+ZeroDivisionError                         Traceback (most recent call last)
+PYGOLANG/golang/__init__.py in __exit__(__goframe__, exc_type, exc_val, exc_tb)
+...
+
+PYGOLANG/golang/testprog/golang_test_defer_excchain.py in d2()
+     32 def d2():
+---> 33     1/0
+     34 def d3():
+
+ZeroDivisionError: ...
+
+During handling of the above exception, another exception occurred:
+
+RuntimeError                              Traceback (most recent call last)
+...
+
+PYGOLANG/golang/testprog/golang_test_defer_excchain.py in ...
+     43 
+     44 if __name__ == "__main__":
+---> 45     main()
+
+...
+
+PYGOLANG/golang/__init__.py in _(f, *argv, **kw)
+...
+--> ...             return f(*argv, **kw)
+...
+
+PYGOLANG/golang/__init__.py in __exit__(__goframe__, exc_type, exc_val, exc_tb)
+...
+
+PYGOLANG/golang/__init__.py in __exit__(__goframe__, exc_type, exc_val, exc_tb)
+...
+
+PYGOLANG/golang/__init__.py in __exit__(__goframe__, exc_type, exc_val, exc_tb)
+...
+
+PYGOLANG/golang/testprog/golang_test_defer_excchain.py in d3()
+     33     1/0
+     34 def d3():
+---> 35     raise RuntimeError("d3: bbb")
+     36 
+     37 @func
+
+RuntimeError: d3: bbb

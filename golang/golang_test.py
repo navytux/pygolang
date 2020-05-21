@@ -40,6 +40,12 @@ from golang import _golang_test
 from golang._golang_test import pywaitBlocked as waitBlocked, pylen_recvq as len_recvq, \
         pylen_sendq as len_sendq, pypanicWhenBlocked as panicWhenBlocked
 
+# directories
+dir_golang   = dirname(__file__)        # .../pygolang/golang
+dir_pygolang = dirname(dir_golang)      # .../pygolang
+dir_testprog = dir_golang + "/testprog" # .../pygolang/golang/testprog
+
+
 # pyx/c/c++ tests/benchmarks -> {test,bench}_pyx_* in caller's globals.
 def import_pyx_tests(modpath):
     mod = importlib.import_module(modpath)
@@ -71,7 +77,7 @@ import_pyx_tests("golang._golang_test")
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
-    pyrun([dirname(__file__) + "/testprog/golang_test_goleaked.py"])
+    pyrun([dir_testprog + "/golang_test_goleaked.py"])
 
 # benchmark go+join a thread/coroutine.
 # pyx/nogil mirror is in _golang_test.pyx
@@ -1641,14 +1647,35 @@ RuntimeError: aaa
 # verify that dump of unhandled chained exception traceback works correctly (even on py2).
 def test_defer_excchain_dump():
     # run golang_test_defer_excchain.py and verify its output via doctest.
-    dir_testprog = dirname(__file__) + "/testprog"      # pygolang/golang/testprog
-    with open(dir_testprog + "/golang_test_defer_excchain.txt", "r") as f:
-        tbok = f.read()
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt")
     retcode, stdout, stderr = _pyrun(["golang_test_defer_excchain.py"],
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
     assert retcode != 0
     assert stdout == b""
     assertDoc(tbok, stderr)
+
+# ----//---- (ipython)
+def test_defer_excchain_dump_ipython():
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-ipython")
+    retcode, stdout, stderr = _pyrun(["-m", "IPython", "--quick", "--colors=NoColor",
+                                "-m", "golang_test_defer_excchain"],
+                                env={"COLUMNS": "80"}, # force ipython5 avoid thinking termwidth=0
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode == 0
+    # ipython5 uses .pyc for filenames instead of .py
+    stdout = re.sub(br'\.pyc\b', b'.py', stdout) # normalize .pyc -> .py
+    assertDoc(tbok, stdout)
+    assert b"Unknown failure executing module: <golang_test_defer_excchain>" in stderr
+
+# ----//---- (pytest)
+def test_defer_excchain_dump_pytest():
+    tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
+    retcode, stdout, stderr = _pyrun(["-m", "pytest", "-o", "python_functions=main",
+                                "--tb=short", "golang_test_defer_excchain.py"],
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode != 0
+    assert stderr == b""
+    assertDoc(tbok, stdout)
 
 
 # defer overhead.
@@ -1784,9 +1811,7 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
     # script will succeed on `import golang` when running in-tree.
     kw = kw.copy()
-    dir_golang = dirname(__file__)  #     .../pygolang/golang
-    dir_top    = dir_golang + '/..' # ~>  .../pygolang
-    pathv = [dir_top]
+    pathv = [dir_pygolang]
     env = kw.pop('env', os.environ.copy())
     envpath = env.get('PYTHONPATH')
     if envpath is not None:
@@ -1857,8 +1882,9 @@ def assertDoc(want, got):
     got  = u(got)
 
     # normalize got to PYGOLANG
-    dir_pygolang = dirname((dirname(__file__))) # pygolang/golang/golang_test.py -> pygolang
-    got = got.replace(dir_pygolang, "PYGOLANG")
+    udir_pygolang = abbrev_home(dir_pygolang)    # /home/x/.../pygolang -> ~/.../pygolang
+    got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
+    got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
     # ^$ -> <BLANKLINE>
     while "\n\n" in want:
@@ -1888,3 +1914,18 @@ def fmtargspec(f): # -> str
 def test_fmtargspec():
     def f(x, y=3, z=4, *argv, **kw): pass
     assert fmtargspec(f) == '(x, y=3, z=4, *argv, **kw)'
+
+
+# readfile returns content of file @path.
+def readfile(path):
+    with open(path, "r") as f:
+        return f.read()
+
+# abbrev_home returns path with user home prefix abbreviated with ~.
+def abbrev_home(path):
+    home = os.path.expanduser('~')
+    if path == home:
+        return '~'
+    if path.startswith(home+'/'):
+        return '~'+path[len(home):]
+    return path

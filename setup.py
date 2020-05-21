@@ -165,6 +165,9 @@ for pkg in R:
     Rall.update(R[pkg])
 R['all'] = Rall
 
+# ipython/pytest are required to test py2 integration patches
+R['all_test'] = Rall.union(['ipython', 'pytest']) # pip does not like "+" in all+test
+
 # extras_require <- R
 extras_require = {}
 for k in sorted(R.keys()):
