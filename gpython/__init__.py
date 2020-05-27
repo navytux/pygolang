@@ -150,6 +150,7 @@ def main():
                 '\n\n\t%s\n\nsys.modules:\n\n\t%s' % (bad, sysmodv))
 
     # make gevent pre-available & stdlib patched
+    import gevent
     from gevent import monkey
     # XXX workaround for gevent vs pypy2 crash.
     # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
@@ -182,7 +183,7 @@ def main():
         exe = exe + '.exe'
 
     sys.executable  = exe
-    sys.version    += (' [GPython %s]' % golang.__version__)
+    sys.version    += (' [GPython %s] [gevent %s]' % (golang.__version__, gevent.__version__))
 
     # tail to pymain
     pymain(sys.argv[1:])

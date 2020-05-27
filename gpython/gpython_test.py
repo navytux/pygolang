@@ -91,9 +91,11 @@ def test_gevent_activated():
 @gpython_only
 def test_executable():
     # sys.executable must point to gpython and we must be able to execute it.
+    import gevent
     assert 'gpython' in sys.executable
     out = pyout(['-c', 'import sys; print(sys.version)'])
     assert ('[GPython %s]' % golang.__version__) in str(out)
+    assert ('[gevent %s]'  % gevent.__version__) in str(out)
 
 # verify pymain.
 #
