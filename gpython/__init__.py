@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2020  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -136,8 +136,10 @@ def main():
     avoid = ['pkg_resources', 'golang', 'socket', 'select', 'threading',
              'thread', 'ssl', 'subprocess']
     # pypy7 made time always pre-imported (https://bitbucket.org/pypy/pypy/commits/6759b768)
+    # cpython3.8 made time always pre-imported via zipimport hook:
+    # https://github.com/python/cpython/commit/79d1c2e6c9d1 (`import time` in zipimport.py)
     pypy = ('PyPy' in sys.version)
-    if not pypy:
+    if (not pypy) and (sys.version_info < (3, 8)):
         avoid.append('time')
     bad = []
     for mod in avoid:
