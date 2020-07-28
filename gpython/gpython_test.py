@@ -33,6 +33,24 @@ is_cpython = (platform.python_implementation() == 'CPython')
 # @gpython_only is marker to run a test only under gpython
 gpython_only = pytest.mark.skipif('GPython' not in sys.version, reason="gpython-only test")
 
+# runtime is pytest fixture that yields all variants of should be supported gpython runtimes:
+# '' - not specified (gpython should autoselect)
+# 'gevent'
+# 'threads'
+@pytest.fixture(scope="function", params=['', 'gevent', 'threads'])
+def runtime(request):
+    yield request.param
+
+# gpyenv returns environment appropriate for spawning gpython with
+# specified runtime.
+def gpyenv(runtime): # -> env
+    env = os.environ.copy()
+    if runtime != '':
+        env['GPYTHON_RUNTIME'] = runtime
+    else:
+        env.pop('GPYTHON_RUNTIME', None)
+    return env
+
 
 @gpython_only
 def test_defaultencoding_utf8():
@@ -54,6 +72,12 @@ def test_golang_builtins():
 
 @gpython_only
 def test_gevent_activated():
+    # gpython, by default, acticates gevent.
+    # handling of various runtime modes is explicitly tested in test_Xruntime.
+    assert_gevent_activated()
+
+def assert_gevent_activated():
+    assert 'gevent' in sys.modules
     from gevent.monkey import is_module_patched as patched, is_object_patched as obj_patched
 
     # builtin (gevent: only on py2 - on py3 __import__ uses fine-grained locking)
@@ -91,15 +115,38 @@ def test_gevent_activated():
     if sys.hexversion >= 0x03070000: # >= 3.7.0
         assert patched('queue')
 
+def assert_gevent_not_activated():
+    assert 'gevent' not in sys.modules
+    from gevent.monkey import is_module_patched as patched, is_object_patched as obj_patched
+
+    assert not patched('socket')
+    assert not patched('time')
+    assert not patched('select')
+    assert not patched('os')
+    assert not patched('signal')
+    assert not patched('thread' if PY2 else '_thread')
+    assert not patched('threading')
+    assert not patched('_threading_local')
+    assert not patched('ssl')
+    assert not patched('subprocess')
+    assert not patched('sys')
+
 
 @gpython_only
-def test_executable():
+def test_executable(runtime):
     # sys.executable must point to gpython and we must be able to execute it.
     import gevent
     assert 'gpython' in sys.executable
-    out = pyout(['-c', 'import sys; print(sys.version)'])
-    assert ('[GPython %s]' % golang.__version__) in str(out)
-    assert ('[gevent %s]'  % gevent.__version__) in str(out)
+    ver = pyout(['-c', 'import sys; print(sys.version)'], env=gpyenv(runtime))
+    ver = str(ver)
+    assert ('[GPython %s]' % golang.__version__) in ver
+    if runtime != 'threads':
+        assert ('[gevent %s]'  % gevent.__version__)     in ver
+        assert ('[threads]')                         not in ver
+    else:
+        assert ('[gevent ')                          not in ver
+        assert ('[threads]')                             in ver
+
 
 # verify pymain.
 #
@@ -138,11 +185,15 @@ def test_pymain():
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
 @gpython_only
-def test_pymain_ver():
+def test_pymain_ver(runtime):
     from golang import b
     from gpython import _version_info_str as V
     import gevent
-    vok = 'GPython %s [gevent %s]' % (golang.__version__, gevent.__version__)
+    vok = 'GPython %s' % golang.__version__
+    if runtime != 'threads':
+        vok += ' [gevent %s]' % gevent.__version__
+    else:
+        vok += ' [threads]'
 
     if is_cpython:
         vok += ' / CPython %s' % platform.python_version()
@@ -153,8 +204,29 @@ def test_pymain_ver():
 
     vok += '\n'
 
-    ret, out, err = _pyrun(['-V'], stdout=PIPE, stderr=PIPE)
+    ret, out, err = _pyrun(['-V'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
-    ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE)
+    ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
     assert (ret, out, b(err)) == (0, b'', b(vok))
+
+
+# verify -X gpython.runtime=...
+@gpython_only
+def test_Xruntime(runtime):
+    env = os.environ.copy()
+    env.pop('GPYTHON_RUNTIME', None) # del
+
+    argv = []
+    if runtime != '':
+        argv += ['-X', 'gpython.runtime='+runtime]
+    prog = 'from gpython import gpython_test as t; '
+    if runtime != 'threads':
+        prog += 't.assert_gevent_activated(); '
+    else:
+        prog += 't.assert_gevent_not_activated(); '
+    prog += 'print("ok")'
+    argv += ['-c', prog]
+
+    out = pyout(argv, env=env)
+    assert out == b'ok\n'

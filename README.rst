@@ -53,6 +53,8 @@ Additionally GPython sets UTF-8 to be default encoding always, and puts `go`,
 
    GPython is optional and the rest of Pygolang can be used from under standard Python too.
    However without gevent integration `go` spawns full - not lightweight - OS thread.
+   GPython can be also used with threads - not gevent - runtime. Please see
+   `GPython options`_ for details.
 
 
 Goroutines and channels
@@ -502,3 +504,22 @@ such benchmarking data in Python.
 .. _golang.x.perf.benchlib: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/x/perf/benchlib.py
 __ https://github.com/golang/proposal/blob/master/design/14313-benchmark-format.md
 __ https://godoc.org/golang.org/x/perf/cmd/benchstat
+
+
+--------
+
+GPython options
+---------------
+
+GPython mimics and supports most of Python command-line options, like `gpython
+-c <commands>` to run Python statements from command line, or `gpython -m
+<module>` to execute a module. Such options have the same meaning as in
+standard Python and are not documented here.
+
+GPython-specific options and environment variables are listed below:
+
+`-X gpython.runtime=(gevent|threads)`
+    Specify which runtime GPython should use. `gevent` provides lightweight
+    coroutines, while with `threads` `go` spawns full OS thread. `gevent` is
+    default. The runtime to use can be also specified via `$GPYTHON_RUNTIME`
+    environment variable.

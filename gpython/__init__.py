@@ -26,6 +26,9 @@ differences:
 - gevent is pre-activated and stdlib is patched to be gevent aware;
 - go, chan, select etc are put into builtin namespace;
 - default string encoding is always set to UTF-8.
+
+Gevent activation can be disabled via `-X gpython.runtime=threads`, or
+$GPYTHON_RUNTIME=threads.
 """
 
 # NOTE gpython is kept out of golang/ , since even just importing e.g. golang.cmd.gpython,
@@ -75,8 +78,12 @@ def pymain(argv):
         ver = []
         if 'GPython' in sys.version:
             golang = sys.modules['golang'] # must be already imported
-            gevent = sys.modules['gevent'] # must be already imported
-            gpyver = 'GPython %s [gevent %s]' % (golang.__version__, gevent.__version__)
+            gevent = sys.modules.get('gevent', None)
+            gpyver = 'GPython %s' % golang.__version__
+            if gevent is not None:
+                gpyver += ' [gevent %s]' % gevent.__version__
+            else:
+                gpyver += ' [threads]'
             ver.append(gpyver)
 
         import platform
@@ -213,20 +220,65 @@ def main():
         exe = exe + '.exe'
     sys.executable  = exe
 
-    # make gevent pre-available & stdlib patched
-    import gevent
-    from gevent import monkey
-    # XXX workaround for gevent vs pypy2 crash.
-    # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
-    patch_thread=True
-    if pypy and sys.version_info.major == 2:
-        _ = monkey.patch_thread(existing_locks=False)
-        assert _ in (True, None)
-        patch_thread=False
-    _ = monkey.patch_all(thread=patch_thread)      # XXX sys=True ?
-    if _ not in (True, None):   # patched or nothing to do
-        # XXX provide details
-        raise RuntimeError('gevent monkey-patching failed')
+    # import os to get access to environment.
+    # it is practically ok to import os before gevent, because os is always
+    # imported by site. Yes, `import site` can be disabled by -S, but there is
+    # no harm wrt gevent monkey-patching even if we import os first.
+    import os
+
+    # extract and process -X
+    # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
+    sys._xoptions = getattr(sys, '_xoptions', {})
+    argv_ = []
+    gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
+    while len(argv) > 0:
+        arg  = argv[0]
+        argv = argv[1:]
+
+        if not arg.startswith('-X'):
+            argv_.append(arg)
+            # continue looking for -X only until options end
+            if not arg.startswith('-'):
+                break
+            continue
+
+        # -X <opt>
+        opt = arg[2:]       # -X<opt>
+        if opt == '':
+            opt  = argv[0]  # -X <opt>
+            argv = argv[1:]
+
+        if opt.startswith('gpython.runtime='):
+            gpy_runtime = opt[len('gpython.runtime='):]
+            sys._xoptions['gpython.runtime'] = gpy_runtime
+
+        else:
+            raise RuntimeError('gpython: unknown -X option %s' % opt)
+    argv = argv_ + argv
+
+    # initialize according to selected runtime
+    if gpy_runtime == 'gevent':
+        # make gevent pre-available & stdlib patched
+        import gevent
+        from gevent import monkey
+        # XXX workaround for gevent vs pypy2 crash.
+        # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
+        patch_thread=True
+        if pypy and sys.version_info.major == 2:
+            _ = monkey.patch_thread(existing_locks=False)
+            assert _ in (True, None)
+            patch_thread=False
+        _ = monkey.patch_all(thread=patch_thread)      # XXX sys=True ?
+        if _ not in (True, None):   # patched or nothing to do
+            # XXX provide details
+            raise RuntimeError('gevent monkey-patching failed')
+        gpy_verextra = 'gevent %s' % gevent.__version__
+
+    elif gpy_runtime == 'threads':
+        gpy_verextra = 'threads'
+
+    else:
+        raise RuntimeError('gpython: invalid runtime %s' % gpy_runtime)
 
     # put go, chan, select, ... into builtin namespace
     import golang
@@ -235,7 +287,7 @@ def main():
         setattr(builtins, k, getattr(golang, k))
 
     # sys.version
-    sys.version += (' [GPython %s] [gevent %s]' % (golang.__version__, gevent.__version__))
+    sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
 
     # tail to pymain
     pymain(argv)
