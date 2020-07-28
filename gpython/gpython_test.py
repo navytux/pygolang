@@ -20,11 +20,15 @@
 
 from __future__ import print_function, absolute_import
 
-import sys, os, golang
-from golang.golang_test import pyout
+import sys, os, platform, golang
+from golang.golang_test import pyout, _pyrun
+from subprocess import PIPE
 from six import PY2
 from six.moves import builtins
 import pytest
+
+is_pypy    = (platform.python_implementation() == 'PyPy')
+is_cpython = (platform.python_implementation() == 'CPython')
 
 # @gpython_only is marker to run a test only under gpython
 gpython_only = pytest.mark.skipif('GPython' not in sys.version, reason="gpython-only test")
@@ -130,3 +134,27 @@ def test_pymain():
     # file
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
+
+# pymain -V/--version
+# gpython_only because output differs from !gpython.
+@gpython_only
+def test_pymain_ver():
+    from golang import b
+    from gpython import _version_info_str as V
+    import gevent
+    vok = 'GPython %s [gevent %s]' % (golang.__version__, gevent.__version__)
+
+    if is_cpython:
+        vok += ' / CPython %s' % platform.python_version()
+    elif is_pypy:
+        vok += ' / PyPy %s / Python %s' % (V(sys.pypy_version_info), V(sys.version_info))
+    else:
+        vok = sys.version
+
+    vok += '\n'
+
+    ret, out, err = _pyrun(['-V'], stdout=PIPE, stderr=PIPE)
+    assert (ret, out, b(err)) == (0, b'', b(vok))
+
+    ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE)
+    assert (ret, out, b(err)) == (0, b'', b(vok))

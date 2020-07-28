@@ -70,8 +70,37 @@ def pymain(argv):
         console.interact()
         return
 
+    # -V / --version
+    if argv[0] in ('-V', '--version'):
+        ver = []
+        if 'GPython' in sys.version:
+            golang = sys.modules['golang'] # must be already imported
+            gevent = sys.modules['gevent'] # must be already imported
+            gpyver = 'GPython %s [gevent %s]' % (golang.__version__, gevent.__version__)
+            ver.append(gpyver)
+
+        import platform
+        pyimpl = platform.python_implementation()
+
+        v = _version_info_str
+        if pyimpl == 'CPython':
+            ver.append('CPython %s' % v(sys.version_info))
+        elif pyimpl == 'PyPy':
+            ver.append('PyPy %s'   % v(sys.pypy_version_info))
+            ver.append('Python %s' % v(sys.version_info))
+        else:
+            ver = [] # unknown
+
+        ver = ' / '.join(ver)
+        if ver == '':
+            # unknown implementation: just print full sys.version
+            ver = sys.version
+
+        print(ver, file=sys.stderr)
+
+
     # -c command
-    if argv[0].startswith('-c'):
+    elif argv[0].startswith('-c'):
         cmd  = argv[0][2:] # -c<command> also works
         argv = argv[1:]
         if cmd == '':
@@ -126,6 +155,14 @@ def _execfile(path, globals=None, locals=None):
         src = f.read()
     code = compile(src, path, 'exec')
     six.exec_(code, globals, locals)
+
+# _version_info_str converts version_info -> str.
+def _version_info_str(vi):
+    major, minor, micro, release, serial = vi
+    v = '%d.%d.%d' % (major, minor, micro)
+    if (release, serial) != ('final', 0):
+        v += '.%s%s' % (release, serial)
+    return v
 
 
 def main():
