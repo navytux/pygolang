@@ -71,22 +71,32 @@ def pymain(argv):
         return
 
     # -c command
-    if argv[0] == '-c':
-        sys.argv = argv[0:1] + argv[2:] # python leaves '-c' as argv[0]
-        sys.path.insert(0, '')          # cwd
+    if argv[0].startswith('-c'):
+        cmd  = argv[0][2:] # -c<command> also works
+        argv = argv[1:]
+        if cmd == '':
+            cmd  = argv[0]
+            argv = argv[1:]
+        sys.argv = ['-c'] + argv # python leaves '-c' as argv[0]
+        sys.path.insert(0, '')   # cwd
 
         # exec with the same globals `python -c ...` does
         g = {'__name__':    '__main__',
              '__doc__':     None,
              '__package__': None}
-        six.exec_(argv[1], g)
+        six.exec_(cmd, g)
 
     # -m module
-    elif argv[0] == '-m':
+    elif argv[0].startswith('-m'):
+        mod  = argv[0][2:] # -m<module> also works
+        argv = argv[1:]
+        if mod == '':
+            mod  = argv[0]
+            argv = argv[1:]
         # search sys.path for module and run corresponding .py file as script
-        sys.argv = argv[1:]
+        sys.argv = [mod] + argv
         sys.path.insert(0, '')  # cwd
-        runpy.run_module(sys.argv[0], init_globals={'__doc__': None},
+        runpy.run_module(mod, init_globals={'__doc__': None},
                          run_name='__main__', alter_sys=True)
 
     elif argv[0].startswith('-'):

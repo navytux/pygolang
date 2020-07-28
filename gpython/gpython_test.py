@@ -111,15 +111,21 @@ def test_pymain():
     _ = pyout([], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"hello\nworld\n['']\n"
 
-    # -c
+    # -c <command>
     _ = pyout(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
     assert _ == b"hello\nworld\n['-c', 'abc', 'def']\n"
+    # -c<command> should also work
+    __ = pyout(['-cimport hello', 'abc', 'def'], cwd=testdata)
+    assert __ == _
 
-    # -m
+    # -m <module>
     _ = pyout(['-m', 'hello', 'abc', 'def'], cwd=testdata)
     # realpath rewrites e.g. `local/lib -> lib` if local/lib is symlink
     hellopy = realpath(join(testdata, 'hello.py'))
     assert _ == b"hello\nworld\n['%s', 'abc', 'def']\n" % b(hellopy)
+    # -m<module>
+    __ = pyout(['-mhello', 'abc', 'def'], cwd=testdata)
+    assert __ == _
 
     # file
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
