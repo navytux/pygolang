@@ -166,14 +166,10 @@ def _version_info_str(vi):
 
 
 def main():
-    # set UTF-8 as default encoding.
-    # It is ok to import sys before gevent because sys is anyway always
+    # import sys early.
+    # it is ok to import sys before gevent because sys is anyway always
     # imported first, e.g. to support sys.modules.
     import sys
-    if sys.getdefaultencoding() != 'utf-8':
-        reload(sys)
-        sys.setdefaultencoding('utf-8')
-        delattr(sys, 'setdefaultencoding')
 
     # safety check that we are not running from a setuptools entrypoint, where
     # it would be too late to monkey-patch stdlib.
@@ -198,6 +194,25 @@ def main():
         raise RuntimeError('gpython: internal error: the following modules are pre-imported, but must be not:'
                 '\n\n\t%s\n\nsys.modules:\n\n\t%s' % (bad, sysmodv))
 
+    # set UTF-8 as default encoding.
+    if sys.getdefaultencoding() != 'utf-8':
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
+        delattr(sys, 'setdefaultencoding')
+
+    # sys.executable
+    # on windows there are
+    #   gpython-script.py
+    #   gpython.exe
+    #   gpython.manifest
+    # and argv[0] is gpython-script.py
+    exe  = sys.argv[0]
+    argv = sys.argv[1:]
+    if exe.endswith('-script.py'):
+        exe = exe[:-len('-script.py')]
+        exe = exe + '.exe'
+    sys.executable  = exe
+
     # make gevent pre-available & stdlib patched
     import gevent
     from gevent import monkey
@@ -219,23 +234,11 @@ def main():
     for k in golang.__all__:
         setattr(builtins, k, getattr(golang, k))
 
-    # sys.executable & friends
-    exe = sys.argv[0]
-
-    # on windows there are
-    #   gpython-script.py
-    #   gpython.exe
-    #   gpython.manifest
-    # and argv[0] is gpython-script.py
-    if exe.endswith('-script.py'):
-        exe = exe[:-len('-script.py')]
-        exe = exe + '.exe'
-
-    sys.executable  = exe
-    sys.version    += (' [GPython %s] [gevent %s]' % (golang.__version__, gevent.__version__))
+    # sys.version
+    sys.version += (' [GPython %s] [gevent %s]' % (golang.__version__, gevent.__version__))
 
     # tail to pymain
-    pymain(sys.argv[1:])
+    pymain(argv)
 
 if __name__ == '__main__':
     main()
