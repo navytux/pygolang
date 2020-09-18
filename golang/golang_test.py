@@ -1650,7 +1650,7 @@ def test_defer_excchain_dump():
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt")
     retcode, stdout, stderr = _pyrun(["golang_test_defer_excchain.py"],
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
-    assert retcode != 0
+    assert retcode != 0, (stdout, stderr)
     assert stdout == b""
     assertDoc(tbok, stderr)
 
@@ -1661,7 +1661,7 @@ def test_defer_excchain_dump_ipython():
                                 "-m", "golang_test_defer_excchain"],
                                 env={"COLUMNS": "80"}, # force ipython5 avoid thinking termwidth=0
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
-    assert retcode == 0
+    assert retcode == 0, (stdout, stderr)
     # ipython5 uses .pyc for filenames instead of .py
     stdout = re.sub(br'\.pyc\b', b'.py', stdout) # normalize .pyc -> .py
     assertDoc(tbok, stdout)
@@ -1673,7 +1673,7 @@ def test_defer_excchain_dump_pytest():
     retcode, stdout, stderr = _pyrun(["-m", "pytest", "-o", "python_functions=main",
                                 "--tb=short", "golang_test_defer_excchain.py"],
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
-    assert retcode != 0
+    assert retcode != 0, (stdout, stderr)
     assert stderr == b""
     assertDoc(tbok, stdout)
 
