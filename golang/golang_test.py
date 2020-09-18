@@ -1659,7 +1659,7 @@ def test_defer_excchain_dump_ipython():
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-ipython")
     retcode, stdout, stderr = _pyrun(["-m", "IPython", "--quick", "--colors=NoColor",
                                 "-m", "golang_test_defer_excchain"],
-                                env={"COLUMNS": "80"}, # force ipython5 avoid thinking termwidth=0
+                                envadj={"COLUMNS": "80"}, # force ipython5 avoid thinking termwidth=0
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
     assert retcode == 0, (stdout, stderr)
     # ipython5 uses .pyc for filenames instead of .py
@@ -1813,6 +1813,8 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
     kw = kw.copy()
     pathv = [dir_pygolang]
     env = kw.pop('env', os.environ.copy())
+    envadj = kw.pop('envadj', {})
+    env.update(envadj)
     envpath = env.get('PYTHONPATH')
     if envpath is not None:
         pathv.append(envpath)
