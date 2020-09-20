@@ -1670,7 +1670,10 @@ def test_defer_excchain_dump_ipython():
 # ----//---- (pytest)
 def test_defer_excchain_dump_pytest():
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
-    retcode, stdout, stderr = _pyrun(["-m", "pytest", "-o", "python_functions=main",
+    retcode, stdout, stderr = _pyrun([
+                                # don't let pytest emit internal deprecation warnings to stderr
+                                "-W", "ignore::DeprecationWarning",
+                                "-m", "pytest", "-o", "python_functions=main",
                                 "--tb=short", "golang_test_defer_excchain.py"],
                                 cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
     assert retcode != 0, (stdout, stderr)
