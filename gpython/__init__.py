@@ -44,10 +44,10 @@ from __future__ import print_function, absolute_import
 # pymain mimics `python ...`
 #
 # argv is what comes via `...` without first [0] for python.
-def pymain(argv):
-    import sys, code, runpy, six
+# init, if provided, is called after options are parsed, but before interpreter start.
+def pymain(argv, init=None):
+    import sys
     from os.path import dirname
-    from six.moves import input as raw_input
 
     run = None          # function to run according to -c/-m/file/interactive
     version = False     # set if `-V`
@@ -69,6 +69,7 @@ def pymain(argv):
             sys.argv = ['-c'] + argv # python leaves '-c' as argv[0]
             sys.path.insert(0, '')   # cwd
             def run():
+                import six
                 # exec with the same globals `python -c ...` does
                 g = {'__name__':    '__main__',
                      '__doc__':     None,
@@ -86,6 +87,7 @@ def pymain(argv):
             sys.argv = [mod] + argv
             sys.path.insert(0, '')  # cwd
             def run():
+                import runpy
                 # search sys.path for module and run corresponding .py file as script
                 runpy.run_module(mod, init_globals={'__doc__': None},
                                  run_name='__main__', alter_sys=True)
@@ -126,6 +128,8 @@ def pymain(argv):
         sys.path.insert(0, '')  # cwd
 
         def run():
+            import code
+            from six.moves import input as raw_input
             # like code.interact() but with overridden console.raw_input _and_
             # readline imported (code.interact mutually excludes those two).
             try:
@@ -146,6 +150,8 @@ def pymain(argv):
 
 
     # ---- options processed -> start the interpreter ----
+    if init is not None:
+        init()
 
     # handle -V/--version
     if version:
@@ -298,41 +304,46 @@ def main():
             raise RuntimeError('gpython: unknown -X option %s' % opt)
     argv = argv_ + argv
 
-    # initialize according to selected runtime
-    if gpy_runtime == 'gevent':
-        # make gevent pre-available & stdlib patched
-        import gevent
-        from gevent import monkey
-        # XXX workaround for gevent vs pypy2 crash.
-        # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
-        patch_thread=True
-        if pypy and sys.version_info.major == 2:
-            _ = monkey.patch_thread(existing_locks=False)
-            assert _ in (True, None)
-            patch_thread=False
-        _ = monkey.patch_all(thread=patch_thread)      # XXX sys=True ?
-        if _ not in (True, None):   # patched or nothing to do
-            # XXX provide details
-            raise RuntimeError('gevent monkey-patching failed')
-        gpy_verextra = 'gevent %s' % gevent.__version__
+    # init initializes according to selected runtime
+    # it is called after options are parsed and sys.path is setup correspondingly.
+    # this way golang and gevent are imported from exactly the same place as
+    # they would be in standard python after regular import (ex from golang/
+    # under cwd if run under `python -c ...` or interactive console.
+    def init():
+        if gpy_runtime == 'gevent':
+            # make gevent pre-available & stdlib patched
+            import gevent
+            from gevent import monkey
+            # XXX workaround for gevent vs pypy2 crash.
+            # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
+            patch_thread=True
+            if pypy and sys.version_info.major == 2:
+                _ = monkey.patch_thread(existing_locks=False)
+                assert _ in (True, None)
+                patch_thread=False
+            _ = monkey.patch_all(thread=patch_thread)      # XXX sys=True ?
+            if _ not in (True, None):   # patched or nothing to do
+                # XXX provide details
+                raise RuntimeError('gevent monkey-patching failed')
+            gpy_verextra = 'gevent %s' % gevent.__version__
 
-    elif gpy_runtime == 'threads':
-        gpy_verextra = 'threads'
+        elif gpy_runtime == 'threads':
+            gpy_verextra = 'threads'
 
-    else:
-        raise RuntimeError('gpython: invalid runtime %s' % gpy_runtime)
+        else:
+            raise RuntimeError('gpython: invalid runtime %s' % gpy_runtime)
 
-    # put go, chan, select, ... into builtin namespace
-    import golang
-    from six.moves import builtins
-    for k in golang.__all__:
-        setattr(builtins, k, getattr(golang, k))
+        # put go, chan, select, ... into builtin namespace
+        import golang
+        from six.moves import builtins
+        for k in golang.__all__:
+            setattr(builtins, k, getattr(golang, k))
 
-    # sys.version
-    sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
+        # sys.version
+        sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
 
     # tail to pymain
-    pymain(argv)
+    pymain(argv, init)
 
 if __name__ == '__main__':
     main()
