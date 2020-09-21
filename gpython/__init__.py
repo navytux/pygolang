@@ -49,111 +49,120 @@ def pymain(argv):
     from os.path import dirname
     from six.moves import input as raw_input
 
+    run = None          # function to run according to -c/-m/file/interactive
+
+    while len(argv) > 0:
+        # -V / --version
+        if argv[0] in ('-V', '--version'):
+            ver = []
+            if 'GPython' in sys.version:
+                golang = sys.modules['golang'] # must be already imported
+                gevent = sys.modules.get('gevent', None)
+                gpyver = 'GPython %s' % golang.__version__
+                if gevent is not None:
+                    gpyver += ' [gevent %s]' % gevent.__version__
+                else:
+                    gpyver += ' [threads]'
+                ver.append(gpyver)
+
+            import platform
+            pyimpl = platform.python_implementation()
+
+            v = _version_info_str
+            if pyimpl == 'CPython':
+                ver.append('CPython %s' % v(sys.version_info))
+            elif pyimpl == 'PyPy':
+                ver.append('PyPy %s'   % v(sys.pypy_version_info))
+                ver.append('Python %s' % v(sys.version_info))
+            else:
+                ver = [] # unknown
+
+            ver = ' / '.join(ver)
+            if ver == '':
+                # unknown implementation: just print full sys.version
+                ver = sys.version
+
+            print(ver, file=sys.stderr)
+            return
+
+        # -c command
+        elif argv[0].startswith('-c'):
+            cmd  = argv[0][2:] # -c<command> also works
+            argv = argv[1:]
+            if cmd == '':
+                cmd  = argv[0]
+                argv = argv[1:]
+            sys.argv = ['-c'] + argv # python leaves '-c' as argv[0]
+            sys.path.insert(0, '')   # cwd
+            def run():
+                # exec with the same globals `python -c ...` does
+                g = {'__name__':    '__main__',
+                     '__doc__':     None,
+                     '__package__': None}
+                six.exec_(cmd, g)
+            break
+
+        # -m module
+        elif argv[0].startswith('-m'):
+            mod  = argv[0][2:] # -m<module> also works
+            argv = argv[1:]
+            if mod == '':
+                mod  = argv[0]
+                argv = argv[1:]
+            sys.argv = [mod] + argv
+            sys.path.insert(0, '')  # cwd
+            def run():
+                # search sys.path for module and run corresponding .py file as script
+                runpy.run_module(mod, init_globals={'__doc__': None},
+                                 run_name='__main__', alter_sys=True)
+            break
+
+        elif argv[0].startswith('-'):
+            print("unknown option: '%s'" % argv[0], file=sys.stderr)
+            sys.exit(2)
+
+        # file
+        else:
+            sys.argv = argv
+            filepath = argv[0]
+            sys.path.insert(0, dirname(filepath))
+            def run():
+                # exec with same globals `python file.py` does
+                # XXX use runpy.run_path() instead?
+                g = {'__name__':    '__main__',
+                     '__file__':    filepath,
+                     '__doc__':     None,
+                     '__package__': None}
+                _execfile(filepath, g)
+            break
+
     # interactive console
-    if not argv:
+    if run is None:
         sys.argv = ['']
         sys.path.insert(0, '')  # cwd
 
-        # like code.interact() but with overridden console.raw_input _and_
-        # readline imported (code.interact mutually excludes those two).
-        try:
-            import readline # enable interactive editing
-        except ImportError:
-            pass
+        def run():
+            # like code.interact() but with overridden console.raw_input _and_
+            # readline imported (code.interact mutually excludes those two).
+            try:
+                import readline # enable interactive editing
+            except ImportError:
+                pass
 
-        console = code.InteractiveConsole()
-        def _(prompt):
-            # python behaviour: don't print '>>>' if stdin is not a tty
-            # (builtin raw_input always prints prompt)
-            if not sys.stdin.isatty():
-                prompt=''
-            return raw_input(prompt)
-        console.raw_input = _
+            console = code.InteractiveConsole()
+            def _(prompt):
+                # python behaviour: don't print '>>>' if stdin is not a tty
+                # (builtin raw_input always prints prompt)
+                if not sys.stdin.isatty():
+                    prompt=''
+                return raw_input(prompt)
+            console.raw_input = _
 
-        console.interact()
-        return
+            console.interact()
 
-    # -V / --version
-    if argv[0] in ('-V', '--version'):
-        ver = []
-        if 'GPython' in sys.version:
-            golang = sys.modules['golang'] # must be already imported
-            gevent = sys.modules.get('gevent', None)
-            gpyver = 'GPython %s' % golang.__version__
-            if gevent is not None:
-                gpyver += ' [gevent %s]' % gevent.__version__
-            else:
-                gpyver += ' [threads]'
-            ver.append(gpyver)
+    # execute -m/-c/file/interactive
+    run()
 
-        import platform
-        pyimpl = platform.python_implementation()
-
-        v = _version_info_str
-        if pyimpl == 'CPython':
-            ver.append('CPython %s' % v(sys.version_info))
-        elif pyimpl == 'PyPy':
-            ver.append('PyPy %s'   % v(sys.pypy_version_info))
-            ver.append('Python %s' % v(sys.version_info))
-        else:
-            ver = [] # unknown
-
-        ver = ' / '.join(ver)
-        if ver == '':
-            # unknown implementation: just print full sys.version
-            ver = sys.version
-
-        print(ver, file=sys.stderr)
-
-
-    # -c command
-    elif argv[0].startswith('-c'):
-        cmd  = argv[0][2:] # -c<command> also works
-        argv = argv[1:]
-        if cmd == '':
-            cmd  = argv[0]
-            argv = argv[1:]
-        sys.argv = ['-c'] + argv # python leaves '-c' as argv[0]
-        sys.path.insert(0, '')   # cwd
-
-        # exec with the same globals `python -c ...` does
-        g = {'__name__':    '__main__',
-             '__doc__':     None,
-             '__package__': None}
-        six.exec_(cmd, g)
-
-    # -m module
-    elif argv[0].startswith('-m'):
-        mod  = argv[0][2:] # -m<module> also works
-        argv = argv[1:]
-        if mod == '':
-            mod  = argv[0]
-            argv = argv[1:]
-        # search sys.path for module and run corresponding .py file as script
-        sys.argv = [mod] + argv
-        sys.path.insert(0, '')  # cwd
-        runpy.run_module(mod, init_globals={'__doc__': None},
-                         run_name='__main__', alter_sys=True)
-
-    elif argv[0].startswith('-'):
-        print("unknown option: '%s'" % argv[0], file=sys.stderr)
-        sys.exit(2)
-
-    # file
-    else:
-        sys.argv = argv
-        filepath = argv[0]
-        sys.path.insert(0, dirname(filepath))
-
-        # exec with same globals `python file.py` does
-        # XXX use runpy.run_path() instead?
-        g = {'__name__':    '__main__',
-             '__file__':    filepath,
-             '__doc__':     None,
-             '__package__': None}
-        _execfile(filepath, g)
-
-    return
 
 # execfile was removed in py3
 def _execfile(path, globals=None, locals=None):
