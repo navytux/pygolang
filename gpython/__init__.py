@@ -50,41 +50,14 @@ def pymain(argv):
     from six.moves import input as raw_input
 
     run = None          # function to run according to -c/-m/file/interactive
+    version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
 
     while len(argv) > 0:
         # -V / --version
         if argv[0] in ('-V', '--version'):
-            ver = []
-            if 'GPython' in sys.version:
-                golang = sys.modules['golang'] # must be already imported
-                gevent = sys.modules.get('gevent', None)
-                gpyver = 'GPython %s' % golang.__version__
-                if gevent is not None:
-                    gpyver += ' [gevent %s]' % gevent.__version__
-                else:
-                    gpyver += ' [threads]'
-                ver.append(gpyver)
-
-            import platform
-            pyimpl = platform.python_implementation()
-
-            v = _version_info_str
-            if pyimpl == 'CPython':
-                ver.append('CPython %s' % v(sys.version_info))
-            elif pyimpl == 'PyPy':
-                ver.append('PyPy %s'   % v(sys.pypy_version_info))
-                ver.append('Python %s' % v(sys.version_info))
-            else:
-                ver = [] # unknown
-
-            ver = ' / '.join(ver)
-            if ver == '':
-                # unknown implementation: just print full sys.version
-                ver = sys.version
-
-            print(ver, file=sys.stderr)
-            return
+            version = True
+            break
 
         # -c command
         elif argv[0].startswith('-c'):
@@ -170,6 +143,42 @@ def pymain(argv):
             console.raw_input = _
 
             console.interact()
+
+
+    # ---- options processed -> start the interpreter ----
+
+    # handle -V/--version
+    if version:
+        ver = []
+        if 'GPython' in sys.version:
+            golang = sys.modules['golang'] # must be already imported
+            gevent = sys.modules.get('gevent', None)
+            gpyver = 'GPython %s' % golang.__version__
+            if gevent is not None:
+                gpyver += ' [gevent %s]' % gevent.__version__
+            else:
+                gpyver += ' [threads]'
+            ver.append(gpyver)
+
+        import platform
+        pyimpl = platform.python_implementation()
+
+        v = _version_info_str
+        if pyimpl == 'CPython':
+            ver.append('CPython %s' % v(sys.version_info))
+        elif pyimpl == 'PyPy':
+            ver.append('PyPy %s'   % v(sys.pypy_version_info))
+            ver.append('Python %s' % v(sys.version_info))
+        else:
+            ver = [] # unknown
+
+        ver = ' / '.join(ver)
+        if ver == '':
+            # unknown implementation: just print full sys.version
+            ver = sys.version
+
+        print(ver, file=sys.stderr)
+        return
 
     # init warnings
     if len(warnoptions) > 0:
