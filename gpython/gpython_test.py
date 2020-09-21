@@ -20,7 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
-import sys, os, platform, golang
+import sys, os, platform, re, golang
 from golang.golang_test import pyout, _pyrun
 from subprocess import PIPE
 from six import PY2
@@ -182,6 +182,30 @@ def test_pymain():
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
 
+    # -W <opt>
+    _ = pyout(['-Werror', '-Whello', '-W', 'ignore::DeprecationWarning',
+               'testprog/print_warnings_setup.py'], cwd=here)
+    if PY2:
+        # py2 threading, which is imported after gpython startup, adds ignore
+        # for sys.exc_clear
+        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
+    assert _.startswith(
+        b"sys.warnoptions: ['error', 'hello', 'ignore::DeprecationWarning']\n\n" + \
+        b"warnings.filters:\n" + \
+        b"- ignore::DeprecationWarning::*\n" + \
+        b"- error::Warning::*\n"), _
+    # $PYTHONWARNINGS
+    _ = pyout(['testprog/print_warnings_setup.py'], cwd=here,
+              envadj={'PYTHONWARNINGS': 'ignore,world,error::SyntaxWarning'})
+    if PY2:
+        # see ^^^
+        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
+    assert _.startswith(
+        b"sys.warnoptions: ['ignore', 'world', 'error::SyntaxWarning']\n\n" + \
+        b"warnings.filters:\n" + \
+        b"- error::SyntaxWarning::*\n" + \
+        b"- ignore::Warning::*\n"), _
+
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
 @gpython_only
@@ -230,3 +254,20 @@ def test_Xruntime(runtime):
 
     out = pyout(argv, env=env)
     assert out == b'ok\n'
+
+
+# ---- misc ----
+
+# grepv filters out lines matching pattern from text.
+def grepv(pattern, text): # -> text
+    if isinstance(text, bytes):
+        t = b''
+    else:
+        t = ''
+    p = re.compile(pattern)
+    v = []
+    for l in text.splitlines(True):
+        m = p.search(l)
+        if not m:
+            v.append(l)
+    return t.join(v)

@@ -50,6 +50,7 @@ def pymain(argv):
     from six.moves import input as raw_input
 
     run = None          # function to run according to -c/-m/file/interactive
+    warnoptions = []    # collected `-W arg`
 
     while len(argv) > 0:
         # -V / --version
@@ -117,6 +118,15 @@ def pymain(argv):
                                  run_name='__main__', alter_sys=True)
             break
 
+        # -W arg  (warning control)
+        elif argv[0].startswith('-W'):
+            wopt = argv[0][2:] # -W<arg> also works
+            argv = argv[1:]
+            if wopt == '':
+                wopt = argv[0]
+                argv = argv[1:]
+            warnoptions.append(wopt)
+
         elif argv[0].startswith('-'):
             print("unknown option: '%s'" % argv[0], file=sys.stderr)
             sys.exit(2)
@@ -125,6 +135,7 @@ def pymain(argv):
         else:
             sys.argv = argv
             filepath = argv[0]
+
             sys.path.insert(0, dirname(filepath))
             def run():
                 # exec with same globals `python file.py` does
@@ -159,6 +170,19 @@ def pymain(argv):
             console.raw_input = _
 
             console.interact()
+
+    # init warnings
+    if len(warnoptions) > 0:
+        # NOTE warnings might be already imported by code that calls pymain.
+        # This way we cannot set `sys.warnoptions = warnoptions` and just
+        # import/reload warnings (if we reload warnings, it will loose all
+        # previous setup that pymain caller might have done to it).
+        # -> only amend warnings setup
+        #
+        # NOTE $PYTHONWARNINGS is handled by underlying python natively.
+        import warnings
+        sys.warnoptions += warnoptions
+        warnings._processoptions(warnoptions)
 
     # execute -m/-c/file/interactive
     run()
