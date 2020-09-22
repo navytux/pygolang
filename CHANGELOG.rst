@@ -1,6 +1,74 @@
 Pygolang change history
 -----------------------
 
+0.0.7 (2020-09-22)
+~~~~~~~~~~~~~~~~~~
+
+- Add way to run `gpython` with either gevent or threads runtime. This allows
+  `gpython` usage without forcing projects to switch from threads to greenlets
+  (`commit 1`__, 2__, 3__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/0e3da017
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/c0282565
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/a6b993c8
+
+- Fix `gpython` to be more compatible with CPython on command line handling
+  (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/e6714e49
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/70c4c82f
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/b47edf42
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/a0016938
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/51925488
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/1f6f31cd
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/fb98e594
+
+- Teach `qq` to be usable with both `bytes` and `str` format whatever type
+  `qq`'s argument is (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/85a1765d
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/edc7aaab
+
+- Teach `recover` to always return exception with `.__traceback__` set even on
+  Python2 (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/cfcc6db2
+
+- Fix `pyx.build` for develop install (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/34b9c0cf
+
+- Fix `pyx.build` on macOS (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/fb662979
+
+- Add tests for IPython and Pytest integration patches (`commit 1`__,
+  2__, 3__, 4__, 5__, 6__, 7__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/0148cb89
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/2413b5ba
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/42ab98a6
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/09629367
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/6e31304d
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/b938af8b
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/a1ac2a45
+
+- Add support for Python38 (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/792cbd6c
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/1f184095
+
+- Fix ThreadSanitizer/AddressSanitizer support on upcoming Debian 11 (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/49bb8dcd
+
+
+| |_| |_| |_| |_| |_| |_| |_| |_| *By this release Pygolang was included into* |Nexedi Software Stack|_.
+
+.. |Nexedi Software Stack| replace:: *Nexedi Software Stack*
+.. _Nexedi Software Stack: https://stack.nexedi.com
+
+
 0.0.6 (2020-02-28)
 ~~~~~~~~~~~~~~~~~~
 

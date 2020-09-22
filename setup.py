@@ -181,7 +181,7 @@ setup(
     long_description = '%s\n----\n\n%s' % (
                             readfile('README.rst'), readfile('CHANGELOG.rst')),
     long_description_content_type  = 'text/x-rst',
-    url         = 'https://lab.nexedi.com/nexedi/pygolang',
+    url         = 'https://pygolang.nexedi.com',
     project_urls= {
         'Bug Tracker':   'https://lab.nexedi.com/nexedi/pygolang/issues',
         'Source Code':   'https://lab.nexedi.com/nexedi/pygolang',
@@ -316,7 +316,7 @@ setup(
     },
 
     classifiers = [_.strip() for _ in """\
-        Development Status :: 3 - Alpha
+        Development Status :: 4 - Beta
         Intended Audience :: Developers
         Programming Language :: Python
         Programming Language :: Cython
@@ -326,6 +326,7 @@ setup(
         Programming Language :: Python :: 3.5
         Programming Language :: Python :: 3.6
         Programming Language :: Python :: 3.7
+        Programming Language :: Python :: 3.8
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
         Topic :: Software Development :: Interpreters
