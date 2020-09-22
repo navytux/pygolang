@@ -47,7 +47,7 @@ from __future__ import print_function, absolute_import
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
-    from os.path import dirname
+    from os.path import dirname, realpath
 
     run = None          # function to run according to -c/-m/file/interactive
     version = False     # set if `-V`
@@ -85,7 +85,11 @@ def pymain(argv, init=None):
                 mod  = argv[0]
                 argv = argv[1:]
             sys.argv = [mod] + argv
-            sys.path.insert(0, '')  # cwd
+            # sys.path <- cwd
+            # NOTE python2 injects '', while python3 injects realpath('')
+            # we stick to python3 behaviour, as it is more sane because e.g.
+            # import path does not change after chdir.
+            sys.path.insert(0, realpath(''))  # realpath(cwd)
             def run():
                 import runpy
                 # search sys.path for module and run corresponding .py file as script
@@ -111,7 +115,7 @@ def pymain(argv, init=None):
             sys.argv = argv
             filepath = argv[0]
 
-            sys.path.insert(0, dirname(filepath))
+            sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
             def run():
                 # exec with same globals `python file.py` does
                 # XXX use runpy.run_path() instead?
@@ -266,6 +270,7 @@ def main():
     if exe.endswith('-script.py'):
         exe = exe[:-len('-script.py')]
         exe = exe + '.exe'
+    sys._gpy_underlying_executable = sys.executable
     sys.executable  = exe
 
     # import os to get access to environment.
@@ -273,6 +278,16 @@ def main():
     # imported by site. Yes, `import site` can be disabled by -S, but there is
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
+
+    # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
+    # `gpython file` will add path-to-file to sys.path[0] by itself, and
+    # /path/to/gpython is unneccessary and would create difference in behaviour
+    # in between gpython and python.
+    exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
+    if sys.path[0] != exedir:
+        raise RuntimeError('gpython: internal error: sys.path[0] was not set by underlying python to dirname(gpython):'
+                '\n\n\tgpython:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
+    del sys.path[0]
 
     # extract and process -X
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME

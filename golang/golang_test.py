@@ -1809,7 +1809,8 @@ def test_qq():
 # _pyrun runs `sys.executable argv... <stdin`.
 # it returns exit code, stdout and stderr.
 def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, stdout, stderr
-    argv = [sys.executable] + argv
+    pyexe = kw.pop('pyexe', sys.executable)
+    argv  = [pyexe] + argv
 
     # adjust $PYTHONPATH to point to pygolang. This makes sure that external
     # script will succeed on `import golang` when running in-tree.

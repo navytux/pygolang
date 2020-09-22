@@ -27,6 +27,11 @@ from six import PY2
 from six.moves import builtins
 import pytest
 
+from os.path import join, dirname, realpath
+here     = dirname(__file__)
+testdata = join(here, 'testdata')
+testprog = join(here, 'testprog')
+
 is_pypy    = (platform.python_implementation() == 'PyPy')
 is_cpython = (platform.python_implementation() == 'CPython')
 
@@ -154,9 +159,6 @@ def test_executable(runtime):
 # gpython) and plain python (!gpython).
 def test_pymain():
     from golang import b
-    from os.path import join, dirname, realpath
-    here     = dirname(__file__)
-    testdata = join(dirname(__file__), 'testdata')
 
     # interactive
     _ = pyout([], stdin=b'import hello\n', cwd=testdata)
@@ -205,6 +207,28 @@ def test_pymain():
         b"warnings.filters:\n" + \
         b"- error::SyntaxWarning::*\n" + \
         b"- ignore::Warning::*\n"), _
+
+# verify that pymain sets sys.path in exactly the same way as underlying python does.
+@gpython_only
+def test_pymain_syspath():
+    # check verifies that print_syspath output for gpython and underlying python is the same.
+    # if path0cwd2realpath=Y, expect realpath('') instead of '' in sys.path[0]
+    def check(argv, path0cwd2realpath=False, **kw):
+        gpyout   = u(pyout(argv, **kw))
+        stdpyout = u(pyout(argv, pyexe=sys._gpy_underlying_executable, **kw))
+        gpyoutv   = gpyout.splitlines()
+        stdpyoutv = stdpyout.splitlines()
+        if path0cwd2realpath:
+            assert stdpyoutv[0] == ''
+            stdpyoutv[0] = realpath(kw.get('cwd', ''))
+
+        assert gpyoutv == stdpyoutv
+
+    check([], stdin=b'import print_syspath', cwd=testprog)  # interactive
+    check(['-c', 'import print_syspath'], cwd=testprog)     # -c
+    check(['-m', 'print_syspath'], cwd=testprog,            # -m
+            path0cwd2realpath=(PY2 or is_pypy))
+    check(['testprog/print_syspath.py'], cwd=here)          # file
 
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
