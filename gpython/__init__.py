@@ -284,10 +284,20 @@ def main():
     # /path/to/gpython is unneccessary and would create difference in behaviour
     # in between gpython and python.
     exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
-    if sys.path[0] != exedir:
-        raise RuntimeError('gpython: internal error: sys.path[0] was not set by underlying python to dirname(gpython):'
-                '\n\n\tgpython:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
-    del sys.path[0]
+    if sys.path[0] == exedir:
+        del sys.path[0]
+    else:
+        # buildout injects `sys.path[0:0] = eggs` into python scripts.
+        # detect that and remove sys.path entry corresponding to exedir.
+        if not _is_buildout_script(exe):
+            raise RuntimeError('gpython: internal error: sys.path[0] was not set by underlying python to dirname(gpython):'
+                    '\n\n\tgpython:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
+        else:
+            if exedir in sys.path:
+                sys.path.remove(exedir)
+            else:
+                raise RuntimeError('gpython: internal error: sys.path does not contain dirname(gpython):'
+                    '\n\n\tgpython:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
 
     # extract and process -X
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
@@ -359,6 +369,18 @@ def main():
 
     # tail to pymain
     pymain(argv, init)
+
+
+# _is_buildout_script returns whether file @path is generated as python buildout script.
+def _is_buildout_script(path):
+    with open(path, 'r') as f:
+        src = f.read()
+    # buildout injects the following prologues into python scripts:
+    #   sys.path[0:0] = [
+    #     ...
+    #   ]
+    return ('\nsys.path[0:0] = [\n' in src)
+
 
 if __name__ == '__main__':
     main()
