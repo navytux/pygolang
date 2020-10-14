@@ -1822,7 +1822,7 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
     envpath = env.get('PYTHONPATH')
     if envpath is not None:
         pathv.append(envpath)
-    env['PYTHONPATH'] = ':'.join(pathv)
+    env['PYTHONPATH'] = os.pathsep.join(pathv)
 
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
