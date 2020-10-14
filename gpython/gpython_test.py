@@ -211,6 +211,10 @@ def test_pymain():
 # verify that pymain sets sys.path in exactly the same way as underlying python does.
 @gpython_only
 def test_pymain_syspath():
+    from gpython import _is_buildout_script
+    if _is_buildout_script(sys.executable):
+        pytest.xfail("with buildout raw underlying interpreter does not have " +
+                     "access to installed eggs")
     # check verifies that print_syspath output for gpython and underlying python is the same.
     # if path0cwd2realpath=Y, expect realpath('') instead of '' in sys.path[0]
     def check(argv, path0cwd2realpath=False, **kw):
