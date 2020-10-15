@@ -1,0 +1,5 @@
+# setup to run tests on Nexedi testing infrastructure.
+# https://stack.nexedi.com/test_status
+
+TestCase('thread', ['python',  '-m', 'pytest'], summaryf=PyTest.summary)
+TestCase('gevent', ['gpython', '-m', 'pytest'], summaryf=PyTest.summary)
