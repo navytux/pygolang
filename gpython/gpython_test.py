@@ -213,6 +213,8 @@ def test_pymain_print_function_future():
     if PY2:
         _ = pyout([], stdin=b'print "print", "is", "a", "statement"\n')
         assert _ == b"print is a statement\n"
+        _ = pyout(['-c', 'print "print", "is", "a", "statement"'])
+        assert _ == b"print is a statement\n"
         _ = pyout(['print_statement.py'], cwd=testprog)
         assert _ == b"print is a statement\n"
     _ = pyout(['future_print_function.py'], cwd=testprog)
