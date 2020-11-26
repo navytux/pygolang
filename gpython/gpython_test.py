@@ -274,6 +274,13 @@ def test_pymain_ver(runtime):
     ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
+# verify that ./bin/gpython runs ok.
+@gpython_only
+def test_pymain_run_via_relpath():
+    argv = ['-c',  'import sys; print(sys.version)']
+    out1 = pyout(                    argv, pyexe=sys.executable)
+    out2 = pyout(['./__init__.py'] + argv, pyexe=sys._gpy_underlying_executable, cwd=here)
+    assert out1 == out2
 
 # verify -X gpython.runtime=...
 @gpython_only

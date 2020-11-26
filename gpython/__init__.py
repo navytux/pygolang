@@ -50,6 +50,7 @@ _pyopt_long = ('version',)
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
+    from os.path import dirname, realpath
 
     # sys.executable
     # on windows there are
@@ -57,7 +58,7 @@ def pymain(argv, init=None):
     #   gpython.exe
     #   gpython.manifest
     # and argv[0] is gpython-script.py
-    exe  = argv[0]
+    exe  = realpath(argv[0])
     argv = argv[1:]
     if exe.endswith('-script.py'):
         exe = exe[:-len('-script.py')]
@@ -65,14 +66,11 @@ def pymain(argv, init=None):
     sys._gpy_underlying_executable = sys.executable
     sys.executable  = exe
 
-    import os
-    from os.path import dirname, realpath
-
     # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
     # `gpython file` will add path-to-file to sys.path[0] by itself, and
     # /path/to/gpython is unneccessary and would create difference in behaviour
     # in between gpython and python.
-    exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
+    exedir = dirname(exe)
     if sys.path[0] == exedir:
         del sys.path[0]
     else:
