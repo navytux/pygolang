@@ -212,7 +212,7 @@ def _execfile(path, globals=None, locals=None):
     import six
     with open(path, "rb") as f:
         src = f.read()
-    code = compile(src, path, 'exec')
+    code = compile(src, path, 'exec', dont_inherit=True)
     six.exec_(code, globals, locals)
 
 # _version_info_str converts version_info -> str.
