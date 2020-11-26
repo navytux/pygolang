@@ -41,7 +41,7 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:m:VW:X:"
+_pyopt = "c:m:OVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -91,9 +91,25 @@ def pymain(argv, init=None):
     run = None          # function to run according to -c/-m/file/interactive
     version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
+    reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
+    reexec_argv = []    # if reexecuting, reexecute with this application-level argv
 
     igetopt = _IGetOpt(argv, _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
+        # options that require reexecuting through underlying python with that -<opt>
+        if opt in (
+                '-O',   # optimize
+            ):
+            reexec_with.append(opt)
+            if arg is not None:
+                reexec_with.append(arg)
+            continue
+
+        reexec_argv.append(opt)
+        if arg is not None:
+            reexec_argv.append(arg)
+
+
         # -V / --version
         if opt in ('-V', '--version'):
             version = True
@@ -138,6 +154,7 @@ def pymain(argv, init=None):
             sys.exit(2)
 
     argv = igetopt.argv
+    reexec_argv += argv
     if run is None:
         # file
         if len(argv) > 0:
@@ -182,6 +199,20 @@ def pymain(argv, init=None):
 
 
     # ---- options processed -> start the interpreter ----
+
+    # reexec underlying interpreter on options that we cannot handle at python
+    # level after underlying interpreter is already started. For example
+    #
+    #   gpython -O file.py
+    #
+    # is reexecuted as
+    #
+    #   python -O gpython file.py
+    if len(reexec_with) > 0:
+        import os
+        argv = [sys._gpy_underlying_executable] + reexec_with + [sys.executable] + reexec_argv
+        os.execv(argv[0], argv)
+
     if init is not None:
         init()
 
