@@ -50,8 +50,45 @@ _pyopt_long = ('version',)
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
+
+    # sys.executable
+    # on windows there are
+    #   gpython-script.py
+    #   gpython.exe
+    #   gpython.manifest
+    # and argv[0] is gpython-script.py
+    exe  = argv[0]
     argv = argv[1:]
+    if exe.endswith('-script.py'):
+        exe = exe[:-len('-script.py')]
+        exe = exe + '.exe'
+    sys._gpy_underlying_executable = sys.executable
+    sys.executable  = exe
+
+    import os
     from os.path import dirname, realpath
+
+    # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
+    # `gpython file` will add path-to-file to sys.path[0] by itself, and
+    # /path/to/gpython is unneccessary and would create difference in behaviour
+    # in between gpython and python.
+    exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
+    if sys.path[0] == exedir:
+        del sys.path[0]
+    else:
+        # buildout injects `sys.path[0:0] = eggs` into python scripts.
+        # detect that and remove sys.path entry corresponding to exedir.
+        if not _is_buildout_script(exe):
+            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe):'
+                    '\n\n\texe:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
+        else:
+            if exedir in sys.path:
+                sys.path.remove(exedir)
+            else:
+                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe):'
+                    '\n\n\texe:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
+
+
 
     run = None          # function to run according to -c/-m/file/interactive
     version = False     # set if `-V`
@@ -252,19 +289,6 @@ def main():
         sys.setdefaultencoding('utf-8')
         delattr(sys, 'setdefaultencoding')
 
-    # sys.executable
-    # on windows there are
-    #   gpython-script.py
-    #   gpython.exe
-    #   gpython.manifest
-    # and argv[0] is gpython-script.py
-    exe  = sys.argv[0]
-    argv = sys.argv[1:]
-    if exe.endswith('-script.py'):
-        exe = exe[:-len('-script.py')]
-        exe = exe + '.exe'
-    sys._gpy_underlying_executable = sys.executable
-    sys.executable  = exe
 
     # import os to get access to environment.
     # it is practically ok to import os before gevent, because os is always
@@ -272,32 +296,12 @@ def main():
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
 
-    # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
-    # `gpython file` will add path-to-file to sys.path[0] by itself, and
-    # /path/to/gpython is unneccessary and would create difference in behaviour
-    # in between gpython and python.
-    exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
-    if sys.path[0] == exedir:
-        del sys.path[0]
-    else:
-        # buildout injects `sys.path[0:0] = eggs` into python scripts.
-        # detect that and remove sys.path entry corresponding to exedir.
-        if not _is_buildout_script(exe):
-            raise RuntimeError('gpython: internal error: sys.path[0] was not set by underlying python to dirname(gpython):'
-                    '\n\n\tgpython:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
-        else:
-            if exedir in sys.path:
-                sys.path.remove(exedir)
-            else:
-                raise RuntimeError('gpython: internal error: sys.path does not contain dirname(gpython):'
-                    '\n\n\tgpython:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
-
     # extract and process `-X gpython.*`
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
     sys._xoptions = getattr(sys, '_xoptions', {})
     argv_ = []
     gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
-    igetopt = _IGetOpt(argv, _pyopt, _pyopt_long)
+    igetopt = _IGetOpt(sys.argv[1:], _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
         if opt == '-X':
             if arg.startswith('gpython.'):
@@ -318,7 +322,7 @@ def main():
         if opt in ('-c', '-m'):
             break
 
-    argv = [exe] + argv_ + igetopt.argv
+    argv = [sys.argv[0]] + argv_ + igetopt.argv
 
     # init initializes according to selected runtime
     # it is called after options are parsed and sys.path is setup correspondingly.
