@@ -46,10 +46,11 @@ _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
 #
-# argv is what comes via `...` without first [0] for python.
+# argv is full argument vector including first [0] for path to main program itself.
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
+    argv = argv[1:]
     from os.path import dirname, realpath
 
     run = None          # function to run according to -c/-m/file/interactive
@@ -317,7 +318,7 @@ def main():
         if opt in ('-c', '-m'):
             break
 
-    argv = argv_ + igetopt.argv
+    argv = [exe] + argv_ + igetopt.argv
 
     # init initializes according to selected runtime
     # it is called after options are parsed and sys.path is setup correspondingly.
