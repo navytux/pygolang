@@ -163,6 +163,10 @@ def test_pymain():
     # interactive
     _ = pyout([], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"hello\nworld\n['']\n"
+    _ = pyout(['-'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"hello\nworld\n['-']\n"
+    _ = pyout(['-', 'zzz'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"hello\nworld\n['-', 'zzz']\n"
 
     # -c <command>
     _ = pyout(['-c', 'import hello', 'abc', 'def'], cwd=testdata)

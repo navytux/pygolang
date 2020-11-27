@@ -157,7 +157,7 @@ def pymain(argv, init=None):
     reexec_argv += argv
     if run is None:
         # file
-        if len(argv) > 0:
+        if len(argv) > 0 and argv[0] != '-':
             sys.argv = argv
             filepath = argv[0]
 
@@ -173,7 +173,7 @@ def pymain(argv, init=None):
 
         # interactive console
         else:
-            sys.argv = ['']
+            sys.argv = ['']  if len(argv) == 0  else  argv # e.g. ['-']
             sys.path.insert(0, '')  # cwd
 
             def run():
