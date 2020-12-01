@@ -163,6 +163,10 @@ def test_pymain():
     # interactive
     _ = pyout([], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"hello\nworld\n['']\n"
+    _ = pyout(['-'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"hello\nworld\n['-']\n"
+    _ = pyout(['-', 'zzz'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"hello\nworld\n['-', 'zzz']\n"
 
     # -c <command>
     _ = pyout(['-c', 'import hello', 'abc', 'def'], cwd=testdata)
@@ -230,21 +234,35 @@ def test_pymain_syspath():
     # check verifies that print_syspath output for gpython and underlying python is the same.
     # if path0cwd2realpath=Y, expect realpath('') instead of '' in sys.path[0]
     def check(argv, path0cwd2realpath=False, **kw):
-        gpyout   = u(pyout(argv, **kw))
-        stdpyout = u(pyout(argv, pyexe=sys._gpy_underlying_executable, **kw))
-        gpyoutv   = gpyout.splitlines()
-        stdpyoutv = stdpyout.splitlines()
-        if path0cwd2realpath:
-            assert stdpyoutv[0] == ''
-            stdpyoutv[0] = realpath(kw.get('cwd', ''))
+        def _(gpyoutv, stdpyoutv):
+            if path0cwd2realpath:
+                assert stdpyoutv[0] == ''
+                stdpyoutv[0] = realpath(kw.get('cwd', ''))
 
-        assert gpyoutv == stdpyoutv
+        check_gpy_vs_py(argv, postprocessf=_, **kw)
 
     check([], stdin=b'import print_syspath', cwd=testprog)  # interactive
     check(['-c', 'import print_syspath'], cwd=testprog)     # -c
     check(['-m', 'print_syspath'], cwd=testprog,            # -m
             path0cwd2realpath=(PY2 or is_pypy))
     check(['testprog/print_syspath.py'], cwd=here)          # file
+
+
+# verify that pymain handles -O in exactly the same was as underlying python does.
+@gpython_only
+def test_pymain_opt():
+    def check(argv):
+        argv += ["print_opt.py"]
+        kw = {'cwd': testprog}
+        check_gpy_vs_py(argv, **kw)
+
+    check([])
+    check(["-O"])
+    check(["-OO"])
+    check(["-OOO"])
+    check(["-O", "-O"])
+    check(["-O", "-O", "-O"])
+
 
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
@@ -274,6 +292,13 @@ def test_pymain_ver(runtime):
     ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
+# verify that ./bin/gpython runs ok.
+@gpython_only
+def test_pymain_run_via_relpath():
+    argv = ['-c',  'import sys; print(sys.version)']
+    out1 = pyout(                    argv, pyexe=sys.executable)
+    out2 = pyout(['./__init__.py'] + argv, pyexe=sys._gpy_underlying_executable, cwd=here)
+    assert out1 == out2
 
 # verify -X gpython.runtime=...
 @gpython_only
@@ -311,3 +336,15 @@ def grepv(pattern, text): # -> text
         if not m:
             v.append(l)
     return t.join(v)
+
+# check_gpy_vs_py verifies that gpython output matches underlying python output.
+def check_gpy_vs_py(argv, postprocessf=None, **kw):
+        gpyout   = u(pyout(argv, **kw))
+        stdpyout = u(pyout(argv, pyexe=sys._gpy_underlying_executable, **kw))
+        gpyoutv   = gpyout.splitlines()
+        stdpyoutv = stdpyout.splitlines()
+
+        if postprocessf is not None:
+            postprocessf(gpyoutv, stdpyoutv)
+
+        assert gpyoutv == stdpyoutv

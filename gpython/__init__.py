@@ -41,32 +41,84 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
+_pyopt = "c:m:OVW:X:"
+_pyopt_long = ('version',)
+
 # pymain mimics `python ...`
 #
-# argv is what comes via `...` without first [0] for python.
+# argv is full argument vector including first [0] for path to main program itself.
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
     from os.path import dirname, realpath
 
+    # sys.executable
+    # on windows there are
+    #   gpython-script.py
+    #   gpython.exe
+    #   gpython.manifest
+    # and argv[0] is gpython-script.py
+    exe  = realpath(argv[0])
+    argv = argv[1:]
+    if exe.endswith('-script.py'):
+        exe = exe[:-len('-script.py')]
+        exe = exe + '.exe'
+    sys._gpy_underlying_executable = sys.executable
+    sys.executable  = exe
+
+    # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
+    # `gpython file` will add path-to-file to sys.path[0] by itself, and
+    # /path/to/gpython is unneccessary and would create difference in behaviour
+    # in between gpython and python.
+    exedir = dirname(exe)
+    if sys.path[0] == exedir:
+        del sys.path[0]
+    else:
+        # buildout injects `sys.path[0:0] = eggs` into python scripts.
+        # detect that and remove sys.path entry corresponding to exedir.
+        if not _is_buildout_script(exe):
+            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe):'
+                    '\n\n\texe:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
+        else:
+            if exedir in sys.path:
+                sys.path.remove(exedir)
+            else:
+                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe):'
+                    '\n\n\texe:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
+
+
+
     run = None          # function to run according to -c/-m/file/interactive
     version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
+    reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
+    reexec_argv = []    # if reexecuting, reexecute with this application-level argv
 
-    while len(argv) > 0:
+    igetopt = _IGetOpt(argv, _pyopt, _pyopt_long)
+    for (opt, arg) in igetopt:
+        # options that require reexecuting through underlying python with that -<opt>
+        if opt in (
+                '-O',   # optimize
+            ):
+            reexec_with.append(opt)
+            if arg is not None:
+                reexec_with.append(arg)
+            continue
+
+        reexec_argv.append(opt)
+        if arg is not None:
+            reexec_argv.append(arg)
+
+
         # -V / --version
-        if argv[0] in ('-V', '--version'):
+        if opt in ('-V', '--version'):
             version = True
             break
 
         # -c command
-        elif argv[0].startswith('-c'):
-            cmd  = argv[0][2:] # -c<command> also works
-            argv = argv[1:]
-            if cmd == '':
-                cmd  = argv[0]
-                argv = argv[1:]
-            sys.argv = ['-c'] + argv # python leaves '-c' as argv[0]
+        elif opt == '-c':
+            cmd = arg
+            sys.argv = ['-c'] + igetopt.argv # python leaves '-c' as argv[0]
             sys.path.insert(0, '')   # cwd
             def run():
                 import six
@@ -78,13 +130,9 @@ def pymain(argv, init=None):
             break
 
         # -m module
-        elif argv[0].startswith('-m'):
-            mod  = argv[0][2:] # -m<module> also works
-            argv = argv[1:]
-            if mod == '':
-                mod  = argv[0]
-                argv = argv[1:]
-            sys.argv = [mod] + argv
+        elif opt == '-m':
+            mod = arg
+            sys.argv = [mod] + igetopt.argv
             # sys.path <- cwd
             # NOTE python2 injects '', while python3 injects realpath('')
             # we stick to python3 behaviour, as it is more sane because e.g.
@@ -98,20 +146,18 @@ def pymain(argv, init=None):
             break
 
         # -W arg  (warning control)
-        elif argv[0].startswith('-W'):
-            wopt = argv[0][2:] # -W<arg> also works
-            argv = argv[1:]
-            if wopt == '':
-                wopt = argv[0]
-                argv = argv[1:]
-            warnoptions.append(wopt)
+        elif opt == '-W':
+            warnoptions.append(arg)
 
-        elif argv[0].startswith('-'):
-            print("unknown option: '%s'" % argv[0], file=sys.stderr)
+        else:
+            print("unknown option: '%s'" % opt, file=sys.stderr)
             sys.exit(2)
 
+    argv = igetopt.argv
+    reexec_argv += argv
+    if run is None:
         # file
-        else:
+        if len(argv) > 0 and argv[0] != '-':
             sys.argv = argv
             filepath = argv[0]
 
@@ -124,36 +170,49 @@ def pymain(argv, init=None):
                      '__doc__':     None,
                      '__package__': None}
                 _execfile(filepath, g)
-            break
 
-    # interactive console
-    if run is None:
-        sys.argv = ['']
-        sys.path.insert(0, '')  # cwd
+        # interactive console
+        else:
+            sys.argv = ['']  if len(argv) == 0  else  argv # e.g. ['-']
+            sys.path.insert(0, '')  # cwd
 
-        def run():
-            import code
-            from six.moves import input as raw_input
-            # like code.interact() but with overridden console.raw_input _and_
-            # readline imported (code.interact mutually excludes those two).
-            try:
-                import readline # enable interactive editing
-            except ImportError:
-                pass
+            def run():
+                import code
+                from six.moves import input as raw_input
+                # like code.interact() but with overridden console.raw_input _and_
+                # readline imported (code.interact mutually excludes those two).
+                try:
+                    import readline # enable interactive editing
+                except ImportError:
+                    pass
 
-            console = code.InteractiveConsole()
-            def _(prompt):
-                # python behaviour: don't print '>>>' if stdin is not a tty
-                # (builtin raw_input always prints prompt)
-                if not sys.stdin.isatty():
-                    prompt=''
-                return raw_input(prompt)
-            console.raw_input = _
+                console = code.InteractiveConsole()
+                def _(prompt):
+                    # python behaviour: don't print '>>>' if stdin is not a tty
+                    # (builtin raw_input always prints prompt)
+                    if not sys.stdin.isatty():
+                        prompt=''
+                    return raw_input(prompt)
+                console.raw_input = _
 
-            console.interact()
+                console.interact()
 
 
     # ---- options processed -> start the interpreter ----
+
+    # reexec underlying interpreter on options that we cannot handle at python
+    # level after underlying interpreter is already started. For example
+    #
+    #   gpython -O file.py
+    #
+    # is reexecuted as
+    #
+    #   python -O gpython file.py
+    if len(reexec_with) > 0:
+        import os
+        argv = [sys._gpy_underlying_executable] + reexec_with + [sys.executable] + reexec_argv
+        os.execv(argv[0], argv)
+
     if init is not None:
         init()
 
@@ -259,19 +318,6 @@ def main():
         sys.setdefaultencoding('utf-8')
         delattr(sys, 'setdefaultencoding')
 
-    # sys.executable
-    # on windows there are
-    #   gpython-script.py
-    #   gpython.exe
-    #   gpython.manifest
-    # and argv[0] is gpython-script.py
-    exe  = sys.argv[0]
-    argv = sys.argv[1:]
-    if exe.endswith('-script.py'):
-        exe = exe[:-len('-script.py')]
-        exe = exe + '.exe'
-    sys._gpy_underlying_executable = sys.executable
-    sys.executable  = exe
 
     # import os to get access to environment.
     # it is practically ok to import os before gevent, because os is always
@@ -279,55 +325,33 @@ def main():
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
 
-    # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
-    # `gpython file` will add path-to-file to sys.path[0] by itself, and
-    # /path/to/gpython is unneccessary and would create difference in behaviour
-    # in between gpython and python.
-    exedir = exe[:exe.rindex(os.sep)] # dirname, but os.path cannot be imported yet
-    if sys.path[0] == exedir:
-        del sys.path[0]
-    else:
-        # buildout injects `sys.path[0:0] = eggs` into python scripts.
-        # detect that and remove sys.path entry corresponding to exedir.
-        if not _is_buildout_script(exe):
-            raise RuntimeError('gpython: internal error: sys.path[0] was not set by underlying python to dirname(gpython):'
-                    '\n\n\tgpython:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
-        else:
-            if exedir in sys.path:
-                sys.path.remove(exedir)
-            else:
-                raise RuntimeError('gpython: internal error: sys.path does not contain dirname(gpython):'
-                    '\n\n\tgpython:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
-
-    # extract and process -X
+    # extract and process `-X gpython.*`
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
     sys._xoptions = getattr(sys, '_xoptions', {})
     argv_ = []
     gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
-    while len(argv) > 0:
-        arg  = argv[0]
-        argv = argv[1:]
+    igetopt = _IGetOpt(sys.argv[1:], _pyopt, _pyopt_long)
+    for (opt, arg) in igetopt:
+        if opt == '-X':
+            if arg.startswith('gpython.'):
+                if arg.startswith('gpython.runtime='):
+                    gpy_runtime = arg[len('gpython.runtime='):]
+                    sys._xoptions['gpython.runtime'] = gpy_runtime
 
-        if not arg.startswith('-X'):
+                else:
+                    raise RuntimeError('gpython: unknown -X option %s' % opt)
+
+                continue
+
+        argv_.append(opt)
+        if arg is not None:
             argv_.append(arg)
-            # continue looking for -X only until options end
-            if not arg.startswith('-'):
-                break
-            continue
 
-        # -X <opt>
-        opt = arg[2:]       # -X<opt>
-        if opt == '':
-            opt  = argv[0]  # -X <opt>
-            argv = argv[1:]
+        # options after -c / -m are not for python itself
+        if opt in ('-c', '-m'):
+            break
 
-        if opt.startswith('gpython.runtime='):
-            gpy_runtime = opt[len('gpython.runtime='):]
-            sys._xoptions['gpython.runtime'] = gpy_runtime
-
-        else:
-            raise RuntimeError('gpython: unknown -X option %s' % opt)
-    argv = argv_ + argv
+    argv = [sys.argv[0]] + argv_ + igetopt.argv
 
     # init initializes according to selected runtime
     # it is called after options are parsed and sys.path is setup correspondingly.
@@ -380,6 +404,107 @@ def _is_buildout_script(path):
     #     ...
     #   ]
     return ('\nsys.path[0:0] = [\n' in src)
+
+
+# _IGetOpt provides getopt-style incremental options parsing.
+# ( we cannot use getopt directly, because it complains about "unrecognized options"
+#   on e.g. `gpython file.py -opt` )
+class _IGetOpt:
+    def __init__(self, argv, shortopts, longopts):
+        self.argv = argv
+        self._opts = {}         # opt -> bool(arg-required)
+        self._shortopttail = '' # current tail of short options from e.g. -abcd
+        # parse shortopts -> ._opts
+        opt = None
+        for _ in shortopts:
+            if _ == ':':
+                if opt is None:
+                    raise RuntimeError("invalid shortopts: unexpected ':'")
+                self._opts['-'+opt] = True
+                opt = None # prevent ::
+
+            else:
+                opt = _
+                if opt in self._opts:
+                    raise RuntimeError("invalid shortopts: double '%s'" % opt)
+                self._opts['-'+opt] = False
+
+        # parse longopts -> ._opts
+        for opt in longopts:
+            arg_required = (opt[-1:] == '=')
+            if arg_required:
+                opt = opt[:-1]
+            self._opts['--'+opt] = arg_required
+
+
+    def __iter__(self):
+        return self
+    def __next__(self):
+        # yield e.g. -b -c -d  from -abcd
+        if len(self._shortopttail) > 0:
+            opt = '-'+self._shortopttail[0]
+            self._shortopttail = self._shortopttail[1:]
+
+            if opt not in self._opts:
+                raise RuntimeError('unexpected option %s' % opt)
+
+            arg = None
+            if self._opts[opt]: # arg required
+                if len(self._shortopttail) > 0:
+                    # -o<arg>
+                    arg = self._shortopttail
+                    self._shortopttail = ''
+                else:
+                    # -o <arg>
+                    if len(self.argv) == 0:
+                        raise RuntimeError('option %s requires an argument' % opt)
+                    arg = self.argv[0]
+                    self.argv = self.argv[1:]
+
+            return (opt, arg)
+
+        # ._shortopttail is empty - proceed with .argv
+
+        if len(self.argv) == 0:
+            raise StopIteration # end of argv
+
+        opt = self.argv[0]
+        if not opt.startswith('-'):
+            raise StopIteration # not an option
+
+        if opt == '-':
+            raise StopIteration # not an option
+
+        self.argv = self.argv[1:]
+
+        if opt == '--':
+            raise StopIteration # options -- args delimiter
+
+        # short option
+        if not opt.startswith('--'):
+            self._shortopttail = opt[1:]
+            return self.__next__()
+
+        # long option
+        arg = None
+        if '=' in opt:
+            opt, arg = opt.split('=')
+        if opt not in self._opts:
+            raise RuntimeError('unexpected option %s' % opt)
+        arg_required = self._opts[opt]
+        if not arg_required:
+            if arg is not None:
+                raise RuntimeError('option %s requires no argument' % opt)
+        else:
+            if arg is None:
+                if len(self.argv) == 0:
+                    raise RuntimeError('option %s requires no argument' % opt)
+                arg = self.argv[0]
+                self.argv[0] = self.argv[1:]
+
+        return (opt, arg)
+
+    next = __next__ # for py2
 
 
 if __name__ == '__main__':
