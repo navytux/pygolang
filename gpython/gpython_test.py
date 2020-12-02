@@ -258,10 +258,11 @@ def test_pymain_opt():
 
     check([])
     check(["-O"])
-    check(["-OO"])
-    check(["-OOO"])
-    check(["-O", "-O"])
-    check(["-O", "-O", "-O"])
+    if not (is_pypy and PY2): # https://foss.heptapod.net/pypy/pypy/-/issues/3356
+        check(["-OO"])
+        check(["-OOO"])
+        check(["-O", "-O"])
+        check(["-O", "-O", "-O"])
 
 
 # pymain -V/--version
