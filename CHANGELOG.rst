@@ -1,6 +1,38 @@
 Pygolang change history
 -----------------------
 
+0.0.8 (2020-12-02)
+~~~~~~~~~~~~~~~~~~
+
+- Add support for SlapOS (`commit 1`__, 2__, 3__, 4__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/60e89902
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/483df486
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/92bb5bcc
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/0fa9d6e7
+
+- Add way to run tests under `Nexedi testing infrastructure`__ (commit__).
+
+  __ https://www.erp5.com/NXD-Presentation.ci.testing.system.buildout
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/d5b1eca0
+
+- Fix `gpython` crash when invoked via relative path as e.g. `./bin/gpython` (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/076cdd8f
+
+- More fixes for `gpython` to be compatible with CPython on command line
+  handling (`commit 1`__, 2__, 3__, 4__, 5__, 6__, 7__, 8__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/64088e8a
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/167912d3
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/26058b5b
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/21756bd3
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/11b367c6
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/8564dfdd
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/840a5eae
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/cd59f5a5
+
+
 0.0.7 (2020-09-22)
 ~~~~~~~~~~~~~~~~~~
 
