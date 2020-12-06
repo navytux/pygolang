@@ -240,7 +240,7 @@ def test_waitgroup():
 
 # PyErr_Restore_traceback_ok indicates whether python exceptions are restored with correct traceback.
 # It is always the case for CPython, but PyPy < 7.3 had a bug:
-# https://bitbucket.org/pypy/pypy/issues/3120/pyerr_restore-does-not-restore-traceback
+# https://foss.heptapod.net/pypy/pypy/-/issues/3120
 PyErr_Restore_traceback_ok = True
 if 'PyPy' in sys.version and sys.pypy_version_info < (7,3):
     PyErr_Restore_traceback_ok = False

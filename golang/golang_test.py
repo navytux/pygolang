@@ -1363,7 +1363,7 @@ def test_defer_excchain():
 
 # verify that recover breaks exception chain.
 @mark.xfail('PyPy' in sys.version and sys.version_info >= (3,) and sys.pypy_version_info < (7,3),
-                reason="https://bitbucket.org/pypy/pypy/issues/3096")
+                reason="https://foss.heptapod.net/pypy/pypy/-/issues/3096")
 def test_defer_excchain_vs_recover():
     @func
     def _():

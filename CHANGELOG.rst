@@ -356,7 +356,7 @@ Pygolang change history
   __ https://lab.nexedi.com/nexedi/pygolang/commit/5aa1e899
   __ https://lab.nexedi.com/nexedi/pygolang/commit/5142460d
   __ https://bugs.python.org/issue38106
-  __ https://bitbucket.org/pypy/pypy/issues/3072
+  __ https://foss.heptapod.net/pypy/pypy/-/issues/3072
 
 - If C-level panic causes termination, its argument is now printed (commit__).
 

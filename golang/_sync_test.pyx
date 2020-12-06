@@ -60,7 +60,7 @@ from libc.stdio cimport printf
 # did the original acquire. This used to corrupt memory and deadlock on macOS
 # due to CPython & PyPy runtime bugs:
 #   https://bugs.python.org/issue38106
-#   https://bitbucket.org/pypy/pypy/issues/3072
+#   https://foss.heptapod.net/pypy/pypy/-/issues/3072
 cdef nogil:
     struct WorkState:
         sync.Mutex mu       # protects vvv

@@ -296,7 +296,7 @@ def main():
     # (on py3 _thread is imported by the interpreter early to support fine-grained import lock)
     avoid = ['pkg_resources', 'golang', 'socket', 'select', 'threading',
              'thread', 'ssl', 'subprocess']
-    # pypy7 made time always pre-imported (https://bitbucket.org/pypy/pypy/commits/6759b768)
+    # pypy7 made time always pre-imported (https://foss.heptapod.net/pypy/pypy/-/commit/f4fa167b)
     # cpython3.8 made time always pre-imported via zipimport hook:
     # https://github.com/python/cpython/commit/79d1c2e6c9d1 (`import time` in zipimport.py)
     pypy = ('PyPy' in sys.version)

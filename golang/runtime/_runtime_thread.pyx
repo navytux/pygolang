@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -46,8 +46,8 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 #
 # PyPy has the same bug for both pypy2 and pypy3:
 #
-#   https://bitbucket.org/pypy/pypy/src/578667b3fef9/rpython/translator/c/src/thread_pthread.c#lines-443:465
-#   https://bitbucket.org/pypy/pypy/src/5b42890d48c3/rpython/translator/c/src/thread_pthread.c#lines-443:465
+#   https://foss.heptapod.net/pypy/pypy/-/blob/ab03445c3b48/rpython/translator/c/src/thread_pthread.c#L443-465
+#   https://foss.heptapod.net/pypy/pypy/-/blob/release-pypy3.5-v7.0.0/rpython/translator/c/src/thread_pthread.c#L443-465
 #
 # This way when Pygolang is used with buggy Python/darwin, the bug leads to
 # frequently appearing deadlocks, while e.g. CPython3/darwin works ok.
@@ -55,7 +55,7 @@ from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
 # The bug was reported to CPython/PyPy upstreams:
 #
 # - https://bugs.python.org/issue38106
-# - https://bitbucket.org/pypy/pypy/issues/3072
+# - https://foss.heptapod.net/pypy/pypy/-/issues/3072
 #
 # and fixed in CPython 2.7.17 and PyPy 7.2 .
 import sys, platform
@@ -68,7 +68,7 @@ if 'darwin' in sys.platform:
         buglink = "https://bugs.python.org/issue38106"
     if 'PyPy' in pyimpl and sys.pypy_version_info < (7,2):
         buggy   = "pypy/darwin < 7.2"
-        buglink = "https://bitbucket.org/pypy/pypy/issues/3072"
+        buglink = "https://foss.heptapod.net/pypy/pypy/-/issues/3072"
     if buggy:
         print("WARNING: pyxgo: thread: %s has race condition bug in runtime"
               " that leads to deadlocks (%s)" % (buggy, buglink), file=sys.stderr)
