@@ -296,6 +296,10 @@ def test_pymain_ver(runtime):
 # verify that ./bin/gpython runs ok.
 @gpython_only
 def test_pymain_run_via_relpath():
+    from gpython import _is_buildout_script
+    if _is_buildout_script(sys.executable):
+        pytest.xfail("with buildout raw underlying interpreter does not have " +
+                     "access to installed eggs")
     argv = ['-c',  'import sys; print(sys.version)']
     out1 = pyout(                    argv, pyexe=sys.executable)
     out2 = pyout(['./__init__.py'] + argv, pyexe=sys._gpy_underlying_executable, cwd=here)
