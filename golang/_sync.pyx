@@ -218,10 +218,10 @@ cdef class PyWorkGroup:
         with nogil:
             workgroup_go_pyctxfunc_pyexc(pywg.wg, pywg._pyctx.ctx, <PyObject*>pyrunf)
 
-    def wait(PyWaitGroup g):
+    def wait(PyWorkGroup pyg):
         cdef error err
         with nogil:
-            err = workgroup_wait_pyexc(g.wg)
+            err = workgroup_wait_pyexc(pyg.wg)
 
         if err == nil:
             return
