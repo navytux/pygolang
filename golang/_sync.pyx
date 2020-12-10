@@ -22,7 +22,7 @@
 from __future__ import print_function, absolute_import
 
 from cython  cimport final
-from cpython cimport PyObject
+from cpython cimport PyObject, PY_MAJOR_VERSION
 from golang  cimport nil, newref, topyexc
 from golang  cimport context
 from golang.pyx cimport runtime
@@ -33,6 +33,8 @@ cdef extern from "golang/sync.h" namespace "golang::sync" nogil:
     context.Context _WorkGroup_ctx(_WorkGroup *_wg)
 
 from libcpp.cast cimport dynamic_cast
+
+import sys as pysys
 
 
 @final
@@ -196,6 +198,13 @@ cdef class PyWorkGroup:
     work. .wait() waits for all spawned goroutines to complete and returns/raises
     error, if any, from the first failed subtask.
 
+    WorkGroup can be also used via `with` statement where .wait() is
+    automatically called at the end of the block, for example:
+
+      with WorkGroup(ctx) as wg:
+          wg.go(f1)
+          wg.go(f2)
+
     WorkGroup is modelled after https://godoc.org/golang.org/x/sync/errgroup but
     is not equal to it.
     """
@@ -236,6 +245,40 @@ cdef class PyWorkGroup:
         # reraise pyerr with original traceback
         pyerr_reraise(pyerr)
 
+    # with support
+    def __enter__(PyWorkGroup pyg):
+        return pyg
+    def __exit__(PyWorkGroup pyg, exc_typ, exc_val, exc_tb):
+        # py2: prepare exc_val to be chained into
+        if PY_MAJOR_VERSION == 2  and  exc_val is not None:
+            _pyexc_contextify(exc_val, None)
+
+        # if .wait() raises, we want raised exception to be chained into
+        # exc_val via .__context__, so that
+        #
+        #   wg = sync.WorkGroup(ctx)
+        #   defer(wg.wait)
+        #   ...
+        #
+        # and
+        #
+        #   with sync.WorkGroup(ctx) as wg:
+        #       ...
+        #
+        # are equivalent.
+        #
+        # Even if Python3 implements exception chaining natively, it does not
+        # automatically chain exceptions in __exit__. Implement the chaining ourselves.
+        try:
+            pyg.wait()
+        except:
+            if PY_MAJOR_VERSION == 2:
+                if exc_val is not None  and  not hasattr(exc_val, '__traceback__'):
+                    exc_val.__traceback__ = exc_tb
+            exc = pysys.exc_info()[1]
+            _pyexc_contextify(exc, exc_val)
+            raise
+
 # _PyCtxFunc complements PyWorkGroup.go() : it's operator()(ctx) verifies that
 # ctx is expected context and further calls python function without any arguments.
 # PyWorkGroup.go() arranges to use python functions that are bound to PyContext
@@ -270,6 +313,19 @@ cdef extern from * nogil:
 
 
 # ---- misc ----
+
+# _pyexc_contextify makes sure pyexc has .__context__, .__cause__ and
+# .__suppress_context__ attributes.
+#
+# .__context__ if not already present, or if it was previously None, is set to pyexccontext.
+cdef _pyexc_contextify(object pyexc, pyexccontext):
+    if not hasattr(pyexc, '__context__') or pyexc.__context__ is None:
+        pyexc.__context__ = pyexccontext
+    if not hasattr(pyexc, '__cause__'):
+        pyexc.__cause__   = None
+    if not hasattr(pyexc, '__suppress_context__'):
+        pyexc.__suppress_context__ = False
+
 
 cdef nogil:
 

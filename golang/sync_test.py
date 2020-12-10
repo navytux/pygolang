@@ -20,9 +20,10 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import go, chan, select, default
+from golang import go, chan, select, default, func, defer
 from golang import sync, context, time
 from pytest import raises, mark
+from _pytest._code import Traceback
 from golang.golang_test import import_pyx_tests, panics
 from golang.time_test import dt
 from six.moves import range as xrange
@@ -245,6 +246,17 @@ PyErr_Restore_traceback_ok = True
 if 'PyPy' in sys.version and sys.pypy_version_info < (7,3):
     PyErr_Restore_traceback_ok = False
 
+# WorkGroup must catch/propagate all exception classes.
+# Python2 allows to raise old-style classes not derived from BaseException.
+# Python3 allows to raise only BaseException derivatives.
+if six.PY2:
+    class MyError:
+        def __init__(self, *args):
+            self.args = args
+else:
+    class MyError(BaseException):
+        pass
+
 def test_workgroup():
     ctx, cancel = context.with_cancel(context.background())
     mu = sync.Mutex()
@@ -260,16 +272,6 @@ def test_workgroup():
     wg.wait()
     assert l == [1, 2]
 
-    # WorkGroup must catch/propagate all exception classes.
-    # Python2 allows to raise old-style classes not derived from BaseException.
-    # Python3 allows to raise only BaseException derivatives.
-    if six.PY2:
-        class MyError:
-            def __init__(self, *args):
-                self.args = args
-    else:
-        class MyError(BaseException):
-            pass
 
     # t1=fail, t2=ok, does not look at ctx
     wg = sync.WorkGroup(ctx)
@@ -336,6 +338,92 @@ def test_workgroup():
     cancel()    # parent cancel - must be propagated into workgroup
     wg.wait()
     assert l == [1, 2]
+
+@func
+def test_workgroup_with():
+    # verify with support for sync.WorkGroup
+    ctx, cancel = context.with_cancel(context.background())
+    defer(cancel)
+    mu = sync.Mutex()
+
+    # t1=ok, t2=ok
+    l = [0, 0]
+    with sync.WorkGroup(ctx) as wg:
+        for i in range(2):
+            def _(ctx, i):
+                with mu:
+                    l[i] = i+1
+            wg.go(_, i)
+    assert l == [1, 2]
+
+    # t1=fail, t2=wait cancel, fail
+    with raises(MyError) as exci:
+        with sync.WorkGroup(ctx) as wg:
+            def _(ctx):
+                Iam_t1 = 0
+                raise MyError('hello (fail)')
+            wg.go(_)
+
+            def _(ctx):
+                ctx.done().recv()
+                raise MyError('world (after zzz)')
+            wg.go(_)
+
+    e = exci.value
+    assert e.__class__      is MyError
+    assert e.args           == ('hello (fail)',)
+    assert e.__cause__      is None
+    assert e.__context__    is None
+    assert e.__suppress_context__ == False
+    if PyErr_Restore_traceback_ok:
+        assert 'Iam_t1' in exci.traceback[-1].locals
+
+    # t=ok, but code from under with raises
+    l = [0]
+    with raises(MyError) as exci:
+        with sync.WorkGroup(ctx) as wg:
+            def _(ctx):
+                l[0] = 1
+            wg.go(_)
+            def bad():
+                raise MyError('wow')
+            bad()
+
+    e = exci.value
+    assert e.__class__      is MyError
+    assert e.args           == ('wow',)
+    assert e.__cause__      is None
+    assert e.__context__    is None
+    assert e.__suppress_context__ == False
+    assert exci.traceback[-1].name == 'bad'
+    assert l[0] == 1
+
+    # t=fail, code from under with also raises
+    with raises(MyError) as exci:
+        with sync.WorkGroup(ctx) as wg:
+            def f(ctx):
+                raise MyError('fail from go')
+            wg.go(f)
+            def g():
+                raise MyError('just raise')
+            g()
+
+    e = exci.value
+    assert e.__class__      is MyError
+    assert e.args           == ('fail from go',)
+    assert e.__cause__      is None
+    assert e.__context__    is not None
+    assert e.__suppress_context__ == False
+    assert exci.traceback[-1].name == 'f'
+    e2 = e.__context__
+    assert e2.__class__     is MyError
+    assert e2.args          == ('just raise',)
+    assert e2.__cause__     is None
+    assert e2.__context__   is None
+    assert e2.__suppress_context__ == False
+    assert e2.__traceback__ is not None
+    t2 = Traceback(e2.__traceback__)
+    assert t2[-1].name == 'g'
 
 
 # create/wait workgroup with 1 empty worker.
