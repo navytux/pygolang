@@ -160,6 +160,10 @@ def pymain(argv, init=None):
         if len(argv) > 0 and argv[0] != '-':
             sys.argv = argv
             filepath = argv[0]
+            # starting from cpython 3.9 __file__ is always absolute
+            # https://bugs.python.org/issue20443
+            if sys.version_info >= (3, 9):
+                filepath = realpath(filepath)
 
             sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
             def run():

@@ -1892,7 +1892,12 @@ def assertDoc(want, got):
     got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
     got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
-    # ^$ -> <BLANKLINE>
+    # want: process conditionals
+    # PY39(...) -> ... if py39 else ø
+    py39 = sys.version_info >= (3, 9)
+    want = re.sub(r"PY39\((.*)\)", r"\1" if py39 else "", want)
+
+    # want: ^$ -> <BLANKLINE>
     while "\n\n" in want:
         want = want.replace("\n\n", "\n<BLANKLINE>\n")
 

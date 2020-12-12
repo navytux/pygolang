@@ -1,7 +1,7 @@
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _
     return f(*argv, **kw)
-  File "golang_test_defer_excchain.py", line 42, in main
+  File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 42, in main
     raise RuntimeError("err")
 RuntimeError: err
 
@@ -10,7 +10,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     ...
-  File "golang_test_defer_excchain.py", line 31, in d1
+  File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 31, in d1
     raise RuntimeError("d1: aaa")
 RuntimeError: d1: aaa
 
@@ -19,14 +19,14 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     ...
-  File "golang_test_defer_excchain.py", line 33, in d2
+  File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 33, in d2
     1/0
 ZeroDivisionError: ...
 
 During handling of the above exception, another exception occurred:
 
 Traceback (most recent call last):
-  ... "golang_test_defer_excchain.py", line 45, in <module>
+  ... "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 45, in <module>
     main()
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _
@@ -37,6 +37,6 @@ Traceback (most recent call last):
     ...
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     ...
-  File "golang_test_defer_excchain.py", line 35, in d3
+  File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 35, in d3
     raise RuntimeError("d3: bbb")
 RuntimeError: d3: bbb
