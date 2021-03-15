@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2021  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -108,6 +108,21 @@ def test_quote():
 
         # qq always gives str
         assert qq(tin) == asstr(tquoted)
+
+
+# verify that non-canonical quotation can be unquoted too.
+def test_unquote_noncanon():
+    testv = (
+        # quoted w/o "      unquoted
+        (r'\a',             "\x07"),
+        (r'\b',             "\x08"),
+        (r'\v',             "\x0b"),
+        (r'\f',             "\x0c"),
+    )
+
+    for tquoted, tunquoted in testv:
+        q = '"' + tquoted + '"'
+        assert unquote(q) == tunquoted
 
 
 def test_unquote_bad():

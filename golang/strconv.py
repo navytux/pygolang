@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2021  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -134,7 +134,7 @@ def _quote(s):
     return b'"' + b''.join(outv) + b'"'
 
 
-# unquote decodes unicode|byte string that was produced by quote.
+# unquote decodes "-quoted unicode|byte string.
 #
 # ValueError is raised if there are quoting syntax errors.
 def unquote(s):
@@ -143,7 +143,7 @@ def unquote(s):
         raise ValueError('non-empty tail after closing "')
     return us
 
-# unquote_next decodes next unicode|byte string that was produced by quote.
+# unquote_next decodes next "-quoted unicode|byte string.
 #
 # it returns -> (unquoted(s), tail-after-")
 #
@@ -192,22 +192,26 @@ def _unquote_next(s):
             s = s[2:]
             continue
 
-        if c == b't':
-            emit(b'\t')
+        # \t \n \r
+        uc = None
+        if   c == b't':  uc = b'\t'
+        elif c == b'n':  uc = b'\n'
+        elif c == b'r':  uc = b'\r'
+        # accept also \a \b \v \f that Go might produce
+        # Python also decodes those escapes even though it does not produce them:
+        # https://github.com/python/cpython/blob/2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L677-L688
+        elif c == b'a':  uc = b'\x07'
+        elif c == b'b':  uc = b'\x08'
+        elif c == b'v':  uc = b'\x0b'
+        elif c == b'f':  uc = b'\x0c'
+
+        if uc is not None:
+            emit(uc)
             s = s[2:]
             continue
 
-        if c == b'n':
-            emit(b'\n')
-            s = s[2:]
-            continue
-
-        if c == b'r':
-            emit(b'\r')
-            s = s[2:]
-            continue
-
-        if c == b'x':   # hex   XXX also handle octals?
+        # \x?? hex
+        if c == b'x':   # XXX also handle octals?
             if len(s) < 2+2:
                 raise ValueError('unexpected EOL after \\x')
 
