@@ -11,6 +11,7 @@ build/
 *.dylib
 *.dll
 *.pyd
+*_dsoinfo.py
 
 /dist/
 /pip-wheel-metadata/
