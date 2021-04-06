@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2021  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -181,25 +181,7 @@ def pymain(argv, init=None):
             sys.path.insert(0, '')  # cwd
 
             def run():
-                import code
-                from six.moves import input as raw_input
-                # like code.interact() but with overridden console.raw_input _and_
-                # readline imported (code.interact mutually excludes those two).
-                try:
-                    import readline # enable interactive editing
-                except ImportError:
-                    pass
-
-                console = code.InteractiveConsole()
-                def _(prompt):
-                    # python behaviour: don't print '>>>' if stdin is not a tty
-                    # (builtin raw_input always prints prompt)
-                    if not sys.stdin.isatty():
-                        prompt=''
-                    return raw_input(prompt)
-                console.raw_input = _
-
-                console.interact()
+                _interact()
 
 
     # ---- options processed -> start the interpreter ----
@@ -268,6 +250,29 @@ def pymain(argv, init=None):
 
     # execute -m/-c/file/interactive
     run()
+
+
+# _interact runs interactive console.
+def _interact():
+    import code, sys
+    from six.moves import input as raw_input
+    # like code.interact() but with overridden console.raw_input _and_
+    # readline imported (code.interact mutually excludes those two).
+    try:
+        import readline # enable interactive editing
+    except ImportError:
+        pass
+
+    console = code.InteractiveConsole()
+    def _(prompt):
+        # python behaviour: don't print '>>>' if stdin is not a tty
+        # (builtin raw_input always prints prompt)
+        if not sys.stdin.isatty():
+            prompt=''
+        return raw_input(prompt)
+    console.raw_input = _
+
+    console.interact()
 
 
 # execfile was removed in py3
