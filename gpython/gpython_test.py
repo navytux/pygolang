@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 import sys, os, platform, re, golang
-from golang.golang_test import pyout, _pyrun
+from golang.golang_test import pyout, pyrun, _pyrun, readfile
 from subprocess import PIPE
 from six import PY2
 from six.moves import builtins
@@ -223,6 +223,23 @@ def test_pymain_print_function_future():
         assert _ == b"print is a statement\n"
     _ = pyout(['future_print_function.py'], cwd=testprog)
     assert _ == b"print is a function with print_function future\n"
+
+
+# verify thay pymain runs programs with __main__ module correctly setup.
+def test_pymain__main__():
+    from golang import b
+    check_main_py = readfile('%s/check_main.py' % testprog)
+
+    pyrun(['testprog/check_main.py'], cwd=here) # file
+    pyrun(['-m', 'check_main'], cwd=testprog)   # -m
+    pyrun(['-c', check_main_py])                # -c
+
+    # stdin
+    ret, out, err = _pyrun([], stdin=b(check_main_py), stdout=PIPE, stderr=PIPE)
+    assert ret == 0,    (out, err)
+    assert b"Error" not in out,    (out, err)
+    assert b"Error" not in err,    (out, err)
+
 
 # verify that pymain sets sys.path in exactly the same way as underlying python does.
 @gpython_only

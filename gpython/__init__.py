@@ -120,13 +120,9 @@ def pymain(argv, init=None):
             cmd = arg
             sys.argv = ['-c'] + igetopt.argv # python leaves '-c' as argv[0]
             sys.path.insert(0, '')   # cwd
-            def run():
+            def run(mmain):
                 import six
-                # exec with the same globals `python -c ...` does
-                g = {'__name__':    '__main__',
-                     '__doc__':     None,
-                     '__package__': None}
-                six.exec_(cmd, g)
+                six.exec_(cmd, mmain.__dict__)
             break
 
         # -m module
@@ -138,11 +134,13 @@ def pymain(argv, init=None):
             # we stick to python3 behaviour, as it is more sane because e.g.
             # import path does not change after chdir.
             sys.path.insert(0, realpath(''))  # realpath(cwd)
-            def run():
+            def run(mmain):
                 import runpy
                 # search sys.path for module and run corresponding .py file as script
-                runpy.run_module(mod, init_globals={'__doc__': None},
-                                 run_name='__main__', alter_sys=True)
+                # NOTE runpy._run_module_as_main works on sys.modules['__main__']
+                sysmain = sys.modules['__main__']
+                assert sysmain is mmain,  (sysmain, mmain)
+                runpy._run_module_as_main(mod)
             break
 
         # -W arg  (warning control)
@@ -166,14 +164,9 @@ def pymain(argv, init=None):
                 filepath = realpath(filepath)
 
             sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
-            def run():
-                # exec with same globals `python file.py` does
-                # XXX use runpy.run_path() instead?
-                g = {'__name__':    '__main__',
-                     '__file__':    filepath,
-                     '__doc__':     None,
-                     '__package__': None}
-                _execfile(filepath, g)
+            def run(mmain):
+                mmain.__file__ = filepath
+                _execfile(filepath, mmain.__dict__)
 
         # interactive console / program on non-tty stdin
         else:
@@ -181,15 +174,15 @@ def pymain(argv, init=None):
             sys.path.insert(0, '')  # cwd
 
             if sys.stdin.isatty():
-                def run():
-                    _interact()
+                def run(mmain):
+                    mmain.__file__ = '<stdin>'
+                    _interact(mmain)
             else:
-                def run():
+                def run(mmain):
                     import six
                     prog = sys.stdin.read()
-                    g = {'__name__': '__main__',
-                         '__file__': '<stdin>'}
-                    six.exec_(prog, g)
+                    mmain.__file__ = '<stdin>'
+                    six.exec_(prog, mmain.__dict__)
 
 
     # ---- options processed -> start the interpreter ----
@@ -256,12 +249,21 @@ def pymain(argv, init=None):
         sys.warnoptions += warnoptions
         warnings._processoptions(warnoptions)
 
+    # inject new empty __main__ module instead of previous __main__
+    import types
+    mmain = types.ModuleType('__main__')
+    mmain.__file__    = None
+    mmain.__loader__  = None
+    mmain.__package__ = None
+    mmain.__doc__     = None
+    sys.modules['__main__'] = mmain
+
     # execute -m/-c/file/interactive
-    run()
+    run(mmain)
 
 
-# _interact runs interactive console.
-def _interact():
+# _interact runs interactive console in mmain namespace.
+def _interact(mmain):
     import code, sys
     from six.moves import input as raw_input
     # like code.interact() but with overridden console.raw_input _and_
@@ -271,7 +273,7 @@ def _interact():
     except ImportError:
         pass
 
-    console = code.InteractiveConsole()
+    console = code.InteractiveConsole(mmain.__dict__)
     def _(prompt):
         # python behaviour:
         # - use stdout for prompt by default;
