@@ -273,11 +273,16 @@ def _interact():
 
     console = code.InteractiveConsole()
     def _(prompt):
-        # python behaviour: don't print '>>>' if stdin is not a tty
+        # python behaviour:
+        # - use stdout for prompt by default;
+        # - use stderr for prompt if any of stdin/stderr is not a tty
         # (builtin raw_input always prints prompt)
-        if not sys.stdin.isatty():
-            prompt=''
-        return raw_input(prompt)
+        promptio = sys.stdout
+        if (not sys.stdin.isatty()) or (not sys.stdout.isatty()):
+            promptio = sys.stderr
+        promptio.write(prompt)
+        promptio.flush()
+        return raw_input('')
     console.raw_input = _
 
     console.interact()
