@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2021  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -160,7 +160,7 @@ def test_executable(runtime):
 def test_pymain():
     from golang import b
 
-    # interactive
+    # stdin
     _ = pyout([], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"hello\nworld\n['']\n"
     _ = pyout(['-'], stdin=b'import hello\n', cwd=testdata)
@@ -241,7 +241,7 @@ def test_pymain_syspath():
 
         check_gpy_vs_py(argv, postprocessf=_, **kw)
 
-    check([], stdin=b'import print_syspath', cwd=testprog)  # interactive
+    check([], stdin=b'import print_syspath', cwd=testprog)  # stdin
     check(['-c', 'import print_syspath'], cwd=testprog)     # -c
     check(['-m', 'print_syspath'], cwd=testprog,            # -m
             path0cwd2realpath=(PY2 or is_pypy))

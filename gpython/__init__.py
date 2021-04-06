@@ -88,7 +88,7 @@ def pymain(argv, init=None):
 
 
 
-    run = None          # function to run according to -c/-m/file/interactive
+    run = None          # function to run according to -c/-m/file/stdin/interactive
     version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
     reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
@@ -175,13 +175,21 @@ def pymain(argv, init=None):
                      '__package__': None}
                 _execfile(filepath, g)
 
-        # interactive console
+        # interactive console / program on non-tty stdin
         else:
             sys.argv = ['']  if len(argv) == 0  else  argv # e.g. ['-']
             sys.path.insert(0, '')  # cwd
 
-            def run():
-                _interact()
+            if sys.stdin.isatty():
+                def run():
+                    _interact()
+            else:
+                def run():
+                    import six
+                    prog = sys.stdin.read()
+                    g = {'__name__': '__main__',
+                         '__file__': '<stdin>'}
+                    six.exec_(prog, g)
 
 
     # ---- options processed -> start the interpreter ----
