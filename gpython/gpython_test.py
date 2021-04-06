@@ -34,9 +34,10 @@ testprog = join(here, 'testprog')
 
 is_pypy    = (platform.python_implementation() == 'PyPy')
 is_cpython = (platform.python_implementation() == 'CPython')
+is_gpython = ('GPython' in sys.version)
 
 # @gpython_only is marker to run a test only under gpython
-gpython_only = pytest.mark.skipif('GPython' not in sys.version, reason="gpython-only test")
+gpython_only = pytest.mark.skipif(not is_gpython, reason="gpython-only test")
 
 # runtime is pytest fixture that yields all variants of should be supported gpython runtimes:
 # '' - not specified (gpython should autoselect)
@@ -187,6 +188,31 @@ def test_pymain():
     # file
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
+
+    # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
+    d = {
+        b'hellopy': b(hellopy),
+        b'ps1':     b'' # cpython emits prompt to stderr
+    }
+    if is_pypy and not is_gpython:
+        d['ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
+    _ = pyout(['-i'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"%(ps1)shello\nworld\n['']\n%(ps1)s"           % d
+    _ = pyout(['-i', '-'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"%(ps1)shello\nworld\n['-']\n%(ps1)s"          % d
+    _ = pyout(['-i', '-', 'zzz'], stdin=b'import hello\n', cwd=testdata)
+    assert _ == b"%(ps1)shello\nworld\n['-', 'zzz']\n%(ps1)s"   % d
+
+    # -i after -c
+    _ = pyout(['-i', '-c', 'import hello'], stdin=b'hello.tag', cwd=testdata)
+    assert _ == b"hello\nworld\n['-c']\n%(ps1)s'~~HELLO~~'\n%(ps1)s"    % d
+    # -i after -m
+    _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', cwd=testdata)
+    assert _ == b"hello\nworld\n['%(hellopy)s']\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
+    # -i after file
+    _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
+    assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d
+
 
     # -W <opt>
     _ = pyout(['-Werror', '-Whello', '-W', 'ignore::DeprecationWarning',

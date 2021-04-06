@@ -6,3 +6,6 @@ import world
 # sys.argv
 import sys
 print(sys.argv)
+
+# variable in module namespace
+tag = '~~HELLO~~'

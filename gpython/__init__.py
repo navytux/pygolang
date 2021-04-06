@@ -41,7 +41,7 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:m:OVW:X:"
+_pyopt = "c:im:OVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -93,6 +93,7 @@ def pymain(argv, init=None):
     warnoptions = []    # collected `-W arg`
     reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
     reexec_argv = []    # if reexecuting, reexecute with this application-level argv
+    inspect = False     # inspect interactively at the end
 
     igetopt = _IGetOpt(argv, _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
@@ -147,6 +148,10 @@ def pymain(argv, init=None):
         elif opt == '-W':
             warnoptions.append(arg)
 
+        # -i inspect interactively
+        elif opt == '-i':
+            inspect = True
+
         else:
             print("unknown option: '%s'" % opt, file=sys.stderr)
             sys.exit(2)
@@ -173,7 +178,8 @@ def pymain(argv, init=None):
             sys.argv = ['']  if len(argv) == 0  else  argv # e.g. ['-']
             sys.path.insert(0, '')  # cwd
 
-            if sys.stdin.isatty():
+            if sys.stdin.isatty() or inspect:
+                inspect = False # no console after console
                 def run(mmain):
                     mmain.__file__ = '<stdin>'
                     _interact(mmain)
@@ -259,11 +265,23 @@ def pymain(argv, init=None):
     sys.modules['__main__'] = mmain
 
     # execute -m/-c/file/interactive
-    run(mmain)
+    import traceback
+    try:
+        run(mmain)
+    except:
+        # print exception becore going to interactive inspect
+        if inspect:
+            traceback.print_exc()
+        else:
+            raise
+    finally:
+        # interactive inspect
+        if inspect:
+            _interact(mmain, banner='')
 
 
 # _interact runs interactive console in mmain namespace.
-def _interact(mmain):
+def _interact(mmain, banner=None):
     import code, sys
     from six.moves import input as raw_input
     # like code.interact() but with overridden console.raw_input _and_
@@ -287,7 +305,7 @@ def _interact(mmain):
         return raw_input('')
     console.raw_input = _
 
-    console.interact()
+    console.interact(banner=banner)
 
 
 # execfile was removed in py3
