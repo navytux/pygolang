@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2021  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -1167,6 +1167,7 @@ def test_deferrecover():
         def _():
             assert recover() is None
         defer(_)
+    _()
 
     # not directly called by deferred func
     v = []
