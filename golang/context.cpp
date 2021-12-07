@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2021  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -103,51 +103,53 @@ struct _BaseCtx : _Context, object {
                 panic("BUG: _BaseCtx: done==nil, but len(parentv) != 1");
         }
 
-        ctx._propagateCancel();
-    }
+        // establishes setup so that whenever a parent is canceled,
+        // ctx and its children are canceled too.
+        refptr<_BaseCtx> bctx = newref(&ctx);
 
-    chan<structZ> done() {
-        _BaseCtx& ctx = *this;
+        vector<Context> pforeignv; // parents with !nil .done() for foreign contexts
+        for (auto parent : ctx._parentv) {
+            // if parent can never be canceled (e.g. it is background) - we
+            // don't need to propagate cancel from it.
+            chan<structZ> pdone = parent->done();
+            if (pdone == nil)
+                continue;
 
-        if (ctx._done != nil)
-            return ctx._done;
-        return ctx._parentv[0]->done();
-    }
+            // parent is cancellable - glue to propagate cancel from it to us
+            _BaseCtx *_parent = dynamic_cast<_BaseCtx *>(parent._ptr());
+            if (_parent != nil) {
+                _parent->_mu.lock();
+                    if (_parent->_err != nil)
+                        ctx._cancel(_parent->_err);
+                    else
+                        _parent->_children.insert(bctx);
+                _parent->_mu.unlock();
+            }
+            else {
+                if (_ready(pdone))
+                    ctx._cancel(parent->err());
+                else
+                    pforeignv.push_back(parent);
+            }
+        }
 
-    error err() {
-        _BaseCtx& ctx = *this;
+        if (pforeignv.size() == 0)
+            return;
 
-        ctx._mu.lock();
-        defer([&]() {
-            ctx._mu.unlock();
+        // there are some foreign contexts to propagate cancel from
+        go([bctx,pforeignv]() {
+            vector<_selcase> sel(1+pforeignv.size());
+            sel[0] = bctx->_done.recvs();                   // 0
+            for (size_t i=0; i<pforeignv.size(); i++)
+                sel[1+i] = pforeignv[i]->done().recvs();    // 1 + ...
+
+            int _ = select(sel);
+
+            // 0. nothing - already canceled
+            if (_ > 0)
+                bctx->_cancel(pforeignv[_-1]->err());
         });
-
-        return ctx._err;
     }
-
-    interface value(const void *key) {
-        _BaseCtx& ctx = *this;
-
-        for (auto parent : ctx._parentv) {
-            interface v = parent->value(key);
-            if (v != nil)
-                return v;
-        }
-        return nil;
-    }
-
-    double deadline() {
-        _BaseCtx& ctx = *this;
-
-        double d = INFINITY;
-        for (auto parent : ctx._parentv) {
-            double pd = parent->deadline();
-            if (pd < d)
-                d = pd;
-        }
-        return d;
-    }
-
 
     // _cancel cancels ctx and its children.
     void _cancel(error err) {
@@ -193,54 +195,47 @@ struct _BaseCtx : _Context, object {
             child->_cancelFrom(cctx, err);
     }
 
-    // _propagateCancel establishes setup so that whenever a parent is canceled,
-    // ctx and its children are canceled too.
-    void _propagateCancel() {
+
+    chan<structZ> done() {
         _BaseCtx& ctx = *this;
-        refptr<_BaseCtx> bctx = newref(&ctx);
 
-        vector<Context> pforeignv; // parents with !nil .done() for foreign contexts
-        for (auto parent : ctx._parentv) {
-            // if parent can never be canceled (e.g. it is background) - we
-            // don't need to propagate cancel from it.
-            chan<structZ> pdone = parent->done();
-            if (pdone == nil)
-                continue;
+        if (ctx._done != nil)
+            return ctx._done;
+        return ctx._parentv[0]->done();
+    }
 
-            // parent is cancellable - glue to propagate cancel from it to us
-            _BaseCtx *_parent = dynamic_cast<_BaseCtx *>(parent._ptr());
-            if (_parent != nil) {
-                _parent->_mu.lock();
-                    if (_parent->_err != nil)
-                        ctx._cancel(_parent->_err);
-                    else
-                        _parent->_children.insert(bctx);
-                _parent->_mu.unlock();
-            }
-            else {
-                if (_ready(pdone))
-                    ctx._cancel(parent->err());
-                else
-                    pforeignv.push_back(parent);
-            }
-        }
+    error err() {
+        _BaseCtx& ctx = *this;
 
-        if (pforeignv.size() == 0)
-            return;
-
-        // there are some foreign contexts to propagate cancel from
-        go([bctx,pforeignv]() {
-            vector<_selcase> sel(1+pforeignv.size());
-            sel[0] = bctx->_done.recvs();                   // 0
-            for (size_t i=0; i<pforeignv.size(); i++)
-                sel[1+i] = pforeignv[i]->done().recvs();    // 1 + ...
-
-            int _ = select(sel);
-
-            // 0. nothing - already canceled
-            if (_ > 0)
-                bctx->_cancel(pforeignv[_-1]->err());
+        ctx._mu.lock();
+        defer([&]() {
+            ctx._mu.unlock();
         });
+
+        return ctx._err;
+    }
+
+    interface value(const void *key) {
+        _BaseCtx& ctx = *this;
+
+        for (auto parent : ctx._parentv) {
+            interface v = parent->value(key);
+            if (v != nil)
+                return v;
+        }
+        return nil;
+    }
+
+    double deadline() {
+        _BaseCtx& ctx = *this;
+
+        double d = INFINITY;
+        for (auto parent : ctx._parentv) {
+            double pd = parent->deadline();
+            if (pd < d)
+                d = pd;
+        }
+        return d;
     }
 };
 
