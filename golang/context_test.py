@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2021  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -263,6 +263,43 @@ def test_deadline():
 
     time.sleep(11*dt)
     assertCtx(ctx,  Z,  deadline=d, err=D, done=Y)
+
+
+# test_already_canceled verifies context creation from already canceled parent.
+# this used to deadlock.
+def test_already_canceled():
+    parent, pcancel = context.with_cancel(bg)
+    assertCtx(parent, Z)
+    pcancel()
+    assertCtx(parent, Z, err=C, done=Y)
+
+    ctxC, _ = context.with_cancel(parent)
+    assert ctxC.done() != parent.done()
+    assertCtx(parent, Z, err=C, done=Y)  # no ctxC in children
+    assertCtx(ctxC,   Z, err=C, done=Y)
+
+    ctxT, _ = context.with_timeout(parent, 10*dt)
+    d = ctxT.deadline()
+    assert ctxT.done() != parent.done()
+    assertCtx(parent, Z, err=C, done=Y)  # no ctxT in children
+    assertCtx(ctxT,   Z, deadline=d, err=C, done=Y)
+
+    d = time.now() + 10*dt
+    ctxD, _ = context.with_deadline(parent, d)
+    assert ctxD.done() != parent.done()
+    assertCtx(parent, Z, err=C, done=Y)  # no ctxD in children
+    assertCtx(ctxD,   Z, deadline=d, err=C, done=Y)
+
+    ctxM, _ = context.merge(parent, bg)
+    assert ctxM.done() != parent.done()
+    assertCtx(parent, Z, err=C, done=Y)  # no ctxM in children
+    assertCtx(ctxM,   Z, err=C, done=Y)
+
+    ctxV    = context.with_value(parent, kHello, "world")
+    assert ctxV.done() == parent.done()
+    assert ctxV.value(kHello) == "world"
+    assertCtx(parent, Z, err=C, done=Y)  # no ctxV in children
+    assertCtx(ctxV,   Z, err=C, done=Y)
 
 
 # ---- misc ----

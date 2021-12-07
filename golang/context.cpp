@@ -118,12 +118,14 @@ struct _BaseCtx : _Context, object {
             // parent is cancellable - glue to propagate cancel from it to us
             _BaseCtx *_parent = dynamic_cast<_BaseCtx *>(parent._ptr());
             if (_parent != nil) {
+                error err = nil;
                 _parent->_mu.lock();
-                    if (_parent->_err != nil)
-                        ctx._cancel(_parent->_err);
-                    else
+                    err = _parent->_err;
+                    if (err == nil)
                         _parent->_children.insert(bctx);
                 _parent->_mu.unlock();
+                if (err != nil)
+                    ctx._cancel(err);
             }
             else {
                 if (_ready(pdone))
