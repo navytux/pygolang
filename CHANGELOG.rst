@@ -1,6 +1,35 @@
 Pygolang change history
 -----------------------
 
+0.0.9 (2021-12-08)
+~~~~~~~~~~~~~~~~~~
+
+- Fix deadlock when new context is created from already-canceled parent (`commit 1`__, 2__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/d0688e21
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/58d4cbfe
+
+- Add support for `"with"` statement in `sync.WorkGroup`.
+  This is sometimes handy and is referred to as *"structured concurrency"*
+  in Python world (commit__, discussion__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/6eb80104
+  __ https://github.com/gevent/gevent/issues/1697#issuecomment-742708016
+
+- Fix `strconv.unqoute` to handle all input that Go `strconv.Qoute` might produce (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/78b4b41c
+
+- More fixes for `gpython` to be compatible with CPython in how it handles
+  program on stdin, interactive session and __main__ module setup (`commit 1`__, 2__, 3__, 4__, 5__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/6cc4bf32
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/22fb559a
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/95c7cce9
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/2351dd27
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/e205dbf6
+
+
 0.0.8 (2020-12-02)
 ~~~~~~~~~~~~~~~~~~
 

@@ -68,7 +68,7 @@ def pymain(argv, init=None):
 
     # `python /path/to/gpython` adds /path/to to sys.path[0] - remove it.
     # `gpython file` will add path-to-file to sys.path[0] by itself, and
-    # /path/to/gpython is unneccessary and would create difference in behaviour
+    # /path/to/gpython is unnecessary and would create difference in behaviour
     # in between gpython and python.
     exedir = dirname(exe)
     if sys.path[0] == exedir:
@@ -406,7 +406,7 @@ def main():
             import gevent
             from gevent import monkey
             # XXX workaround for gevent vs pypy2 crash.
-            # XXX remove when gevent-1.4.1 is relased (https://github.com/gevent/gevent/pull/1357).
+            # XXX remove when gevent-1.4.1 is released (https://github.com/gevent/gevent/pull/1357).
             patch_thread=True
             if pypy and sys.version_info.major == 2:
                 _ = monkey.patch_thread(existing_locks=False)
