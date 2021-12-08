@@ -23,7 +23,7 @@ from __future__ import print_function, absolute_import
 import sys, os, platform, re, golang
 from golang.golang_test import pyout, pyrun, _pyrun, readfile
 from subprocess import PIPE
-from six import PY2
+from six import PY2, PY3
 from six.moves import builtins
 import pytest
 
@@ -276,18 +276,25 @@ def test_pymain_syspath():
                      "access to installed eggs")
     # check verifies that print_syspath output for gpython and underlying python is the same.
     # if path0cwd2realpath=Y, expect realpath('') instead of '' in sys.path[0]
-    def check(argv, path0cwd2realpath=False, **kw):
+    # if path0realpath2cwd=Y, expect '' instead of realpath('') in sys.path[0]
+    def check(argv, path0cwd2realpath=False, path0realpath2cwd=False, **kw):
+        realcwd = realpath(kw.get('cwd', ''))
+        assert not (path0cwd2realpath and path0realpath2cwd)
         def _(gpyoutv, stdpyoutv):
             if path0cwd2realpath:
                 assert stdpyoutv[0] == ''
-                stdpyoutv[0] = realpath(kw.get('cwd', ''))
+                stdpyoutv[0] = realcwd
+            if path0realpath2cwd:
+                assert stdpyoutv[0] == realcwd
+                stdpyoutv[0] = ''
 
         check_gpy_vs_py(argv, postprocessf=_, **kw)
 
-    check([], stdin=b'import print_syspath', cwd=testprog)  # stdin
+    check([], stdin=b'import print_syspath', cwd=testprog,  # stdin
+            path0realpath2cwd=(PY3 and is_pypy)) # https://foss.heptapod.net/pypy/pypy/-/issues/3610
     check(['-c', 'import print_syspath'], cwd=testprog)     # -c
     check(['-m', 'print_syspath'], cwd=testprog,            # -m
-            path0cwd2realpath=(PY2 or is_pypy))
+            path0cwd2realpath=PY2)
     check(['testprog/print_syspath.py'], cwd=here)          # file
 
 
