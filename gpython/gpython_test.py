@@ -195,7 +195,7 @@ def test_pymain():
         b'ps1':     b'' # cpython emits prompt to stderr
     }
     if is_pypy and not is_gpython:
-        d['ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
+        d[b'ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
     _ = pyout(['-i'], stdin=b'import hello\n', cwd=testdata)
     assert _ == b"%(ps1)shello\nworld\n['']\n%(ps1)s"           % d
     _ = pyout(['-i', '-'], stdin=b'import hello\n', cwd=testdata)
