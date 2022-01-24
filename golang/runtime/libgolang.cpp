@@ -118,10 +118,13 @@ const _libgolang_runtime_ops *_runtime = nil;
 }
 using internal::_runtime;
 
+namespace internal { namespace atomic { extern void _init(); } }
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     if (_runtime != nil) // XXX better check atomically
         panic("libgolang: double init");
     _runtime = runtime_ops;
+
+    internal::atomic::_init();
 }
 
 void _taskgo(void (*f)(void *), void *arg) {
