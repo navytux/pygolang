@@ -1,4 +1,4 @@
-include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun
+include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun .nxdtest
 include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 include golang/runtime/libpyxruntime.cpp
