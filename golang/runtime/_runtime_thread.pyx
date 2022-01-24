@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -30,6 +30,8 @@ from __future__ import print_function, absolute_import
 # Similarly PyThread_start_new_thread - Python's C function function to create
 # new thread - does not depend on GIL. On POSIX, for example, it is small
 # wrapper around pthread_create.
+#
+# For IO direct OS system calls, such as read and write, are used.
 #
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
@@ -87,12 +89,17 @@ cdef extern from "pythread.h" nogil:
     void PyThread_free_lock(PyThread_type_lock)
 
 from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, \
-        _libgolang_runtime_flags, panic
+        _libgolang_ioh, _libgolang_runtime_flags, panic
+from golang.runtime.internal cimport syscall
 
 from libc.stdint cimport uint64_t, UINT64_MAX
+from libc.stdlib cimport calloc, free
+from libc.errno  cimport errno, EINTR, EBADF
+from posix.fcntl cimport mode_t
+from posix.stat cimport struct_stat
+from posix.strings cimport bzero
 IF POSIX:
     from posix.time cimport clock_gettime, nanosleep as posix_nanosleep, timespec, CLOCK_REALTIME
-    from libc.errno cimport errno, EINTR
 ELSE:
     # !posix via-gil timing fallback
     import time as pytimemod
@@ -119,6 +126,8 @@ cdef nogil:
         if pytid == -1:
             panic("pygo: failed")
 
+    # ---- semaphore ----
+
     _libgolang_sema* sema_alloc():
         # python calls it "lock", but it is actually a semaphore.
         # and in particular can be released by thread different from thread that acquired it.
@@ -138,6 +147,8 @@ cdef nogil:
     void sema_release(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema
         PyThread_release_lock(pysema)
+
+    # ---- time ----
 
     IF POSIX:
         void nanosleep(uint64_t dt):
@@ -186,6 +197,58 @@ cdef nogil:
                 panic("pyxgo: thread: nanotime: time overflow")
             return <uint64_t>t_ns
 
+    # ---- IO ----
+
+    struct IOH:
+        int sysfd
+
+    _libgolang_ioh* io_open(int *out_syserr, const char *path, int flags, mode_t mode):
+        sysfd = syscall.Open(path, flags, mode)
+        if sysfd < 0:
+            out_syserr[0] = sysfd
+            return NULL
+        return io_fdopen(out_syserr, sysfd)
+
+    _libgolang_ioh* io_fdopen(int *out_syserr, int sysfd):
+        if sysfd < 0:
+            out_syserr[0] = -EBADF
+            return NULL
+        ioh = <IOH*>calloc(1, sizeof(IOH))
+        if ioh == NULL:
+            panic("out of memory")
+        ioh.sysfd = sysfd
+        out_syserr[0] = 0
+        return <_libgolang_ioh*>ioh
+
+    int io_close(_libgolang_ioh* _ioh):
+        ioh = <IOH*>_ioh
+        syserr = syscall.Close(ioh.sysfd)
+        ioh.sysfd = -1
+        return syserr
+
+    void io_free(_libgolang_ioh* _ioh):
+        ioh = <IOH*>_ioh
+        bzero(ioh, sizeof(IOH))
+        free(ioh)
+
+
+    int io_sysfd(_libgolang_ioh* _ioh):
+        ioh = <IOH*>_ioh
+        return ioh.sysfd
+
+
+    int io_read(_libgolang_ioh* _ioh, void *buf, size_t count):
+        ioh = <IOH*>_ioh
+        return syscall.Read(ioh.sysfd, buf, count)
+
+    int io_write(_libgolang_ioh* _ioh, const void *buf, size_t count):
+        ioh = <IOH*>_ioh
+        return syscall.Write(ioh.sysfd, buf, count)
+
+    int io_fstat(struct_stat* out_st, _libgolang_ioh* _ioh):
+        ioh = <IOH*>_ioh
+        return syscall.Fstat(ioh.sysfd, out_st)
+
 
     # XXX const
     _libgolang_runtime_ops thread_ops = _libgolang_runtime_ops(
@@ -197,6 +260,14 @@ cdef nogil:
             sema_release    = sema_release,
             nanosleep       = nanosleep,
             nanotime        = nanotime,
+            io_open         = io_open,
+            io_fdopen       = io_fdopen,
+            io_close        = io_close,
+            io_free         = io_free,
+            io_sysfd        = io_sysfd,
+            io_read         = io_read,
+            io_write        = io_write,
+            io_fstat        = io_fstat,
     )
 
 from cpython cimport PyCapsule_New

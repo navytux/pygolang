@@ -184,6 +184,7 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
         'strings.h',
         'sync.h',
         'time.h',
+        'os.h',
         'pyx/runtime.h',
         '_testing.h',
     ]])

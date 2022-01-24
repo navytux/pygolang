@@ -173,6 +173,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
   #define LIBGOLANG_DSO_EXPORT __declspec(dllexport)
@@ -312,6 +315,7 @@ extern LIBGOLANG_API const _selcase _default;
 
 // libgolang runtime - the runtime must be initialized before any other libgolang use.
 typedef struct _libgolang_sema _libgolang_sema;
+typedef struct _libgolang_ioh  _libgolang_ioh;
 typedef enum _libgolang_runtime_flags {
     // STACK_DEAD_WHILE_PARKED indicates that it is not safe to access
     // goroutine's stack memory while the goroutine is parked.
@@ -346,6 +350,43 @@ typedef struct _libgolang_runtime_ops {
 
     // nanotime should return current time since EPOCH in nanoseconds.
     uint64_t    (*nanotime)(void);
+
+    // ---- IO -----
+    // NOTE syserr below is an error code always < 0, for example -ENOENT.
+
+    // io_open should open file @path similarly to open(2), but the error is
+    // returned in out_syserr, _not_ in errno.
+    _libgolang_ioh* (*io_open) (int* out_syserr, const char *path, int flags, mode_t mode);
+
+    // io_fdopen should wrap OS-level file descriptor into libgolang IO handle.
+    // the ownership of sysfd is transferred to returned ioh.
+    _libgolang_ioh* (*io_fdopen)(int* out_syserr, int sysfd);
+
+    // io_close should close underlying file and release file resources
+    // associated with ioh. it will be called exactly once and with the
+    // guarantee that no other ioh operation is running durion io_close call.
+    int/*syserr*/       (*io_close)(_libgolang_ioh* ioh);
+
+    // io_free should release ioh memory.
+    // it will be called exactly once after io_close.
+    void                (*io_free) (_libgolang_ioh* ioh);
+
+    // io_sysfd should return OS-level file descriptor associated with
+    // libgolang IO handle. it should return -1 on error.
+    int/*sysfd*/        (*io_sysfd) (_libgolang_ioh* ioh);
+
+    // io_read should read up to count bytes of data from ioh.
+    // it should block if waiting for at least some data is needed.
+    // it should return read amount, 0 on EOF, or syserr on error.
+    int/*(n|syserr)*/   (*io_read) (_libgolang_ioh* ioh, void *buf, size_t count);
+
+    // io_write should write up to count bytes of data into ioh.
+    // it should block if waiting is needed to write at least some data.
+    // it should return wrote amount, or syserr on error.
+    int/*(n|syserr)*/   (*io_write)(_libgolang_ioh* ioh, const void *buf, size_t count);
+
+    // io_fstat should stat the file underlying ioh similarly to fstat(2).
+    int/*syserr*/       (*io_fstat)(struct stat *out_st, _libgolang_ioh* ioh);
 
 } _libgolang_runtime_ops;
 

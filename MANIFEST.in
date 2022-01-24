@@ -21,6 +21,8 @@ include golang/fmt.cpp
 include golang/fmt_test.cpp
 include golang/io.h
 include golang/io.cpp
+include golang/os.h
+include golang/os.cpp
 include golang/strings.h
 include golang/strings.cpp
 include golang/strings_test.cpp

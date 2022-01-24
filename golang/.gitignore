@@ -7,6 +7,7 @@
 /_golang.cpp
 /_golang_test.cpp
 /_io.cpp
+/_os_test.cpp
 /_strings_test.cpp
 /_sync.cpp
 /_sync_test.cpp

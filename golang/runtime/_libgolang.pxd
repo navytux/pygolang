@@ -20,9 +20,12 @@
 """pyx declarations for libgolang bits that are only interesting for runtimes."""
 
 from libc.stdint cimport uint64_t
+from posix.fcntl cimport mode_t
+from posix.stat  cimport struct_stat
 
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     struct _libgolang_sema
+    struct _libgolang_ioh
     enum _libgolang_runtime_flags:
         STACK_DEAD_WHILE_PARKED
 
@@ -38,6 +41,16 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
         void        (*nanosleep)(uint64_t)
         uint64_t    (*nanotime)()
+
+        _libgolang_ioh* (*io_open)   (int* out_syserr, const char *path, int flags, mode_t mode)
+        _libgolang_ioh* (*io_fdopen) (int* out_syserr, int sysfd)
+        int             (*io_close)  (_libgolang_ioh* ioh)
+        void            (*io_free)   (_libgolang_ioh* ioh)
+        int             (*io_sysfd)  (_libgolang_ioh* ioh)
+        int             (*io_read)   (_libgolang_ioh* ioh, void *buf, size_t count)
+        int             (*io_write)  (_libgolang_ioh* ioh, const void *buf, size_t count)
+        int             (*io_fstat)  (struct_stat* out_st, _libgolang_ioh* ioh)
+
 
     # XXX better take from golang.pxd, but there it is declared in `namespace
     # "golang"` which fails for C-mode compiles.
