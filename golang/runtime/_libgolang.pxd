@@ -1,6 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -21,7 +21,7 @@
 
 from libc.stdint cimport uint64_t
 
-cdef extern from "golang/libgolang.h" nogil:
+cdef extern from "golang/libgolang.h" namespace "golang" nogil:
     struct _libgolang_sema
     enum _libgolang_runtime_flags:
         STACK_DEAD_WHILE_PARKED

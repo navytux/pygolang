@@ -1,5 +1,5 @@
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -233,12 +233,10 @@ setup(
                         ['golang/_golang.pyx']),
 
                     Ext('golang.runtime._runtime_thread',
-                        ['golang/runtime/_runtime_thread.pyx'],
-                        language = "c"),
+                        ['golang/runtime/_runtime_thread.pyx']),
 
                     Ext('golang.runtime._runtime_gevent',
-                        ['golang/runtime/_runtime_gevent.pyx'],
-                        language = 'c'),
+                        ['golang/runtime/_runtime_gevent.pyx']),
 
                     Ext('golang.pyx.runtime',
                         ['golang/pyx/runtime.pyx'],
