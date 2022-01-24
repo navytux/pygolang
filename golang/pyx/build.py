@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -171,17 +171,19 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
     # some C-level depends to workaround a bit lack of proper dependency
     # tracking in setuptools/distutils.
     dependv = kw.get('depends', [])[:]
-    dependv.append('%s/golang/libgolang.h'  % pygo)
-    dependv.append('%s/golang/context.h'    % pygo)
-    dependv.append('%s/golang/cxx.h'        % pygo)
-    dependv.append('%s/golang/errors.h'     % pygo)
-    dependv.append('%s/golang/fmt.h'        % pygo)
-    dependv.append('%s/golang/io.h'         % pygo)
-    dependv.append('%s/golang/strings.h'    % pygo)
-    dependv.append('%s/golang/sync.h'       % pygo)
-    dependv.append('%s/golang/time.h'       % pygo)
-    dependv.append('%s/golang/pyx/runtime.h'    % pygo)
-    dependv.append('%s/golang/_testing.h'   % pygo)
+    dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
+        'libgolang.h',
+        'context.h',
+        'cxx.h',
+        'errors.h',
+        'fmt.h',
+        'io.h',
+        'strings.h',
+        'sync.h',
+        'time.h',
+        'pyx/runtime.h',
+        '_testing.h',
+    ]])
     kw['depends'] = dependv
 
     return pygo, kw
@@ -201,23 +203,25 @@ def Extension(name, sources, **kw):
     # some pyx-level depends to workaround a bit lack of proper dependency
     # tracking in setuptools/distutils.
     dependv = kw.get('depends', [])[:]
-    dependv.append('%s/golang/_golang.pxd'  % pygo)
-    dependv.append('%s/golang/__init__.pxd' % pygo)
-    dependv.append('%s/golang/context.pxd'  % pygo)
-    dependv.append('%s/golang/_context.pxd' % pygo)
-    dependv.append('%s/golang/cxx.pxd'      % pygo)
-    dependv.append('%s/golang/errors.pxd'   % pygo)
-    dependv.append('%s/golang/_errors.pxd'  % pygo)
-    dependv.append('%s/golang/fmt.pxd'      % pygo)
-    dependv.append('%s/golang/_fmt.pxd'     % pygo)
-    dependv.append('%s/golang/io.pxd'       % pygo)
-    dependv.append('%s/golang/_io.pxd'      % pygo)
-    dependv.append('%s/golang/strings.pxd'  % pygo)
-    dependv.append('%s/golang/sync.pxd'     % pygo)
-    dependv.append('%s/golang/_sync.pxd'    % pygo)
-    dependv.append('%s/golang/time.pxd'     % pygo)
-    dependv.append('%s/golang/_time.pxd'    % pygo)
-    dependv.append('%s/golang/pyx/runtime.pxd'  % pygo)
+    dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
+        '_golang.pxd',
+        '__init__.pxd',
+        'context.pxd',
+        '_context.pxd',
+        'cxx.pxd',
+        'errors.pxd',
+        '_errors.pxd',
+        'fmt.pxd',
+        '_fmt.pxd',
+        'io.pxd',
+        '_io.pxd',
+        'strings.pxd',
+        'sync.pxd',
+        '_sync.pxd',
+        'time.pxd',
+        '_time.pxd',
+        'pyx/runtime.pxd',
+    ]])
     kw['depends'] = dependv
 
     # workaround pip bug that for virtualenv case headers are installed into
