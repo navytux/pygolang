@@ -5,7 +5,7 @@
 # distutils: language = c++
 # distutils: depends = libgolang.h
 #
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -876,6 +876,25 @@ cdef class _pyunicode(unicode):
             return self
         else:
             return pyb(self)
+
+
+# __pystr converts obj to str of current python:
+#
+#   - to bytes,   via b, if running on py2, or
+#   - to unicode, via u, if running on py3.
+#
+# It is handy to use __pystr when implementing __str__ methods.
+#
+# NOTE __pystr is currently considered to be internal function and should not
+# be used by code outside of pygolang.
+#
+# XXX we should be able to use _pystr, but py3's str verify that it must have
+# Py_TPFLAGS_UNICODE_SUBCLASS in its type flags.
+cdef __pystr(object obj):
+    if PY_MAJOR_VERSION >= 3:
+        return pyu(obj)
+    else:
+        return pyb(obj)
 
 
 # ---- error ----

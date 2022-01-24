@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -256,3 +256,6 @@ cdef class pyerror(Exception):
     # from_error(nil) -> returns None.
     @staticmethod
     cdef object from_error (error err) # -> pyerror | None
+
+
+cdef __pystr(object obj)
