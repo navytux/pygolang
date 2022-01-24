@@ -5,6 +5,7 @@ include golang/runtime/libpyxruntime.cpp
 include golang/pyx/runtime.h
 include golang/pyx/runtime.cpp
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
+include golang/runtime/internal.h
 include golang/context.h
 include golang/context.cpp
 include golang/cxx.h

@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+// Copyright (C) 2018-2022  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -28,6 +28,7 @@
 // - because Cython (currently ?) does not allow to add methods to `cdef struct`.
 
 #include "golang/libgolang.h"
+#include "golang/runtime/internal.h"
 #include "golang/sync.h"
 #include "golang/time.h"
 
@@ -112,7 +113,10 @@ struct Bug : exception {
 // ---- runtime ----
 
 // initially nil to crash if runtime was not initialized
-static const _libgolang_runtime_ops *_runtime = nil;
+namespace internal {
+const _libgolang_runtime_ops *_runtime = nil;
+}
+using internal::_runtime;
 
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     if (_runtime != nil) // XXX better check atomically

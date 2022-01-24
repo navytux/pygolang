@@ -173,6 +173,7 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
     dependv = kw.get('depends', [])[:]
     dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
         'libgolang.h',
+        'runtime/internal.h',
         'context.h',
         'cxx.h',
         'errors.h',

@@ -206,6 +206,7 @@ setup(
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/runtime/internal.h',
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
