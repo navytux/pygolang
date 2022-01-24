@@ -205,6 +205,7 @@ def Extension(name, sources, **kw):
     dependv = kw.get('depends', [])[:]
     dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
         '_golang.pxd',
+        'runtime/_libgolang.pxd',
         '__init__.pxd',
         'context.pxd',
         '_context.pxd',
