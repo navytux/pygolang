@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -48,12 +48,17 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
         STACK_DEAD_WHILE_PARKED, panic
 from golang.runtime cimport _runtime_thread
 from golang.runtime._runtime_pymisc cimport PyExc, pyexc_fetch, pyexc_restore
+from golang cimport topyexc
 
 
 # _goviapy & _togo serve go
 def _goviapy(_togo _ not None):
     with nogil:
-        _.f(_.arg)
+        # run _.f in try/catch to workaround https://github.com/python-greenlet/greenlet/pull/285
+        __goviapy(_.f, _.arg)
+cdef nogil:
+    void __goviapy(void (*f)(void *) nogil, void *arg) except +topyexc:
+        f(arg)
 
 @final
 cdef class _togo:
