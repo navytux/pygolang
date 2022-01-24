@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+// Copyright (C) 2018-2022  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -808,12 +808,20 @@ typedef refptr<_errorWrapper> errorWrapper;
 }   // golang::
 
 
-// std::hash<refptr>
+// std::
 namespace std {
 
+// std::hash<refptr>
 template<typename T> struct hash<golang::refptr<T>> {
     std::size_t operator()(const golang::refptr<T>& p) const noexcept {
         return hash<T*>()(p._ptr());
+    }
+};
+
+// std::hash<chan>
+template<typename T> struct hash<golang::chan<T>> {
+    std::size_t operator()(const golang::chan<T>& ch) const noexcept {
+        return hash<void*>()(reinterpret_cast<void*>(ch._rawchan()));
     }
 };
 
