@@ -197,6 +197,7 @@ setup(
 
     x_dsos      = [DSO('golang.runtime.libgolang',
                         ['golang/runtime/libgolang.cpp',
+                         'golang/runtime/internal/syscall.cpp',
                          'golang/context.cpp',
                          'golang/errors.cpp',
                          'golang/fmt.cpp',
@@ -207,6 +208,7 @@ setup(
                         depends = [
                             'golang/libgolang.h',
                             'golang/runtime/internal.h',
+                            'golang/runtime/internal/syscall.h',
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
