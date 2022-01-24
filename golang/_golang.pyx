@@ -914,6 +914,27 @@ cdef class _pyunicode(unicode):
         else:
             return pyb(self)
 
+# initialize .tp_print for _pystr so that this type could be printed.
+# If we don't - printing it will result in `RuntimeError: print recursion`
+# because str of this type never reaches real bytes or unicode.
+# Do it only on python2, because python3 does not use tp_print at all.
+# NOTE _pyunicode does not need this because on py2 str(_pyunicode) returns _pystr.
+IF PY2:
+    # NOTE Cython does not define tp_print for PyTypeObject - do it ourselves
+    from libc.stdio cimport FILE
+    cdef extern from "Python.h":
+        ctypedef int (*printfunc)(PyObject *, FILE *, int) except -1
+        ctypedef struct PyTypeObject:
+            printfunc tp_print
+        cdef PyTypeObject *Py_TYPE(object)
+
+    cdef int _pystr_tp_print(PyObject *obj, FILE *f, int nesting) except -1:
+        o = <bytes>obj
+        o = bytes(buffer(o))  # change tp_type to bytes instead of _pystr
+        return Py_TYPE(o).tp_print(<PyObject*>o, f, nesting)
+
+    Py_TYPE(_pystr()).tp_print = _pystr_tp_print
+
 
 # __pystr converts obj to str of current python:
 #

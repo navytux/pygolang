@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021  Nexedi SA and Contributors.
+# Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -1783,6 +1783,15 @@ def test_strings():
     _ = u(u'мир труд май')
     assert isinstance(_, unicode)
     assert u(_) is _
+
+# verify print for _pystr and _pyunicode
+def test_strings_print():
+    outok = readfile(dir_testprog + "/golang_test_str.txt")
+    retcode, stdout, stderr = _pyrun(["golang_test_str.py"],
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode == 0, (stdout, stderr)
+    assert stderr == b""
+    assertDoc(outok, stdout)
 
 
 def test_qq():

@@ -1,0 +1,2 @@
+print(qq(b)): "привет b"
+print(qq(u)): "привет u"

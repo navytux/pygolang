@@ -246,9 +246,13 @@ def Extension(name, sources, **kw):
     # provide POSIX/PYPY/... defines to Cython
     POSIX = ('posix' in sys.builtin_module_names)
     PYPY  = (platform.python_implementation() == 'PyPy')
+    PY2   = (sys.version_info.major < 3)
+    PY3   = (not PY2)
     pyxenv = kw.get('cython_compile_time_env', {})
     pyxenv.setdefault('POSIX',  POSIX)
     pyxenv.setdefault('PYPY',   PYPY)
+    pyxenv.setdefault('PY2',    PY2)
+    pyxenv.setdefault('PY3',    PY3)
     gverhex = _gevent_version_hex()
     if gverhex is not None:
         pyxenv.setdefault('GEVENT_VERSION_HEX', gverhex)
