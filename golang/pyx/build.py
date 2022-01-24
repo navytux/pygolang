@@ -185,6 +185,7 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
         'sync.h',
         'time.h',
         'os.h',
+        'os/signal.h',
         'pyx/runtime.h',
         '_testing.h',
     ]])
@@ -227,6 +228,10 @@ def Extension(name, sources, **kw):
         '_sync.pxd',
         'time.pxd',
         '_time.pxd',
+        'os.pxd',
+        '_os.pxd',
+        'os/signal.pxd',
+        'os/_signal.pxd',
         'pyx/runtime.pxd',
     ]])
     kw['depends'] = dependv

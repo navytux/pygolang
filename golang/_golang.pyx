@@ -3,7 +3,7 @@
 # cython: binding=False
 # cython: c_string_type=str, c_string_encoding=utf8
 # distutils: language = c++
-# distutils: depends = libgolang.h
+# distutils: depends = libgolang.h os/signal.h
 #
 # Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -43,6 +43,8 @@ cdef extern from "Python.h":
 
 from libcpp.vector cimport vector
 from cython cimport final
+
+from golang cimport os  # TODO remove after dtypes are reworked to register dynamically
 
 import sys
 
@@ -338,6 +340,10 @@ cdef class pychan:
             pychan_asserttype(pych, DTYPE_DOUBLE)
             return _wrapchan[double] (pych._ch)
 
+        chan[os.Signal] _chan_osSignal  (pychan pych):
+            pychan_asserttype(pych, DTYPE_OS_SIGNAL)
+            return _wrapchan[os.Signal] (pych._ch)
+
     # pychan <- chan[X]
     @staticmethod
     cdef pychan from_chan_structZ   (chan[structZ] ch):
@@ -354,6 +360,10 @@ cdef class pychan:
     @staticmethod
     cdef pychan from_chan_double    (chan[double] ch):
         return pychan_from_raw(ch._rawchan(),   DTYPE_DOUBLE)
+
+    @staticmethod
+    cdef pychan _from_chan_osSignal (chan[os.Signal] ch):
+        return pychan_from_raw(ch._rawchan(),   DTYPE_OS_SIGNAL)
 
 cdef void pychan_asserttype(pychan pych, DType dtype) nogil:
     if pych.dtype != dtype:
@@ -741,6 +751,26 @@ cdef object double_c_to_py(const chanElemBuf *cfrom):
     return (<double *>cfrom)[0]
 
 
+# DTYPE_OS_SIGNAL
+# TODO make dtype registration dynamic and move to _os.pyx
+dtypeRegistry[<int>DTYPE_OS_SIGNAL] = DTypeInfo(
+    name        = "C.os::Signal",
+    size        = sizeof(os.Signal),
+    py_to_c     = ossig_py_to_c,
+    c_to_py     = ossig_c_to_py,
+    pynil       = mkpynil(DTYPE_OS_SIGNAL),
+)
+
+cdef bint ossig_py_to_c(object obj, chanElemBuf *cto) except False:
+    if not isinstance(obj, os.PySignal):
+        raise TypeError("type mismatch: expect os.PySignal; got %r" % (obj,))
+    (<os.Signal*>cto)[0] = (<os.PySignal>obj).sig
+
+cdef object ossig_c_to_py(const chanElemBuf *cfrom):
+    sig = (<os.Signal*>cfrom)[0]
+    return os.PySignal.from_sig(sig)
+
+
 # verify at init time that sizeof(chanElemBuf) = max(_.size)
 cdef verify_chanElemBuf():
     cdef int size_max = 0
@@ -764,9 +794,16 @@ cdef DType parse_dtype(dtype) except <DType>-1:
         return DTYPE_PYOBJECT
 
     _ = name2dtype.get(dtype)
-    if _ is None:
-        raise TypeError("pychan: invalid dtype: %r" % (dtype,))
-    return _
+    if _ is not None:
+        return _
+
+    # accept classes with .dtype attribute
+    if hasattr(dtype, "dtype"):
+        _ = name2dtype.get(dtype.dtype)
+        if _ is not None:
+            return _
+
+    raise TypeError("pychan: invalid dtype: %r" % (dtype,))
 
 
 # ---- strings ----

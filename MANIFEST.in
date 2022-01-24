@@ -23,6 +23,8 @@ include golang/io.h
 include golang/io.cpp
 include golang/os.h
 include golang/os.cpp
+include golang/os/signal.h
+include golang/os/signal.cpp
 include golang/strings.h
 include golang/strings.cpp
 include golang/strings_test.cpp

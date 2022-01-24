@@ -26,6 +26,7 @@
 //  - `Open` opens file @path.
 //  - `Pipe` creates new pipe.
 //  - `NewFile` wraps OS-level file-descriptor into File.
+//  - `Signal` represents OS-level signal.
 //
 // See also https://golang.org/pkg/os for Go os package documentation.
 
@@ -104,6 +105,37 @@ LIBGOLANG_API std::tuple<File, error> NewFile(int sysfd, const string& name);
 // Pipe creates connected pair of files.
 LIBGOLANG_API std::tuple</*r*/File, /*w*/File, error> Pipe();
 
+
+// Signal represents an OS signal.
+//
+// NOTE in Go os.Signal is interface while in pygolang os::Signal is concrete structure.
+struct Signal {
+    int signo;
+
+    // String returns human-readable signal text.
+    LIBGOLANG_API string String() const;
+
+    // Signal == Signal
+    inline bool operator==(const Signal& sig2) const { return (signo == sig2.signo); }
+    inline bool operator!=(const Signal& sig2) const { return (signo != sig2.signo); }
+};
+
+// _Signal_from_int creates Signal from integer, for example from SIGINT.
+LIBGOLANG_API Signal _Signal_from_int(int signo);
+
 }} // golang::os::
+
+
+// std::
+namespace std {
+
+// std::hash<Signal>
+template<> struct hash<golang::os::Signal> {
+    std::size_t operator()(const golang::os::Signal& sig) const noexcept {
+        return hash<int>()(sig.signo);
+    }
+};
+
+}   // std::
 
 #endif  // _NXD_LIBGOLANG_OS_H

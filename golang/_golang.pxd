@@ -191,6 +191,7 @@ cpdef pypanic(arg)
 
 # pychan is python wrapper over chan<object> or chan<structZ|bool|int|double|...>
 from cython cimport final
+from golang cimport os
 
 # DType describes type of channel elements.
 # TODO consider supporting NumPy dtypes too.
@@ -200,7 +201,8 @@ cdef enum DType:
     DTYPE_BOOL       = 2    # chan[bool]
     DTYPE_INT        = 3    # chan[int]
     DTYPE_DOUBLE     = 4    # chan[double]
-    DTYPE_NTYPES     = 5
+    DTYPE_OS_SIGNAL  = 5    # chan[os::Signal]  TODO register dynamically
+    DTYPE_NTYPES     = 6
 
 # pychan wraps a channel into python object.
 #
@@ -226,6 +228,8 @@ cdef class pychan:
         chan[cbool]     chan_bool       (pychan pych)
         chan[int]       chan_int        (pychan pych)
         chan[double]    chan_double     (pychan pych)
+        # TODO move vvv out of pychan after dtypes are registered dynamically
+        chan[os.Signal] _chan_osSignal  (pychan pych)
 
     # pychan.from_chan_X returns pychan wrapping pyx/nogil-level chan[X].
     # X can be any C-level type, but not PyObject.
@@ -237,6 +241,9 @@ cdef class pychan:
     cdef pychan from_chan_int       (chan[int] ch)
     @staticmethod
     cdef pychan from_chan_double    (chan[double] ch)
+    # TODO move vvv out of pychan after dtypes are registered dynamically
+    @staticmethod
+    cdef pychan _from_chan_osSignal (chan[os.Signal] ch)
 
 
 # pyerror wraps an error into python object.

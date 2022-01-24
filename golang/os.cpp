@@ -31,6 +31,17 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
+
+// GLIBC >= 2.32 provides sigdescr_np but not sys_siglist in its headers
+// GLIBC <  2.32 provides sys_siglist but not sigdescr_np in its headers
+// cut this short
+// (on darwing sys_siglist declaration is normally provided)
+#ifndef __APPLE__
+extern "C" {
+    extern const char * const sys_siglist[];
+}
+#endif
 
 using golang::internal::_runtime;
 namespace sys = golang::internal::syscall;
@@ -235,6 +246,26 @@ static error _pathError(const char *op, const string &path, error err) {
     // TODO use fmt::v and once it lands in
 //  return fmt::errorf("%s %s: %s", op, v(path), err));
     return fmt::errorf("%s %s: %w", op, path.c_str(), err);
+}
+
+
+string Signal::String() const {
+    const Signal& sig = *this;
+    const char *sigstr = nil;
+
+    if (0 <= sig.signo && sig.signo < NSIG)
+        sigstr = ::sys_siglist[sig.signo]; // might be nil as well
+
+    if (sigstr != nil)
+        return string(sigstr);
+
+    return fmt::sprintf("signal%d", sig.signo);
+}
+
+Signal _Signal_from_int(int signo) {
+    Signal sig;
+    sig.signo = signo;
+    return sig;
 }
 
 }}  // golang::os::
