@@ -87,6 +87,12 @@ void __test_os_fileio_cpp(const string& tmpd) {
 
     err = f->Close();
     ASSERT(err == nil);
+
+    // readfile
+    string data;
+    tie(data, err) = os::ReadFile(tpath);
+    ASSERT(err == nil);
+    ASSERT_EQ(data, "hello world\n");
 }
 
 void _test_os_pipe_cpp() {

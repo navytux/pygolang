@@ -49,6 +49,7 @@ namespace sys = golang::internal::syscall;
 using std::tuple;
 using std::make_tuple;
 using std::tie;
+using std::vector;
 
 // golang::os::
 namespace golang {
@@ -208,6 +209,38 @@ error _File::Stat(struct stat *st) {
     if (syserr != 0)
         return f._err("stat", sys::NewErrno(syserr));
     return nil;
+}
+
+
+tuple<string, error> ReadFile(const string& path) {
+    // errctx is ok as returned by all calls.
+    File  f;
+    error err;
+
+    tie(f, err) = Open(path);
+    if (err != nil)
+        return make_tuple("", err);
+
+    string data;
+    vector<char> buf(4096);
+
+    while (1) {
+        int n;
+        tie(n, err) = f->Read(&buf[0], buf.size());
+        data.append(&buf[0], n);
+        if (err != nil) {
+            if (err == io::EOF_)
+                err = nil;
+            break;
+        }
+    }
+
+    error err2 = f->Close();
+    if (err == nil)
+        err = err2;
+    if (err != nil)
+        data = "";
+    return make_tuple(data, err);
 }
 
 

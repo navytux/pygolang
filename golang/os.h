@@ -26,6 +26,7 @@
 //  - `Open` opens file @path.
 //  - `Pipe` creates new pipe.
 //  - `NewFile` wraps OS-level file-descriptor into File.
+//  - `ReadFile` returns content of file @path.
 //  - `Signal` represents OS-level signal.
 //
 // See also https://golang.org/pkg/os for Go os package documentation.
@@ -104,6 +105,9 @@ LIBGOLANG_API std::tuple<File, error> NewFile(int sysfd, const string& name);
 
 // Pipe creates connected pair of files.
 LIBGOLANG_API std::tuple</*r*/File, /*w*/File, error> Pipe();
+
+// ReadFile returns content of file @path.
+LIBGOLANG_API std::tuple<string, error> ReadFile(const string& path);
 
 
 // Signal represents an OS signal.
