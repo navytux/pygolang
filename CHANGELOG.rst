@@ -1,6 +1,38 @@
 Pygolang change history
 -----------------------
 
+0.1 (2022-01-26)
+~~~~~~~~~~~~~~~~
+
+- Add `os.signal` package that provides signal handing via nogil channels. This
+  allows to build concurrent systems without limitation of Python's standard
+  `signal` module: signal delivery is not delayed, potentially indefinitely, if
+  main thread is blocked or is busy doing any non-Python work (`commit 1`__, 2__, 3__, `example usage`__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/1fad944d
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/ce507f4e
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/e18adbab
+  __ https://lab.nexedi.com/nexedi/nxdtest/merge_requests/16
+
+- Add C++ API for IO. (`commit 1`__, 2__, 3__, 4__, 5__, 6__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/3a838d24
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/3a131a51
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/c2471014
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/d358fa75
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/4690460b
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/2a35ef5b
+
+- Fix segmentation-fault crashes on unhandled panic with gevent backend (commit__, `greenlet bug`__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/07cae4e9
+  __ https://github.com/python-greenlet/greenlet/pull/285
+
+- Fix `print(qq(·))` crash on Python2 (commit__).
+
+  __ https://lab.nexedi.com/nexedi/pygolang/commit/08dc5d10
+
+
 0.0.9 (2021-12-08)
 ~~~~~~~~~~~~~~~~~~
 
@@ -21,7 +53,7 @@ Pygolang change history
   __ https://lab.nexedi.com/nexedi/pygolang/commit/78b4b41c
 
 - More fixes for `gpython` to be compatible with CPython in how it handles
-  program on stdin, interactive session and __main__ module setup (`commit 1`__, 2__, 3__, 4__, 5__).
+  program on stdin, interactive session and `__main__` module setup (`commit 1`__, 2__, 3__, 4__, 5__).
 
   __ https://lab.nexedi.com/nexedi/pygolang/commit/6cc4bf32
   __ https://lab.nexedi.com/nexedi/pygolang/commit/22fb559a

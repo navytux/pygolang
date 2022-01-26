@@ -27,7 +27,7 @@ from __future__ import print_function, absolute_import
 #
 # On POSIX, for example, Python uses sem_init(process-private) + sem_post/sem_wait.
 #
-# Similarly PyThread_start_new_thread - Python's C function function to create
+# Similarly PyThread_start_new_thread - Python's C function to create
 # new thread - does not depend on GIL. On POSIX, for example, it is small
 # wrapper around pthread_create.
 #

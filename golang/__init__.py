@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -33,7 +33,7 @@ See also package golang.pyx which provides similar functionality for Cython nogi
 
 from __future__ import print_function, absolute_import
 
-__version__ = "0.0.9"
+__version__ = "0.1"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
            'recover', 'func', 'error', 'b', 'u', 'gimport']

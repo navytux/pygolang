@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -32,7 +32,7 @@ from cpython cimport PyObject, Py_INCREF, Py_DECREF
 from libcpp.cast cimport static_cast, dynamic_cast
 
 
-# _frompyx indicates that a constructur is called from pyx code
+# _frompyx indicates that a constructor is called from pyx code
 cdef object _frompyx = object()
 
 # _newPyCtx creates new PyContext wrapping ctx.

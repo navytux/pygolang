@@ -445,6 +445,13 @@ handle concurrency in structured ways:
   __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/time.py
   __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/_time.pxd
 
+- |golang.os.signal|_ (py__, pyx__) provides signal handling via channels.
+
+  .. |golang.os.signal| replace:: `golang.os.signal`
+  .. _golang.os.signal: https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/os/signal.h
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/os/signal.py
+  __ https://lab.nexedi.com/nexedi/pygolang/tree/master/golang/os/_signal.pxd
+
 
 .. [*] See `Go Concurrency Patterns: Context`__ for overview.
 
