@@ -22,7 +22,7 @@
 It is included from _golang.pyx .
 """
 
-from golang import strconv as pystrconv
+pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 
 def pyb(s): # -> bytes
     """b converts str/unicode/bytes s to UTF-8 encoded bytestring.
@@ -40,8 +40,20 @@ def pyb(s): # -> bytes
 
        See also: u.
     """
-    bs, _ = pystrconv._bstr(s)
-    return bs
+    if isinstance(s, bytes):                    # py2: str      py3: bytes
+        pass
+    elif isinstance(s, unicode):                # py2: unicode  py3: str
+        if PY_MAJOR_VERSION >= 3:
+            s = s.encode('UTF-8', 'surrogateescape')
+        else:
+            # py2 does not have surrogateescape error handler, and even if we
+            # provide one, builtin unicode.encode() does not treat
+            # \udc80-\udcff as error. -> Do the encoding ourselves.
+            s = _utf8_encode_surrogateescape(s)
+    else:
+        raise TypeError("b: invalid type %s" % type(s))
+
+    return s
 
 def pyu(s): # -> unicode
     """u converts str/unicode/bytes s to unicode string.
@@ -61,8 +73,20 @@ def pyu(s): # -> unicode
 
        See also: b.
     """
-    us, _ = pystrconv._ustr(s)
-    return us
+    if isinstance(s, unicode):                  # py2: unicode  py3: str
+        pass
+    elif isinstance(s, bytes):                  # py2: str      py3: bytes
+        if PY_MAJOR_VERSION >= 3:
+            s = s.decode('UTF-8', 'surrogateescape')
+        else:
+            # py2 does not have surrogateescape error handler, and even if we
+            # provide one, builtin bytes.decode() does not treat surrogate
+            # sequences as error. -> Do the decoding ourselves.
+            s = _utf8_decode_surrogateescape(s)
+    else:
+        raise TypeError("u: invalid type %s" % type(s))
+
+    return s
 
 
 # __pystr converts obj to str of current python:
@@ -168,3 +192,161 @@ def pyqq(obj):
         qobj = _pystr(pyb(qobj))
 
     return qobj
+
+
+# ---- UTF-8 encode/decode ----
+
+from six import unichr                      # py2: unichr       py3: chr
+from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
+
+_rune_error = 0xFFFD # unicode replacement character
+
+_ucs2_build        = (sys.maxunicode ==     0xffff)     #    ucs2
+assert _ucs2_build or sys.maxunicode >= 0x0010ffff      # or ucs4
+
+# _utf8_decode_rune decodes next UTF8-character from byte string s.
+#
+# _utf8_decode_rune(s) -> (r, size)
+def _utf8_decode_rune(s):
+    assert isinstance(s, bytes)
+
+    if len(s) == 0:
+        return _rune_error, 0
+
+    l = min(len(s), 4)  # max size of an UTF-8 encoded character
+    while l > 0:
+        try:
+            r = s[:l].decode('utf-8', 'strict')
+        except UnicodeDecodeError:
+            l -= 1
+            continue
+
+        if len(r) == 1:
+            return ord(r), l
+
+        # see comment in _utf8_encode_surrogateescape
+        if _ucs2_build and len(r) == 2:
+            try:
+                return _xuniord(r), l
+            # e.g. TypeError: ord() expected a character, but string of length 2 found
+            except TypeError:
+                l -= 1
+                continue
+
+        l -= 1
+        continue
+
+    # invalid UTF-8
+    return _rune_error, 1
+
+
+# _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
+def _utf8_decode_surrogateescape(s): # -> unicode
+    assert isinstance(s, bytes)
+    outv = []
+    emit = outv.append
+
+    while len(s) > 0:
+        r, width = _utf8_decode_rune(s)
+        if r == _rune_error:
+            b = ord(s[0])
+            assert 0x80 <= b <= 0xff
+            emit(unichr(0xdc00 + b))
+
+        # python2 "correctly" decodes surrogates - don't allow that as
+        # surrogates are not valid UTF-8:
+        # https://github.com/python/cpython/blob/v3.8.1-118-gdbb37aac142/Objects/stringlib/codecs.h#L153-L157
+        # (python3 raises UnicodeDecodeError for surrogates)
+        elif 0xd800 <= r < 0xdfff:
+            for c in s[:width]:
+                b = ord(c)
+                if c >= 0x80:
+                    emit(unichr(0xdc00 + b))
+                else:
+                    emit(unichr(b))
+
+        else:
+            emit(_xunichr(r))
+
+        s = s[width:]
+
+    return u''.join(outv)
+
+
+# _utf8_encode_surrogateescape mimics s.encode('utf-8', 'surrogateescape') from py3.
+def _utf8_encode_surrogateescape(s): # -> bytes
+    assert isinstance(s, unicode)
+    outv = []
+    emit = outv.append
+
+    while len(s) > 0:
+        uc = s[0]; s = s[1:]
+        c = ord(uc)
+
+        if 0xdc80 <= c <= 0xdcff:
+            # surrogate - emit unescaped byte
+            emit(bchr(c & 0xff))
+            continue
+
+        # in builds with --enable-unicode=ucs2 (default for py2 on macos and windows)
+        # python represents unicode points > 0xffff as _two_ unicode characters:
+        #
+        #   uh = u - 0x10000
+        #   c1 = 0xd800 + (uh >> 10)      ; [d800, dbff]
+        #   c2 = 0xdc00 + (uh & 0x3ff)    ; [dc00, dfff]
+        #
+        # if detected - merge those two unicode characters for .encode('utf-8') below
+        #
+        # this should be only relevant for python2, as python3 switched to "flexible"
+        # internal unicode representation: https://www.python.org/dev/peps/pep-0393
+        if _ucs2_build and (0xd800 <= c <= 0xdbff):
+            if len(s) > 0:
+                uc2 = s[0]
+                c2 = ord(uc2)
+                if 0xdc00 <= c2 <= 0xdfff:
+                    uc = uc + uc2
+                    s = s[1:]
+
+        emit(uc.encode('utf-8', 'strict'))
+
+    return b''.join(outv)
+
+
+# _xuniord returns ordinal for a unicode character u.
+#
+# it works correctly even if u is represented as 2 unicode surrogate points on
+# ucs2 python build.
+if not _ucs2_build:
+    _xuniord = ord
+else:
+    def _xuniord(u):
+        assert isinstance(u, unicode)
+        if len(u) == 1:
+            return ord(u)
+
+        # see _utf8_encode_surrogateescape for details
+        if len(u) == 2:
+            c1 = ord(u[0])
+            c2 = ord(u[1])
+            if (0xd800 <= c1 <= 0xdbff) and (0xdc00 <= c2 <= 0xdfff):
+                return 0x10000 | ((c1 - 0xd800) << 10) | (c2 - 0xdc00)
+
+        # let it crash
+        return ord(u)
+
+
+# _xunichr returns unicode character for an ordinal i.
+#
+# it works correctly even on ucs2 python builds, where ordinals >= 0x10000 are
+# represented as 2 unicode pointe.
+if not _ucs2_build:
+    _xunichr = unichr
+else:
+    def _xunichr(i):
+        if i < 0x10000:
+            return unichr(i)
+
+        # see _utf8_encode_surrogateescape for details
+        uh = i - 0x10000
+        return unichr(0xd800 + (uh >> 10)) + \
+               unichr(0xdc00 + (uh & 0x3ff))

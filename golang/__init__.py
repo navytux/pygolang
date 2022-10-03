@@ -317,3 +317,11 @@ from ._golang import    \
     pyerror     as error,   \
     pyb         as b,       \
     pyu         as u
+
+# import golang.strconv into _golang from here to workaround cyclic golang ↔ strconv dependency
+def _():
+    from . import _golang
+    from . import strconv
+    _golang.pystrconv = strconv
+_()
+del _
