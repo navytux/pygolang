@@ -43,13 +43,7 @@ def pyb(s): # -> bytes
     if isinstance(s, bytes):                    # py2: str      py3: bytes
         pass
     elif isinstance(s, unicode):                # py2: unicode  py3: str
-        if PY_MAJOR_VERSION >= 3:
-            s = s.encode('UTF-8', 'surrogateescape')
-        else:
-            # py2 does not have surrogateescape error handler, and even if we
-            # provide one, builtin unicode.encode() does not treat
-            # \udc80-\udcff as error. -> Do the encoding ourselves.
-            s = _utf8_encode_surrogateescape(s)
+        s = _utf8_encode_surrogateescape(s)
     else:
         raise TypeError("b: invalid type %s" % type(s))
 
@@ -76,13 +70,7 @@ def pyu(s): # -> unicode
     if isinstance(s, unicode):                  # py2: unicode  py3: str
         pass
     elif isinstance(s, bytes):                  # py2: str      py3: bytes
-        if PY_MAJOR_VERSION >= 3:
-            s = s.decode('UTF-8', 'surrogateescape')
-        else:
-            # py2 does not have surrogateescape error handler, and even if we
-            # provide one, builtin bytes.decode() does not treat surrogate
-            # sequences as error. -> Do the decoding ourselves.
-            s = _utf8_decode_surrogateescape(s)
+        s = _utf8_decode_surrogateescape(s)
     else:
         raise TypeError("u: invalid type %s" % type(s))
 
@@ -243,6 +231,12 @@ def _utf8_decode_rune(s):
 # _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
 def _utf8_decode_surrogateescape(s): # -> unicode
     assert isinstance(s, bytes)
+    if PY_MAJOR_VERSION >= 3:
+        return s.decode('UTF-8', 'surrogateescape')
+
+    # py2 does not have surrogateescape error handler, and even if we
+    # provide one, builtin bytes.decode() does not treat surrogate
+    # sequences as error. -> Do the decoding ourselves.
     outv = []
     emit = outv.append
 
@@ -276,6 +270,12 @@ def _utf8_decode_surrogateescape(s): # -> unicode
 # _utf8_encode_surrogateescape mimics s.encode('utf-8', 'surrogateescape') from py3.
 def _utf8_encode_surrogateescape(s): # -> bytes
     assert isinstance(s, unicode)
+    if PY_MAJOR_VERSION >= 3:
+        return s.encode('UTF-8', 'surrogateescape')
+
+    # py2 does not have surrogateescape error handler, and even if we
+    # provide one, builtin unicode.encode() does not treat
+    # \udc80-\udcff as error. -> Do the encoding ourselves.
     outv = []
     emit = outv.append
 
