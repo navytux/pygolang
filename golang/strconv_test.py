@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021  Nexedi SA and Contributors.
+# Copyright (C) 2018-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -67,6 +67,9 @@ def test_quote():
 
         # non-printable utf-8
         (u"\u007f\u0080\u0081\u0082\u0083\u0084\u0085\u0086\u0087", u"\\x7f\\xc2\\x80\\xc2\\x81\\xc2\\x82\\xc2\\x83\\xc2\\x84\\xc2\\x85\\xc2\\x86\\xc2\\x87"),
+
+        # invalid rune
+        (u'\ufffd',         u'�'),
     )
 
     for tin, tquoted in testv:

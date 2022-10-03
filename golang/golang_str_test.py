@@ -75,6 +75,9 @@ def test_strings():
         # some characters with U >= 0x10000
         (b'\xf0\x9f\x99\x8f',           u'\U0001f64f'),    # 🙏
         (b'\xf0\x9f\x9a\x80',           u'\U0001f680'),    # 🚀
+
+        # invalid rune
+        (b'\xef\xbf\xbd',               u'�'),
     )
 
     for tbytes, tunicode in testv:

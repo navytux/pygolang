@@ -83,7 +83,7 @@ def _quote(s):
             isize = i + size
 
             # decode error - just emit raw byte as escaped
-            if r == _rune_error:
+            if r == _rune_error  and  size == 1:
                 emit(br'\x%02x' % ord(c))
 
             # printable utf-8 characters go as is

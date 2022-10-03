@@ -242,7 +242,7 @@ def _utf8_decode_surrogateescape(s): # -> unicode
 
     while len(s) > 0:
         r, width = _utf8_decode_rune(s)
-        if r == _rune_error:
+        if r == _rune_error  and  width == 1:
             b = ord(s[0])
             assert 0x80 <= b <= 0xff
             emit(unichr(0xdc00 + b))
