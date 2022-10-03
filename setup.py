@@ -239,7 +239,8 @@ setup(
 
     ext_modules = [
                     Ext('golang._golang',
-                        ['golang/_golang.pyx']),
+                        ['golang/_golang.pyx'],
+                        depends = ['golang/_golang_str.pyx']),
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx']),

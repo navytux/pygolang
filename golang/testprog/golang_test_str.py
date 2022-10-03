@@ -20,7 +20,7 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """This program helps to verify _pystr and _pyunicode.
 
-It complements golang_test.test_strings.
+It complements golang_str_test.test_strings_print.
 """
 
 from __future__ import print_function, absolute_import
