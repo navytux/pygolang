@@ -22,6 +22,10 @@
 It is included from _golang.pyx .
 """
 
+from cpython cimport PyUnicode_DecodeUTF8
+
+from libc.stdint cimport uint8_t
+
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 
 def pyb(s): # -> bytes
@@ -187,24 +191,25 @@ def pyqq(obj):
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
 
-_rune_error = 0xFFFD # unicode replacement character
+cdef int _rune_error = 0xFFFD # unicode replacement character
+_py_rune_error = _rune_error
 
-_ucs2_build        = (sys.maxunicode ==     0xffff)     #    ucs2
-assert _ucs2_build or sys.maxunicode >= 0x0010ffff      # or ucs4
+cdef bint _ucs2_build = (sys.maxunicode ==     0xffff)      #    ucs2
+assert    _ucs2_build or sys.maxunicode >= 0x0010ffff       # or ucs4
 
 # _utf8_decode_rune decodes next UTF8-character from byte string s.
 #
 # _utf8_decode_rune(s) -> (r, size)
-def _utf8_decode_rune(s):
-    assert isinstance(s, bytes)
-
+def _py_utf8_decode_rune(const uint8_t[::1] s):
+    return _utf8_decode_rune(s)
+cdef (int, int) _utf8_decode_rune(const uint8_t[::1] s):
     if len(s) == 0:
         return _rune_error, 0
 
-    l = min(len(s), 4)  # max size of an UTF-8 encoded character
+    cdef int l = min(len(s), 4)  # max size of an UTF-8 encoded character
     while l > 0:
         try:
-            r = s[:l].decode('utf-8', 'strict')
+            r = PyUnicode_DecodeUTF8(<char*>&s[0], l, 'strict')
         except UnicodeDecodeError:
             l -= 1
             continue
@@ -229,10 +234,12 @@ def _utf8_decode_rune(s):
 
 
 # _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
-def _utf8_decode_surrogateescape(s): # -> unicode
-    assert isinstance(s, bytes)
+def _utf8_decode_surrogateescape(const uint8_t[::1] s): # -> unicode
     if PY_MAJOR_VERSION >= 3:
-        return s.decode('UTF-8', 'surrogateescape')
+        if len(s) == 0:
+            return u''  # avoid out-of-bounds slice access on &s[0]
+        else:
+            return PyUnicode_DecodeUTF8(<char*>&s[0], len(s), 'surrogateescape')
 
     # py2 does not have surrogateescape error handler, and even if we
     # provide one, builtin bytes.decode() does not treat surrogate
@@ -243,8 +250,8 @@ def _utf8_decode_surrogateescape(s): # -> unicode
     while len(s) > 0:
         r, width = _utf8_decode_rune(s)
         if r == _rune_error  and  width == 1:
-            b = ord(s[0])
-            assert 0x80 <= b <= 0xff
+            b = s[0]
+            assert 0x80 <= b <= 0xff, b
             emit(unichr(0xdc00 + b))
 
         # python2 "correctly" decodes surrogates - don't allow that as
@@ -253,11 +260,10 @@ def _utf8_decode_surrogateescape(s): # -> unicode
         # (python3 raises UnicodeDecodeError for surrogates)
         elif 0xd800 <= r < 0xdfff:
             for c in s[:width]:
-                b = ord(c)
                 if c >= 0x80:
-                    emit(unichr(0xdc00 + b))
+                    emit(unichr(0xdc00 + c))
                 else:
-                    emit(unichr(b))
+                    emit(unichr(c))
 
         else:
             emit(_xunichr(r))

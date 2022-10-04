@@ -26,7 +26,7 @@ from six import text_type as unicode        # py2: unicode      py3: str
 from six.moves import range as xrange
 
 from golang import b, u
-from golang._golang import _utf8_decode_rune, _rune_error, _xunichr
+from golang._golang import _py_utf8_decode_rune as _utf8_decode_rune, _py_rune_error as _rune_error, _xunichr
 
 
 # _bstr is like b but also returns whether input was unicode.

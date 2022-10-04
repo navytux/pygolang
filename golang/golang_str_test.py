@@ -20,6 +20,7 @@
 
 from __future__ import print_function, absolute_import
 
+import golang
 from golang import b, u
 from golang.gcompat import qq
 from golang.strconv_test import byterange
@@ -27,6 +28,7 @@ from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
 from pytest import raises
 import sys
 from six import text_type as unicode
+from six.moves import range as xrange
 
 
 # verify b, u
@@ -137,3 +139,30 @@ def test_qq():
     if not ('PyPy' in sys.version): # https://foss.heptapod.net/pypy/pypy/issues/2763
         with raises(AttributeError):
             x.hello = 1
+
+
+# ---- benchmarks ----
+
+# utf-8 decoding
+def bench_stddecode(b):
+    s = (u'α'*100).encode('utf-8')
+    for i in xrange(b.N):
+        s.decode('utf-8')
+
+def bench_udecode(b):
+    s = (u'α'*100).encode('utf-8')
+    uu = golang.u
+    for i in xrange(b.N):
+        uu(s)
+
+# utf-8 encoding
+def bench_stdencode(b):
+    s = u'α'*100
+    for i in xrange(b.N):
+        s.encode('utf-8')
+
+def bench_bencode(b):
+    s = u'α'*100
+    bb = golang.b
+    for i in xrange(b.N):
+        bb(s)
