@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2014-2019  Nexedi SA and Contributors.
+# Copyright (C) 2014-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -83,11 +83,11 @@ class XForkedFunc(ForkedFunc):
 # BenchPlugin is py.test plugin to collect & run benchmarks.
 class BenchPlugin:
 
-    # redirect python collector to bench_*.py and bench_*()
+    # redirect python collector to bench_*() functions in test/bench files.
     def pytest_configure(self, config):
         # XXX a bit hacky
         ini = config.inicfg
-        ini['python_files']     = 'bench_*.py'
+        ini['python_files']     = 'test_*.py *_test.py bench_*.py'
         ini['python_classes']   = 'Bench'
         ini['python_functions'] = 'bench_'
         config._inicache.clear()
