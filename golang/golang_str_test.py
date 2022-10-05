@@ -26,7 +26,7 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
-from pytest import raises
+from pytest import raises, mark, skip
 import sys
 from six import text_type as unicode
 from six.moves import range as xrange
@@ -132,8 +132,8 @@ def test_strings_basic():
     us = u(u_);    assert isinstance(us, unicode);  assert type(us) is ustr
 
     # b/u from bytes
-    _ = b(b_);     assert type(_) is bstr
-    _ = u(b_);     assert type(_) is ustr
+    _ = b(b_);     assert type(_) is bstr;  assert _ == "мир"
+    _ = u(b_);     assert type(_) is ustr;  assert _ == "мир"
 
     # TODO also handle bytearray?
 
@@ -147,14 +147,19 @@ def test_strings_basic():
     assert unicode(us) is us
 
     # unicode(b) -> u,  bytes(u) -> b
-    _ = unicode(bs);  assert type(_) is ustr
-    _ = bytes  (us);  assert type(_) is bstr
+    _ = unicode(bs);  assert type(_) is ustr;  assert _ == "мир"
+    _ = bytes  (us);  assert type(_) is bstr;  assert _ == "мир"
 
     # b(u(·)), u(b(·))
-    _ = b(us);    assert type(_) is bstr
-    _ = u(bs);    assert type(_) is ustr
-    _ = bstr(us); assert type(_) is bstr
-    _ = ustr(bs); assert type(_) is ustr
+    _ = b(us);    assert type(_) is bstr;  assert _ == "мир"
+    _ = u(bs);    assert type(_) is ustr;  assert _ == "мир"
+    _ = bstr(us); assert type(_) is bstr;  assert _ == "мир"
+    _ = ustr(bs); assert type(_) is ustr;  assert _ == "мир"
+
+    # hash of b/u is made to be equal to hash of current str
+    # (it cannot be equal to hash(b'мир') and hash(u'мир') at the same time as those hashes differ)
+    assert hash(us) == hash("мир");  assert us == "мир"
+    assert hash(bs) == hash("мир");  assert bs == "мир"
 
     # str
     _ = str(us);   assert isinstance(_, str);  assert _ == "мир"
@@ -166,6 +171,98 @@ def test_strings_basic():
             us.hello = 1
         with raises(AttributeError):
             bs.hello = 1
+
+
+# verify string operations like `x + y` for all combinations of pairs from
+# bytes, unicode, bstr and ustr. Except if both x and y are std
+# python types, e.g. (bytes, unicode), because those combinations are handled
+# only by builtin python code and might be rejected.
+@mark.parametrize('tx', (bytes, unicode, bstr, ustr))
+@mark.parametrize('ty', (bytes, unicode, bstr, ustr))
+def test_strings_ops2(tx, ty):
+    # skip e.g. regular bytes vs regular unicode
+    tstd = {bytes, unicode}
+    if tx in tstd  and  ty in tstd  and  tx is not ty:
+        skip()
+
+    # == != <= >= < >   for ~equal
+    x = xstr(u'мир', tx);  assert type(x) is tx
+    y = xstr(u'мир', ty);  assert type(y) is ty
+    assert      x == y
+    assert      y == x
+    assert not (x != y)
+    assert not (y != x)
+    assert      x >= y
+    assert      y >= x
+    assert      x <= y
+    assert      y <= x
+    assert not (x > y)
+    assert not (y > x)
+    assert not (x < y)
+    assert not (y < x)
+
+    # now not equal
+    x = xstr(u'hello ', tx)
+    y = xstr(u'мир',    ty)
+
+    # == != <= >= < >
+    assert not (x == y)
+    assert not (y == x)
+    assert      x != y
+    assert      y != x
+    assert not (x >= y)
+    assert      y >= x
+    assert      x <= y
+    assert not (y <= x)
+    assert      x < y
+    assert not (y < x)
+    assert not (x > y)
+    assert      y > x
+
+
+# verify string operations like `x == *` for x being bstr/ustr.
+# Those operations must succeed for any hashable type or else bstr/ustr could
+# not be used as dict keys.
+@mark.parametrize('tx', (bstr, ustr))
+def test_strings_ops2_eq_any(tx):
+    x = xstr(u'мир', tx)
+    while 1:
+        hx = hash(x)
+        if hash(hx) == hx:  # positive int32 will have this property
+            break
+        x += xstr('!', tx)
+
+    # assertNE asserts that (x==y) is False and (x!=y) is True.
+    # it also asserts that e.g. x < y raises TypeError
+    def assertNE(y):
+        assert (x == y) is False
+        assert (x != y) is True
+        with raises(TypeError): x >= y
+        with raises(TypeError): x <= y
+        with raises(TypeError): x >  y
+        with raises(TypeError): x <  y
+    _ = assertNE
+
+    _(None)
+    _(0)
+    _(1)
+    _(2)
+
+    assert hash(x)  == hx
+    assert hash(hx) == hx
+    _(hx)
+    d = {x: 1, hx: 2}    # creating dict will fail if `x == hx` raises TypeError
+    assert d[x]  == 1
+    assert d[hx] == 2
+
+    _(())
+    _((1,))
+    _((x,))
+
+    # == wrt non-hashable type also succeeds following std python where e.g. 's' == [1] gives False
+    l = [1]
+    with raises(TypeError): hash(l)
+    _(l)
 
 # verify print for bstr/ustr.
 def test_strings_print():
@@ -189,6 +286,30 @@ def test_qq():
     assert b'hello %s !' % qq(u('мир')) == b('hello "мир" !')   # b % qq(u) -> b
     assert u'hello %s !' % qq(u('мир')) == u('hello "мир" !')   # u % qq(u)
     assert u'hello %s !' % qq(b('мир')) ==  u'hello "мир" !'    # u % qq(b) -> u
+
+
+# ----------------------------------------
+
+# verify that what we patched stay unaffected when
+# called outside of bstr/ustr context.
+def test_strings_patched_transparently():
+    u_  = xunicode  ("мир");  assert type(u_)  is unicode
+
+    # unicode comparison stay unaffected
+    assert (u_ == u_)  is True
+    assert (u_ != u_)  is False
+    assert (u_ <  u_)  is False
+    assert (u_ >  u_)  is False
+    assert (u_ <= u_)  is True
+    assert (u_ >= u_)  is True
+
+    u2 = xunicode("май");  assert type(u2) is unicode
+    assert (u_ == u2)  is False     ; assert (u2 == u_)  is False
+    assert (u_ != u2)  is True      ; assert (u2 != u_)  is True
+    assert (u_ <  u2)  is False     ; assert (u2 <  u_)  is True
+    assert (u_ >  u2)  is True      ; assert (u2 >  u_)  is False
+    assert (u_ <= u2)  is False     ; assert (u2 <= u_)  is True
+    assert (u_ >= u2)  is True      ; assert (u2 >= u_)  is False
 
 
 # ---- benchmarks ----
@@ -224,3 +345,17 @@ def bench_bencode(b):
 # unicode correspondingly to function name.
 def xbytes(x):     return x.encode('utf-8') if type(x) is unicode else x
 def xunicode(x):   return x.decode('utf-8') if type(x) is bytes   else x
+
+# xstr returns string corresponding to specified type and data.
+def xstr(text, typ):
+    def _():
+        t = {
+            bytes:      xbytes,
+            unicode:    xunicode,
+            bstr:       b,
+            ustr:       u,
+        }
+        return t[typ](text)
+    s = _()
+    assert type(s) is typ
+    return s

@@ -24,7 +24,8 @@ It is included from _golang.pyx .
 
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
-from cpython cimport PyTypeObject, Py_TYPE
+from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc
+from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 cdef extern from "Python.h":
     void PyType_Modified(PyTypeObject *)
 
@@ -93,6 +94,25 @@ def pyu(s): # -> ustr
     return pyustr(s)
 
 
+# _pyb_coerce coerces x from `b op x` to be used in operation with pyb.
+cdef _pyb_coerce(x):  # -> bstr|bytes
+    if isinstance(x, bytes):
+        return x
+    elif isinstance(x, unicode):
+        return pyb(x)
+    else:
+        raise TypeError("b: coerce: invalid type %s" % type(x))
+
+# _pyu_coerce coerces x from `u op x` to be used in operation with pyu.
+cdef _pyu_coerce(x):  # -> ustr|unicode
+    if isinstance(x, unicode):
+        return x
+    elif isinstance(x, bytes):
+        return pyu(x)
+    else:
+        raise TypeError("u: coerce: invalid type %s" % type(x))
+
+
 # __pystr converts obj to ~str of current python:
 #
 #   - to ~bytes,   via b, if running on py2, or
@@ -123,6 +143,10 @@ class pybstr(bytes):
 
     is always identity even if bytes data is not valid UTF-8.
 
+    Operations in between bstr and ustr/unicode / bytes coerce to bstr.
+    When the coercion happens, bytes, similarly to bstr, are also
+    treated as UTF8-encoded strings.
+
     See also: b, ustr/u.
     """
 
@@ -141,6 +165,32 @@ class pybstr(bytes):
             return self
 
 
+    def __hash__(self):
+        # hash of the same unicode and UTF-8 encoded bytes is generally different
+        # -> we can't make hash(bstr) == both hash(bytes) and hash(unicode) at the same time.
+        # -> make hash(bstr) == hash(str type of current python) so that bstr
+        #    could be used as keys in dictionary interchangeably with native str type.
+        if PY_MAJOR_VERSION >= 3:
+            return hash(pyu(self))
+        else:
+            return bytes.__hash__(self)
+
+    # == != < > <= >=
+    # NOTE == and != are special: they must succeed against any type so that
+    # bstr could be used as dict key.
+    def __eq__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return False
+        return bytes.__eq__(a, b)
+    def __ne__(a, b):   return not a.__eq__(b)
+    def __lt__(a, b):   return bytes.__lt__(a, _pyb_coerce(b))
+    def __gt__(a, b):   return bytes.__gt__(a, _pyb_coerce(b))
+    def __le__(a, b):   return bytes.__le__(a, _pyb_coerce(b))
+    def __ge__(a, b):   return bytes.__ge__(a, _pyb_coerce(b))
+
+
 cdef class pyustr(unicode):
     """ustr is unicode-string.
 
@@ -150,6 +200,10 @@ cdef class pyustr(unicode):
         ustr → bstr → ustr
 
     is always identity even if bytes data is not valid UTF-8.
+
+    Operations in between ustr and bstr/bytes / unicode coerce to ustr.
+    When the coercion happens, bytes, similarly to bstr, are also
+    treated as UTF8-encoded strings.
 
     See also: u, bstr/b.
     """
@@ -162,6 +216,29 @@ cdef class pyustr(unicode):
             return self
         else:
             return pyb(self)
+
+
+    def __hash__(self):
+        # see pybstr.__hash__ for why we stick to hash of current str
+        if PY_MAJOR_VERSION >= 3:
+            return unicode.__hash__(self)
+        else:
+            return hash(pyb(self))
+
+    # == != < > <= >=
+    # NOTE == and != are special: they must succeed against any type so that
+    # ustr could be used as dict key.
+    def __eq__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return False
+        return unicode.__eq__(a, b)
+    def __ne__(a, b):   return not a.__eq__(b)
+    def __lt__(a, b):   return unicode.__lt__(a, _pyu_coerce(b))
+    def __gt__(a, b):   return unicode.__gt__(a, _pyu_coerce(b))
+    def __le__(a, b):   return unicode.__le__(a, _pyu_coerce(b))
+    def __ge__(a, b):   return unicode.__ge__(a, _pyu_coerce(b))
 
 
 # _bdata/_udata retrieve raw data from bytes/unicode.
@@ -233,6 +310,44 @@ def pyqq(obj):
         qobj = pyb(qobj)
 
     return qobj
+
+
+# py2: adjust unicode.tp_richcompare(a,b) to return NotImplemented if b is bstr.
+# This way we avoid `UnicodeWarning: Unicode equal comparison failed to convert
+# both arguments to Unicode - interpreting them as being unequal`, and that
+# further `a == b` returns False even if `b == a` gives True.
+#
+# NOTE there is no need to do the same for ustr, because ustr inherits from
+# unicode and can be always natively converted to unicode by python itself.
+cdef richcmpfunc _unicode_tp_richcompare = Py_TYPE(u'').tp_richcompare
+
+cdef object _unicode_tp_xrichcompare(object a, object b, int op):
+    if isinstance(b, pybstr):
+        return NotImplemented
+    return _unicode_tp_richcompare(a, b, op)
+
+cdef object _unicode_x__eq__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_EQ)
+cdef object _unicode_x__ne__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_NE)
+cdef object _unicode_x__lt__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_LT)
+cdef object _unicode_x__gt__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_GT)
+cdef object _unicode_x__le__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_LE)
+cdef object _unicode_x__ge__(object a, object b):   return _unicode_tp_richcompare(a, b, Py_GE)
+
+if PY_MAJOR_VERSION < 3:
+    def _():
+        cdef PyTypeObject* t
+        for pyt in [unicode] + unicode.__subclasses__():
+            assert isinstance(pyt, type)
+            t = <PyTypeObject*>pyt
+            if t.tp_richcompare == _unicode_tp_richcompare:
+                t.tp_richcompare = _unicode_tp_xrichcompare
+                _patch_slot(t, "__eq__", _unicode_x__eq__)
+                _patch_slot(t, "__ne__", _unicode_x__ne__)
+                _patch_slot(t, "__lt__", _unicode_x__lt__)
+                _patch_slot(t, "__gt__", _unicode_x__gt__)
+                _patch_slot(t, "__le__", _unicode_x__le__)
+                _patch_slot(t, "__ge__", _unicode_x__ge__)
+    _()
 
 
 # _patch_slot installs func_or_descr into typ's __dict__ as name.

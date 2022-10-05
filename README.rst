@@ -240,6 +240,11 @@ The conversion, in both encoding and decoding, never fails and never looses
 information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
 even if bytes data is not valid UTF-8.
 
+Operations in between `bstr` and `ustr`/`unicode` / `bytes` coerce to `bstr`, while
+operations in between `ustr` and `bstr`/`bytes` / `unicode` coerce
+to `ustr`.  When the coercion happens, `bytes`, similarly to
+`bstr`, are also treated as UTF8-encoded strings.
+
 `bstr`/`ustr` constructors will accept arbitrary objects and either convert or stringify them. For
 cases when no stringification is desired, and one only wants to convert
 `bstr`/`ustr` / `unicode`/`bytes`
