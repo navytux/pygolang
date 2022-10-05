@@ -111,7 +111,7 @@ def test_strings():
     assert isinstance(_, unicode)
     assert u(_) is _
 
-# verify print for _pystr and _pyunicode
+# verify print for bstr/ustr.
 def test_strings_print():
     outok = readfile(dir_testprog + "/golang_test_str.txt")
     retcode, stdout, stderr = _pyrun(["golang_test_str.py"],

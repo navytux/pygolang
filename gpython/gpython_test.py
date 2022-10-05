@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2021  Nexedi SA and Contributors.
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -71,6 +71,8 @@ def test_golang_builtins():
     assert error  is golang.error
     assert b      is golang.b
     assert u      is golang.u
+    assert bstr   is golang.bstr
+    assert ustr   is golang.ustr
 
     # indirectly verify golang.__all__
     for k in golang.__all__:

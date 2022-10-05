@@ -24,7 +24,7 @@
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `error` and package `errors` provide error chaining.
-- `b` and `u` provide way to make sure an object is either bytes or unicode.
+- `b`, `u` and `bstr`/`ustr` provide uniform UTF8-based approach to strings.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 See README for thorough overview.
@@ -36,7 +36,7 @@ from __future__ import print_function, absolute_import
 __version__ = "0.1"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-           'recover', 'func', 'error', 'b', 'u', 'gimport']
+           'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
@@ -316,7 +316,9 @@ from ._golang import    \
     pypanic     as panic,   \
     pyerror     as error,   \
     pyb         as b,       \
-    pyu         as u
+    pybstr      as bstr,    \
+    pyu         as u,       \
+    pyustr      as ustr
 
 # import golang.strconv into _golang from here to workaround cyclic golang ↔ strconv dependency
 def _():

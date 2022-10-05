@@ -18,7 +18,7 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""This program helps to verify _pystr and _pyunicode.
+"""This program helps to verify b, u and underlying bstr and ustr.
 
 It complements golang_str_test.test_strings_print.
 """
@@ -31,6 +31,8 @@ from golang.gcompat import qq
 def main():
     sb = b("привет b")
     su = u("привет u")
+    print("print(b):", sb)
+    print("print(u):", su)
     print("print(qq(b)):", qq(sb))
     print("print(qq(u)):", qq(su))
 

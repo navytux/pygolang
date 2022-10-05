@@ -10,7 +10,7 @@ Package `golang` provides Go-like features for Python:
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `error` and package `errors` provide error chaining.
-- `b` and `u` provide way to make sure an object is either bytes or unicode.
+- `b`, `u` and `bstr`/`ustr` provide uniform UTF8-based approach to strings.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 Package `golang.pyx` provides__ similar features for Cython/nogil.
@@ -229,19 +229,32 @@ __ https://www.python.org/dev/peps/pep-3134/
 Strings
 -------
 
-`b` and `u` provide way to make sure an object is either bytes or unicode.
-`b(obj)` converts str/unicode/bytes obj to UTF-8 encoded bytestring, while
-`u(obj)` converts str/unicode/bytes obj to unicode string. For example::
+Pygolang, similarly to Go, provides uniform UTF8-based approach to strings with
+the idea to make working with byte- and unicode- strings easy and transparently
+interoperable:
 
-   b("привет мир")   # -> gives bytes corresponding to UTF-8 encoding of "привет мир".
+- `bstr` is byte-string: it is based on `bytes` and can automatically convert to `unicode` [*]_.
+- `ustr` is unicode-string: it is based on `unicode` and can automatically convert to `bytes`.
+
+The conversion, in both encoding and decoding, never fails and never looses
+information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
+even if bytes data is not valid UTF-8.
+
+`bstr`/`ustr` constructors will accept arbitrary objects and either convert or stringify them. For
+cases when no stringification is desired, and one only wants to convert
+`bstr`/`ustr` / `unicode`/`bytes`
+to Pygolang string, `b` and `u` provide way to make sure an
+object is either `bstr` or `ustr` correspondingly.
+
+Usage example::
+
+   s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
 
    def f(s):
-      s = u(s)       # make sure s is unicode, decoding as UTF-8(*) if it was bytes.
-      ...            # (*) but see below about lack of decode errors.
+      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr or bytes.
+      ...               # (*) the decoding never fails nor looses information.
 
-The conversion in both encoding and decoding never fails and never looses
-information: `b(u(·))` and `u(b(·))` are always identity for bytes and unicode
-correspondingly, even if bytes input is not valid UTF-8.
+.. [*] `unicode` on Python2, `str` on Python3.
 
 
 Import

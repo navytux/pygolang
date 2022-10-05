@@ -43,6 +43,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 - Python-level channels are represented by pychan + pyselect.
 - Python-level error is represented by pyerror.
 - Python-level panic is represented by pypanic.
+- Python-level strings are represented by pybstr and pyustr.
 """
 
 

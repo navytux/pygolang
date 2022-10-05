@@ -28,7 +28,7 @@ from libc.stdint cimport uint8_t
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 
-def pyb(s): # -> bytes
+def pyb(s): # -> bstr
     """b converts str/unicode/bytes s to UTF-8 encoded bytestring.
 
        Bytes input is preserved as-is:
@@ -42,8 +42,11 @@ def pyb(s): # -> bytes
 
        TypeError is raised if type(s) is not one of the above.
 
-       See also: u.
+       See also: u, bstr/ustr.
     """
+    if type(s) is pybstr:
+        return s
+
     if isinstance(s, bytes):                    # py2: str      py3: bytes
         pass
     elif isinstance(s, unicode):                # py2: unicode  py3: str
@@ -51,9 +54,9 @@ def pyb(s): # -> bytes
     else:
         raise TypeError("b: invalid type %s" % type(s))
 
-    return s
+    return pybstr(s)
 
-def pyu(s): # -> unicode
+def pyu(s): # -> ustr
     """u converts str/unicode/bytes s to unicode string.
 
        Unicode input is preserved as-is:
@@ -69,8 +72,11 @@ def pyu(s): # -> unicode
 
        TypeError is raised if type(s) is not one of the above.
 
-       See also: b.
+       See also: b, bstr/ustr.
     """
+    if type(s) is pyustr:
+        return s
+
     if isinstance(s, unicode):                  # py2: unicode  py3: str
         pass
     elif isinstance(s, bytes):                  # py2: str      py3: bytes
@@ -78,22 +84,22 @@ def pyu(s): # -> unicode
     else:
         raise TypeError("u: invalid type %s" % type(s))
 
-    return s
+    return pyustr(s)
 
 
-# __pystr converts obj to str of current python:
+# __pystr converts obj to ~str of current python:
 #
-#   - to bytes,   via b, if running on py2, or
-#   - to unicode, via u, if running on py3.
+#   - to ~bytes,   via b, if running on py2, or
+#   - to ~unicode, via u, if running on py3.
 #
 # It is handy to use __pystr when implementing __str__ methods.
 #
 # NOTE __pystr is currently considered to be internal function and should not
 # be used by code outside of pygolang.
 #
-# XXX we should be able to use _pystr, but py3's str verify that it must have
+# XXX we should be able to use pybstr, but py3's str verify that it must have
 # Py_TPFLAGS_UNICODE_SUBCLASS in its type flags.
-cdef __pystr(object obj):
+cdef __pystr(object obj): # -> ~str
     if PY_MAJOR_VERSION >= 3:
         return pyu(obj)
     else:
@@ -101,8 +107,8 @@ cdef __pystr(object obj):
 
 
 # XXX cannot `cdef class`: github.com/cython/cython/issues/711
-class _pystr(bytes):
-    """_str is like bytes but can be automatically converted to Python unicode
+class pybstr(bytes):
+    """bstr is like bytes but can be automatically converted to Python unicode
     string via UTF-8 decoding.
 
     The decoding never fails nor looses information - see u for details.
@@ -123,8 +129,8 @@ class _pystr(bytes):
             return self
 
 
-cdef class _pyunicode(unicode):
-    """_unicode is like unicode(py2)|str(py3) but can be automatically converted
+cdef class pyustr(unicode):
+    """ustr is like unicode(py2)|str(py3) but can be automatically converted
     to bytes via UTF-8 encoding.
 
     The encoding always succeeds - see b for details.
@@ -139,11 +145,11 @@ cdef class _pyunicode(unicode):
         else:
             return pyb(self)
 
-# initialize .tp_print for _pystr so that this type could be printed.
+# initialize .tp_print for pybstr so that this type could be printed.
 # If we don't - printing it will result in `RuntimeError: print recursion`
 # because str of this type never reaches real bytes or unicode.
 # Do it only on python2, because python3 does not use tp_print at all.
-# NOTE _pyunicode does not need this because on py2 str(_pyunicode) returns _pystr.
+# NOTE pyustr does not need this because on py2 str(pyustr) returns pybstr.
 IF PY2:
     # NOTE Cython does not define tp_print for PyTypeObject - do it ourselves
     from libc.stdio cimport FILE
@@ -153,12 +159,12 @@ IF PY2:
             printfunc tp_print
         cdef PyTypeObject *Py_TYPE(object)
 
-    cdef int _pystr_tp_print(PyObject *obj, FILE *f, int nesting) except -1:
+    cdef int _pybstr_tp_print(PyObject *obj, FILE *f, int nesting) except -1:
         o = <bytes>obj
-        o = bytes(buffer(o))  # change tp_type to bytes instead of _pystr
+        o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
         return Py_TYPE(o).tp_print(<PyObject*>o, f, nesting)
 
-    Py_TYPE(_pystr()).tp_print = _pystr_tp_print
+    Py_TYPE(pybstr()).tp_print = _pybstr_tp_print
 
 
 # qq is substitute for %q, which is missing in python.
@@ -179,9 +185,9 @@ def pyqq(obj):
     # a-la str type (unicode on py3, bytes on py2), that can be transparently
     # converted to unicode or bytes as needed.
     if PY_MAJOR_VERSION >= 3:
-        qobj = _pyunicode(pyu(qobj))
+        qobj = pyu(qobj)
     else:
-        qobj = _pystr(pyb(qobj))
+        qobj = pyb(qobj)
 
     return qobj
 
