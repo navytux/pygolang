@@ -120,7 +120,7 @@ class pybstr(bytes):
     __slots__ = ()
 
 
-    # __bytes__ - no need
+    def __bytes__(self):    return self
     def __unicode__(self):  return pyu(self)
 
     def __str__(self):
@@ -138,7 +138,7 @@ cdef class pyustr(unicode):
     """
 
     def __bytes__(self):    return pyb(self)
-    # __unicode__ - no need
+    def __unicode__(self):  return self
 
     def __str__(self):
         if PY_MAJOR_VERSION >= 3:

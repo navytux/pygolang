@@ -142,6 +142,10 @@ def test_strings_basic():
     assert b(bs) is bs
     assert u(us) is us
 
+    # bytes(b(·)) = identity,   unicode(u(·)) = identity
+    assert bytes  (bs) is bs
+    assert unicode(us) is us
+
     # unicode(b) -> u,  bytes(u) -> b
     _ = unicode(bs);  assert type(_) is ustr
     _ = bytes  (us);  assert type(_) is bstr
