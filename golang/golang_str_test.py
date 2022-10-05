@@ -21,7 +21,8 @@
 from __future__ import print_function, absolute_import
 
 import golang
-from golang import b, u
+from golang import b, u, bstr, ustr
+from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
@@ -31,8 +32,9 @@ from six import text_type as unicode
 from six.moves import range as xrange
 
 
-# verify b, u
-def test_strings():
+# verify b/u and bstr/ustr basics.
+def test_strings_basic():
+    # UTF-8 encode/decode
     testv = (
         # bytes          <->            unicode
         (b'',                           u''),
@@ -83,33 +85,83 @@ def test_strings():
     )
 
     for tbytes, tunicode in testv:
-        assert b(tbytes)   == tbytes
-        assert u(tunicode) == tunicode
+        assert type(tbytes)   is bytes
+        assert type(tunicode) is unicode
 
-        assert b(tunicode) == tbytes
-        assert u(tbytes)   == tunicode
+        # b(bytes), u(unicode)
+        b_tbytes    = b(tbytes);            assert type(b_tbytes)    is bstr
+        b_tbytes_   = _bdata(b_tbytes);     assert type(b_tbytes_)   is bytes
+        u_tunicode  = u(tunicode);          assert type(u_tunicode)  is ustr
+        u_tunicode_ = _udata(u_tunicode);   assert type(u_tunicode_) is unicode
+        assert b_tbytes_   == tbytes
+        assert u_tunicode_ == tunicode
 
-        assert b(u(tbytes))     == tbytes
-        assert u(b(tunicode))   == tunicode
+        # b(unicode), u(bytes)
+        b_tunicode  = b(tunicode);          assert type(b_tunicode)  is bstr
+        b_tunicode_ = _bdata(b_tunicode);   assert type(b_tunicode_) is bytes
+        u_tbytes    = u(tbytes);            assert type(u_tbytes)    is ustr
+        u_tbytes_   = _udata(u_tbytes);     assert type(u_tbytes_)   is unicode
+        assert b_tunicode_ == tbytes
+        assert u_tbytes_   == tunicode
+
+        # b(u(bytes)),  u(b(unicode))
+        bu_tbytes   = b(u(tbytes));         assert type(bu_tbytes)   is bstr
+        bu_tbytes_  = _bdata(bu_tbytes);    assert type(bu_tbytes_)  is bytes
+        ub_tunicode = u(b(tunicode));       assert type(ub_tunicode) is ustr
+        ub_tunicode_= _udata(ub_tunicode);  assert type(ub_tunicode_)is unicode
+        assert bu_tbytes_   == tbytes
+        assert ub_tunicode_ == tunicode
 
 
-    # invalid types
-    with raises(TypeError): b(1)
-    with raises(TypeError): u(1)
+    # b/u accept only ~bytes/~unicode
+    with raises(TypeError): b()
+    with raises(TypeError): u()
+    with raises(TypeError): b(123)
+    with raises(TypeError): u(123)
+    with raises(TypeError): b([1,'β'])
+    with raises(TypeError): u([1,'β'])
     with raises(TypeError): b(object())
     with raises(TypeError): u(object())
 
+
+    b_  = xbytes    ("мир");  assert type(b_) is bytes
+    u_  = xunicode  ("мир");  assert type(u_) is unicode
+
+    # b/u from unicode
+    bs = b(u_);    assert isinstance(bs, bytes);    assert type(bs) is bstr
+    us = u(u_);    assert isinstance(us, unicode);  assert type(us) is ustr
+
+    # b/u from bytes
+    _ = b(b_);     assert type(_) is bstr
+    _ = u(b_);     assert type(_) is ustr
+
     # TODO also handle bytearray?
 
-    # b(b(·)) = identity
-    _ = b(u'миру мир 123')
-    assert isinstance(_, bytes)
-    assert b(_) is _
 
-    # u(u(·)) = identity
-    _ = u(u'мир труд май')
-    assert isinstance(_, unicode)
-    assert u(_) is _
+    # b(b(·)) = identity,   u(u(·)) = identity
+    assert b(bs) is bs
+    assert u(us) is us
+
+    # unicode(b) -> u,  bytes(u) -> b
+    _ = unicode(bs);  assert type(_) is ustr
+    _ = bytes  (us);  assert type(_) is bstr
+
+    # b(u(·)), u(b(·))
+    _ = b(us);    assert type(_) is bstr
+    _ = u(bs);    assert type(_) is ustr
+    _ = bstr(us); assert type(_) is bstr
+    _ = ustr(bs); assert type(_) is ustr
+
+    # str
+    _ = str(us);   assert isinstance(_, str);  assert _ == "мир"
+    _ = str(bs);   assert isinstance(_, str);  assert _ == "мир"
+
+    # custom attributes cannot be injected to bstr/ustr
+    if not ('PyPy' in sys.version): # https://foss.heptapod.net/pypy/pypy/issues/2763
+        with raises(AttributeError):
+            us.hello = 1
+        with raises(AttributeError):
+            bs.hello = 1
 
 # verify print for bstr/ustr.
 def test_strings_print():
@@ -134,23 +186,17 @@ def test_qq():
     assert u'hello %s !' % qq(u('мир')) == u('hello "мир" !')   # u % qq(u)
     assert u'hello %s !' % qq(b('мир')) ==  u'hello "мир" !'    # u % qq(b) -> u
 
-    # custom attributes cannot be injected to what qq returns
-    x = qq('мир')
-    if not ('PyPy' in sys.version): # https://foss.heptapod.net/pypy/pypy/issues/2763
-        with raises(AttributeError):
-            x.hello = 1
-
 
 # ---- benchmarks ----
 
 # utf-8 decoding
 def bench_stddecode(b):
-    s = (u'α'*100).encode('utf-8')
+    s = xbytes(u'α'*100)
     for i in xrange(b.N):
         s.decode('utf-8')
 
 def bench_udecode(b):
-    s = (u'α'*100).encode('utf-8')
+    s = xbytes(u'α'*100)
     uu = golang.u
     for i in xrange(b.N):
         uu(s)
@@ -166,3 +212,11 @@ def bench_bencode(b):
     bb = golang.b
     for i in xrange(b.N):
         bb(s)
+
+
+# ---- misc ----
+
+# xbytes/xunicode convert provided bytes/unicode object to bytes or
+# unicode correspondingly to function name.
+def xbytes(x):     return x.encode('utf-8') if type(x) is unicode else x
+def xunicode(x):   return x.decode('utf-8') if type(x) is bytes   else x

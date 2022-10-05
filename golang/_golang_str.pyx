@@ -22,6 +22,7 @@
 It is included from _golang.pyx .
 """
 
+from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
 
 from libc.stdint cimport uint8_t
@@ -144,6 +145,32 @@ cdef class pyustr(unicode):
             return self
         else:
             return pyb(self)
+
+
+# _bdata/_udata retrieve raw data from bytes/unicode.
+def _bdata(obj): # -> bytes
+    assert isinstance(obj, bytes)
+    _ = obj.__getnewargs__()[0] # (`bytes-data`,)
+    assert type(_) is bytes
+    return _
+    """
+    bcopy = bytes(memoryview(obj))
+    assert type(bcopy) is bytes
+    return bcopy
+    """
+def _udata(obj): # -> unicode
+    assert isinstance(obj, unicode)
+    _ = obj.__getnewargs__()[0] # (`unicode-data`,)
+    assert type(_) is unicode
+    return _
+    """
+    cdef Py_UNICODE* u     = PyUnicode_AsUnicode(obj)
+    cdef Py_ssize_t  size  = PyUnicode_GetSize(obj)
+    cdef unicode     ucopy = PyUnicode_FromUnicode(u, size)
+    assert type(ucopy) is unicode
+    return ucopy
+    """
+
 
 # initialize .tp_print for pybstr so that this type could be printed.
 # If we don't - printing it will result in `RuntimeError: print recursion`
