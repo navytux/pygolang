@@ -30,18 +30,18 @@ from libc.stdint cimport uint8_t
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 
 def pyb(s): # -> bstr
-    """b converts str/unicode/bytes s to UTF-8 encoded bytestring.
+    """b converts object to bstr.
 
-       Bytes input is preserved as-is:
-
-          b(bytes_input) == bytes_input
-
-       Unicode input is UTF-8 encoded. The encoding always succeeds.
-       b is reverse operation to u - the following invariant is always true:
-
-          b(u(bytes_input)) == bytes_input
+       - For bstr the same object is returned.
+       - For bytes the data is
+         preserved as-is and only result type is changed to bstr.
+       - For ustr/unicode the data is UTF-8 encoded. The encoding always succeeds.
 
        TypeError is raised if type(s) is not one of the above.
+
+       b is reverse operation to u - the following invariant is always true:
+
+          b(u(bytes_input))  is bstr with the same data as bytes_input.
 
        See also: u, bstr/ustr.
     """
@@ -58,20 +58,20 @@ def pyb(s): # -> bstr
     return pybstr(s)
 
 def pyu(s): # -> ustr
-    """u converts str/unicode/bytes s to unicode string.
+    """u converts object to ustr.
 
-       Unicode input is preserved as-is:
-
-          u(unicode_input) == unicode_input
-
-       Bytes input is UTF-8 decoded. The decoding always succeeds and input
-       information is not lost: non-valid UTF-8 bytes are decoded into
-       surrogate codes ranging from U+DC80 to U+DCFF.
-       u is reverse operation to b - the following invariant is always true:
-
-          u(b(unicode_input)) == unicode_input
+       - For ustr the same object is returned.
+       - For unicode the data is preserved as-is and only result type is changed to ustr.
+       - For bstr or bytes the data is UTF-8 decoded.
+         The decoding always succeeds and input
+         information is not lost: non-valid UTF-8 bytes are decoded into
+         surrogate codes ranging from U+DC80 to U+DCFF.
 
        TypeError is raised if type(s) is not one of the above.
+
+       u is reverse operation to b - the following invariant is always true:
+
+          u(b(unicode_input))  is ustr with the same data as unicode_input.
 
        See also: b, bstr/ustr.
     """
@@ -109,10 +109,16 @@ cdef __pystr(object obj): # -> ~str
 
 # XXX cannot `cdef class`: github.com/cython/cython/issues/711
 class pybstr(bytes):
-    """bstr is like bytes but can be automatically converted to Python unicode
-    string via UTF-8 decoding.
+    """bstr is byte-string.
 
-    The decoding never fails nor looses information - see u for details.
+    It is based on bytes and can automatically convert to unicode.
+    The conversion never fails and never looses information:
+
+        bstr → ustr → bstr
+
+    is always identity even if bytes data is not valid UTF-8.
+
+    See also: b, ustr/u.
     """
 
     # don't allow to set arbitrary attributes.
@@ -131,10 +137,16 @@ class pybstr(bytes):
 
 
 cdef class pyustr(unicode):
-    """ustr is like unicode(py2)|str(py3) but can be automatically converted
-    to bytes via UTF-8 encoding.
+    """ustr is unicode-string.
 
-    The encoding always succeeds - see b for details.
+    It is based on unicode and can automatically convert to bytes.
+    The conversion never fails and never looses information:
+
+        ustr → bstr → ustr
+
+    is always identity even if bytes data is not valid UTF-8.
+
+    See also: u, bstr/b.
     """
 
     def __bytes__(self):    return pyb(self)
