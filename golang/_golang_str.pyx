@@ -24,10 +24,15 @@ It is included from _golang.pyx .
 
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
+from cpython cimport PyTypeObject, Py_TYPE
+cdef extern from "Python.h":
+    void PyType_Modified(PyTypeObject *)
 
 from libc.stdint cimport uint8_t
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
+import types as pytypes
+import functools as pyfunctools
 
 def pyb(s): # -> bstr
     """b converts object to bstr.
@@ -194,16 +199,15 @@ IF PY2:
     from libc.stdio cimport FILE
     cdef extern from "Python.h":
         ctypedef int (*printfunc)(PyObject *, FILE *, int) except -1
-        ctypedef struct PyTypeObject:
+        ctypedef struct _PyTypeObject_Print "PyTypeObject":
             printfunc tp_print
-        cdef PyTypeObject *Py_TYPE(object)
 
     cdef int _pybstr_tp_print(PyObject *obj, FILE *f, int nesting) except -1:
         o = <bytes>obj
         o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
-        return Py_TYPE(o).tp_print(<PyObject*>o, f, nesting)
+        return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, nesting)
 
-    Py_TYPE(pybstr()).tp_print = _pybstr_tp_print
+    (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
 
 
 # qq is substitute for %q, which is missing in python.
@@ -229,6 +233,37 @@ def pyqq(obj):
         qobj = pyb(qobj)
 
     return qobj
+
+
+# _patch_slot installs func_or_descr into typ's __dict__ as name.
+#
+# if func_or_descr is descriptor (has __get__), it is installed as is.
+# otherwise it is wrapped with "unbound method" descriptor.
+cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr):
+    typdict = <dict>(typ.tp_dict)
+    #print("\npatching %s.%s  with  %r" % (typ.tp_name, name, func_or_descr))
+    #print("old:  %r" % typdict.get(name))
+
+    if hasattr(func_or_descr, '__get__'):
+        descr = func_or_descr
+    else:
+        func = func_or_descr
+        if PY_MAJOR_VERSION < 3:
+            descr = pytypes.MethodType(func, None, <object>typ)
+        else:
+            descr = _UnboundMethod(func)
+
+    typdict[name] = descr
+    #print("new:  %r" % typdict.get(name))
+    PyType_Modified(typ)
+
+
+cdef class _UnboundMethod(object): # they removed unbound methods on py3
+    cdef object func
+    def __init__(self, func):
+        self.func = func
+    def __get__(self, obj, objtype):
+        return pyfunctools.partial(self.func, obj)
 
 
 # ---- UTF-8 encode/decode ----
