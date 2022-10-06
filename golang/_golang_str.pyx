@@ -51,17 +51,10 @@ def pyb(s): # -> bstr
 
        See also: u, bstr/ustr.
     """
-    if type(s) is pybstr:
-        return s
-
-    if isinstance(s, bytes):                    # py2: str      py3: bytes
-        pass
-    elif isinstance(s, unicode):                # py2: unicode  py3: str
-        s = _utf8_encode_surrogateescape(s)
-    else:
+    bs = _pyb(pybstr, s)
+    if bs is None:
         raise TypeError("b: invalid type %s" % type(s))
-
-    return pybstr(s)
+    return bs
 
 def pyu(s): # -> ustr
     """u converts object to ustr.
@@ -81,17 +74,41 @@ def pyu(s): # -> ustr
 
        See also: b, bstr/ustr.
     """
-    if type(s) is pyustr:
+    us = _pyu(pyustr, s)
+    if us is None:
+        raise TypeError("u: invalid type %s" % type(s))
+    return us
+
+
+cdef _pyb(bcls, s): # -> ~bstr | None
+    if type(s) is bcls:
         return s
 
-    if isinstance(s, unicode):                  # py2: unicode  py3: str
-        pass
-    elif isinstance(s, bytes):                  # py2: str      py3: bytes
+    if isinstance(s, bytes):
+        if type(s) is not bytes:
+            s = _bdata(s)
+    elif isinstance(s, unicode):
+        s = _utf8_encode_surrogateescape(s)
+    else:
+        return None
+
+    assert type(s) is bytes
+    return bytes.__new__(bcls, s)
+
+cdef _pyu(ucls, s): # -> ~ustr | None
+    if type(s) is ucls:
+        return s
+
+    if isinstance(s, unicode):
+        if type(s) is not unicode:
+            s = _udata(s)
+    elif isinstance(s, bytes):
         s = _utf8_decode_surrogateescape(s)
     else:
-        raise TypeError("u: invalid type %s" % type(s))
+        return None
 
-    return pyustr(s)
+    assert type(s) is unicode
+    return unicode.__new__(ucls, s)
 
 
 # _pyb_coerce coerces x from `b op x` to be used in operation with pyb.
@@ -136,7 +153,7 @@ cdef __pystr(object obj): # -> ~str
 class pybstr(bytes):
     """bstr is byte-string.
 
-    It is based on bytes and can automatically convert to unicode.
+    It is based on bytes and can automatically convert to/from unicode.
     The conversion never fails and never looses information:
 
         bstr → ustr → bstr
@@ -147,12 +164,33 @@ class pybstr(bytes):
     When the coercion happens, bytes, similarly to bstr, are also
     treated as UTF8-encoded strings.
 
+    bstr constructor accepts arbitrary objects and stringify them:
+
+    - if encoding and/or errors is specified, the object must provide buffer
+      interface. The data in the buffer is decoded according to provided
+      encoding/errors and further encoded via UTF-8 into bstr.
+    - if the object is bstr/ustr / unicode/bytes - it is converted
+      to bstr. See b for details.
+    - otherwise bstr will have string representation of the object.
+
     See also: b, ustr/u.
     """
 
     # don't allow to set arbitrary attributes.
     # won't be needed after switch to -> `cdef class`
     __slots__ = ()
+
+    def __new__(cls, object='', encoding=None, errors=None):
+        # encoding or errors  ->  object must expose buffer interface
+        if not (encoding is None and errors is None):
+            object = _buffer_decode(object, encoding, errors)
+
+        # _bstringify. Note: it handles bstr/ustr / unicode/bytes/bytearray as documented
+        object = _bstringify(object)
+        assert isinstance(object, (unicode, bytes)), object
+        bobj = _pyb(cls, object)
+        assert bobj is not None
+        return bobj
 
 
     def __bytes__(self):    return self
@@ -191,10 +229,11 @@ class pybstr(bytes):
     def __ge__(a, b):   return bytes.__ge__(a, _pyb_coerce(b))
 
 
-cdef class pyustr(unicode):
+# XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
+class pyustr(unicode):
     """ustr is unicode-string.
 
-    It is based on unicode and can automatically convert to bytes.
+    It is based on unicode and can automatically convert to/from bytes.
     The conversion never fails and never looses information:
 
         ustr → bstr → ustr
@@ -205,8 +244,28 @@ cdef class pyustr(unicode):
     When the coercion happens, bytes, similarly to bstr, are also
     treated as UTF8-encoded strings.
 
+    ustr constructor, similarly to the one in bstr, accepts arbitrary objects
+    and stringify them. Please refer to bstr and u documentation for details.
+
     See also: u, bstr/b.
     """
+
+    # don't allow to set arbitrary attributes.
+    # won't be needed after switch to -> `cdef class`
+    __slots__ = ()
+
+    def __new__(cls, object='', encoding=None, errors=None):
+        # encoding or errors  ->  object must expose buffer interface
+        if not (encoding is None and errors is None):
+            object = _buffer_decode(object, encoding, errors)
+
+        # _bstringify. Note: it handles bstr/ustr / unicode/bytes/bytearray as documented
+        object = _bstringify(object)
+        assert isinstance(object, (unicode, bytes)), object
+        uobj = _pyu(cls, object)
+        assert uobj is not None
+        return uobj
+
 
     def __bytes__(self):    return pyb(self)
     def __unicode__(self):  return self
@@ -312,6 +371,37 @@ def pyqq(obj):
     return qobj
 
 
+
+# ---- _bstringify ----
+
+# _bstringify returns string representation of obj.
+# it is similar to unicode(obj).
+cdef _bstringify(object obj): # -> unicode|bytes
+    if type(obj) in (pybstr, pyustr, bytes, unicode):
+        return obj
+
+    if PY_MAJOR_VERSION >= 3:
+        return unicode(obj)
+
+    else:
+        # on py2 mimic manually what unicode(·) does on py3
+        # the reason we do it manually is because if we try just
+        # unicode(obj), and obj's __str__ returns UTF-8 bytestring, it will
+        # fail with UnicodeDecodeError. Similarly if we unconditionally do
+        # str(obj), it will fail if obj's __str__ returns unicode.
+        if hasattr(obj, '__unicode__'):
+            return obj.__unicode__()
+        elif hasattr(obj, '__str__'):
+            # (u'β').__str__() gives UnicodeEncodeError, but unicode has no
+            # .__unicode__ method. Work it around to handle custom unicode
+            # subclasses that do not override __str__.
+            if type(obj).__str__ is unicode.__str__:
+                return unicode(obj)
+            return obj.__str__()
+        else:
+            return repr(obj)
+
+
 # py2: adjust unicode.tp_richcompare(a,b) to return NotImplemented if b is bstr.
 # This way we avoid `UnicodeWarning: Unicode equal comparison failed to convert
 # both arguments to Unicode - interpreting them as being unequal`, and that
@@ -379,6 +469,42 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
         self.func = func
     def __get__(self, obj, objtype):
         return pyfunctools.partial(self.func, obj)
+
+
+# ---- misc ----
+
+# _buffer_py2 returns buffer(obj) on py2 / fails on py3
+cdef object _buffer_py2(object obj):
+    IF PY2:                 # cannot `if PY_MAJOR_VERSION < 3` because then cython errors
+        return buffer(obj)  # "undeclared name not builtin: buffer"
+    ELSE:
+        raise AssertionError("must be called only on py2")
+
+# _buffer_decode decodes buf to unicode according to encoding and errors.
+#
+# buf must expose buffer interface.
+# encoding/errors can be None meaning to use default utf-8/strict.
+cdef unicode _buffer_decode(buf, encoding, errors):
+    if encoding is None: encoding = 'utf-8' # NOTE always UTF-8, not sys.getdefaultencoding
+    if errors   is None: errors   = 'strict'
+    if _XPyObject_CheckOldBuffer(buf):
+        buf = _buffer_py2(buf)
+    else:
+        buf = memoryview(buf)
+    return bytearray(buf).decode(encoding, errors)
+
+cdef extern from "Python.h":
+    """
+    static int _XPyObject_CheckOldBuffer(PyObject *o) {
+    #if PY_MAJOR_VERSION >= 3
+        // no old-style buffers on py3
+        return 0;
+    #else
+        return PyObject_CheckReadBuffer(o);
+    #endif
+    }
+    """
+    bint _XPyObject_CheckOldBuffer(object o)
 
 
 # ---- UTF-8 encode/decode ----
@@ -472,7 +598,7 @@ def _utf8_decode_surrogateescape(const uint8_t[::1] s): # -> unicode
 def _utf8_encode_surrogateescape(s): # -> bytes
     assert isinstance(s, unicode)
     if PY_MAJOR_VERSION >= 3:
-        return s.encode('UTF-8', 'surrogateescape')
+        return unicode.encode(s, 'UTF-8', 'surrogateescape')
 
     # py2 does not have surrogateescape error handler, and even if we
     # provide one, builtin unicode.encode() does not treat

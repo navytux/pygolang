@@ -28,8 +28,20 @@ from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
 from pytest import raises, mark, skip
 import sys
+import six
 from six import text_type as unicode
 from six.moves import range as xrange
+import array
+
+
+# buftypes lists types with buffer interface that we will test against.
+buftypes = [
+        bytearray,
+        memoryview,
+        lambda x: array.array('B', x),
+]
+if six.PY2:
+    buftypes.append(buffer) # no buffer on py3
 
 
 # verify b/u and bstr/ustr basics.
@@ -123,6 +135,17 @@ def test_strings_basic():
     with raises(TypeError): b(object())
     with raises(TypeError): u(object())
 
+    # bstr/ustr - similarly to str - accept arbitrary objects
+    _ = bstr();         assert type(_) is bstr;  assert _ == ''
+    _ = ustr();         assert type(_) is ustr;  assert _ == ''
+    _ = bstr(123);      assert type(_) is bstr;  assert _ == '123'
+    _ = ustr(123);      assert type(_) is ustr;  assert _ == '123'
+    _ = bstr([1,'b']);  assert type(_) is bstr;  assert _ == "[1, 'b']"
+    _ = ustr([1,'b']);  assert type(_) is ustr;  assert _ == "[1, 'b']"
+    obj = object()
+    _ = bstr(obj);      assert type(_) is bstr;  assert _ == str(obj)  # <object ...>
+    _ = ustr(obj);      assert type(_) is ustr;  assert _ == str(obj)  # <object ...>
+
 
     b_  = xbytes    ("мир");  assert type(b_) is bytes
     u_  = xunicode  ("мир");  assert type(u_) is unicode
@@ -130,17 +153,46 @@ def test_strings_basic():
     # b/u from unicode
     bs = b(u_);    assert isinstance(bs, bytes);    assert type(bs) is bstr
     us = u(u_);    assert isinstance(us, unicode);  assert type(us) is ustr
+    _ = bstr(u_);  assert type(_) is bstr;  assert _ == "мир"
+    _ = ustr(u_);  assert type(_) is ustr;  assert _ == "мир"
 
     # b/u from bytes
     _ = b(b_);     assert type(_) is bstr;  assert _ == "мир"
     _ = u(b_);     assert type(_) is ustr;  assert _ == "мир"
+    _ = bstr(b_);  assert type(_) is bstr;  assert _ == "мир"
+    _ = ustr(b_);  assert type(_) is ustr;  assert _ == "мир"
 
     # TODO also handle bytearray?
 
+    # bstr/ustr from bytes/buffer with encoding
+    k8mir_bytes = u"мир".encode('koi8-r')
+    for tbuf in [bytes] + buftypes:
+        k8mir = tbuf(k8mir_bytes)
+        _ = bstr(k8mir, 'koi8-r');  assert type(_) is bstr;  assert _ == "мир"
+        _ = ustr(k8mir, 'koi8-r');  assert type(_) is ustr;  assert _ == "мир"
+        with raises(UnicodeDecodeError): bstr(k8mir, 'ascii')
+        with raises(UnicodeDecodeError): ustr(k8mir, 'ascii')
+        _ = bstr(k8mir, 'ascii', 'replace');  assert type(_) is bstr;  assert _ == u'\ufffd\ufffd\ufffd'
+        _ = ustr(k8mir, 'ascii', 'replace');  assert type(_) is ustr;  assert _ == u'\ufffd\ufffd\ufffd'
+        # no encoding -> utf8 with surrogateescape for bytes,  stringify for the rest
+        k8mir_usurrogateescape = u'\udccd\udcc9\udcd2'
+        k8mir_strok = k8mir_usurrogateescape
+        if not tbuf in (bytes,):
+            k8mir_strok = str(k8mir)  # e.g. '<memory at ...>' for memoryview
+        _ = bstr(k8mir);  assert type(_) is bstr;  assert _ == k8mir_strok
+        _ = ustr(k8mir);  assert type(_) is ustr;  assert _ == k8mir_strok
+        # encoding specified -> treat it precisely
+        with raises(UnicodeDecodeError): bstr(k8mir, 'utf-8')
+        with raises(UnicodeDecodeError): ustr(k8mir, 'utf-8')
+        with raises(UnicodeDecodeError): bstr(k8mir, encoding='utf-8')
+        with raises(UnicodeDecodeError): ustr(k8mir, encoding='utf-8')
+        with raises(UnicodeDecodeError): bstr(k8mir, errors='strict')
+        with raises(UnicodeDecodeError): ustr(k8mir, errors='strict')
+
 
     # b(b(·)) = identity,   u(u(·)) = identity
-    assert b(bs) is bs
-    assert u(us) is us
+    assert b(bs) is bs;  assert bstr(bs) is bs
+    assert u(us) is us;  assert ustr(us) is us
 
     # bytes(b(·)) = identity,   unicode(u(·)) = identity
     assert bytes  (bs) is bs
@@ -272,6 +324,44 @@ def test_strings_print():
     assert retcode == 0, (stdout, stderr)
     assert stderr == b""
     assertDoc(outok, stdout)
+
+
+# verify behaviour of bstr|ustr subclasses.
+@mark.parametrize('tx', (unicode, bstr, ustr))
+def test_strings_subclasses(tx):
+    x = xstr(u'мир', tx);  assert type(x) is tx
+
+    # subclass without __str__
+    class MyStr(tx):
+        pass
+    xx = MyStr(x);  assert type(xx) is MyStr
+    _  = tx(xx);    assert type(_)  is tx   ; assert _ == x  # e.g. unicode(MyStr) -> unicode, not MyStr
+    _  = bstr(xx);  assert type(_)  is bstr ; assert _ == 'мир'
+    _  = ustr(xx);  assert type(_)  is ustr ; assert _ == 'мир'
+    _  = b(xx);     assert type(_)  is bstr ; assert _ == 'мир'
+    _  = u(xx);     assert type(_)  is ustr ; assert _ == 'мир'
+
+    # subclass with __str__
+    class MyStr(tx):
+        def __str__(self): return u'αβγ'
+        __unicode__ = __str__
+    xx = MyStr(x);  assert type(xx) is MyStr
+    _  = tx(xx);    assert type(_)  is tx   ; assert _ == u'αβγ' # unicode(MyStr) -> u'αβγ', not 'мир'
+    _  = bstr(xx);  assert type(_)  is bstr ; assert _ == u'αβγ'
+    _  = ustr(xx);  assert type(_)  is ustr ; assert _ == u'αβγ'
+    _  = b(xx);     assert type(_)  is bstr ; assert _ == u'мир' # b(MyStr) -> 'мир', not 'αβγ'
+    _  = u(xx);     assert type(_)  is ustr ; assert _ == u'мир'
+
+    # non-subclass with __str__  (for completeness)
+    class MyObj(object):
+        def __str__(self):
+            return 'myobj'
+    xx = MyObj();   assert type(xx) is MyObj
+    _  = tx(xx);    assert type(_)  is tx   ; assert _ == 'myobj'
+    _  = bstr(xx);  assert type(_)  is bstr ; assert _ == 'myobj'
+    _  = ustr(xx);  assert type(_)  is ustr ; assert _ == 'myobj'
+    with raises(TypeError): b(xx)   # NOTE b/u reports "convertion failure"
+    with raises(TypeError): u(xx)
 
 
 def test_qq():

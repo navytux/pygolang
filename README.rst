@@ -233,8 +233,8 @@ Pygolang, similarly to Go, provides uniform UTF8-based approach to strings with
 the idea to make working with byte- and unicode- strings easy and transparently
 interoperable:
 
-- `bstr` is byte-string: it is based on `bytes` and can automatically convert to `unicode` [*]_.
-- `ustr` is unicode-string: it is based on `unicode` and can automatically convert to `bytes`.
+- `bstr` is byte-string: it is based on `bytes` and can automatically convert to/from `unicode` [*]_.
+- `ustr` is unicode-string: it is based on `unicode` and can automatically convert to/from `bytes`.
 
 The conversion, in both encoding and decoding, never fails and never looses
 information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
@@ -245,7 +245,9 @@ operations in between `ustr` and `bstr`/`bytes` / `unicode` coerce
 to `ustr`.  When the coercion happens, `bytes`, similarly to
 `bstr`, are also treated as UTF8-encoded strings.
 
-`bstr`/`ustr` constructors will accept arbitrary objects and either convert or stringify them. For
+`bstr` and `ustr` are meant to be drop-in replacements for standard
+`str`/`unicode` classes. They support all methods of `str`/`unicode` and in
+particular their constructors accept arbitrary objects and either convert or stringify them. For
 cases when no stringification is desired, and one only wants to convert
 `bstr`/`ustr` / `unicode`/`bytes`
 to Pygolang string, `b` and `u` provide way to make sure an
