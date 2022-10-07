@@ -174,6 +174,15 @@ cdef __pystr(object obj): # -> ~str
         return pyb(obj)
 
 
+def pybbyte(int i): # -> 1-byte bstr
+    """bbyte(i) returns 1-byte bstr with ordinal i."""
+    return pyb(bytearray([i]))
+
+def pyuchr(int i):  # -> 1-character ustr
+    """uchr(i) returns 1-character ustr with unicode ordinal i."""
+    return pyu(unichr(i))
+
+
 # XXX cannot `cdef class`: github.com/cython/cython/issues/711
 class pybstr(bytes):
     """bstr is byte-string.
@@ -184,6 +193,9 @@ class pybstr(bytes):
         bstr → ustr → bstr
 
     is always identity even if bytes data is not valid UTF-8.
+
+    Semantically bstr is array of bytes. Accessing its elements by [index]
+    yields byte character.
 
     Operations in between bstr and ustr/unicode / bytes/bytearray coerce to bstr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -253,6 +265,21 @@ class pybstr(bytes):
     def __le__(a, b):   return bytes.__le__(a, _pyb_coerce(b))
     def __ge__(a, b):   return bytes.__ge__(a, _pyb_coerce(b))
 
+    # len - no need to override
+
+    # [], [:]
+    def __getitem__(self, idx):
+        x = bytes.__getitem__(self, idx)
+        if type(idx) is slice:
+            return pyb(x)
+        else:
+            # bytes[i] returns 1-character bytestring(py2)  or  int(py3)
+            # we always return 1-character bytestring
+            if PY_MAJOR_VERSION >= 3:
+                return pybbyte(x)
+            else:
+                return pyb(x)
+
 
 # XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
 class pyustr(unicode):
@@ -264,6 +291,9 @@ class pyustr(unicode):
         ustr → bstr → ustr
 
     is always identity even if bytes data is not valid UTF-8.
+
+    ustr is similar to standard unicode type - accessing its
+    elements by [index] yields unicode characters.
 
     Operations in between ustr and bstr/bytes/bytearray / unicode coerce to ustr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -323,6 +353,12 @@ class pyustr(unicode):
     def __gt__(a, b):   return unicode.__gt__(a, _pyu_coerce(b))
     def __le__(a, b):   return unicode.__le__(a, _pyu_coerce(b))
     def __ge__(a, b):   return unicode.__ge__(a, _pyu_coerce(b))
+
+    # len - no need to override
+
+    # [], [:]
+    def __getitem__(self, idx):
+        return pyu(unicode.__getitem__(self, idx))
 
 
 # _bdata/_udata retrieve raw data from bytes/unicode.

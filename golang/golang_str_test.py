@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 import golang
-from golang import b, u, bstr, ustr
+from golang import b, u, bstr, ustr, bbyte, uchr
 from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
@@ -29,7 +29,7 @@ from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
 from pytest import raises, mark, skip
 import sys
 import six
-from six import text_type as unicode
+from six import text_type as unicode, unichr
 from six.moves import range as xrange
 import array
 
@@ -269,6 +269,119 @@ def test_strings_memoryview():
     assert _(3) == 0xb8
     assert _(4) == 0xd1
     assert _(5) == 0x80
+
+
+# verify that ord on bstr/ustr works as expected.
+def test_strings_ord():
+    with raises(TypeError): ord(b(''))
+    with raises(TypeError): ord(u(''))
+    with raises(TypeError): ord(b('ab'))
+    with raises(TypeError): ord(u('ab'))
+    assert ord(b('a')) == 97
+    assert ord(u('a')) == 97
+    with raises(TypeError): ord(b('м'))     # 2 bytes, not 1
+    assert ord(u('м')) == 1084
+
+    for i in range(0x100):
+        bc = b(bytearray([i]))
+        assert len(bc) == 1
+        assert ord(bc) == i
+
+    for i in range(0x10000):
+        uc = u(unichr(i))
+        assert len(uc) == 1
+        assert ord(uc) == i
+
+# verify bbyte.
+def test_strings_bbyte():
+    with raises(ValueError): bbyte(-1)
+    with raises(ValueError): bbyte(0x100)
+    for i in range(0x100):
+        bi = bbyte(i)
+        assert type(bi) is bstr
+        assert len(bi)  == 1
+        assert ord(bi)  == i
+        assert bi == bytearray([i])
+
+# verify uchr.
+def test_strings_uchr():
+    with raises(ValueError): unichr(-1)
+    # upper limit depends on whether python was built with ucs as 2-bytes or 4-bytes long
+    # but at least it all should work for small 2-bytes range
+    for i in range(0x10000):
+        ui = uchr(i)
+        assert type(ui) is ustr
+        assert len(ui)  == 1
+        assert ord(ui)  == i
+        assert ui == unichr(i)
+
+
+# verify strings access by index.
+def test_strings_index():
+    us = u("миру мир"); u_ = u"миру мир"
+    bs = b("миру мир"); b_ = xbytes("миру мир")
+
+    assert len(us) == 8;   assert len(u_) == 8
+    assert len(bs) == 15;  assert len(b_) == 15
+
+    # u/unicode [idx] -> unicode character
+    def uidx(i):
+        x = us[i]; assert type(x) is ustr
+        y = u_[i]; assert type(y) is unicode
+        assert x == y
+        return x
+    for i, x in enumerate(['м','и','р','у',' ','м','и','р']):
+        assert uidx(i) == x
+
+    # b/bytes [idx]   -> bytechar of byte value @ position idx
+    def bidx(i):
+        x = bs[i];  assert type(x) is bstr;  assert len(x) == 1
+        y = b_[i]
+        if six.PY3:
+            y = bytes([y])  # on py3 bytes[i] returns int instead of 1-byte string
+        assert type(y) is bytes;  assert len(y) == 1
+        assert x == y
+        return x
+    for i, x in enumerate([0xd0,0xbc,0xd0,0xb8,0xd1,0x80,0xd1,0x83,0x20,0xd0,0xbc,0xd0,0xb8,0xd1,0x80]):
+        assert bidx(i) == bytearray([x])
+
+    # u/unicode [:] -> unicode string
+    class USlice:
+        def __getitem__(self, key):
+            x = us[key]; assert type(x) is ustr
+            y = u_[key]; assert type(y) is unicode
+            assert x == y
+            return x
+        def __len__(self): # py2
+            x = len(us)
+            y = len(u_)
+            assert x == y
+            return x
+    _ = USlice()
+    assert _[:]     == u"миру мир"
+    assert _[1:]    ==  u"иру мир"
+    assert _[:-1]   == u"миру ми"
+    assert _[2:5]   ==   u"ру "
+    assert _[1:-1:2]== u"иум"
+
+    # b/bytes [:] -> bytestring
+    class BSlice:
+        def __getitem__(self, key):
+            x = bs[key]; assert type(x) is bstr
+            y = b_[key]; assert type(y) is bytes
+            assert x == y
+            return x
+        def __len__(self): # py2
+            x = len(bs)
+            y = len(b_)
+            assert x == y
+            return x
+    _ = BSlice()
+    assert _[:]     == "миру мир"
+    assert _[1:]    ==     b'\xbc\xd0\xb8\xd1\x80\xd1\x83 \xd0\xbc\xd0\xb8\xd1\x80'
+    assert _[:-1]   == b'\xd0\xbc\xd0\xb8\xd1\x80\xd1\x83 \xd0\xbc\xd0\xb8\xd1'
+    assert _[3:12]  ==             b'\xb8\xd1\x80\xd1\x83 \xd0\xbc\xd0'
+    assert _[1:-1:2]== b'\xbc\xb8\x80\x83\xd0\xd0\xd1'
 
 
 # verify string operations like `x + y` for all combinations of pairs from

@@ -73,6 +73,8 @@ def test_golang_builtins():
     assert u      is golang.u
     assert bstr   is golang.bstr
     assert ustr   is golang.ustr
+    assert bbyte  is golang.bbyte
+    assert uchr   is golang.uchr
 
     # indirectly verify golang.__all__
     for k in golang.__all__:

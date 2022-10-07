@@ -36,7 +36,7 @@ from __future__ import print_function, absolute_import
 __version__ = "0.1"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-           'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'gimport']
+           'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'bbyte', 'uchr', 'gimport']
 
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
@@ -317,8 +317,10 @@ from ._golang import    \
     pyerror     as error,   \
     pyb         as b,       \
     pybstr      as bstr,    \
+    pybbyte     as bbyte,   \
     pyu         as u,       \
-    pyustr      as ustr
+    pyustr      as ustr,    \
+    pyuchr      as uchr
 
 # import golang.strconv into _golang from here to workaround cyclic golang ↔ strconv dependency
 def _():

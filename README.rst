@@ -240,6 +240,10 @@ The conversion, in both encoding and decoding, never fails and never looses
 information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
 even if bytes data is not valid UTF-8.
 
+Semantically `bstr` is array of bytes, while `ustr` is array of
+unicode-characters. Accessing their elements by `[index]` yields byte and
+unicode character correspondingly [*]_.
+
 Operations in between `bstr` and `ustr`/`unicode` / `bytes`/`bytearray` coerce to `bstr`, while
 operations in between `ustr` and `bstr`/`bytes`/`bytearray` / `unicode` coerce
 to `ustr`.  When the coercion happens, `bytes` and `bytearray`, similarly to
@@ -262,6 +266,8 @@ Usage example::
       ...               # (*) the decoding never fails nor looses information.
 
 .. [*] `unicode` on Python2, `str` on Python3.
+.. [*] | ordinal of such byte and unicode character can be obtained via regular `ord`.
+       | For completeness `bbyte` and `uchr` are also provided for constructing 1-byte `bstr` and 1-character `ustr` from ordinal.
 .. [*] | data in buffer, similarly to `bytes` and `bytearray`, is treated as UTF8-encoded string.
        | Notice that only explicit conversion through `b` and `u` accept objects with buffer interface. Automatic coercion does not.
 
