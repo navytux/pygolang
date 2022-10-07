@@ -672,15 +672,22 @@ def test_strings_subclasses(tx):
 def test_qq():
     # NOTE qq is also tested as part of strconv.quote
 
-    # qq(any) returns string type
-    assert isinstance(qq(b('мир')), str)    # qq(b) -> str (bytes·py2, unicode·py3)
-    assert isinstance(qq( u'мир'),  str)    # qq(u) -> str (bytes·py2, unicode·py3)
+    # qq(any) -> bstr
+    def _(s, qqok):
+        _ = qq(s)
+        assert type(_) is bstr
+        assert _ == qqok
 
-    # however what qq returns can be mixed with both unicode and bytes
-    assert b'hello %s !' % qq(b('мир')) == b('hello "мир" !')   # b % qq(b)
-    assert b'hello %s !' % qq(u('мир')) == b('hello "мир" !')   # b % qq(u) -> b
-    assert u'hello %s !' % qq(u('мир')) == u('hello "мир" !')   # u % qq(u)
-    assert u'hello %s !' % qq(b('мир')) ==  u'hello "мир" !'    # u % qq(b) -> u
+    _(      xbytes('мир'),  '"мир"')            # b''
+    _(            u'мир',   '"мир"')            # u''
+    _(  xbytearray('мир'),  '"мир"')            # bytearray()
+    _(           b('мир'),  '"мир"')            # b()
+    _(           u('мир'),  '"мир"')            # u()
+    _(                  1,  '"1"')              # int
+
+
+    # what qq returns - bstr - can be mixed with both unicode, bytes and bytearray
+    # it is tested e.g. in test_strings_ops2 and test_strings_mod_and_format
 
 
 # ----------------------------------------

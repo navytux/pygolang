@@ -20,10 +20,11 @@
 
 from __future__ import print_function, absolute_import
 
+from golang import bstr
 from golang.strconv import quote, unquote, unquote_next
 from golang.gcompat import qq
 
-from six import int2byte as bchr, PY3
+from six import int2byte as bchr
 from six.moves import range as xrange
 from pytest import raises
 
@@ -34,16 +35,9 @@ def byterange(start, stop):
 
     return b
 
-# asstr converts unicode|bytes to str type of current python.
-def asstr(s):
-    if PY3:
-        if isinstance(s, bytes):
-            s = s.decode('utf-8')
-    # PY2
-    else:
-        if isinstance(s, unicode):
-            s = s.encode('utf-8')
-    return s
+def assert_bstreq(x, y):
+    assert type(x) is bstr
+    assert x == y
 
 def test_quote():
     testv = (
@@ -72,6 +66,9 @@ def test_quote():
         (u'\ufffd',         u'�'),
     )
 
+    # quote/unquote* always give bstr
+    BEQ = assert_bstreq
+
     for tin, tquoted in testv:
         # quote(in) == quoted
         # in = unquote(quoted)
@@ -79,14 +76,13 @@ def test_quote():
         tail = b'123' if isinstance(tquoted, bytes) else '123'
         tquoted = q + tquoted + q   # add lead/trail "
 
-        assert quote(tin) == tquoted
-        assert unquote(tquoted) == tin
-        assert unquote_next(tquoted) == (tin, type(tin)())
-        assert unquote_next(tquoted + tail) == (tin, tail)
+        BEQ(quote(tin), tquoted)
+        BEQ(unquote(tquoted), tin)
+        _, __ = unquote_next(tquoted);          BEQ(_, tin);  BEQ(__, "")
+        _, __ = unquote_next(tquoted + tail);   BEQ(_, tin);  BEQ(__, tail)
         with raises(ValueError): unquote(tquoted + tail)
 
-        # qq always gives str
-        assert qq(tin) == asstr(tquoted)
+        BEQ(qq(tin), tquoted)
 
         # also check how it works on complementary unicode/bytes input type
         if isinstance(tin, bytes):
@@ -103,14 +99,13 @@ def test_quote():
             tquoted = tquoted.encode('utf-8')
             tail = tail.encode('utf-8')
 
-        assert quote(tin) == tquoted
-        assert unquote(tquoted) == tin
-        assert unquote_next(tquoted) == (tin, type(tin)())
-        assert unquote_next(tquoted + tail) == (tin, tail)
+        BEQ(quote(tin), tquoted)
+        BEQ(unquote(tquoted), tin)
+        _, __ = unquote_next(tquoted);          BEQ(_, tin);  BEQ(__, "")
+        _, __ = unquote_next(tquoted + tail);   BEQ(_, tin);  BEQ(__, tail)
         with raises(ValueError): unquote(tquoted + tail)
 
-        # qq always gives str
-        assert qq(tin) == asstr(tquoted)
+        BEQ(qq(tin), tquoted)
 
 
 # verify that non-canonical quotation can be unquoted too.

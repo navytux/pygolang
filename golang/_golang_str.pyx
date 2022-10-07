@@ -549,19 +549,8 @@ def pyqq(obj):
     # py2: unicode | str
     # py3: str     | bytes
     if not isinstance(obj, (unicode, bytes)):
-        obj = str(obj)
-
-    qobj = pystrconv.quote(obj)
-
-    # `printf('%s', qq(obj))` should work. For this make sure qobj is always
-    # a-la str type (unicode on py3, bytes on py2), that can be transparently
-    # converted to unicode or bytes as needed.
-    if PY_MAJOR_VERSION >= 3:
-        qobj = pyu(qobj)
-    else:
-        qobj = pyb(qobj)
-
-    return qobj
+        obj = _bstringify(obj)
+    return pystrconv.quote(obj)
 
 
 

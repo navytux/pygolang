@@ -22,29 +22,16 @@
 from __future__ import print_function, absolute_import
 
 import unicodedata, codecs
-from six import text_type as unicode        # py2: unicode      py3: str
 from six.moves import range as xrange
 
-from golang import b, u
+from golang import b
 from golang._golang import _py_utf8_decode_rune as _utf8_decode_rune, _py_rune_error as _rune_error, _xunichr
 
 
-# _bstr is like b but also returns whether input was unicode.
-def _bstr(s):   # -> sbytes, wasunicode
-    return b(s), isinstance(s, unicode)
-
-# _ustr is like u but also returns whether input was bytes.
-def _ustr(s):   # -> sunicode, wasbytes
-    return u(s), isinstance(s, bytes)
-
-
-# quote quotes unicode|bytes string into valid "..." unicode|bytes string always quoted with ".
-def quote(s):
-    s, wasunicode = _bstr(s)
-    qs = _quote(s)
-    if wasunicode:
-        qs, _ = _ustr(qs)
-    return qs
+# quote quotes unicode|bytes string into valid "..." bytestring always quoted with ".
+def quote(s):  # -> bstr
+    q = _quote(b(s))
+    return b(q)
 
 def _quote(s):
     assert isinstance(s, bytes)
@@ -103,7 +90,7 @@ def _quote(s):
 # unquote decodes "-quoted unicode|byte string.
 #
 # ValueError is raised if there are quoting syntax errors.
-def unquote(s):
+def unquote(s):  # -> bstr
     us, tail = unquote_next(s)
     if len(tail) != 0:
         raise ValueError('non-empty tail after closing "')
@@ -114,13 +101,9 @@ def unquote(s):
 # it returns -> (unquoted(s), tail-after-")
 #
 # ValueError is raised if there are quoting syntax errors.
-def unquote_next(s):
-    s, wasunicode = _bstr(s)
-    us, tail = _unquote_next(s)
-    if wasunicode:
-        us, _   = _ustr(us)
-        tail, _ = _ustr(tail)
-    return us, tail
+def unquote_next(s):  # -> (bstr, bstr)
+    us, tail = _unquote_next(b(s))
+    return b(us), b(tail)
 
 def _unquote_next(s):
     assert isinstance(s, bytes)
