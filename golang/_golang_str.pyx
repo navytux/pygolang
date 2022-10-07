@@ -41,6 +41,11 @@ from libc.stdint cimport uint8_t
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 import types as pytypes
 import functools as pyfunctools
+if PY_MAJOR_VERSION >= 3:
+    import copyreg as pycopyreg
+else:
+    import copy_reg as pycopyreg
+
 
 def pyb(s): # -> bstr
     """b converts object to bstr.
@@ -244,6 +249,18 @@ class pybstr(bytes):
             return self
 
 
+    # override reduce for protocols < 2. Builtin handler for that goes through
+    # copyreg._reduce_ex which eventually calls bytes(bstr-instance) to
+    # retrieve state, which gives bstr, not bytes. Fix state to be bytes ourselves.
+    def __reduce_ex__(self, protocol):
+        if protocol >= 2:
+            return bytes.__reduce_ex__(self, protocol)
+        return (
+            pycopyreg._reconstructor,
+            (self.__class__, self.__class__, _bdata(self))
+        )
+
+
     def __hash__(self):
         # hash of the same unicode and UTF-8 encoded bytes is generally different
         # -> we can't make hash(bstr) == both hash(bytes) and hash(unicode) at the same time.
@@ -343,6 +360,18 @@ class pyustr(unicode):
             return self
         else:
             return pyb(self)
+
+
+    # override reduce for protocols < 2. Builtin handler for that goes through
+    # copyreg._reduce_ex which eventually calls unicode(ustr-instance) to
+    # retrieve state, which gives ustr, not unicode. Fix state to be unicode ourselves.
+    def __reduce_ex__(self, protocol):
+        if protocol >= 2:
+            return unicode.__reduce_ex__(self, protocol)
+        return (
+            pycopyreg._reconstructor,
+            (self.__class__, self.__class__, _udata(self))
+        )
 
 
     def __hash__(self):

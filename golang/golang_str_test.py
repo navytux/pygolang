@@ -31,6 +31,7 @@ import sys
 import six
 from six import text_type as unicode, unichr
 from six.moves import range as xrange
+import pickle
 import array
 
 
@@ -269,6 +270,26 @@ def test_strings_memoryview():
     assert _(3) == 0xb8
     assert _(4) == 0xd1
     assert _(5) == 0x80
+
+
+# verify that bstr/ustr can be pickled/unpickled correctly.
+def test_strings_pickle():
+    bs = b("мир")
+    us = u("май")
+
+    #from pickletools import dis
+    for proto in range(0, pickle.HIGHEST_PROTOCOL):
+        p_bs = pickle.dumps(bs, proto)
+        #dis(p_bs)
+        bs_ = pickle.loads(p_bs)
+        assert type(bs_) is bstr
+        assert bs_ == bs
+
+        p_us = pickle.dumps(us, proto)
+        #dis(p_us)
+        us_ = pickle.loads(p_us)
+        assert type(us_) is ustr
+        assert us_ == us
 
 
 # verify that ord on bstr/ustr works as expected.
