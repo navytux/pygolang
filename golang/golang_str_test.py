@@ -128,7 +128,7 @@ def test_strings_basic():
         assert ub_tunicode_ == tunicode
 
 
-    # b/u accept only ~bytes/~unicode/bytearray
+    # b/u accept only ~bytes/~unicode/bytearray/buffer
     with raises(TypeError): b()
     with raises(TypeError): u()
     with raises(TypeError): b(123)
@@ -172,6 +172,15 @@ def test_strings_basic():
     _ = bstr(ba_); assert type(_) is bstr;  assert _ == "мир"
     _ = ustr(ba_); assert type(_) is ustr;  assert _ == "мир"
 
+    # b/u from buffer
+    for tbuf in buftypes:
+        bbuf_ = tbuf(b_)
+        bbuf_std_str = str(bbuf_)   # e.g. '<memory at ...>' for memoryview
+        _ = b(bbuf_);    assert type(_) is bstr;  assert _ == "мир"
+        _ = u(bbuf_);    assert type(_) is ustr;  assert _ == "мир"
+        _ = bstr(bbuf_); assert type(_) is bstr;  assert _ == bbuf_std_str # NOTE not 'мир'
+        _ = ustr(bbuf_); assert type(_) is ustr;  assert _ == bbuf_std_str
+
     # bstr/ustr from bytes/bytearray/buffer with encoding
     k8mir_bytes = u"мир".encode('koi8-r')
     for tbuf in [bytes, bytearray] + buftypes:
@@ -189,6 +198,8 @@ def test_strings_basic():
             k8mir_strok = str(k8mir)  # e.g. '<memory at ...>' for memoryview
         _ = bstr(k8mir);  assert type(_) is bstr;  assert _ == k8mir_strok
         _ = ustr(k8mir);  assert type(_) is ustr;  assert _ == k8mir_strok
+        _ = b   (k8mir);  assert type(_) is bstr;  assert _ == k8mir_usurrogateescape # always surrogateescape
+        _ = u   (k8mir);  assert type(_) is ustr;  assert _ == k8mir_usurrogateescape
         # encoding specified -> treat it precisely
         with raises(UnicodeDecodeError): bstr(k8mir, 'utf-8')
         with raises(UnicodeDecodeError): ustr(k8mir, 'utf-8')
@@ -282,6 +293,31 @@ def test_strings_ops2(tx, ty):
     assert not (y < x)
     assert not (x > y)
     assert      y > x
+
+
+# verify string operations like `x + y` for x being bstr/ustr and y being a
+# type unsupported for coercion.
+@mark.parametrize('tx', (bstr, ustr))
+@mark.parametrize('ty', buftypes)
+def test_strings_ops2_bufreject(tx, ty):
+    x = xstr(u'мир', tx)
+    y = ty(b'123')
+
+    assert  (x == y) is False           # see test_strings_ops2_eq_any
+    assert  (x != y) is True
+    with raises(TypeError):     x >= y
+    with raises(TypeError):     x <= y
+    with raises(TypeError):     x >  y
+    with raises(TypeError):     x <  y
+
+    # `y > x` does not raise when x is bstr (= provides buffer):
+    y == x  # not raises TypeError  -  see test_strings_ops2_eq_any
+    y != x  #
+    if tx is not bstr:
+        with raises(TypeError):     y >= x
+        with raises(TypeError):     y <= x
+        with raises(TypeError):     y >  x
+        with raises(TypeError):     y <  x
 
 
 # verify string operations like `x == *` for x being bstr/ustr.

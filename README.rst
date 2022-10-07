@@ -249,8 +249,8 @@ to `ustr`.  When the coercion happens, `bytes` and `bytearray`, similarly to
 `str`/`unicode` classes. They support all methods of `str`/`unicode` and in
 particular their constructors accept arbitrary objects and either convert or stringify them. For
 cases when no stringification is desired, and one only wants to convert
-`bstr`/`ustr` / `unicode`/`bytes`/`bytearray`
-to Pygolang string, `b` and `u` provide way to make sure an
+`bstr`/`ustr` / `unicode`/`bytes`/`bytearray`, or an object with `buffer`
+interface [*]_, to Pygolang string, `b` and `u` provide way to make sure an
 object is either `bstr` or `ustr` correspondingly.
 
 Usage example::
@@ -258,10 +258,12 @@ Usage example::
    s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
 
    def f(s):
-      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes or bytearray.
+      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes, bytearray or buffer.
       ...               # (*) the decoding never fails nor looses information.
 
 .. [*] `unicode` on Python2, `str` on Python3.
+.. [*] | data in buffer, similarly to `bytes` and `bytearray`, is treated as UTF8-encoded string.
+       | Notice that only explicit conversion through `b` and `u` accept objects with buffer interface. Automatic coercion does not.
 
 
 Import

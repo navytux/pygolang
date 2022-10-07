@@ -26,6 +26,7 @@ from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnico
 from cpython cimport PyUnicode_DecodeUTF8
 from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc
 from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
+from cpython cimport PyObject_CheckBuffer
 cdef extern from "Python.h":
     void PyType_Modified(PyTypeObject *)
 
@@ -44,7 +45,7 @@ def pyb(s): # -> bstr
     """b converts object to bstr.
 
        - For bstr the same object is returned.
-       - For bytes or bytearray the data is
+       - For bytes, bytearray, or object with buffer interface, the data is
          preserved as-is and only result type is changed to bstr.
        - For ustr/unicode the data is UTF-8 encoded. The encoding always succeeds.
 
@@ -66,7 +67,7 @@ def pyu(s): # -> ustr
 
        - For ustr the same object is returned.
        - For unicode the data is preserved as-is and only result type is changed to ustr.
-       - For bstr, bytes or bytearray the data is UTF-8 decoded.
+       - For bstr, bytes, bytearray, or object with buffer interface, the data is UTF-8 decoded.
          The decoding always succeeds and input
          information is not lost: non-valid UTF-8 bytes are decoded into
          surrogate codes ranging from U+DC80 to U+DCFF.
@@ -95,9 +96,8 @@ cdef _pyb(bcls, s): # -> ~bstr | None
     elif isinstance(s, unicode):
         s = _utf8_encode_surrogateescape(s)
     else:
-        if isinstance(s, bytearray):
-            s = bytes(s)
-        else:
+        s = _ifbuffer_data(s) # bytearray and buffer
+        if s is None:
             return None
 
     assert type(s) is bytes
@@ -111,8 +111,9 @@ cdef _pyu(ucls, s): # -> ~ustr | None
         if type(s) is not unicode:
             s = _udata(s)
     else:
-        if isinstance(s, bytearray):
-            s = bytes(s)
+        _ = _ifbuffer_data(s) # bytearray and buffer
+        if _ is not None:
+            s = _
         if isinstance(s, bytes):
             s = _utf8_decode_surrogateescape(s)
         else:
@@ -120,6 +121,19 @@ cdef _pyu(ucls, s): # -> ~ustr | None
 
     assert type(s) is unicode
     return unicode.__new__(ucls, s)
+
+# _ifbuffer_data returns contained data if obj provides buffer interface.
+cdef _ifbuffer_data(obj): # -> bytes|None
+    if PyObject_CheckBuffer(obj):
+        if PY_MAJOR_VERSION >= 3:
+            return bytes(obj)
+        else:
+            # py2: bytes(memoryview)  returns  '<memory at ...>'
+            return bytes(bytearray(obj))
+    elif _XPyObject_CheckOldBuffer(obj):  # old-style buffer, py2-only
+        return bytes(_buffer_py2(obj))
+    else:
+        return None
 
 
 # _pyb_coerce coerces x from `b op x` to be used in operation with pyb.
