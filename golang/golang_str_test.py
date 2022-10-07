@@ -248,6 +248,29 @@ def test_strings_basic():
             bs.hello = 1
 
 
+# verify memoryview(bstr|ustr).
+def test_strings_memoryview():
+    bs = b('мир')
+    us = u('май')
+
+    with raises(TypeError):
+        memoryview(us)
+
+    m = memoryview(bs)
+    assert len(m) == 6
+    def _(i): # returns m[i] as int
+        x = m[i]
+        if six.PY2: # on py2 memoryview[i] returns bytechar
+            x = ord(x)
+        return x
+    assert _(0) == 0xd0
+    assert _(1) == 0xbc
+    assert _(2) == 0xd0
+    assert _(3) == 0xb8
+    assert _(4) == 0xd1
+    assert _(5) == 0x80
+
+
 # verify string operations like `x + y` for all combinations of pairs from
 # bytes, unicode, bstr, ustr and bytearray. Except if both x and y are std
 # python types, e.g. (bytes, unicode), because those combinations are handled
