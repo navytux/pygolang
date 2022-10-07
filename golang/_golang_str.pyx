@@ -29,6 +29,11 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 cdef extern from "Python.h":
     void PyType_Modified(PyTypeObject *)
 
+cdef extern from "Python.h":
+    ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
+    ctypedef struct _XPyTypeObject "PyTypeObject":
+        initproc  tp_init
+
 from libc.stdint cimport uint8_t
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
@@ -39,7 +44,7 @@ def pyb(s): # -> bstr
     """b converts object to bstr.
 
        - For bstr the same object is returned.
-       - For bytes the data is
+       - For bytes or bytearray the data is
          preserved as-is and only result type is changed to bstr.
        - For ustr/unicode the data is UTF-8 encoded. The encoding always succeeds.
 
@@ -61,7 +66,7 @@ def pyu(s): # -> ustr
 
        - For ustr the same object is returned.
        - For unicode the data is preserved as-is and only result type is changed to ustr.
-       - For bstr or bytes the data is UTF-8 decoded.
+       - For bstr, bytes or bytearray the data is UTF-8 decoded.
          The decoding always succeeds and input
          information is not lost: non-valid UTF-8 bytes are decoded into
          surrogate codes ranging from U+DC80 to U+DCFF.
@@ -90,7 +95,10 @@ cdef _pyb(bcls, s): # -> ~bstr | None
     elif isinstance(s, unicode):
         s = _utf8_encode_surrogateescape(s)
     else:
-        return None
+        if isinstance(s, bytearray):
+            s = bytes(s)
+        else:
+            return None
 
     assert type(s) is bytes
     return bytes.__new__(bcls, s)
@@ -102,10 +110,13 @@ cdef _pyu(ucls, s): # -> ~ustr | None
     if isinstance(s, unicode):
         if type(s) is not unicode:
             s = _udata(s)
-    elif isinstance(s, bytes):
-        s = _utf8_decode_surrogateescape(s)
     else:
-        return None
+        if isinstance(s, bytearray):
+            s = bytes(s)
+        if isinstance(s, bytes):
+            s = _utf8_decode_surrogateescape(s)
+        else:
+            return None
 
     assert type(s) is unicode
     return unicode.__new__(ucls, s)
@@ -115,7 +126,7 @@ cdef _pyu(ucls, s): # -> ~ustr | None
 cdef _pyb_coerce(x):  # -> bstr|bytes
     if isinstance(x, bytes):
         return x
-    elif isinstance(x, unicode):
+    elif isinstance(x, (unicode, bytearray)):
         return pyb(x)
     else:
         raise TypeError("b: coerce: invalid type %s" % type(x))
@@ -124,7 +135,7 @@ cdef _pyb_coerce(x):  # -> bstr|bytes
 cdef _pyu_coerce(x):  # -> ustr|unicode
     if isinstance(x, unicode):
         return x
-    elif isinstance(x, bytes):
+    elif isinstance(x, (bytes, bytearray)):
         return pyu(x)
     else:
         raise TypeError("u: coerce: invalid type %s" % type(x))
@@ -160,8 +171,8 @@ class pybstr(bytes):
 
     is always identity even if bytes data is not valid UTF-8.
 
-    Operations in between bstr and ustr/unicode / bytes coerce to bstr.
-    When the coercion happens, bytes, similarly to bstr, are also
+    Operations in between bstr and ustr/unicode / bytes/bytearray coerce to bstr.
+    When the coercion happens, bytes and bytearray, similarly to bstr, are also
     treated as UTF8-encoded strings.
 
     bstr constructor accepts arbitrary objects and stringify them:
@@ -169,7 +180,7 @@ class pybstr(bytes):
     - if encoding and/or errors is specified, the object must provide buffer
       interface. The data in the buffer is decoded according to provided
       encoding/errors and further encoded via UTF-8 into bstr.
-    - if the object is bstr/ustr / unicode/bytes - it is converted
+    - if the object is bstr/ustr / unicode/bytes/bytearray - it is converted
       to bstr. See b for details.
     - otherwise bstr will have string representation of the object.
 
@@ -240,8 +251,8 @@ class pyustr(unicode):
 
     is always identity even if bytes data is not valid UTF-8.
 
-    Operations in between ustr and bstr/bytes / unicode coerce to ustr.
-    When the coercion happens, bytes, similarly to bstr, are also
+    Operations in between ustr and bstr/bytes/bytearray / unicode coerce to ustr.
+    When the coercion happens, bytes and bytearray, similarly to bstr, are also
     treated as UTF8-encoded strings.
 
     ustr constructor, similarly to the one in bstr, accepts arbitrary objects
@@ -379,6 +390,8 @@ def pyqq(obj):
 cdef _bstringify(object obj): # -> unicode|bytes
     if type(obj) in (pybstr, pyustr, bytes, unicode):
         return obj
+    if type(obj) is bytearray:
+        return bytes(obj)
 
     if PY_MAJOR_VERSION >= 3:
         return unicode(obj)
@@ -439,6 +452,39 @@ if PY_MAJOR_VERSION < 3:
                 _patch_slot(t, "__ge__", _unicode_x__ge__)
     _()
 
+
+# patch:
+#
+# - bytearray.__init__ to accept ustr instead of raising 'TypeError:
+#   string argument without an encoding'  (pybug: bytearray() should respect
+#   __bytes__ similarly to bytes)
+cdef initproc   _bytearray_tp_init    = (<_XPyTypeObject*>bytearray) .tp_init
+
+cdef int _bytearray_tp_xinit(object self, PyObject* args, PyObject* kw) except -1:
+    if args != NULL  and  (kw == NULL  or  (not <object>kw)):
+        argv = <object>args
+        if isinstance(argv, tuple)  and  len(argv) == 1:
+            arg = argv[0]
+            if isinstance(arg, pyustr):
+                argv = (pyb(arg),)      # NOTE argv is kept alive till end of function
+                args = <PyObject*>argv  #      no need to incref it
+    return _bytearray_tp_init(self, args, kw)
+
+
+def _bytearray_x__init__(self, *argv, **kw):
+    # NOTE don't return - just call: __init__ should return None
+    _bytearray_tp_xinit(self, <PyObject*>argv, <PyObject*>kw)
+
+def _():
+    cdef PyTypeObject* t
+    for pyt in [bytearray] + bytearray.__subclasses__():
+        assert isinstance(pyt, type)
+        t = <PyTypeObject*>pyt
+        t_ = <_XPyTypeObject*>t
+        if t_.tp_init == _bytearray_tp_init:
+            t_.tp_init = _bytearray_tp_xinit
+            _patch_slot(t, '__init__', _bytearray_x__init__)
+_()
 
 # _patch_slot installs func_or_descr into typ's __dict__ as name.
 #

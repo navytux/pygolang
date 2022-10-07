@@ -35,8 +35,11 @@ import array
 
 
 # buftypes lists types with buffer interface that we will test against.
+#
+# NOTE bytearray is not included here - being bytes-like object it is handled
+# and tested explicitly in tests that exercise interaction of bstr/ustr with
+# bytes/unicode and bytearray.
 buftypes = [
-        bytearray,
         memoryview,
         lambda x: array.array('B', x),
 ]
@@ -125,7 +128,7 @@ def test_strings_basic():
         assert ub_tunicode_ == tunicode
 
 
-    # b/u accept only ~bytes/~unicode
+    # b/u accept only ~bytes/~unicode/bytearray
     with raises(TypeError): b()
     with raises(TypeError): u()
     with raises(TypeError): b(123)
@@ -149,6 +152,7 @@ def test_strings_basic():
 
     b_  = xbytes    ("мир");  assert type(b_) is bytes
     u_  = xunicode  ("мир");  assert type(u_) is unicode
+    ba_ = xbytearray("мир");  assert type(ba_) is bytearray
 
     # b/u from unicode
     bs = b(u_);    assert isinstance(bs, bytes);    assert type(bs) is bstr
@@ -162,11 +166,15 @@ def test_strings_basic():
     _ = bstr(b_);  assert type(_) is bstr;  assert _ == "мир"
     _ = ustr(b_);  assert type(_) is ustr;  assert _ == "мир"
 
-    # TODO also handle bytearray?
+    # b/u from bytearray
+    _ = b(ba_);    assert type(_) is bstr;  assert _ == "мир"
+    _ = u(ba_);    assert type(_) is ustr;  assert _ == "мир"
+    _ = bstr(ba_); assert type(_) is bstr;  assert _ == "мир"
+    _ = ustr(ba_); assert type(_) is ustr;  assert _ == "мир"
 
-    # bstr/ustr from bytes/buffer with encoding
+    # bstr/ustr from bytes/bytearray/buffer with encoding
     k8mir_bytes = u"мир".encode('koi8-r')
-    for tbuf in [bytes] + buftypes:
+    for tbuf in [bytes, bytearray] + buftypes:
         k8mir = tbuf(k8mir_bytes)
         _ = bstr(k8mir, 'koi8-r');  assert type(_) is bstr;  assert _ == "мир"
         _ = ustr(k8mir, 'koi8-r');  assert type(_) is ustr;  assert _ == "мир"
@@ -174,10 +182,10 @@ def test_strings_basic():
         with raises(UnicodeDecodeError): ustr(k8mir, 'ascii')
         _ = bstr(k8mir, 'ascii', 'replace');  assert type(_) is bstr;  assert _ == u'\ufffd\ufffd\ufffd'
         _ = ustr(k8mir, 'ascii', 'replace');  assert type(_) is ustr;  assert _ == u'\ufffd\ufffd\ufffd'
-        # no encoding -> utf8 with surrogateescape for bytes,  stringify for the rest
+        # no encoding -> utf8 with surrogateescape for bytes/bytearray,  stringify for the rest
         k8mir_usurrogateescape = u'\udccd\udcc9\udcd2'
         k8mir_strok = k8mir_usurrogateescape
-        if not tbuf in (bytes,):
+        if not tbuf in (bytes, bytearray):
             k8mir_strok = str(k8mir)  # e.g. '<memory at ...>' for memoryview
         _ = bstr(k8mir);  assert type(_) is bstr;  assert _ == k8mir_strok
         _ = ustr(k8mir);  assert type(_) is ustr;  assert _ == k8mir_strok
@@ -201,6 +209,10 @@ def test_strings_basic():
     # unicode(b) -> u,  bytes(u) -> b
     _ = unicode(bs);  assert type(_) is ustr;  assert _ == "мир"
     _ = bytes  (us);  assert type(_) is bstr;  assert _ == "мир"
+
+    # bytearray(b|u) -> bytearray
+    _ = bytearray(bs);  assert type(_) is bytearray;  assert _ == b'\xd0\xbc\xd0\xb8\xd1\x80'
+    _ = bytearray(us);  assert type(_) is bytearray;  assert _ == b'\xd0\xbc\xd0\xb8\xd1\x80'
 
     # b(u(·)), u(b(·))
     _ = b(us);    assert type(_) is bstr;  assert _ == "мир"
@@ -226,14 +238,14 @@ def test_strings_basic():
 
 
 # verify string operations like `x + y` for all combinations of pairs from
-# bytes, unicode, bstr and ustr. Except if both x and y are std
+# bytes, unicode, bstr, ustr and bytearray. Except if both x and y are std
 # python types, e.g. (bytes, unicode), because those combinations are handled
 # only by builtin python code and might be rejected.
-@mark.parametrize('tx', (bytes, unicode, bstr, ustr))
-@mark.parametrize('ty', (bytes, unicode, bstr, ustr))
+@mark.parametrize('tx', (bytes, unicode, bstr, ustr, bytearray))
+@mark.parametrize('ty', (bytes, unicode, bstr, ustr, bytearray))
 def test_strings_ops2(tx, ty):
     # skip e.g. regular bytes vs regular unicode
-    tstd = {bytes, unicode}
+    tstd = {bytes, unicode, bytearray}
     if tx in tstd  and  ty in tstd  and  tx is not ty:
         skip()
 
@@ -383,6 +395,7 @@ def test_qq():
 # verify that what we patched stay unaffected when
 # called outside of bstr/ustr context.
 def test_strings_patched_transparently():
+    b_  = xbytes    ("мир");  assert type(b_)  is bytes
     u_  = xunicode  ("мир");  assert type(u_)  is unicode
 
     # unicode comparison stay unaffected
@@ -400,6 +413,25 @@ def test_strings_patched_transparently():
     assert (u_ >  u2)  is True      ; assert (u2 >  u_)  is False
     assert (u_ <= u2)  is False     ; assert (u2 <= u_)  is True
     assert (u_ >= u2)  is True      ; assert (u2 >= u_)  is False
+
+    # bytearray.__init__ stay unaffected
+    with raises(TypeError): bytearray(u'мир')
+    a = bytearray()
+    with raises(TypeError): a.__init__(u'мир')
+
+    def _(*argv):
+        a = bytearray(*argv)
+        b = bytearray(); _ = b.__init__(*argv); assert _ is None
+        ra = repr(a)
+        rb = repr(b)
+        assert ra == rb
+        return ra
+
+    assert _()              == r"bytearray(b'')"
+    assert _(b_)            == r"bytearray(b'\xd0\xbc\xd0\xb8\xd1\x80')"
+    assert _(u_, 'utf-8')   == r"bytearray(b'\xd0\xbc\xd0\xb8\xd1\x80')"
+    assert _(3)             == r"bytearray(b'\x00\x00\x00')"
+    assert _((1,2,3))       == r"bytearray(b'\x01\x02\x03')"
 
 
 # ---- benchmarks ----
@@ -431,10 +463,11 @@ def bench_bencode(b):
 
 # ---- misc ----
 
-# xbytes/xunicode convert provided bytes/unicode object to bytes or
-# unicode correspondingly to function name.
+# xbytes/xunicode/xbytearray convert provided bytes/unicode object to bytes,
+# unicode or bytearray correspondingly to function name.
 def xbytes(x):     return x.encode('utf-8') if type(x) is unicode else x
 def xunicode(x):   return x.decode('utf-8') if type(x) is bytes   else x
+def xbytearray(x): return bytearray(xbytes(x))
 
 # xstr returns string corresponding to specified type and data.
 def xstr(text, typ):
@@ -442,6 +475,7 @@ def xstr(text, typ):
         t = {
             bytes:      xbytes,
             unicode:    xunicode,
+            bytearray:  xbytearray,
             bstr:       b,
             ustr:       u,
         }

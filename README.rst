@@ -240,16 +240,16 @@ The conversion, in both encoding and decoding, never fails and never looses
 information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
 even if bytes data is not valid UTF-8.
 
-Operations in between `bstr` and `ustr`/`unicode` / `bytes` coerce to `bstr`, while
-operations in between `ustr` and `bstr`/`bytes` / `unicode` coerce
-to `ustr`.  When the coercion happens, `bytes`, similarly to
+Operations in between `bstr` and `ustr`/`unicode` / `bytes`/`bytearray` coerce to `bstr`, while
+operations in between `ustr` and `bstr`/`bytes`/`bytearray` / `unicode` coerce
+to `ustr`.  When the coercion happens, `bytes` and `bytearray`, similarly to
 `bstr`, are also treated as UTF8-encoded strings.
 
 `bstr` and `ustr` are meant to be drop-in replacements for standard
 `str`/`unicode` classes. They support all methods of `str`/`unicode` and in
 particular their constructors accept arbitrary objects and either convert or stringify them. For
 cases when no stringification is desired, and one only wants to convert
-`bstr`/`ustr` / `unicode`/`bytes`
+`bstr`/`ustr` / `unicode`/`bytes`/`bytearray`
 to Pygolang string, `b` and `u` provide way to make sure an
 object is either `bstr` or `ustr` correspondingly.
 
@@ -258,7 +258,7 @@ Usage example::
    s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
 
    def f(s):
-      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr or bytes.
+      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes or bytearray.
       ...               # (*) the decoding never fails nor looses information.
 
 .. [*] `unicode` on Python2, `str` on Python3.
