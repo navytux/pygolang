@@ -265,8 +265,9 @@ object is either `bstr` or `ustr` correspondingly.
 Usage example::
 
    s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
+   s += ' мир'          # s is b('привет мир')
    for c in s:          # c will iterate through
-        ...             #     [u(_) for _ in ('п','р','и','в','е','т')]
+        ...             #     [u(_) for _ in ('п','р','и','в','е','т',' ','м','и','р')]
 
    def f(s):
       s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes, bytearray or buffer.

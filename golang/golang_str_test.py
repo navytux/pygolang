@@ -437,6 +437,32 @@ def test_strings_iter():
     assert list(XIter()) == ['м','и','р','у',' ','м','и','р']
 
 
+# verify string operations like `x * 3` for all cases from bytes, bytearray, unicode, bstr and ustr.
+@mark.parametrize('tx', (bytes, unicode, bytearray, bstr, ustr))
+def test_strings_ops1(tx):
+    x = xstr(u'мир', tx)
+    assert type(x) is tx
+
+    # *
+    _ = x * 3
+    assert type(_)   is tx
+    assert xudata(_) == u'мирмирмир'
+
+    _ = 3 * x
+    assert type(_)   is tx
+    assert xudata(_) == u'мирмирмир'
+
+
+    # *=
+    _ = x
+    _ *= 3
+    assert type(_)   is tx
+    assert xudata(_) == u'мирмирмир'
+
+    assert _ is x      if tx is bytearray  else \
+           _ is not x
+
+
 # verify string operations like `x + y` for all combinations of pairs from
 # bytes, unicode, bstr, ustr and bytearray. Except if both x and y are std
 # python types, e.g. (bytes, unicode), because those combinations are handled
@@ -483,6 +509,41 @@ def test_strings_ops2(tx, ty):
     assert not (x > y)
     assert      y > x
 
+    # +
+    #
+    # type(x + y) is determined by type(x):
+    #   u()   +     *     ->  u()
+    #   b()   +     *     ->  b()
+    #   u''   +  u()/b()  ->  u()
+    #   u''   +  u''      ->  u''
+    #   b''   +  u()/b()  ->  b()
+    #   b''   +      b''  ->  b''
+    #   barr  +  u()/b()  ->  barr
+    if tx in (bstr, ustr):
+        tadd = tx
+    elif tx in (unicode, bytes):
+        if ty in (unicode, bytes, bytearray):
+            tadd = tx  # we are skipping e.g. bytes + unicode
+        else:
+            assert ty in (bstr, ustr)
+            tadd = tbu(tx)
+    else:
+        assert tx is bytearray
+        tadd = tx
+
+    _ = x + y
+    assert type(_) is tadd
+    assert _ is not x;  assert _ is not y
+    assert _ == xstr(u'hello мир', tadd)
+
+    # +=  (same typing rules as for +)
+    _ = x
+    _ += y
+    assert type(_) is tadd
+    assert _ == xstr(u'hello мир', tadd)
+    assert _ is x      if tx is bytearray else \
+           _ is not x
+
 
 # verify string operations like `x + y` for x being bstr/ustr and y being a
 # type unsupported for coercion.
@@ -492,12 +553,19 @@ def test_strings_ops2_bufreject(tx, ty):
     x = xstr(u'мир', tx)
     y = ty(b'123')
 
+    with raises(TypeError):     x + y
+    with raises(TypeError):     x * y
+
     assert  (x == y) is False           # see test_strings_ops2_eq_any
     assert  (x != y) is True
     with raises(TypeError):     x >= y
     with raises(TypeError):     x <= y
     with raises(TypeError):     x >  y
     with raises(TypeError):     x <  y
+
+    # reverse operations, e.g. memoryview + bstr
+    with raises(TypeError):     y + x
+    with raises(TypeError):     y * x
 
     # `y > x` does not raise when x is bstr (= provides buffer):
     y == x  # not raises TypeError  -  see test_strings_ops2_eq_any
@@ -658,6 +726,28 @@ def test_strings_patched_transparently():
     assert _(3)             == r"bytearray(b'\x00\x00\x00')"
     assert _((1,2,3))       == r"bytearray(b'\x01\x02\x03')"
 
+    # bytearray.{sq_concat,sq_inplace_concat} stay unaffected
+    a = bytearray()
+    def _(delta):
+        aa  = a + delta
+        aa_ = a.__add__(delta)
+        assert aa  is not a
+        assert aa_ is not a
+        aclone = bytearray(a)
+        a_ = a
+        a_ += delta
+        aclone_ = aclone
+        aclone_.__iadd__(delta)
+        assert a_ is a
+        assert a_ == aa
+        assert aclone_ is aclone
+        assert aclone_ == a_
+        return a_
+    assert _(b'')       == b''
+    assert _(b'a')      == b'a'
+    assert _(b'b')      == b'ab'
+    assert _(b'cde')    == b'abcde'
+
 
 # ---- benchmarks ----
 
@@ -708,3 +798,31 @@ def xstr(text, typ):
     s = _()
     assert type(s) is typ
     return s
+
+# xudata returns data of x converted to unicode string.
+# x can be bytes/unicode/bytearray / bstr/ustr.
+def xudata(x):
+    def _():
+        if type(x) in (bytes, bytearray):
+            return x.decode('utf-8')
+        elif type(x) is unicode:
+            return x
+        elif type(x) is ustr:
+            return _udata(x)
+        elif type(x) is bstr:
+            return _bdata(x).decode('utf-8')
+        else:
+            raise TypeError(x)
+    xu = _()
+    assert type(xu) is unicode
+    return xu
+
+
+# tbu maps specified type to b/u:
+# b/bytes/bytearray -> b; u/unicode -> u.
+def tbu(typ):
+    if typ in (bytes, bytearray, bstr):
+        return bstr
+    if typ in (unicode, ustr):
+        return ustr
+    raise AssertionError("invalid type %r" % typ)

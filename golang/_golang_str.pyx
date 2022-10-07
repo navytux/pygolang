@@ -24,7 +24,7 @@ It is included from _golang.pyx .
 
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
-from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc
+from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc, binaryfunc
 from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyObject_CheckBuffer
@@ -35,6 +35,12 @@ cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
         initproc  tp_init
+        PySequenceMethods *tp_as_sequence
+
+    ctypedef struct PySequenceMethods:
+        binaryfunc sq_concat
+        binaryfunc sq_inplace_concat
+
 
 from libc.stdint cimport uint8_t
 
@@ -159,6 +165,16 @@ cdef _pyu_coerce(x):  # -> ustr|unicode
         return pyu(x)
     else:
         raise TypeError("u: coerce: invalid type %s" % type(x))
+
+# _pybu_rcoerce coerces x from `x op b|u` to either bstr or ustr.
+# NOTE bytearray is handled outside of this function.
+cdef _pybu_rcoerce(x): # -> bstr|ustr
+    if isinstance(x, bytes):
+        return pyb(x)
+    elif isinstance(x, unicode):
+        return pyu(x)
+    else:
+        raise TypeError('b/u: coerce: invalid type %s' % type(x))
 
 
 # __pystr converts obj to ~str of current python:
@@ -307,6 +323,32 @@ class pybstr(bytes):
         return pyu(self).__iter__()
 
 
+    # __add__, __radd__     (no need to override __iadd__)
+    def __add__(a, b):
+        # NOTE Cython < 3 does not automatically support __radd__ for cdef class
+        # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
+        # but pybstr is currently _not_ cdef'ed class
+        # see also https://github.com/cython/cython/issues/4750
+        return pyb(bytes.__add__(a, _pyb_coerce(b)))
+
+    def __radd__(b, a):
+        # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
+        # u''  + b() -> u()     ; same as u() + b() -> u()
+        # b''  + b() -> b()     ; same as b() + b() -> b()
+        # barr + b() -> barr
+        if isinstance(a, bytearray):
+            # force `bytearray +=` to go via bytearray.sq_inplace_concat - see PyNumber_InPlaceAdd
+            return NotImplemented
+        a = _pybu_rcoerce(a)
+        return a.__add__(b)
+
+    # __mul__, __rmul__     (no need to override __imul__)
+    def __mul__(a, b):
+        return pyb(bytes.__mul__(a, b))
+    def __rmul__(b, a):
+        return b.__mul__(a)
+
+
 # XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
 class pyustr(unicode):
     """ustr is unicode-string.
@@ -409,6 +451,34 @@ class pyustr(unicode):
         else:
             # on python 2 unicode does not have .__iter__
             return PySeqIter_New(self)
+
+
+    # __add__, __radd__     (no need to override __iadd__)
+    def __add__(a, b):
+        # NOTE Cython < 3 does not automatically support __radd__ for cdef class
+        # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
+        # but pyustr is currently _not_ cdef'ed class
+        # see also https://github.com/cython/cython/issues/4750
+        return pyu(unicode.__add__(a, _pyu_coerce(b)))
+
+    def __radd__(b, a):
+        # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
+        # u''  + u() -> u()     ; same as u() + u() -> u()
+        # b''  + u() -> b()     ; same as b() + u() -> b()
+        # barr + u() -> barr
+        if isinstance(a, bytearray):
+            # force `bytearray +=` to go via bytearray.sq_inplace_concat - see PyNumber_InPlaceAdd
+            # for pyustr this relies on patch to bytearray.sq_inplace_concat to accept ustr as bstr
+            return  NotImplemented
+        a = _pybu_rcoerce(a)
+        return a.__add__(b)
+
+
+    # __mul__, __rmul__     (no need to override __imul__)
+    def __mul__(a, b):
+        return pyu(unicode.__mul__(a, b))
+    def __rmul__(b, a):
+        return b.__mul__(a)
 
 
 # _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
@@ -570,7 +640,13 @@ if PY_MAJOR_VERSION < 3:
 # - bytearray.__init__ to accept ustr instead of raising 'TypeError:
 #   string argument without an encoding'  (pybug: bytearray() should respect
 #   __bytes__ similarly to bytes)
+#
+# - bytearray.{sq_concat,sq_inplace_concat} to accept ustr instead of raising
+#   TypeError.  (pybug: bytearray + and += should respect __bytes__)
 cdef initproc   _bytearray_tp_init    = (<_XPyTypeObject*>bytearray) .tp_init
+cdef binaryfunc _bytearray_sq_concat  = (<_XPyTypeObject*>bytearray) .tp_as_sequence.sq_concat
+cdef binaryfunc _bytearray_sq_iconcat = (<_XPyTypeObject*>bytearray) .tp_as_sequence.sq_inplace_concat
+
 
 cdef int _bytearray_tp_xinit(object self, PyObject* args, PyObject* kw) except -1:
     if args != NULL  and  (kw == NULL  or  (not <object>kw)):
@@ -583,9 +659,22 @@ cdef int _bytearray_tp_xinit(object self, PyObject* args, PyObject* kw) except -
     return _bytearray_tp_init(self, args, kw)
 
 
+cdef object _bytearray_sq_xconcat(object a, object b):
+    if isinstance(b, pyustr):
+        b = pyb(b)
+    return _bytearray_sq_concat(a, b)
+
+cdef object _bytearray_sq_xiconcat(object a, object b):
+    if isinstance(b, pyustr):
+        b = pyb(b)
+    return _bytearray_sq_iconcat(a, b)
+
+
 def _bytearray_x__init__(self, *argv, **kw):
     # NOTE don't return - just call: __init__ should return None
     _bytearray_tp_xinit(self, <PyObject*>argv, <PyObject*>kw)
+def _bytearray_x__add__ (a, b): return _bytearray_sq_xconcat(a, b)
+def _bytearray_x__iadd__(a, b): return _bytearray_sq_xiconcat(a, b)
 
 def _():
     cdef PyTypeObject* t
@@ -596,6 +685,13 @@ def _():
         if t_.tp_init == _bytearray_tp_init:
             t_.tp_init = _bytearray_tp_xinit
             _patch_slot(t, '__init__', _bytearray_x__init__)
+        t_sq = t_.tp_as_sequence
+        if t_sq.sq_concat == _bytearray_sq_concat:
+            t_sq.sq_concat = _bytearray_sq_xconcat
+            _patch_slot(t, '__add__',  _bytearray_x__add__)
+        if t_sq.sq_inplace_concat == _bytearray_sq_iconcat:
+            t_sq.sq_inplace_concat = _bytearray_sq_xiconcat
+            _patch_slot(t, '__iadd__', _bytearray_x__iadd__)
 _()
 
 # _patch_slot installs func_or_descr into typ's __dict__ as name.
