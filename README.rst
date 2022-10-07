@@ -242,7 +242,12 @@ even if bytes data is not valid UTF-8.
 
 Semantically `bstr` is array of bytes, while `ustr` is array of
 unicode-characters. Accessing their elements by `[index]` yields byte and
-unicode character correspondingly [*]_.
+unicode character correspondingly [*]_. Iterating them, however, yields unicode
+characters for both `bstr` and `ustr`. In practice `bstr` is enough 99% of the
+time, and `ustr` only needs to be used for random access to string characters.
+See `Strings, bytes, runes and characters in Go`__ for overview of this approach.
+
+__ https://blog.golang.org/strings
 
 Operations in between `bstr` and `ustr`/`unicode` / `bytes`/`bytearray` coerce to `bstr`, while
 operations in between `ustr` and `bstr`/`bytes`/`bytearray` / `unicode` coerce
@@ -260,6 +265,8 @@ object is either `bstr` or `ustr` correspondingly.
 Usage example::
 
    s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
+   for c in s:          # c will iterate through
+        ...             #     [u(_) for _ in ('п','р','и','в','е','т')]
 
    def f(s):
       s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes, bytearray or buffer.

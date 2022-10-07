@@ -26,6 +26,7 @@ from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnico
 from cpython cimport PyUnicode_DecodeUTF8
 from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc
 from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
+from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyObject_CheckBuffer
 cdef extern from "Python.h":
     void PyType_Modified(PyTypeObject *)
@@ -195,7 +196,10 @@ class pybstr(bytes):
     is always identity even if bytes data is not valid UTF-8.
 
     Semantically bstr is array of bytes. Accessing its elements by [index]
-    yields byte character.
+    yields byte character. Iterating through bstr, however, yields unicode
+    characters. In practice bstr is enough 99% of the time, and ustr only
+    needs to be used for random access to string characters. See
+    https://blog.golang.org/strings for overview of this approach.
 
     Operations in between bstr and ustr/unicode / bytes/bytearray coerce to bstr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -280,6 +284,11 @@ class pybstr(bytes):
             else:
                 return pyb(x)
 
+    # __iter__  - yields unicode characters
+    def __iter__(self):
+        # TODO iterate without converting self to u
+        return pyu(self).__iter__()
+
 
 # XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
 class pyustr(unicode):
@@ -292,8 +301,12 @@ class pyustr(unicode):
 
     is always identity even if bytes data is not valid UTF-8.
 
-    ustr is similar to standard unicode type - accessing its
+    ustr is similar to standard unicode type - iterating and accessing its
     elements by [index] yields unicode characters.
+
+    ustr complements bstr and is meant to be used only in situations when
+    random access to string characters is needed. Otherwise bstr is more
+    preferable and should be enough 99% of the time.
 
     Operations in between ustr and bstr/bytes/bytearray / unicode coerce to ustr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -359,6 +372,26 @@ class pyustr(unicode):
     # [], [:]
     def __getitem__(self, idx):
         return pyu(unicode.__getitem__(self, idx))
+
+    # __iter__
+    def __iter__(self):
+        if PY_MAJOR_VERSION >= 3:
+            return _pyustrIter(unicode.__iter__(self))
+        else:
+            # on python 2 unicode does not have .__iter__
+            return PySeqIter_New(self)
+
+
+# _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
+cdef class _pyustrIter:
+    cdef object uiter
+    def __init__(self, uiter):
+        self.uiter = uiter
+    def __iter__(self):
+        return self
+    def __next__(self):
+        x = next(self.uiter)
+        return pyu(x)
 
 
 # _bdata/_udata retrieve raw data from bytes/unicode.

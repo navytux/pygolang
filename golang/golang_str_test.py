@@ -384,6 +384,38 @@ def test_strings_index():
     assert _[1:-1:2]== b'\xbc\xb8\x80\x83\xd0\xd0\xd1'
 
 
+# verify strings iteration.
+def test_strings_iter():
+    us = u("миру мир"); u_ = u"миру мир"
+    bs = b("миру мир")
+
+    # iter( b/u/unicode ) -> iterate unicode characters
+    # NOTE that iter(b) too yields unicode characters - not integers or bytes
+    bi  = iter(bs)
+    ui  = iter(us)
+    ui_ = iter(u_)
+    class XIter:
+        def __iter__(self):
+            return self
+        def __next__(self, missing=object):
+            x = next(bi, missing)
+            y = next(ui, missing)
+            z = next(ui_, missing)
+            assert type(x) is type(y)
+            if x is not missing:
+                assert type(x) is ustr
+            if z is not missing:
+                assert type(z) is unicode
+            assert x == y
+            assert y == z
+            if x is missing:
+                raise StopIteration
+            return x
+        next = __next__ # py2
+
+    assert list(XIter()) == ['м','и','р','у',' ','м','и','р']
+
+
 # verify string operations like `x + y` for all combinations of pairs from
 # bytes, unicode, bstr, ustr and bytearray. Except if both x and y are std
 # python types, e.g. (bytes, unicode), because those combinations are handled
