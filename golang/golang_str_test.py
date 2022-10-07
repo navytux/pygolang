@@ -431,6 +431,144 @@ def test_strings_index():
     assert _[3:12]  ==             b'\xb8\xd1\x80\xd1\x83 \xd0\xbc\xd0'
     assert _[1:-1:2]== b'\xbc\xb8\x80\x83\xd0\xd0\xd1'
 
+    # u/unicode:  index/rindex/find/rfind  return character-position
+    #             methods that accept start/stop also treat them as character position
+    #
+    # b/bytes:    index/rindex/find/rfind  return byte-position
+    #             methods that accept start/stop also treat them as byte-position
+    #
+    # b/u:        methods does not automatically coerce buffers to strings
+    class CheckOp:
+        def __init__(self, xs, x_, str2std):
+            self.xs = xs
+            self.x_ = x_
+            self.str2std = str2std
+        def __getattr__(self, meth):
+            def _(*argv):
+                argv_ = deepReplaceStr(argv, self.str2std)
+                x = xcall(self.xs, meth, *argv)
+                y = xcall(self.x_, meth, *argv_)
+                assert type(x) is type(y)
+                if isinstance(x, Exception):
+                    assert str(x) == str(y) # ValueError('x') == ValueError('x')  is false
+                else:
+                    assert x == y
+
+                # also test xs.meth(unicode|bytes|bytearray | bstr|ustr)
+                for zt in [xunicode, xbytes, xbytearray, b, u]:
+                    argv_z = deepReplaceStr(argv, zt)
+                    z = xcall(self.xs, meth, *argv_z)
+                    assert type(z) is type(x)
+                    if isinstance(x, Exception):
+                        assert str(z) == str(x)
+                    else:
+                        assert z == x
+
+                # buffers should not be accepted
+                for tbuf in buftypes:
+                    have_m = [False]
+                    def _(s):
+                        have_m[0] = True
+                        return tbuf(xbytes(s))
+                    argv_m = deepReplaceStr(argv, _)
+                    if have_m[0]:
+                        with raises(TypeError):
+                            getattr(self.xs, meth)(*argv_m)
+
+                return x
+            return _
+    U = CheckOp(us, u_, xunicode)
+    B = CheckOp(bs, b_, xbytes)
+
+    assert U.count("α")             == 0
+    assert B.count("α")             == 0
+    assert U.count("и")             == 2
+    assert B.count("и")             == 2
+    assert U.count("ир")            == 2
+    assert B.count("ир")            == 2
+    assert U.count("ир", 2)         == 1
+    assert B.count("ир", 2)         == 2
+    assert U.count("ир", 2, 7)      == 0
+    assert B.count("ир", 2, 7)      == 1
+
+    assert U.find("α")              == -1
+    assert B.find("α")              == -1
+    assert U.find("ир")             == 1
+    assert B.find("ир")             == 2
+    assert U.find("ир", 2)          == 6
+    assert B.find("ир", 2)          == 2
+    assert U.find("ир", 2, 7)       == -1
+    assert B.find("ир", 2, 7)       == 2
+
+    assert U.rfind("α")             == -1
+    assert B.rfind("α")             == -1
+    assert U.rfind("ир")            == 6
+    assert B.rfind("ир")            == 11
+    assert U.rfind("ир", 2)         == 6
+    assert B.rfind("ир", 2)         == 11
+    assert U.rfind("ир", 2, 7)      == -1
+    assert B.rfind("ир", 2, 7)      == 2
+
+    _ =    U.index("α");            assert isinstance(_, ValueError)
+    _ =    B.index("α");            assert isinstance(_, ValueError)
+    assert U.index("ир")            == 1
+    assert B.index("ир")            == 2
+    assert U.index("ир", 2)         == 6
+    assert B.index("ир", 2)         == 2
+    _ =    U.index("ир", 2, 7);     assert isinstance(_, ValueError)
+    assert B.index("ир", 2, 7)      == 2
+
+    _ =    U.rindex("α");           assert isinstance(_, ValueError)
+    _ =    B.rindex("α");           assert isinstance(_, ValueError)
+    assert U.rindex("ир")           == 6
+    assert B.rindex("ир")           == 11
+    assert U.rindex("ир", 2)        == 6
+    assert B.rindex("ир", 2)        == 11
+    _ =    U.rindex("ир", 2, 7);    assert isinstance(_, ValueError)
+    assert B.rindex("ир", 2, 7)     == 2
+
+    assert U.startswith("α")        == False
+    assert B.startswith("α")        == False
+    assert U.startswith("мир")      == True
+    assert B.startswith("мир")      == True
+    assert U.startswith("мир", 5)   == True
+    assert B.startswith("мир", 5)   == False
+    assert U.startswith("мир", 5, 7)== False
+    assert B.startswith("мир", 5, 7)== False
+    assert U.startswith(())         == False
+    assert B.startswith(())         == False
+    assert U.startswith(("α",))     == False
+    assert B.startswith(("α",))     == False
+    assert U.startswith(("α","β"))  == False
+    assert B.startswith(("α","β"))  == False
+    assert U.startswith(("α","β","ир"))  == False
+    assert B.startswith(("α","β","ир"))  == False
+    assert U.startswith(("α","β","мир")) == True
+    assert B.startswith(("α","β","мир")) == True
+
+    assert U.endswith("α")          == False
+    assert B.endswith("α")          == False
+    assert U.endswith("мир")        == True
+    assert B.endswith("мир")        == True
+    assert U.endswith("мир", 2)     == True
+    assert B.endswith("мир", 2)     == True
+    assert U.endswith("мир", 2, 7)  == False
+    assert B.endswith("мир", 2, 7)  == False
+    assert U.endswith("мир", None, 3) == True
+    assert B.endswith("мир", None, 3) == False
+    assert U.endswith("мир", None, 6) == False
+    assert B.endswith("мир", None, 6) == True
+    assert U.endswith(())           == False
+    assert B.endswith(())           == False
+    assert U.endswith(("α",))       == False
+    assert B.endswith(("α",))       == False
+    assert U.endswith(("α","β"))    == False
+    assert B.endswith(("α","β"))    == False
+    assert U.endswith(("α","β","ир"))  == True
+    assert B.endswith(("α","β","ир"))  == True
+    assert U.endswith(("α","β","мир")) == True
+    assert B.endswith(("α","β","мир")) == True
+
 
 # verify strings iteration.
 def test_strings_iter():
@@ -574,6 +712,9 @@ def test_strings_ops2(tx, ty):
 
 # verify string operations like `x + y` for x being bstr/ustr and y being a
 # type unsupported for coercion.
+#
+# NOTE string methods, like .join and .startswith, are verified to reject
+# buffers in test_strings_methods and test_strings_index.
 @mark.parametrize('tx', (bstr, ustr))
 @mark.parametrize('ty', buftypes)
 def test_strings_ops2_bufreject(tx, ty):
@@ -582,6 +723,7 @@ def test_strings_ops2_bufreject(tx, ty):
 
     with raises(TypeError):     x + y
     with raises(TypeError):     x * y
+    with raises(TypeError):     y in x
 
     assert  (x == y) is False           # see test_strings_ops2_eq_any
     assert  (x != y) is True
@@ -593,6 +735,10 @@ def test_strings_ops2_bufreject(tx, ty):
     # reverse operations, e.g. memoryview + bstr
     with raises(TypeError):     y + x
     with raises(TypeError):     y * x
+
+    # `x in y` does not raise: y is considered to be generic sequence without
+    # __contains__, and so python transforms `x in y` into `x in list(y)`.
+    #with raises(TypeError):     x in y
 
     # `y > x` does not raise when x is bstr (= provides buffer):
     y == x  # not raises TypeError  -  see test_strings_ops2_eq_any
@@ -657,6 +803,287 @@ def test_strings_print():
     assert stderr == b""
     assertDoc(outok, stdout)
 
+
+# verify methods of bstr/ustr.
+def test_strings_methods():
+    # checkop verifies that `s.meth(*argv, **kw)` gives the same result for s,
+    # argv and kw being various combinations of unicode,bstr,ustr, bytes/bytearray.
+    def checkop(s, meth, *argv, **kw):
+        assert type(s) is str
+        ok = kw.pop('ok', None)
+        bs = b(s)
+        us = u(s)
+        # verify {str,bstr,ustr}.meth with str arguments
+        # on py2 use unicode(s/args) because e.g. 'мир'.capitalize()
+        # gives correct result only on unicode, not regular str.
+        argv_unicode = deepReplaceStr(argv, xunicode)
+        kw_unicode   = deepReplaceStr(kw,   xunicode)
+        if six.PY3:
+            r = xcall(s, meth, *argv, **kw)
+        else:
+            s = xunicode(s)
+            r = xcall(s, meth, *argv_unicode, **kw_unicode)
+
+        # we provide fallback implementations on e.g. py2
+        if ok is not None:
+            if six.PY2:
+                ok = xunicode(ok)
+            if isinstance(r, NotImplementedError):
+                r = ok
+            else:
+                assert r == ok
+
+        assert type(s) is unicode
+        br = xcall(bs, meth, *argv, **kw)
+        ur = xcall(us, meth, *argv, **kw)
+
+        def assertDeepEQ(a, b, bstrtype):
+            assert not isinstance(a, (bstr, ustr))
+            if type(a) is unicode:
+                assert type(b) is bstrtype
+                assert a == b
+                return
+
+            assert type(b) is type(a)
+
+            if isinstance(a, (list, tuple)):
+                assert len(a) == len(b)
+                for i in range(len(a)):
+                    assertDeepEQ(a[i], b[i], bstrtype)
+            elif isinstance(a, dict):
+                assert len(a) == len(b)
+                for k, v in a.items():
+                    v_ = b[k]
+                    assertDeepEQ(v, v_, bstrtype)
+            elif isinstance(a, Exception):
+                assertDeepEQ(a.args, b.args, type(''))  # NOTE bstr is not raised in exceptions
+            else:
+                assert a == b
+
+        assertDeepEQ(r, br, bstr)
+        assertDeepEQ(r, ur, ustr)
+
+        # verify {bstr,ustr}.meth with arguments being b/u instead of str
+        #
+        # NOTE str.meth does not work with b - on py3 e.g. unicode.center
+        # checks fillchar to be instance of unicode.
+        argv_b = deepReplaceStr(argv, b)
+        argv_u = deepReplaceStr(argv, u)
+        kw_b   = deepReplaceStr(kw,   b)
+        kw_u   = deepReplaceStr(kw,   u)
+
+        br_b = xcall(bs, meth, *argv_b, **kw_b)
+        br_u = xcall(bs, meth, *argv_u, **kw_u)
+        ur_b = xcall(us, meth, *argv_b, **kw_b)
+        ur_u = xcall(us, meth, *argv_u, **kw_u)
+
+        assertDeepEQ(r, br_b, bstr)
+        assertDeepEQ(r, br_u, bstr)
+        assertDeepEQ(r, ur_b, ustr)
+        assertDeepEQ(r, ur_u, ustr)
+
+        # verify {bstr,ustr}.meth with arguments being bytes/unicode/bytearray instead of str
+        argv_bytes = deepReplaceStr(argv, xbytes)
+        argv_barr  = deepReplaceStr2Bytearray(argv)
+        kw_bytes   = deepReplaceStr(kw,   xbytes)
+        kw_barr    = deepReplaceStr2Bytearray(kw)
+
+        br_bytes   = xcall(bs, meth, *argv_bytes,   **kw_bytes)
+        br_unicode = xcall(bs, meth, *argv_unicode, **kw_unicode)
+        br_barr    = xcall(bs, meth, *argv_barr,    **kw_barr)
+        ur_bytes   = xcall(us, meth, *argv_bytes,   **kw_bytes)
+        ur_unicode = xcall(us, meth, *argv_unicode, **kw_unicode)
+        ur_barr    = xcall(us, meth, *argv_barr,    **kw_barr)
+
+        assertDeepEQ(r, br_bytes,   bstr) # everything is converted to bstr, not bytes
+        assertDeepEQ(r, br_unicode, bstr) # ----//----                       not unicode
+        assertDeepEQ(r, br_barr,    bstr) # ----//----                       not bytearray
+        assertDeepEQ(r, ur_bytes,   ustr) # ----//----              to ustr
+        assertDeepEQ(r, ur_unicode, ustr)
+        assertDeepEQ(r, ur_barr,    ustr)
+
+        # verify that {bstr,ustr}.meth does not implicitly convert buffer to string
+        if not hasattr(bs, meth):  # e.g. bstr.removeprefix on py2
+            assert not hasattr(us, meth)
+            return
+
+        for tbuf in buftypes:
+            _bufview = [False]
+            def bufview(s):
+                _bufview[0] = True
+                return tbuf(xbytes(s))
+            argv_buf    = deepReplaceStr(argv, bufview)
+            argv_hasbuf = _bufview[0]
+
+            _bufview[0] = False
+            kw_buf      = deepReplaceStr(kw,   bufview)
+            kw_hasbuf   = _bufview[0]
+
+            if argv_hasbuf:
+                with raises(TypeError):
+                    getattr(bs, meth)(*argv_buf, **kw)
+                with raises(TypeError):
+                    getattr(us, meth)(*argv_buf, **kw)
+            if kw_hasbuf:
+                with raises(TypeError):
+                    getattr(bs, meth)(*argv, **kw_buf)
+                with raises(TypeError):
+                    getattr(us, meth)(*argv, **kw_buf)
+
+
+    # Verifier provides syntactic sugar for checkop: V.attr returns wrapper around checkop(V.text, attr).
+    class Verifier:
+        def __init__(self, text):
+            self.text = text
+        def __getattr__(self, meth):
+            def _(*argv, **kw):
+                checkop(self.text, meth, *argv, **kw)
+            return _
+
+    _ = Verifier
+
+    _("миру мир").__contains__("ру")
+    _("миру мир").__contains__("α")
+    _("мир").capitalize()
+    _("МиР").casefold()
+    _("мир").center(10)
+    _("мир").center(10, "ж")
+    # count, endswith       - tested in test_strings_index
+    _("миру\tмир").expandtabs()
+    _("миру\tмир").expandtabs(4)
+    # find, index           - tested in test_strings_index
+    _("мир").isalnum()
+    _("мир!").isalnum()
+    _("мир").isalpha()
+    _("мир!").isalpha()
+    _("мир").isascii()
+    _("hello").isascii()
+    _("hellЫ").isascii()
+    _("123 мир").isdecimal()
+    _("123 q").isdecimal()
+    _("123").isdecimal()
+    _("мир").isdigit()
+    _("123 мир").isdigit()
+    _("123 q").isdigit()
+    _("123").isdigit()
+    _("٤").isdigit()            # arabic 4
+    _("мир").isidentifier()
+    _("мир$").isidentifier()
+    _("мир").islower()
+    _("Мир").islower()
+    _("мир").isnumeric()
+    _("123").isnumeric()
+    _("0x123").isnumeric()
+    _("мир").isprintable()
+    _("\u2009").isspace()       # thin space
+    _("  ").isspace()
+    _("мир").isspace()
+    _("мир").istitle()
+    _("Мир").istitle()
+    _(" мир ").join(["да", "май", "труд"])
+    _("мир").ljust(10)
+    _("мир").ljust(10, 'ж')
+    _("МиР").lower()
+    _("\u2009 мир").lstrip()
+    _("\u2009 мир\u2009 ").lstrip()
+    _("мммир").lstrip('ми')
+    _("миру мир").partition('ру')
+    _("миру мир").partition('ж')
+    _("миру мир").removeprefix("мир")
+    _("миру мир").removesuffix("мир")
+    _("миру мир").replace("ир", "ж")
+    _("миру мир").replace("ир", "ж", 1)
+    # rfind, rindex         - tested in test_strings_index
+    _("мир").rjust(10)
+    _("мир").rjust(10, 'ж')
+    _("миру мир").rpartition('ру')
+    _("миру мир").rpartition('ж')
+    _("мир").rsplit()
+    _("привет мир").rsplit()
+    _("привет\u2009мир").rsplit()
+    _("привет мир").rsplit("и")
+    _("привет мир").rsplit("и", 1)
+    _("мир \u2009").rstrip()
+    _(" мир \u2009").rstrip()
+    _("мируу").rstrip('ру')
+    _("мир").split()
+    _("привет мир").split()
+    _("привет\u2009мир").split()
+    _("привет мир").split("и")
+    _("привет мир").split("и", 1)
+    _("мир").splitlines()
+    _("миру\nмир").splitlines()
+    _("миру\nмир").splitlines(True)
+    _("миру\nмир\n").splitlines(True)
+    _("мир\nтруд\nмай\n").splitlines()
+    _("мир\nтруд\nмай\n").splitlines(True)
+    # startswith            - tested in test_strings_index
+    _("\u2009 мир \u2009").strip()
+    _("миру мир").strip('мир')
+    _("МиР").swapcase()
+    _("МиР").title()
+    _("мир").translate({ord(u'м'):ord(u'и'), ord(u'и'):'я', ord(u'р'):None})
+    _("МиР").upper()
+    _("мир").zfill(10)
+    _("123").zfill(10)
+
+
+# verify bstr.translate in bytes mode
+def test_strings_bstr_translate_bytemode():
+    bs = b('мир')
+    b_ = xbytes('мир')
+
+    def _(*argv):
+        rb  = bs.translate(*argv)
+        rok = b_.translate(*argv)
+        assert rb == rok
+
+    _(None)
+    _(None, b'')
+    _(None, b'\xd1')
+    _(None, b'\x80\xd1')
+
+    t = bytearray(range(0x100))
+    t[0x80] = 0x81
+    t[0xbc] = 0xbd
+    t = bytes(t)
+    _(t)
+    _(t, b'')
+    _(None, b'\xd1')
+    _(None, b'\x80\xd1')
+
+
+# verify bstr/ustr maketrans
+def test_strings_maketrans():
+    def _(argv, ok):
+        rok = xcall(unicode, 'maketrans', *argv)
+        # py2 unicode does not have maketrans
+        if six.PY2 and isinstance(rok, NotImplementedError):
+            rok = ok
+        assert rok == ok
+
+        rb  = xcall(bstr,    'maketrans', *argv)
+        ru  = xcall(ustr,    'maketrans', *argv)
+
+        argv_b = deepReplaceStr(argv, b)
+        argv_u = deepReplaceStr(argv, u)
+        rb_b = xcall(bstr, 'maketrans', *argv_b)
+        rb_u = xcall(bstr, 'maketrans', *argv_u)
+        ru_b = xcall(ustr, 'maketrans', *argv_b)
+        ru_u = xcall(ustr, 'maketrans', *argv_u)
+
+        assert rok == rb
+        assert rok == ru
+        assert rok == rb_b
+        assert rok == rb_u
+        assert rok == ru_b
+        assert rok == ru_u
+
+    _( ({100:'ы', 200:'я'},)        , {100:u'ы',        200:u'я'} )
+    _( ({'α':'ы', 'β':'я'},)        , {ord(u'α'):u'ы',  ord(u'β'):u'я'} )
+    _( ('αβ', 'ыя')                 , {ord(u'α'):ord(u'ы'),  ord(u'β'):ord(u'я')} )
+    _( ('αβ', 'ыя', 'πρ')           , {ord(u'α'):ord(u'ы'),  ord(u'β'):ord(u'я'),
+                                       ord(u'π'):None,       ord(u'ρ'):None} )
 
 # verify behaviour of bstr|ustr subclasses.
 @mark.parametrize('tx', (unicode, bstr, ustr))
@@ -1397,6 +1824,18 @@ def tbu(typ):
     if typ in (unicode, ustr):
         return ustr
     raise AssertionError("invalid type %r" % typ)
+
+# xcall returns result of the call to `obj.meth(*argv, **kw)`.
+# exceptions are also converted to plain returns.
+def xcall(obj, meth, *argv, **kw):
+    if not hasattr(obj, meth):
+        return NotImplementedError(meth)
+    meth = getattr(obj, meth)
+    try:
+        return meth(*argv, **kw)
+    except Exception as e:
+        #traceback.print_exc()
+        return e
 
 # isascii returns whether bytes/unicode x consists of only ASCII characters.
 def isascii(x):

@@ -29,6 +29,7 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyObject_CheckBuffer
 cdef extern from "Python.h":
+    Py_ssize_t PY_SSIZE_T_MAX
     void PyType_Modified(PyTypeObject *)
 
 cdef extern from "Python.h":
@@ -329,6 +330,13 @@ class pybstr(bytes):
         return pyu(self).__iter__()
 
 
+    # __contains__
+    def __contains__(self, key):
+        # NOTE on py3 bytes.__contains__ accepts numbers and buffers. We don't want to
+        # automatically coerce any of them to bytestrings
+        return bytes.__contains__(self, _pyb_coerce(key))
+
+
     # __add__, __radd__     (no need to override __iadd__)
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
@@ -353,6 +361,101 @@ class pybstr(bytes):
         return pyb(bytes.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
+
+
+    # all other string methods
+
+    def capitalize(self):                       return pyb(pyu(self).capitalize())
+    if _strhas('casefold'): # py3.3  TODO provide py2 implementation
+        def casefold(self):                     return pyb(pyu(self).casefold())
+    def center(self, width, fillchar=' '):      return pyb(pyu(self).center(width, fillchar))
+
+    def count(self, sub, start=None, end=None): return bytes.count(self, _pyb_coerce(sub), start, end)
+
+    def endswith(self, suffix, start=None, end=None):
+        if isinstance(suffix, tuple):
+            for _ in suffix:
+                if self.endswith(_pyb_coerce(_), start, end):
+                    return True
+            return False
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return bytes.endswith(self, _pyb_coerce(suffix), start, end)
+
+    def expandtabs(self, tabsize=8):            return pyb(pyu(self).expandtabs(tabsize))
+
+    # NOTE find/index & friends should return byte-position, not unicode-position
+    def find(self, sub, start=None, end=None):  return bytes.find(self, _pyb_coerce(sub), start, end)
+    def index(self, sub, start=None, end=None): return bytes.index(self, _pyb_coerce(sub), start, end)
+
+    def isalnum(self):      return pyu(self).isalnum()
+    def isalpha(self):      return pyu(self).isalpha()
+    # isascii(self)         no need to override
+    def isdecimal(self):    return pyu(self).isdecimal()
+    def isdigit(self):      return pyu(self).isdigit()
+    if _strhas('isidentifier'): # py3  TODO provide fallback implementation
+        def isidentifier(self): return pyu(self).isidentifier()
+    def islower(self):      return pyu(self).islower()
+    def isnumeric(self):    return pyu(self).isnumeric()
+    if _strhas('isprintable'):  # py3  TODO provide fallback implementation
+        def isprintable(self):  return pyu(self).isprintable()
+    def isspace(self):      return pyu(self).isspace()
+    def istitle(self):      return pyu(self).istitle()
+
+    def join(self, iterable):               return pyb(bytes.join(self, (_pyb_coerce(_) for _ in iterable)))
+    def ljust(self, width, fillchar=' '):   return pyb(pyu(self).ljust(width, fillchar))
+    def lower(self):                        return pyb(pyu(self).lower())
+    def lstrip(self, chars=None):           return pyb(pyu(self).lstrip(chars))
+    def partition(self, sep):               return tuple(pyb(_) for _ in bytes.partition(self, _pyb_coerce(sep)))
+    if _strhas('removeprefix'): # py3.9  TODO provide fallback implementation
+        def removeprefix(self, prefix):     return pyb(pyu(self).removeprefix(prefix))
+    if _strhas('removesuffix'): # py3.9  TODO provide fallback implementation
+        def removesuffix(self, suffix):     return pyb(pyu(self).removesuffix(suffix))
+    def replace(self, old, new, count=-1):  return pyb(bytes.replace(self, _pyb_coerce(old), _pyb_coerce(new), count))
+
+    # NOTE rfind/rindex & friends should return byte-position, not unicode-position
+    def rfind(self, sub, start=None, end=None):   return bytes.rfind(self, _pyb_coerce(sub), start, end)
+    def rindex(self, sub, start=None, end=None):  return bytes.rindex(self, _pyb_coerce(sub), start, end)
+
+    def rjust(self, width, fillchar=' '):   return pyb(pyu(self).rjust(width, fillchar))
+    def rpartition(self, sep):              return tuple(pyb(_) for _ in bytes.rpartition(self, _pyb_coerce(sep)))
+    def rsplit(self, sep=None, maxsplit=-1):
+        v = pyu(self).rsplit(sep, maxsplit)
+        return list([pyb(_) for _ in v])
+    def rstrip(self, chars=None):           return pyb(pyu(self).rstrip(chars))
+    def split(self, sep=None, maxsplit=-1):
+        v = pyu(self).split(sep, maxsplit)
+        return list([pyb(_) for _ in v])
+    def splitlines(self, keepends=False):   return list(pyb(_) for _ in pyu(self).splitlines(keepends))
+
+    def startswith(self, prefix, start=None, end=None):
+        if isinstance(prefix, tuple):
+            for _ in prefix:
+                if self.startswith(_pyb_coerce(_), start, end):
+                    return True
+            return False
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return bytes.startswith(self, _pyb_coerce(prefix), start, end)
+
+    def strip(self, chars=None):            return pyb(pyu(self).strip(chars))
+    def swapcase(self):                     return pyb(pyu(self).swapcase())
+    def title(self):                        return pyb(pyu(self).title())
+    def translate(self, table, delete=None):
+        # bytes mode  (compatibility with str/py2)
+        if table is None  or isinstance(table, bytes)  or  delete is not None:
+            if delete is None:  delete = b''
+            return pyb(bytes.translate(self, table, delete))
+        # unicode mode
+        else:
+            return pyb(pyu(self).translate(table))
+
+    def upper(self):                        return pyb(pyu(self).upper())
+    def zfill(self, width):                 return pyb(pyu(self).zfill(width))
+
+    @staticmethod
+    def maketrans(x=None, y=None, z=None):
+        return pyustr.maketrans(x, y, z)
 
 
 # XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
@@ -465,6 +568,11 @@ class pyustr(unicode):
             return PySeqIter_New(self)
 
 
+    # __contains__
+    def __contains__(self, key):
+        return unicode.__contains__(self, _pyu_coerce(key))
+
+
     # __add__, __radd__     (no need to override __iadd__)
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
@@ -491,6 +599,150 @@ class pyustr(unicode):
         return pyu(unicode.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
+
+
+    # all other string methods
+
+    def capitalize(self):   return pyu(unicode.capitalize(self))
+    if _strhas('casefold'): # py3.3  TODO provide fallback implementation
+        def casefold(self): return pyu(unicode.casefold(self))
+    def center(self, width, fillchar=' '):      return pyu(unicode.center(self, width, _pyu_coerce(fillchar)))
+    def count(self, sub, start=None, end=None):
+        # cython optimizes unicode.count to directly call PyUnicode_Count -
+        # - cannot use None for start/stop  https://github.com/cython/cython/issues/4737
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.count(self, _pyu_coerce(sub), start, end)
+    def endswith(self, suffix, start=None, end=None):
+        if isinstance(suffix, tuple):
+            for _ in suffix:
+                if self.endswith(_pyu_coerce(_), start, end):
+                    return True
+            return False
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.endswith(self, _pyu_coerce(suffix), start, end)
+    def expandtabs(self, tabsize=8):            return pyu(unicode.expandtabs(self, tabsize))
+    def find(self, sub, start=None, end=None):
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.find(self, _pyu_coerce(sub), start, end)
+    def index(self, sub, start=None, end=None):
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.index(self, _pyu_coerce(sub), start, end)
+
+    # isalnum(self)         no need to override
+    # isalpha(self)         no need to override
+    # isascii(self)         no need to override
+    # isdecimal(self)       no need to override
+    # isdigit(self)         no need to override
+    # isidentifier(self)    no need to override
+    # islower(self)         no need to override
+    # isnumeric(self)       no need to override
+    # isprintable(self)     no need to override
+    # isspace(self)         no need to override
+    # istitle(self)         no need to override
+
+    def join(self, iterable):               return pyu(unicode.join(self, (_pyu_coerce(_) for _ in iterable)))
+    def ljust(self, width, fillchar=' '):   return pyu(unicode.ljust(self, width, _pyu_coerce(fillchar)))
+    def lower(self):                        return pyu(unicode.lower(self))
+    def lstrip(self, chars=None):           return pyu(unicode.lstrip(self, _xpyu_coerce(chars)))
+    def partition(self, sep):               return tuple(pyu(_) for _ in unicode.partition(self, _pyu_coerce(sep)))
+    if _strhas('removeprefix'): # py3.9  TODO provide fallback implementation
+        def removeprefix(self, prefix):     return pyu(unicode.removeprefix(self, _pyu_coerce(prefix)))
+    if _strhas('removesuffix'): # py3.9  TODO provide fallback implementation
+        def removesuffix(self, suffix):     return pyu(unicode.removesuffix(self, _pyu_coerce(suffix)))
+    def replace(self, old, new, count=-1):  return pyu(unicode.replace(self, _pyu_coerce(old), _pyu_coerce(new), count))
+    def rfind(self, sub, start=None, end=None):
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.rfind(self, _pyu_coerce(sub), start, end)
+    def rindex(self, sub, start=None, end=None):
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.rindex(self, _pyu_coerce(sub), start, end)
+    def rjust(self, width, fillchar=' '):   return pyu(unicode.rjust(self, width, _pyu_coerce(fillchar)))
+    def rpartition(self, sep):              return tuple(pyu(_) for _ in unicode.rpartition(self, _pyu_coerce(sep)))
+    def rsplit(self, sep=None, maxsplit=-1):
+        v = unicode.rsplit(self, _xpyu_coerce(sep), maxsplit)
+        return list([pyu(_) for _ in v])
+    def rstrip(self, chars=None):           return pyu(unicode.rstrip(self, _xpyu_coerce(chars)))
+    def split(self, sep=None, maxsplit=-1):
+        # cython optimizes unicode.split to directly call PyUnicode_Split - cannot use None for sep
+        # and cannot also use object=NULL  https://github.com/cython/cython/issues/4737
+        if sep is None:
+            if PY_MAJOR_VERSION >= 3:
+                v = unicode.split(self, maxsplit=maxsplit)
+            else:
+                # on py2 unicode.split does not accept keyword arguments
+                v = _udata(self).split(None, maxsplit)
+        else:
+            v = unicode.split(self, _pyu_coerce(sep), maxsplit)
+        return list([pyu(_) for _ in v])
+    def splitlines(self, keepends=False):   return list(pyu(_) for _ in unicode.splitlines(self, keepends))
+    def startswith(self, prefix, start=None, end=None):
+        if isinstance(prefix, tuple):
+            for _ in prefix:
+                if self.startswith(_pyu_coerce(_), start, end):
+                    return True
+            return False
+        if start is None: start = 0
+        if end   is None: end   = PY_SSIZE_T_MAX
+        return unicode.startswith(self, _pyu_coerce(prefix), start, end)
+    def strip(self, chars=None):            return pyu(unicode.strip(self, _xpyu_coerce(chars)))
+    def swapcase(self):                     return pyu(unicode.swapcase(self))
+    def title(self):                        return pyu(unicode.title(self))
+
+    def translate(self, table):
+        # unicode.translate does not accept bstr values
+        t = {}
+        for k,v in table.items():
+            if not isinstance(v, int):  # either unicode ordinal,
+                v = _xpyu_coerce(v)     # character or None
+            t[k] = v
+        return pyu(unicode.translate(self, t))
+
+    def upper(self):                        return pyu(unicode.upper(self))
+    def zfill(self, width):                 return pyu(unicode.zfill(self, width))
+
+    @staticmethod
+    def maketrans(x=None, y=None, z=None):
+        if PY_MAJOR_VERSION >= 3:
+            if y is None:
+                # std maketrans(x) accepts only int|unicode keys
+                _ = {}
+                for k,v in x.items():
+                    if not isinstance(k, int):
+                        k = pyu(k)
+                    _[k] = v
+                return unicode.maketrans(_)
+            elif z is None:
+                return unicode.maketrans(pyu(x), pyu(y))  # std maketrans does not accept b
+            else:
+                return unicode.maketrans(pyu(x), pyu(y), pyu(z))  # ----//----
+
+        # hand-made on py2
+        t = {}
+        if y is not None:
+            x = pyu(x)
+            y = pyu(y)
+            if len(x) != len(y):
+                raise ValueError("len(x) must be == len(y))")
+            for (xi,yi) in zip(x,y):
+                t[ord(xi)] = ord(yi)
+            if z is not None:
+                z = pyu(z)
+                for _ in z:
+                    t[ord(_)] = None
+        else:
+            if type(x) is not dict:
+                raise TypeError("sole x must be dict")
+            for k,v in x.iteritems():
+                if not isinstance(k, (int,long)):
+                    k = ord(pyu(k))
+                t[k] = pyu(v)
+        return t
 
 
 # _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
@@ -768,6 +1020,13 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
 
 
 # ---- misc ----
+
+# _strhas returns whether unicode string type has specified method.
+cdef bint _strhas(str meth) except *:
+    return hasattr(unicode, meth)
+
+cdef object _xpyu_coerce(obj):
+    return _pyu_coerce(obj) if obj is not None else None
 
 # _buffer_py2 returns buffer(obj) on py2 / fails on py3
 cdef object _buffer_py2(object obj):
