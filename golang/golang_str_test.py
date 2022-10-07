@@ -237,9 +237,36 @@ def test_strings_basic():
     assert hash(us) == hash("мир");  assert us == "мир"
     assert hash(bs) == hash("мир");  assert bs == "мир"
 
-    # str
+    # str/repr
     _ = str(us);   assert isinstance(_, str);  assert _ == "мир"
     _ = str(bs);   assert isinstance(_, str);  assert _ == "мир"
+    _ = repr(us);  assert isinstance(_, str);  assert _ == "u('мир')"
+    _ = repr(bs);  assert isinstance(_, str);  assert _ == "b('мир')"
+
+    # str/repr of non-valid utf8
+    b_hik8 = xbytes  ('привет ')+b(k8mir_bytes);  assert type(b_hik8) is bstr
+    u_hik8 = xunicode('привет ')+u(k8mir_bytes);  assert type(u_hik8) is ustr
+    assert _bdata(b_hik8) == b'\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82 \xcd\xc9\xd2'
+    assert _udata(u_hik8) == u'привет \udccd\udcc9\udcd2'
+
+    _ = str(u_hik8);   assert isinstance(_, str);  assert _ == xbytes('привет ')+b'\xcd\xc9\xd2'
+    _ = str(b_hik8);   assert isinstance(_, str);  assert _ == xbytes('привет ')+b'\xcd\xc9\xd2'
+    _ = repr(u_hik8);  assert isinstance(_, str);  assert _ == r"u(b'привет \xcd\xc9\xd2')"
+    _ = repr(b_hik8);  assert isinstance(_, str);  assert _ == r"b(b'привет \xcd\xc9\xd2')"
+
+    # str/repr of quotes
+    def _(text, breprok, ureprok):
+        bt = b(text);  assert type(bt) is bstr
+        ut = u(text);  assert type(ut) is ustr
+        _ = str(bt);   assert isinstance(_, str);  assert _ == text
+        _ = str(ut);   assert isinstance(_, str);  assert _ == text
+        _ = repr(bt);  assert isinstance(_, str);  assert _ == breprok
+        _ = repr(ut);  assert isinstance(_, str);  assert _ == ureprok
+    _('',           "b('')",                "u('')")
+    _('"',          "b('\"')",              "u('\"')")
+    _("'",          'b("\'")',              'u("\'")')
+    _('"\'',        "b('\"\\'')",           "u('\"\\'')")
+    _('"α" \'β\'',  "b('\"α\" \\'β\\'')",   "u('\"α\" \\'β\\'')")
 
     # custom attributes cannot be injected to bstr/ustr
     if not ('PyPy' in sys.version): # https://foss.heptapod.net/pypy/pypy/issues/2763

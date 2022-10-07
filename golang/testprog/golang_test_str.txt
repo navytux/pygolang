@@ -2,3 +2,5 @@ print(b): привет b
 print(u): привет u
 print(qq(b)): "привет b"
 print(qq(u)): "привет u"
+print(repr(b)): b('привет b')
+print(repr(u)): u('привет u')

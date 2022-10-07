@@ -35,6 +35,8 @@ def main():
     print("print(u):", su)
     print("print(qq(b)):", qq(sb))
     print("print(qq(u)):", qq(su))
+    print("print(repr(b)):", repr(sb))
+    print("print(repr(u)):", repr(su))
 
 
 if __name__ == '__main__':

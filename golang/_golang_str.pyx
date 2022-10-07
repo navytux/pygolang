@@ -264,6 +264,12 @@ class pybstr(bytes):
         else:
             return self
 
+    def __repr__(self):
+        qself, nonascii_escape = _bpysmartquote_u3b2(self)
+        if nonascii_escape:         # so that e.g. b(u'\x80') is represented as
+            qself = 'b' + qself     # b(b'\xc2\x80'),  not as b('\xc2\x80')
+        return "b(" + qself + ")"
+
 
     # override reduce for protocols < 2. Builtin handler for that goes through
     # copyreg._reduce_ex which eventually calls bytes(bstr-instance) to
@@ -403,6 +409,12 @@ class pyustr(unicode):
         else:
             return pyb(self)
 
+    def __repr__(self):
+        qself, nonascii_escape = _upysmartquote_u3b2(self)
+        if nonascii_escape:
+            qself = 'b'+qself       # see bstr.__repr__
+        return "u(" + qself + ")"
+
 
     # override reduce for protocols < 2. Builtin handler for that goes through
     # copyreg._reduce_ex which eventually calls unicode(ustr-instance) to
@@ -537,6 +549,36 @@ IF PY2:
         return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, nesting)
 
     (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
+
+
+# _bpysmartquote_u3b2 quotes bytes/bytearray s the same way python would do for string.
+#
+# nonascii_escape indicates whether \xNN with NN >= 0x80 is present in the output.
+#
+# NOTE the return type is str type of current python, so that quoted result
+# could be directly used in __repr__ or __str__ implementation.
+cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
+    # TODO change to `const uint8_t[::1] s` after strconv._quote is moved to pyx
+    assert isinstance(s, bytes), s
+
+    # smartquotes: choose ' or " as quoting character exactly the same way python does
+    # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L905-L909
+    quote = b"'"
+    if (quote in s) and (b'"' not in s):
+        quote = b'"'
+
+    x, nonascii_escape = pystrconv._quote(s, quote)             # raw bytes
+    if PY_MAJOR_VERSION < 3:
+        return x, nonascii_escape
+    else:
+        return _utf8_decode_surrogateescape(x), nonascii_escape # raw unicode
+
+# _upysmartquote_u3b2 is similar to _bpysmartquote_u3b2 but accepts unicode argument.
+#
+# NOTE the return type is str type of current python - see _bpysmartquote_u3b2 for details.
+cdef _upysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
+    assert isinstance(s, unicode), s
+    return _bpysmartquote_u3b2(_utf8_encode_surrogateescape(s))
 
 
 # qq is substitute for %q, which is missing in python.

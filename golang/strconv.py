@@ -30,20 +30,23 @@ from golang._golang import _py_utf8_decode_rune as _utf8_decode_rune, _py_rune_e
 
 # quote quotes unicode|bytes string into valid "..." bytestring always quoted with ".
 def quote(s):  # -> bstr
-    q = _quote(b(s))
+    q, _ = _quote(b(s), b'"')
     return b(q)
 
-def _quote(s):
-    assert isinstance(s, bytes)
+def _quote(s, quote): # -> (quoted, nonascii_escape)
+    assert isinstance(s, bytes),     type(s)
+    assert isinstance(quote, bytes), type(quote)
+    assert len(quote) == 1,          repr(quote)
 
     outv = []
     emit = outv.append
+    nonascii_escape = False
     i = 0
     while i < len(s):
         c = s[i:i+1]
         # fast path - ASCII only
         if ord(c) < 0x80:
-            if c in b'\\"':
+            if c in (b'\\', quote):
                 emit(b'\\'+c)
 
             # printable ASCII
@@ -71,6 +74,7 @@ def _quote(s):
 
             # decode error - just emit raw byte as escaped
             if r == _rune_error  and  size == 1:
+                nonascii_escape = True
                 emit(br'\x%02x' % ord(c))
 
             # printable utf-8 characters go as is
@@ -79,12 +83,13 @@ def _quote(s):
 
             # everything else goes in numeric byte escapes
             else:
+                nonascii_escape = True
                 for j in xrange(i, isize):
                     emit(br'\x%02x' % ord(s[j:j+1]))
 
             i = isize
 
-    return b'"' + b''.join(outv) + b'"'
+    return (quote + b''.join(outv) + quote, nonascii_escape)
 
 
 # unquote decodes "-quoted unicode|byte string.
