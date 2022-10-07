@@ -542,11 +542,22 @@ IF PY2:
         ctypedef int (*printfunc)(PyObject *, FILE *, int) except -1
         ctypedef struct _PyTypeObject_Print "PyTypeObject":
             printfunc tp_print
+        int Py_PRINT_RAW
 
-    cdef int _pybstr_tp_print(PyObject *obj, FILE *f, int nesting) except -1:
-        o = <bytes>obj
+    cdef int _pybstr_tp_print(PyObject *obj, FILE *f, int flags) except -1:
+        o = <object>obj
+        if flags & Py_PRINT_RAW:
+            # emit str of the object instead of repr
+            # https://docs.python.org/2.7/c-api/object.html#c.PyObject_Print
+            pass
+        else:
+            # emit repr
+            o = repr(o)
+
+        assert isinstance(o, bytes)
+        o = <bytes>o
         o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
-        return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, nesting)
+        return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
 
     (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
 

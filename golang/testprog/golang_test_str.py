@@ -38,6 +38,11 @@ def main():
     print("print(repr(b)):", repr(sb))
     print("print(repr(u)):", repr(su))
 
+    # py2: print(dict) calls PyObject_Print(flags=0) for both keys and values,
+    #      not with flags=Py_PRINT_RAW used by default almost everywhere else.
+    #      this way we can verify whether bstr.tp_print handles flags correctly.
+    print("print({b: u}):", {sb: su})
+
 
 if __name__ == '__main__':
     main()
