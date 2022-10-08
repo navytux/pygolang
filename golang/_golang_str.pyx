@@ -24,11 +24,21 @@ It is included from _golang.pyx .
 
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
-from cpython cimport PyTypeObject, Py_TYPE, richcmpfunc, binaryfunc
+from cpython cimport PyTypeObject, Py_TYPE, reprfunc, richcmpfunc, binaryfunc
 from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
+from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
 cdef extern from "Python.h":
+    """
+    #if PY_MAJOR_VERSION < 3
+    // on py2, PyDict_GetItemWithError is called _PyDict_GetItemWithError
+    // NOTE Cython3 provides PyDict_GetItemWithError out of the box
+    # define PyDict_GetItemWithError _PyDict_GetItemWithError
+    #endif
+    """
+    PyObject* PyDict_GetItemWithError(object, object) except? NULL  # borrowed ref
+
     Py_ssize_t PY_SSIZE_T_MAX
     void PyType_Modified(PyTypeObject *)
 
@@ -267,9 +277,14 @@ class pybstr(bytes):
 
     def __repr__(self):
         qself, nonascii_escape = _bpysmartquote_u3b2(self)
-        if nonascii_escape:         # so that e.g. b(u'\x80') is represented as
-            qself = 'b' + qself     # b(b'\xc2\x80'),  not as b('\xc2\x80')
-        return "b(" + qself + ")"
+        bs = _inbstringify_get()
+        if bs.inbstringify == 0:
+            if nonascii_escape:         # so that e.g. b(u'\x80') is represented as
+                qself = 'b' + qself     # b(b'\xc2\x80'),  not as b('\xc2\x80')
+            return "b(" + qself + ")"
+        else:
+            # [b('β')] goes as ['β'] when under _bstringify
+            return qself
 
 
     # override reduce for protocols < 2. Builtin handler for that goes through
@@ -514,9 +529,14 @@ class pyustr(unicode):
 
     def __repr__(self):
         qself, nonascii_escape = _upysmartquote_u3b2(self)
-        if nonascii_escape:
-            qself = 'b'+qself       # see bstr.__repr__
-        return "u(" + qself + ")"
+        bs = _inbstringify_get()
+        if bs.inbstringify == 0:
+            if nonascii_escape:
+                qself = 'b'+qself       # see bstr.__repr__
+            return "u(" + qself + ")"
+        else:
+            # [u('β')] goes as ['β'] when under _bstringify
+            return qself
 
 
     # override reduce for protocols < 2. Builtin handler for that goes through
@@ -822,6 +842,8 @@ IF PY2:
 # could be directly used in __repr__ or __str__ implementation.
 cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
     # TODO change to `const uint8_t[::1] s` after strconv._quote is moved to pyx
+    if isinstance(s, bytearray):
+        s = _bytearray_data(s)
     assert isinstance(s, bytes), s
 
     # smartquotes: choose ' or " as quoting character exactly the same way python does
@@ -862,33 +884,128 @@ def pyqq(obj):
 # ---- _bstringify ----
 
 # _bstringify returns string representation of obj.
-# it is similar to unicode(obj).
+# it is similar to unicode(obj), but handles bytes as UTF-8 encoded strings.
 cdef _bstringify(object obj): # -> unicode|bytes
-    if type(obj) in (pybstr, pyustr, bytes, unicode):
+    if type(obj) in (pybstr, pyustr):
         return obj
-    if type(obj) is bytearray:
-        return bytes(obj)
 
-    if PY_MAJOR_VERSION >= 3:
-        return unicode(obj)
+    # indicate to e.g. patched bytes.__repr__ that it is being called from under _bstringify
+    _bstringify_enter()
 
-    else:
-        # on py2 mimic manually what unicode(·) does on py3
-        # the reason we do it manually is because if we try just
-        # unicode(obj), and obj's __str__ returns UTF-8 bytestring, it will
-        # fail with UnicodeDecodeError. Similarly if we unconditionally do
-        # str(obj), it will fail if obj's __str__ returns unicode.
-        if hasattr(obj, '__unicode__'):
-            return obj.__unicode__()
-        elif hasattr(obj, '__str__'):
-            # (u'β').__str__() gives UnicodeEncodeError, but unicode has no
-            # .__unicode__ method. Work it around to handle custom unicode
-            # subclasses that do not override __str__.
-            if type(obj).__str__ is unicode.__str__:
-                return unicode(obj)
-            return obj.__str__()
+    try:
+        if PY_MAJOR_VERSION >= 3:
+            # NOTE this depends on patches to bytes.{__repr__,__str__} below
+            return unicode(obj)
+
         else:
-            return repr(obj)
+            # on py2 mimic manually what unicode(·) does on py3
+            # the reason we do it manually is because if we try just
+            # unicode(obj), and obj's __str__ returns UTF-8 bytestring, it will
+            # fail with UnicodeDecodeError. Similarly if we unconditionally do
+            # str(obj), it will fail if obj's __str__ returns unicode.
+            #
+            # NOTE this depends on patches to bytes.{__repr__,__str__} and
+            #      unicode.{__repr__,__str__} below.
+            if hasattr(obj, '__unicode__'):
+                return obj.__unicode__()
+            elif hasattr(obj, '__str__'):
+                return obj.__str__()
+            else:
+                return repr(obj)
+
+    finally:
+        _bstringify_leave()
+
+# patch bytes.{__repr__,__str__} and (py2) unicode.{__repr__,__str__}, so that both
+# bytes and unicode are treated as normal strings when under _bstringify.
+#
+# Why:
+#
+#   py2: str([ 'β'])          ->  ['\\xce\\xb2']        (1) x
+#   py2: str([u'β'])          ->  [u'\\u03b2']          (2) x
+#   py3: str([ 'β'])          ->  ['β']                 (3)
+#   py3: str(['β'.encode()])  ->  [b'\\xce\\xb2']       (4) x
+#
+# for us 3 is ok, while 1,2 and 4 are not. For all 1,2,3,4 we want e.g.
+# `bstr(·)` to give ['β']. This is fixed by patching __repr__.
+#
+# regarding patching __str__ - 6 and 8 in the following examples illustrate the
+# need to do it:
+#
+#   py2: str( 'β')            ->  'β'                   (5)
+#   py2: str(u'β')            ->  UnicodeEncodeError    (6) x
+#   py3: str( 'β')            ->  'β'                   (7)
+#   py3: str('β'.encode())    ->  b'\\xce\\xb2'         (8) x
+
+cdef reprfunc _bytes_tp_repr   = Py_TYPE(b'').tp_repr
+cdef reprfunc _bytes_tp_str    = Py_TYPE(b'').tp_str
+cdef reprfunc _unicode_tp_repr = Py_TYPE(u'').tp_repr
+cdef reprfunc _unicode_tp_str  = Py_TYPE(u'').tp_str
+
+cdef object _bytes_tp_xrepr(object s):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _bytes_tp_repr(s)
+    s, _ = _bpysmartquote_u3b2(s)
+    return s
+
+cdef object _bytes_tp_xstr(object s):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _bytes_tp_str(s)
+    else:
+        if PY_MAJOR_VERSION >= 3:
+            return _utf8_decode_surrogateescape(s)
+        else:
+            return s
+
+cdef object _unicode2_tp_xrepr(object s):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _unicode_tp_repr(s)
+    s, _ = _upysmartquote_u3b2(s)
+    return s
+
+cdef object _unicode2_tp_xstr(object s):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _unicode_tp_str(s)
+    else:
+        return s
+
+def _bytes_x__repr__(s):        return _bytes_tp_xrepr(s)
+def _bytes_x__str__(s):         return _bytes_tp_xstr(s)
+def _unicode2_x__repr__(s):     return _unicode2_tp_xrepr(s)
+def _unicode2_x__str__(s):      return _unicode2_tp_xstr(s)
+
+def _():
+    cdef PyTypeObject* t
+    # NOTE patching bytes and its already-created subclasses that did not override .tp_repr/.tp_str
+    # NOTE if we don't also patch __dict__ - e.g. x.__repr__() won't go through patched .tp_repr
+    for pyt in [bytes] + bytes.__subclasses__():
+        assert isinstance(pyt, type)
+        t = <PyTypeObject*>pyt
+        if t.tp_repr == _bytes_tp_repr:
+            t.tp_repr = _bytes_tp_xrepr
+            _patch_slot(t, '__repr__', _bytes_x__repr__)
+        if t.tp_str  == _bytes_tp_str:
+            t.tp_str  = _bytes_tp_xstr
+            _patch_slot(t, '__str__',  _bytes_x__str__)
+_()
+
+if PY_MAJOR_VERSION < 3:
+    def _():
+        cdef PyTypeObject* t
+        for pyt in [unicode] + unicode.__subclasses__():
+            assert isinstance(pyt, type)
+            t = <PyTypeObject*>pyt
+            if t.tp_repr == _unicode_tp_repr:
+                t.tp_repr = _unicode2_tp_xrepr
+                _patch_slot(t, '__repr__', _unicode2_x__repr__)
+            if t.tp_str  == _unicode_tp_str:
+                t.tp_str  = _unicode2_tp_xstr
+                _patch_slot(t, '__str__',  _unicode2_x__str__)
+    _()
 
 
 # py2: adjust unicode.tp_richcompare(a,b) to return NotImplemented if b is bstr.
@@ -929,7 +1046,11 @@ if PY_MAJOR_VERSION < 3:
     _()
 
 
-# patch:
+# patch bytearray.{__repr__,__str__} similarly to bytes, so that e.g.
+# bstr( bytearray('β') )   turns into β      instead of  bytearray(b'\xce\xb2'),   and
+# bstr( [bytearray('β'] )  turns into ['β']  instead of  [bytearray(b'\xce\xb2')].
+#
+# also patch:
 #
 # - bytearray.__init__ to accept ustr instead of raising 'TypeError:
 #   string argument without an encoding'  (pybug: bytearray() should respect
@@ -937,9 +1058,28 @@ if PY_MAJOR_VERSION < 3:
 #
 # - bytearray.{sq_concat,sq_inplace_concat} to accept ustr instead of raising
 #   TypeError.  (pybug: bytearray + and += should respect __bytes__)
+cdef reprfunc   _bytearray_tp_repr    = (<PyTypeObject*>bytearray) .tp_repr
+cdef reprfunc   _bytearray_tp_str     = (<PyTypeObject*>bytearray) .tp_str
 cdef initproc   _bytearray_tp_init    = (<_XPyTypeObject*>bytearray) .tp_init
 cdef binaryfunc _bytearray_sq_concat  = (<_XPyTypeObject*>bytearray) .tp_as_sequence.sq_concat
 cdef binaryfunc _bytearray_sq_iconcat = (<_XPyTypeObject*>bytearray) .tp_as_sequence.sq_inplace_concat
+
+cdef object _bytearray_tp_xrepr(object a):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _bytearray_tp_repr(a)
+    s, _ = _bpysmartquote_u3b2(a)
+    return s
+
+cdef object _bytearray_tp_xstr(object a):
+    bs = _inbstringify_get()
+    if bs.inbstringify == 0:
+        return _bytearray_tp_str(a)
+    else:
+        if PY_MAJOR_VERSION >= 3:
+            return _utf8_decode_surrogateescape(a)
+        else:
+            return _bytearray_data(a)
 
 
 cdef int _bytearray_tp_xinit(object self, PyObject* args, PyObject* kw) except -1:
@@ -964,6 +1104,8 @@ cdef object _bytearray_sq_xiconcat(object a, object b):
     return _bytearray_sq_iconcat(a, b)
 
 
+def _bytearray_x__repr__(a):    return _bytearray_tp_xrepr(a)
+def _bytearray_x__str__ (a):    return _bytearray_tp_xstr(a)
 def _bytearray_x__init__(self, *argv, **kw):
     # NOTE don't return - just call: __init__ should return None
     _bytearray_tp_xinit(self, <PyObject*>argv, <PyObject*>kw)
@@ -975,6 +1117,12 @@ def _():
     for pyt in [bytearray] + bytearray.__subclasses__():
         assert isinstance(pyt, type)
         t = <PyTypeObject*>pyt
+        if t.tp_repr == _bytearray_tp_repr:
+            t.tp_repr = _bytearray_tp_xrepr
+            _patch_slot(t, '__repr__', _bytearray_x__repr__)
+        if t.tp_str  == _bytearray_tp_str:
+            t.tp_str  = _bytearray_tp_xstr
+            _patch_slot(t, '__str__',  _bytearray_x__str__)
         t_ = <_XPyTypeObject*>t
         if t_.tp_init == _bytearray_tp_init:
             t_.tp_init = _bytearray_tp_xinit
@@ -987,6 +1135,51 @@ def _():
             t_sq.sq_inplace_concat = _bytearray_sq_xiconcat
             _patch_slot(t, '__iadd__', _bytearray_x__iadd__)
 _()
+
+
+# _bytearray_data return raw data in bytearray as bytes.
+# XXX `bytearray s` leads to `TypeError: Expected bytearray, got hbytearray`
+cdef bytes _bytearray_data(object s):
+    if PY_MAJOR_VERSION >= 3:
+        return bytes(s)
+    else:
+        # on py2 bytes(s) is str(s) which invokes patched bytearray.__str__
+        # we want to get raw bytearray data, which is provided by unpatched bytearray.__str__
+        return _bytearray_tp_str(s)
+
+
+# _bstringify_enter/_bstringify_leave/_inbstringify_get allow _bstringify to
+# indicate to further invoked code whether it has been invoked from under
+# _bstringify or not.
+cdef object _inbstringify_key = "golang._inbstringify"
+@final
+cdef class _InBStringify:
+    cdef int inbstringify   # >0 if we are running under _bstringify
+    def __cinit__(self):
+        self.inbstringify = 0
+
+cdef void _bstringify_enter() except*:
+    bs = _inbstringify_get()
+    bs.inbstringify += 1
+
+cdef void _bstringify_leave() except*:
+    bs = _inbstringify_get()
+    bs.inbstringify -= 1
+
+cdef _InBStringify _inbstringify_get():
+    cdef PyObject*  _ts_dict = PyThreadState_GetDict() # borrowed
+    if _ts_dict == NULL:
+        raise RuntimeError("no thread state")
+    cdef _InBStringify ts_inbstringify
+    cdef PyObject* _ts_inbstrinfigy = PyDict_GetItemWithError(<object>_ts_dict, _inbstringify_key) # raises on error
+    if _ts_inbstrinfigy == NULL:
+        # key not present
+        ts_inbstringify = _InBStringify()
+        PyDict_SetItem(<object>_ts_dict, _inbstringify_key, ts_inbstringify)
+    else:
+        ts_inbstringify = <_InBStringify>_ts_inbstrinfigy
+    return ts_inbstringify
+
 
 # _patch_slot installs func_or_descr into typ's __dict__ as name.
 #

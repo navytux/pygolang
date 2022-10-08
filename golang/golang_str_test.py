@@ -144,11 +144,19 @@ def test_strings_basic():
     _ = ustr();         assert type(_) is ustr;  assert _ == ''
     _ = bstr(123);      assert type(_) is bstr;  assert _ == '123'
     _ = ustr(123);      assert type(_) is ustr;  assert _ == '123'
-    _ = bstr([1,'b']);  assert type(_) is bstr;  assert _ == "[1, 'b']"
-    _ = ustr([1,'b']);  assert type(_) is ustr;  assert _ == "[1, 'b']"
+    _ = bstr([1,'β']);  assert type(_) is bstr;  assert _ == "[1, 'β']"
+    _ = ustr([1,'β']);  assert type(_) is ustr;  assert _ == "[1, 'β']"
     obj = object()
     _ = bstr(obj);      assert type(_) is bstr;  assert _ == str(obj)  # <object ...>
     _ = ustr(obj);      assert type(_) is ustr;  assert _ == str(obj)  # <object ...>
+
+    # when stringifying they also handle bytes/bytearray inside containers as UTF-8 strings
+    _ = bstr([xunicode(  'β')]);   assert type(_) is bstr;  assert _ == "['β']"
+    _ = ustr([xunicode(  'β')]);   assert type(_) is ustr;  assert _ == "['β']"
+    _ = bstr([xbytes(    'β')]);   assert type(_) is bstr;  assert _ == "['β']"
+    _ = ustr([xbytes(    'β')]);   assert type(_) is ustr;  assert _ == "['β']"
+    _ = bstr([xbytearray('β')]);   assert type(_) is bstr;  assert _ == "['β']"
+    _ = ustr([xbytearray('β')]);   assert type(_) is ustr;  assert _ == "['β']"
 
 
     b_  = xbytes    ("мир");  assert type(b_) is bytes
@@ -1138,6 +1146,11 @@ def test_qq():
     _(           b('мир'),  '"мир"')            # b()
     _(           u('мир'),  '"мир"')            # u()
     _(                  1,  '"1"')              # int
+    _(    [xbytes('мир')],  '"[\'мир\']"')      # [b'']
+    _(           [u'мир'],  '"[\'мир\']"')      # [u'']
+    _([xbytearray('мир')],  '"[\'мир\']"')      # [b'']
+    _(         [b('мир')],  '"[\'мир\']"')      # [b()]
+    _(         [u('мир')],  '"[\'мир\']"')      # [u()]
 
 
     # what qq returns - bstr - can be mixed with both unicode, bytes and bytearray
@@ -1669,11 +1682,31 @@ def test_deepreplace_str():
 
 # ----------------------------------------
 
-# verify that what we patched stay unaffected when
+# verify that what we patched - e.g. bytes.__repr__ - stay unaffected when
 # called outside of bstr/ustr context.
 def test_strings_patched_transparently():
     b_  = xbytes    ("мир");  assert type(b_)  is bytes
     u_  = xunicode  ("мир");  assert type(u_)  is unicode
+    ba_ = xbytearray("мир");  assert type(ba_) is bytearray
+
+    # standard {repr,str}(bytes|unicode|bytearray) stay unaffected
+    assert repr(b_)  == x32(r"b'\xd0\xbc\xd0\xb8\xd1\x80'",
+                             r"'\xd0\xbc\xd0\xb8\xd1\x80'")
+    assert repr(u_)  == x32(r"'мир'",
+                            r"u'\u043c\u0438\u0440'")
+    assert repr(ba_) == r"bytearray(b'\xd0\xbc\xd0\xb8\xd1\x80')"
+
+    assert str(b_)   == x32(r"b'\xd0\xbc\xd0\xb8\xd1\x80'",
+                               "\xd0\xbc\xd0\xb8\xd1\x80")
+    if six.PY3  or  sys.getdefaultencoding() == 'utf-8': # py3 or gpython/py2
+        assert str(u_) == "мир"
+    else:
+        # python/py2
+        with raises(UnicodeEncodeError): str(u_)  # 'ascii' codec can't encode ...
+        assert str(u'abc') == "abc"
+
+    assert str(ba_)  == x32(r"bytearray(b'\xd0\xbc\xd0\xb8\xd1\x80')",
+                                        b'\xd0\xbc\xd0\xb8\xd1\x80')
 
     # unicode comparison stay unaffected
     assert (u_ == u_)  is True
@@ -1855,3 +1888,7 @@ def isascii(x):
 class hlist(list):
     def __hash__(self):
         return 0    # always hashable
+
+# x32(a,b) returns a on py3, or b on py2
+def x32(a, b):
+    return a if six.PY3 else b
