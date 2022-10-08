@@ -56,6 +56,7 @@ cdef extern from "Python.h":
 from libc.stdint cimport uint8_t
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
+import string as pystring
 import types as pytypes
 import functools as pyfunctools
 import re as pyre
@@ -391,6 +392,20 @@ class pybstr(bytes):
         a = _pybu_rcoerce(a)
         return a.__mod__(b)
 
+    # format
+    def format(self, *args, **kwargs):  return pyb(pyu(self).format(*args, **kwargs))
+    def format_map(self, mapping):      return pyb(pyu(self).format_map(mapping))
+    def __format__(self, format_spec):
+        # NOTE don't convert to b due to "TypeError: __format__ must return a str, not pybstr"
+        #      we are ok to return ustr even for format(bstr, ...) because in
+        #      practice format builtin is never used and it is only s.format()
+        #      that is used in programs. This way __format__ will be invoked
+        #      only internally.
+        #
+        # NOTE we are ok to use ustr.__format__ because the only format code
+        #      supported by bstr/ustr/unicode __format__ is 's', not e.g. 'r'.
+        return pyu(self).__format__(format_spec)
+
 
     # all other string methods
 
@@ -645,6 +660,17 @@ class pyustr(unicode):
             return NotImplemented   # see bstr.__rmod__
         a = _pybu_rcoerce(a)
         return a.__mod__(b)
+
+    # format
+    def format(self, *args, **kwargs):
+        return pyu(_bvformat(self, args, kwargs))
+    def format_map(self, mapping):
+        return pyu(_bvformat(self, (), mapping))
+    def __format__(self, format_spec):
+        # NOTE not e.g. `_bvformat(_pyu_coerce(format_spec), (self,))` because
+        #      the only format code that string.__format__ should support is
+        #      's', not e.g. 'r'.
+        return pyu(unicode.__format__(self, format_spec))
 
 
     # all other string methods
@@ -1290,7 +1316,7 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
 #       '%r' % [b'\xce\xb2']    ->  "[b'β']"
 #
 #
-# For "2" we implement %-format parsing ourselves. test_strings_mod
+# For "2" we implement %-format parsing ourselves. test_strings_mod_and_format
 # has good coverage for this phase to make sure we get it right and behaving
 # exactly the same way as standard Python does.
 #
@@ -1531,6 +1557,76 @@ cdef _bprintf(const uint8_t[::1] fmt, xarg): # -> pybstr
             raise TypeError("not all arguments converted during string formatting")
 
     return pybstr(out)
+
+
+# ---- .format formatting ----
+
+# Handling .format is easier and similar to %-Formatting: we detect fields to
+# format as strings via using custom string.Formatter (see _BFormatter), and
+# further treat objects to stringify similarly to how %-formatting does for %s and %r.
+#
+# We do not need to implement format parsing ourselves, because
+# string.Formatter provides it.
+
+# _bvformat implements .format for pybstr/pyustr.
+cdef _bvformat(fmt, args, kw):
+    return _BFormatter().vformat(fmt, args, kw)
+
+class _BFormatter(pystring.Formatter):
+    def format_field(self, v, fmtspec):
+        #print('format_field', repr(v), repr(fmtspec))
+        # {} on bytes/bytearray  ->  treat it as bytestring
+        if type(v) in (bytes, bytearray):
+            v = pyb(v)
+        #print('  ~ ', repr(v))
+        # if the object contains bytes inside, e.g. as in [b'β'] - treat those
+        # internal bytes also as bytestrings
+        _bstringify_enter()
+        try:
+            #return super(_BFormatter, self).format_field(v, fmtspec)
+            x = super(_BFormatter, self).format_field(v, fmtspec)
+        finally:
+            _bstringify_leave()
+        #print('  ->', repr(x))
+        if PY_MAJOR_VERSION < 3:  # py2 Formatter._vformat does does ''.join(result)
+            x = pyu(x)            # -> we want everything in result to be unicode to avoid
+                                  # UnicodeDecodeError
+        return x
+
+    def convert_field(self, v, conv):
+        #print('convert_field', repr(v), repr(conv))
+        if conv == 's':
+            # string.Formatter does str(v) for 's'. we don't want that:
+            # py3: stringify, and especially treat bytes as bytestring
+            # py2: stringify, avoiding e.g. UnicodeEncodeError for str(unicode)
+            x = pyb(_bstringify(v))
+        elif conv == 'r':
+            # for bytes {!r} produces ASCII-only, but we want unicode-like !r for e.g. b'β'
+            # -> handle it ourselves
+            x = pyb(_bstringify_repr(v))
+        else:
+            x = super(_BFormatter, self).convert_field(v, conv)
+        #print('  ->', repr(x))
+        return x
+
+    # on py2 string.Formatter does not handle field autonumbering
+    # -> do it ourselves
+    if PY_MAJOR_VERSION < 3:
+        _autoidx   = 0
+        _had_digit = False
+        def get_field(self, field_name, args, kwargs):
+            if field_name == '':
+                if self._had_digit:
+                    raise ValueError("mixing explicit and auto numbered fields is forbidden")
+                field_name = str(self._autoidx)
+                self._autoidx += 1
+
+            elif field_name.isdigit():
+                self._had_digit = True
+                if self._autoidx != 0:
+                    raise ValueError("mixing explicit and auto numbered fields is forbidden")
+
+            return super(_BFormatter, self).get_field(field_name, args, kwargs)
 
 
 # ---- misc ----

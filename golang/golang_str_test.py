@@ -31,7 +31,7 @@ import sys
 import six
 from six import text_type as unicode, unichr
 from six.moves import range as xrange
-import pickle, copy, types
+import re, pickle, copy, types
 import array, collections
 
 
@@ -880,8 +880,8 @@ def test_strings_ops2_eq_any(tx):
     _(l)
 
 
-# verify logic in `bstr % ...` .
-def test_strings_mod():
+# verify logic in `bstr % ...` and `bstr.format(...)` .
+def test_strings_mod_and_format():
     # verify_fmt_all_types verifies f(fmt, args) for all combinations of
     #
     # · fmt  being             unicode, bstr, ustr
@@ -1049,13 +1049,56 @@ def test_strings_mod():
     _('*str %(x)%', {'x':1}, ValueError("unsupported format character '%' (0x25) at index 9"))
 
 
-    # parse checking complete. now verify actual %-formatting
+    # parse checking complete. now verify actual %- and format- formatting
 
-    # _ verifies `fmt % args`
+    # fmt_percent_to_bracket converts %-style format to .format-style format string.
+    def fmt_percent_to_bracket(fmt):
+        # replace %<x> with corresponding {} style
+        # be dumb and explicit in replacement to make sure there is no chance
+        # we get this logic wrong
+        def _(m):
+            r = {
+                '%s':       '{!s}',
+                '%r':       '{!r}',
+                '%(x)s':    '{x!s}',
+                '%(y)s':    '{y!s}',
+                '%(z)s':    '{z!s}',
+            }
+            return r[m.group()]
+
+        fmt_ = re.sub('%[^ ]*[a-z]', _, fmt)
+        assert '%' not in fmt_
+        return fmt_
+
+    # xformat calls fmt.format with *args or **args appropriately.
+    def xformat(fmt, args):
+        if isinstance(args, (dict, six.moves.UserDict)):
+            a = fmt.format(**args)
+            if not (six.PY2 and type(fmt) is unicode):
+                b = fmt.format_map(args)    # py2: no unicode.format_map()
+                assert a == b
+            return a
+        elif isinstance(args, tuple):
+            return fmt.format(*args)
+        else:
+            return fmt.format(args) # it was e.g. `'%s' % 123`
+
+    # _ verifies `fmt % args` and `fmt'.format(args)`
     # if fmt has no '%' only .format(args) is verified.
     def _(fmt, args, *okv):
-        verify_fmt_all_types(lambda fmt, args: fmt % args,
-                             fmt, args, *okv)
+        if '%' in fmt:
+            verify_fmt_all_types(lambda fmt, args: fmt % args,
+                                 fmt, args, *okv)
+            # compute fmt' for .format verification
+            fmt_ = fmt_percent_to_bracket(fmt)
+            # and assert that .format result is the same as for %
+            # compare to b() formatting because else on py2 we hit unicode % issues
+            # we, anyway, just verified b() % above.
+            if len(okv) == 0:
+                okv = [b(fmt) % args]
+        else:
+            fmt_ = fmt
+        verify_fmt_all_types(xformat, fmt_, args, *okv)
 
     _("*str a %s z",  123)      # NOTE *str to force str -> bstr/ustr even for ASCII string
     _("*str a %s z",  '*str \'"\x7f')
@@ -1229,6 +1272,17 @@ def test_strings_mod():
         assert br == ok
         assert ur == ok
 
+        # verify b().format(args)  and  u().format(args)
+        fmt_  = fmt_percent_to_bracket(fmt)
+        bfmt_ = b(fmt_)
+        ufmt_ = u(fmt_)
+        br_   = xformat(bfmt_, args)  #;print(repr(bfmt), " .format ", repr(args), " -> ", repr(br))
+        ur_   = xformat(ufmt_, args)  #;print(repr(ufmt), " .format ", repr(args), " -> ", repr(ur))
+        assert type(br_) is bstr
+        assert type(ur_) is ustr
+        assert br_ == ok
+        assert ur_ == ok
+
     M("α %s π",  U (      u'май')         , "α май π")
     M("α %s π", (U (      u'май'),)       , "α май π")
     M("α %s π", [U (      u'май')]        , "α ['май'] π")
@@ -1304,6 +1358,68 @@ def test_strings_mod():
     M("α %r",   [xbytearray('β')]       , "α [bytearray(b'β')]")
     M("α %r",   [b('β')]                , "α [b('β')]")
     M("α %r",   [u('β')]                , "α [u('β')]")
+
+    # some explicit verifications for .format()
+    _("*str hello  {}",     ("world",))
+    _("*str hello  {}",     (["world"],))
+    _("*str hello  {}",     ("мир",))
+    _("*str hello  {}",     (["мир"],)              , "*str hello  ['мир']")
+    _("привет {}",          ("мир",))
+    _("привет {}",          (["мир"],)              , "привет ['мир']")
+    _("привет {0}, {1}",    ("Петя", "Вася"))
+    _("привет {name}",      {'name': "Ваня"})
+    _("привет {name}",      {"name": "Тигра"}       , "привет Тигра")
+    _("привет {name!s}",    {"name": "Винни"}       , "привет Винни")
+    _("привет {name:>10}",  {"name": "Пух"}         , "привет        Пух")
+    _("привет {!s}",        ("мир",))
+    _("привет {!s}",        (["мир"],)              , "привет ['мир']")
+    _("привет {:>10}",      ("мир",))
+    _("привет {:>{}} {}",   ("мир", 10, "α"))
+    _("привет {:02x}",      (23,))
+
+
+# verify __format__ + format() builtin
+def test_strings__format__():
+    assert "привет {}".format("мир") == "привет мир"
+    assert "привет {}".format(b("мир")) == "привет мир"
+    assert "привет {}".format(u("мир")) == "привет мир"
+
+    assert format(u"мир")       == u"мир"
+    assert format(u"мир", "")   == u"мир"
+    assert format(u"мир", "s")  == u"мир"
+    assert format(u"мир", ">5") == u"  мир"
+    fb  = format(b("мир"))
+    fb_ = format(b("мир"), "")
+    fbs = format(b("мир"), "s")
+    fb5 = format(b("мир"), ">5")
+    assert type(fb)  is ustr # NOTE ustr, not bstr due to b.__format__ returning u
+    assert type(fb_) is ustr
+    assert type(fbs) is ustr
+    assert type(fb5) is ustr
+    assert fb  == "мир"
+    assert fb_ == "мир"
+    assert fbs == "мир"
+    assert fb5 == "  мир"
+    fu  = format(u("мир"))
+    fu_ = format(u("мир"), "")
+    fus = format(u("мир"), "s")
+    fu5 = format(u("мир"), ">5")
+    assert type(fu)  is ustr
+    assert type(fu_) is ustr
+    assert type(fus) is ustr
+    assert type(fu5) is ustr
+    assert fu  == "мир"
+    assert fu_ == "мир"
+    assert fus == "мир"
+    assert fu5 == "  мир"
+
+    # string.__format__ accepts only '' and 's' format codes
+    for fmt_spec in "abcdefghijklmnopqrstuvwxyz":
+        if fmt_spec == 's':
+            continue
+        with raises(ValueError): format( u"мир",  fmt_spec)
+        with raises(ValueError): format(b("мир"), fmt_spec)
+        with raises(ValueError): format(u("мир"), fmt_spec)
 
 
 # verify print for bstr/ustr.
