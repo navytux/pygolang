@@ -32,7 +32,7 @@ import six
 from six import text_type as unicode, unichr
 from six.moves import range as xrange
 import pickle, copy, types
-import array
+import array, collections
 
 
 # buftypes lists types with buffer interface that we will test against.
@@ -718,6 +718,83 @@ def test_strings_ops2(tx, ty):
            _ is not x
 
 
+    # x % y  (not tuple at right)
+    # ideally same typing rules as for +, but for `x=u'' y=b()` and `x=b'' y=u()`
+    # we can't make python call y.__rmod__ .
+    # see https://bugs.python.org/issue28598 for references where python implements this.
+    #
+    # NOTE python 3.11 reworked % handling to be generic - there we could
+    # probably make y.__rmod__ to be called via tweaking __subclasscheck__
+    # https://github.com/python/cpython/commit/ec382fac0db6
+    if tx in (bstr, ustr):
+        tmod = tx
+    elif tx in (unicode, bytes):
+        if ty in (unicode, bytes, bytearray):
+            tmod = tx
+        else:
+            assert ty in (bstr, ustr)
+            # on py2 str % (unicode|ustr)  gives unicode
+            if six.PY2 and ty is ustr:
+                if tx is bytes:
+                    tmod = unicode
+                else:
+                    assert tx is unicode
+                    tmod = ustr  # ustr is subclass of unicode -> __rmod__ is called
+            else:
+                tmod = tx       if  tbu(tx) is not ty  else \
+                       tbu(tx)
+    else:
+        assert tx is bytearray
+        tmod = tx
+
+    x = xstr(u'hello %s', tx)
+    if six.PY2  and  tx is bytearray: # bytearray/py2 does not support %
+        _ = xbytearray(bytes(x) % y)
+    else:
+        _ = x % y
+    assert type(_) is tmod
+    assert _ == xstr(u'hello мир', tmod)
+    assert _ is not x
+
+    # x %= y  (not tuple at right;  same as in corresponding %)
+    _ = x
+    if six.PY2  and  tx is bytearray: # bytearray/py2 does not support %=
+        _ = xbytearray(bytes(x) % y)
+    else:
+        _ %= y
+    assert type(_) is tmod
+    assert _ == xstr(u'hello мир', tmod)
+    assert _ is not x   # even bytearray('%s') %= y  creates new object
+
+    # x % (y,)
+    # py3: result type is type(x) because y.__rmod__ is never called
+    # py2: similar, but b'' % u'' gives u
+    if six.PY2  and  tx is bytearray: # bytearray/py2 does not support %
+        _ = xbytearray(bytes(x) % (y,))
+    else:
+        _ = x % (y,)
+    ttmod = tx
+    if six.PY2:
+        if tx in (bytes, unicode):
+            if tx is unicode or ty in (unicode, ustr):
+                ttmod = unicode
+            else:
+                ttmod = bytes
+    assert type(_) is ttmod
+    assert _ == xstr(u'hello мир', ttmod)
+    assert _ is not x
+
+    # x %= (y,)
+    _ = x
+    if six.PY2  and  tx is bytearray: # bytearray/py2 does not support %=
+        _ = xbytearray(bytes(x) % (y,))
+    else:
+        _ %= (y,)
+    assert type(_) is ttmod
+    assert _ == xstr(u'hello мир', ttmod)
+    assert _ is not x   # even bytearray('%s') %= y  creates new object
+
+
 # verify string operations like `x + y` for x being bstr/ustr and y being a
 # type unsupported for coercion.
 #
@@ -801,6 +878,433 @@ def test_strings_ops2_eq_any(tx):
     l = [1]
     with raises(TypeError): hash(l)
     _(l)
+
+
+# verify logic in `bstr % ...` .
+def test_strings_mod():
+    # verify_fmt_all_types verifies f(fmt, args) for all combinations of
+    #
+    # · fmt  being             unicode, bstr, ustr
+    # · args being/containing  unicode, bytes, bytearray,  bstr, ustr
+    #
+    # it checks that all results are the same for the case when both fmt and
+    # args contain only standard unicode.
+    def verify_fmt_all_types(f, fmt, args, *okv, **kw):
+        excok = kw.pop('excok', False)
+        assert not kw
+        rok = None
+        #print()
+        def xfmt(fmt, args):
+            exc = False
+            try:
+                r = f(fmt, args)    # e.g. fmt % args
+            except Exception as e:
+                if not excok:
+                    raise
+                exc = True
+                r = repr(e) # because e.g. ValueError('x') == ValueError('x') is false
+            #print(repr(fmt), "%", repr(args), "->", repr(r))
+            if not exc:
+                assert type(r) is type(fmt)
+            if len(okv) != 0:
+                for ok in okv:
+                    if isinstance(ok, Exception):
+                        ok = repr(ok)
+                    else:
+                        ok = xunicode(ok)
+                    if r == ok:
+                        break
+                else:
+                    raise AssertionError("result (%r) not in any of %r" % (r, okv))
+            elif rok is not None:
+                assert r == rok
+            return r
+
+        fmt_ustd  = deepReplaceStr(fmt, xunicode)
+        fmt_u     = deepReplaceStr(fmt, u)
+        fmt_b     = deepReplaceStr(fmt, b)
+        args_ustd = deepReplaceStr(args, xunicode)
+        args_bstd = deepReplaceStr(args, xbytes)
+        args_barr = deepReplaceStr2Bytearray(args)
+        args_u    = deepReplaceStr(args, u)
+        args_b    = deepReplaceStr(args, b)
+
+        # see if args_ustd could be used for stringification.
+        # e.g. on py2 both str() and unicode() on UserString(u'β') raises
+        # "UnicodeEncodeError: 'ascii' codec can't encode characters ..."
+        args_ustd_ok = True
+        if six.PY2:
+            try:
+                unicode(args_ustd)          # e.g. UserString
+                try:
+                    it = iter(args_ustd)    # e.g. (UserString,)
+                    # on py2 UserDict is not really iterable - iter succeeds but
+                    # going through it raises KeyError because of
+                    # https://github.com/python/cpython/blob/2.7-0-g8d21aa21f2c/Lib/UserDict.py#L112-L114
+                    # -> work it around
+                    if six.PY2 and not hasattr(args_ustd, '__iter__'):
+                        raise TypeError
+                except TypeError:
+                    pass
+                else:
+                    for _ in it:
+                        unicode(_)
+            except UnicodeEncodeError:
+                args_ustd_ok = False
+
+        # initialize rok from u'' % u''.
+        # Skip errors on py2 because e.g. `u'α %s' % [u'β']` gives u"α [u'\\u03b2']",
+        # not u"α ['β']". This way we cannot use u'' % u'' as a reference.
+        # We cannot use b'' % b'' as a reference neither because e.g.
+        # `'α %s' % ['β']` gives "α ['\\xce\\xb2']", not "α ['β']"
+        if args_ustd_ok:
+            good4rok = True
+            try:
+                _ = xfmt(fmt_ustd, args_ustd)   # u'' % (u'', ...)
+            except AssertionError as e:
+                if six.PY2  and  len(e.args) == 1  and  "not in any of" in e.args[0]:
+                    good4rok = False
+                else:
+                    raise
+            if good4rok:
+                rok = _
+
+        # if rok computation was skipped we insist on being explicitly called with ok=...
+        assert (rok is not None)  or  (len(okv) != 0)
+
+        if args_ustd_ok:
+            xfmt(fmt_b, args_ustd)      # b() % (u'', ...)
+            xfmt(fmt_u, args_ustd)      # u() % (u'', ...)
+        xfmt(fmt_b, args_bstd)          # b() % (b'', ...)
+        xfmt(fmt_u, args_bstd)          # u() % (b'', ...)
+        xfmt(fmt_b, args_barr)          # b() % (bytearray, ...)
+        xfmt(fmt_u, args_barr)          # u() % (bytearray, ...)
+        xfmt(fmt_b, args_b)             # b() % (b(), ...)
+        xfmt(fmt_u, args_b)             # b() % (b(), ...)
+        xfmt(fmt_b, args_u)             # b() % (u(), ...)
+        xfmt(fmt_u, args_u)             # b() % (u(), ...)
+        # NOTE we don't check e.g. `u'' % u()` and `u'' % b()` because for e.g.
+        # `u'α %s' % [u('β')]` the output is u"α [u("β")]" - not u"α ['β']".
+
+
+    # _bprintf parses %-format ourselves. Verify that parsing first
+    # NOTE here all strings are plain ASCII.
+    def _(fmt, args):
+        fmt = '*str '+fmt
+        for l in range(len(fmt), -1, -1):
+            # [:len(fmt)] verifies original case
+            # [:l<len]    should verify "incomplete format" parsing
+            verify_fmt_all_types(lambda fmt, args: fmt % args,
+                                 fmt[:l], args, excok=True)
+
+    _('%(name)s',   {'name': 123})
+    _('%x',         123)        # flags
+    _('%#x',        123)
+    _('%05d',       123)
+    _('%-5d',       123)
+    _('% d',        123)
+    _('% d',       -123)
+    _('%+d',       -123)
+    _('%5d',        123)        # width
+    _('%*d',        (5,123))
+    _('%f',         1.234)      # .prec
+    _('%.f',        1.234)
+    _('%.1f',       1.234)
+    _('%.2f',       1.234)
+    _('%*f',        (2,1.234))
+    _('%hi',        123)        # len
+    _('%li',        123)
+    _('%Li',        123)
+    _('%%',         ())         # %%
+    _('%10.4f',     1.234)      # multiple features
+    _('%(x)10.4f',  {'y':0, 'x':1.234})
+    _('%*.*f',      (10,4,1.234))
+
+    _('',           {})         # not all arguments converted
+    _('',           [])
+    _('',           123)
+    _('',           '123')
+    _('%s',         ())         # not enough arguments to format
+    _('%s %s',      123)
+    _('%s %s',      (123,))
+
+    _('%(x)s',      123)        # format requires a mapping
+    _('%(x)s',      (123,))
+    _('%s %(x)s',   (123,4))
+    _('%(x)s %s',   (123,4))
+
+    _('%(x)s %s',   {'x':1})    # mixing tuple/dict
+    _('%s %(x)s',   {'x':1})
+
+    _('abc %z',     1)          # unsupported format character
+    _('abc %44z',   1)
+
+    # for `'%4%' % ()` py2 gives '   %', but we stick to more reasonable py3 semantic
+    def _(fmt, args, ok):
+        return verify_fmt_all_types(lambda fmt, args: fmt % args,
+                                    fmt, args, ok, excok=True)
+    _('*str %4%',   (),      TypeError("not enough arguments for format string"))
+    _('*str %4%',   1,       ValueError("unsupported format character '%' (0x25) at index 7"))
+    _('*str %4%',   (1,),    ValueError("unsupported format character '%' (0x25) at index 7"))
+    _('*str %(x)%', {'x':1}, ValueError("unsupported format character '%' (0x25) at index 9"))
+
+
+    # parse checking complete. now verify actual %-formatting
+
+    # _ verifies `fmt % args`
+    # if fmt has no '%' only .format(args) is verified.
+    def _(fmt, args, *okv):
+        verify_fmt_all_types(lambda fmt, args: fmt % args,
+                             fmt, args, *okv)
+
+    _("*str a %s z",  123)      # NOTE *str to force str -> bstr/ustr even for ASCII string
+    _("*str a %s z",  '*str \'"\x7f')
+    _("*str a %s z",  'β')
+    _("*str a %s z",  ('β',))
+    _("*str a %s z",  ['β']                       , "*str a ['β'] z")
+
+    _("a %s π",  123)
+    _("a %s π",  '*str \'"\x7f')
+    _("a %s π",  'β')
+    _("a %s π",  ('β',))
+    _("a %s π",  ['β']                            , "a ['β'] π")
+
+    _("α %s z",  123)
+    _("α %s z",  '*str \'"\x7f')
+    _("α %s z",  'β')
+    _("α %s z",  ('β',))
+    _("α %s z",  ['β']                            , "α ['β'] z")
+
+    _("α %s π",  123)
+    _("α %s π",  '*str \'"\x7f')
+    _("α %s π",  'β')
+    _("α %s π",  ('β',))
+    _("α %s π",  ('β',))
+    _("α %s %s π",  ('β', 'γ'))
+    _("α %s %s %s π",  ('β', 'γ', 'δ'))
+    _("α %s %s %s %s %s %s %s π",  (1, 'β', 2, 'γ', 3, 'δ', 4))
+    _("α %s π",  [])
+    _("α %s π",  ([],))
+    _("α %s π",  ((),))
+    _("α %s π",  set())
+    _("α %s π",  (set(),))
+    _("α %s π",  frozenset())
+    _("α %s π",  (frozenset(),))
+    _("α %s π",  ({},))
+    _("α %s π",  ['β']                            , "α ['β'] π")
+    _("α %s π",  (['β'],)                         , "α ['β'] π")
+    _("α %s π",  (('β',),)                        , "α ('β',) π")
+    _("α %s π",  {'β'}                            , x32("α {'β'} π", "α set(['β']) π"))
+    _("α %s π",  ({'β'},)                         , x32("α {'β'} π", "α set(['β']) π"))
+    _("α %s π",  frozenset({'β'})                 , x32("α frozenset({'β'}) π", "α frozenset(['β']) π"))
+    _("α %s π",  (frozenset({'β'}),)              , x32("α frozenset({'β'}) π", "α frozenset(['β']) π"))
+    _("α %s π",  ({'β':'γ'},)                     , "α {'β': 'γ'} π")
+    _("α %s %s π",  ([1, 'β', 2], 345)            , "α [1, 'β', 2] 345 π")
+    _("α %s %s π",  ((1, 'β', 2), 345)            , "α (1, 'β', 2) 345 π")
+    # NOTE set/frozenset/dict: print order is "random"
+    _("α %s %s π",  ({1, 'β'}, 345)               , *x32(("α {1, 'β'} 345 π",      "α {'β', 1} 345 π"),
+                                                         ("α set([1, 'β']) 345 π", "α set(['β', 1]) 345 π")))
+    _("α %s %s π",  (frozenset({1, 'β'}), 345)    , *x32(("α frozenset({1, 'β'}) 345 π", "α frozenset({'β', 1}) 345 π"),
+                                                         ("α frozenset([1, 'β']) 345 π", "α frozenset(['β', 1]) 345 π"))),
+    _("α %s %s π",  ({1:'мир', 'β':'труд'}, 345)  , *x32(("α {1: 'мир', 'β': 'труд'} 345 π",), # py3: dict is insert-order
+                                                         ("α {1: 'мир', 'β': 'труд'} 345 π", "α {'β': 'труд', 1: 'мир'} 345 π")))
+
+
+    # recursive list
+    l = [1,]; l += [l, 'мир']
+    _('α %s π', (l,)                              , "α [1, [...], 'мир'] π")
+
+    # recursive tuple
+    t = (1, []); t[1].append((t, 'мир'))
+    _('α %s π', (t,)                              , "α (1, [((...), 'мир')]) π")
+
+    # recursive set
+    s = {1}; s.add(hlist([s]))
+    _('α %s π', (s,)                              , x32("α {[set(...)], 1} π", "α set([[set(...)], 1]) π"))
+
+    # recursive frozenset
+    l = hlist()
+    f = frozenset({1, l}); l.append(f)
+    _('α %s π', (f,))
+
+    # recursive dict (via value)
+    d = {1:'мир'}; d.update({2:d})
+    _('α %s π', (d,)                              , *x32(("α {1: 'мир', 2: {...}} π",),
+                                                         ("α {1: 'мир', 2: {...}} π", "α {2: {...}, 1: 'мир'} π")))
+
+    # recursive dict (via key)
+    l = hlist([1])
+    d = {l:'мир'}; l.append(d)
+    _('α %s π', (d,)                              , "α {[1, {...}]: 'мир'} π")
+
+
+    # old-style class with __str__
+    class Cold:
+        def __repr__(self): return "Cold()"
+        def __str__(self):  return u"Класс (old)"
+    _('α %s π', Cold())
+    _('α %s π', (Cold(),))
+
+    # new-style class with __str__
+    class Cnew(object):
+        def __repr__(self): return "Cnew()"
+        def __str__(self):  return u"Класс (new)"
+    _('α %s π', Cnew())
+    _('α %s π', (Cnew(),))
+
+
+    # custom classes inheriting from set/list/tuple/dict/frozenset
+    class L(list):      pass
+    class T(tuple):     pass
+    class S(set):       pass
+    class F(frozenset): pass
+    class D(dict):      pass
+    _('α %s π', L(['β',3])        , "α ['β', 3] π")
+    _('α %s π', (L(['β',3]),)     , "α ['β', 3] π")
+    _('α %s π', (T(['β',3]),)     , "α ('β', 3) π")
+    # NOTE set/frozenset/dict: print order is "random"
+    _('α %s π', S(['β',3])        , *x32(("α S({'β', 3}) π", "α S({3, 'β'}) π"),
+                                         ("α S(['β', 3]) π", "α S([3, 'β']) π")))
+    _('α %s π', (S(['β',3]),)     , *x32(("α S({'β', 3}) π", "α S({3, 'β'}) π"),
+                                         ("α S(['β', 3]) π", "α S([3, 'β']) π")))
+    _('α %s π', F(['β',3])        , *x32(("α F({'β', 3}) π", "α F({3, 'β'}) π"),
+                                         ("α F(['β', 3]) π", "α F([3, 'β']) π")))
+    _('α %s π', (F(['β',3]),)     , *x32(("α F({'β', 3}) π", "α F({3, 'β'}) π"),
+                                         ("α F(['β', 3]) π", "α F([3, 'β']) π")))
+    _('α %s π', (D([('β','γ'), (3,4)]),)
+                                  , *x32(("α {'β': 'γ', 3: 4} π",),
+                                         ("α {'β': 'γ', 3: 4} π", "α {3: 4, 'β': 'γ'} π")))
+
+    # well-known classes
+
+    # namedtuple
+    cc = collections; xcc = six.moves
+    Point = cc.namedtuple('Point', ['x', 'y'])
+    _('α %s π', (Point('β','γ'),)             , "α Point(x='β', y='γ') π")
+    # deque
+    _('α %s π', cc.deque(['β','γ'])           , "α deque(['β', 'γ']) π")
+    _('α %s π', (cc.deque(['β','γ']),)        , "α deque(['β', 'γ']) π")
+    # Counter  (inherits from dict)
+    _('α %s π', (cc.Counter({'β':1}),)        , "α Counter({'β': 1}) π")
+    # OrderedDict
+    _('α %s π', (cc.OrderedDict([(1,'мир'), ('β','труд')]),)
+                                              , "α OrderedDict([(1, 'мир'), ('β', 'труд')]) π")
+    # defaultdict
+    _('α %s π', (cc.defaultdict(int, {'β':1}),)
+                                              , x32("α defaultdict(<class 'int'>, {'β': 1}) π",
+                                                    "α defaultdict(<type 'int'>, {'β': 1}) π"))
+    # UserDict
+    _('α %s π', (xcc.UserDict({'β':1}),)      , "α {'β': 1} π")
+    # UserList
+    _('α %s π', xcc.UserList(['β','γ'])       , "α ['β', 'γ'] π")
+    _('α %s π', (xcc.UserList(['β','γ']),)    , "α ['β', 'γ'] π")
+    # UserString
+    _('α %s π', xcc.UserString('βγ')          , "α βγ π")
+    _('α %s π', (xcc.UserString('βγ'),)       , "α βγ π")
+
+
+    # custom classes inheriting from bytes/unicode/bytearray
+    class B(bytes): pass
+    class BB(bytes):
+        def __repr__(self): return "BB(байты)"
+        def __str__(self):  return "байты"
+    class U(unicode): pass
+    class UU(unicode):
+        def __repr__(self): return "UU(юникод)"
+        def __str__(self):  return "юникод"
+        __unicode__ = __str__
+    class A(bytearray): pass
+    class AA(bytearray):
+        def __repr__(self): return "AA(байтмассив)"
+        def __str__(self):  return "байтмассив"
+
+    def M(fmt, args, ok):
+        # verify only `b() % args`  and `u() % args` since for e.g. `u'' % b''` the result is different
+        bfmt = b(fmt)
+        ufmt = u(fmt)
+        br   = bfmt % args  #;print(repr(bfmt), " % ", repr(args), " -> ", repr(br))
+        ur   = ufmt % args  #;print(repr(ufmt), " % ", repr(args), " -> ", repr(ur))
+        assert type(br) is bstr
+        assert type(ur) is ustr
+        assert br == ok
+        assert ur == ok
+
+    M("α %s π",  U (      u'май')         , "α май π")
+    M("α %s π", (U (      u'май'),)       , "α май π")
+    M("α %s π", [U (      u'май')]        , "α ['май'] π")
+    M("α %s π",  UU(      u'май2')        , "α юникод π")       # not май2
+    M("α %s π", (UU(      u'май2'),)      , "α юникод π")       # not май2
+    M("α %s π", [UU(      u'май2')]       , "α [UU(юникод)] π") # not [май2]
+
+    M("α %s π",  B (xbytes('мир'))        , "α мир π")
+    M("α %s π", (B (xbytes('мир')),)      , "α мир π")
+    M("α %s π", [B (xbytes('мир'))]       , "α ['мир'] π")
+    M("α %s π",  BB(xbytes('мир2'))       , "α байты π")        # not мир2
+    # vvv does not work on py3 as b'' % b'' does not consult __str__ nor __bytes__ of the argument
+    # even though it is not 100% we are ok here, because customizing bytes or unicode is very exotic
+    if six.PY2:
+        M("α %s π", (BB(xbytes('мир2')),)     , "α байты π")    # not мир2
+    M("α %s π", [BB(xbytes('мир2'))]      , "α [BB(байты)] π")  # not [мир2]
+
+    M("α %s π",  A (xbytes('труд'))       , "α труд π")
+    M("α %s π", (A (xbytes('труд')),)     , "α труд π")
+    M("α %s π", [A (xbytes('труд'))]      , "α ['труд'] π")
+    M("α %s π",  AA(xbytes('труд2'))      , "α байтмассив π")       # not труд2
+    M("α %s π", (AA(xbytes('труд2')),)    , "α байтмассив π")       # not труд2
+    M("α %s π", [AA(xbytes('труд2'))]     , "α [AA(байтмассив)] π") # not [труд2]
+
+
+    # dict at right
+    # less tests because stringification of arguments is already thoroughly
+    # verified with "tuple at right" tests above.
+    _("*str a %(x)s z",             {'x': 123})
+    _("*str a %(x)s z",             {'x': '*str \'"\x7f'})
+    _("*str a %(x)s z",             {'x': 'β'})
+    _("*str a %(x)s z",             {'x': ['β']}                    , "*str a ['β'] z")
+    _("*str a %(x)s %(y)s z",       {'x':'β', 'y':'γ'})
+    _("*str a %(x)s %(y)s %(z)s z", {'x':'β', 'y':'γ', 'z':'δ'})
+
+    _("a %(x)s π",                  {'x': 123})
+    _("a %(x)s π",                  {'x': '*str \'"\x7f'})
+    _("a %(x)s π",                  {'x': 'β'})
+    _("a %(x)s π",                  {'x': ['β']}                    , "a ['β'] π")
+    _("a %(x)s %(y)s π",            {'x': 'β', 'y':'γ'})
+    _("a %(x)s %(y)s %(z)s π",      {'x': 'β', 'y':'γ', 'z':'δ'})
+
+    _("α %(x)s z",                  {'x': 123})
+    _("α %(x)s z",                  {'x': '*str \'"\x7f'})
+    _("α %(x)s z",                  {'x': 'β'})
+    _("α %(x)s z",                  {'x': ['β']}                    , "α ['β'] z")
+    _("α %(x)s %(y)s z",            {'x': 'β', 'y':'γ'})
+    _("α %(x)s %(y)s %(z)s z",      {'x': 'β', 'y':'γ', 'z':'δ'})
+
+    _("α %(x)s π",                  {'x': 123})
+    _("α %(x)s π",                  {'x': '*str \'"\x7f'})
+    _("α %(x)s π",                  {'x': 'β'})
+    _("α %(x)s π",                  {'x': ['β']}                    , "α ['β'] π")
+    _("α %(x)s %(y)s π",            {'x':'β', 'y':'γ'})
+    _("α %(x)s %(y)s %(z)s π",      {'x':'β', 'y':'γ', 'z':'δ'})
+
+    _("*str a %(x)s z",             xcc.UserDict({'x': 'β'}))
+    _("α %(x)s π",                  xcc.UserDict({'x': 'β'}))
+
+
+    # %r (and !r)
+    M("α %r",   u'z'                    , x32("α 'z'",    "α u'z'"))
+    M("α %r",   u'β'                    , x32("α 'β'",    "α u'β'"))
+    M("α %r",   b'z'                    , x32("α b'z'",   "α 'z'"))
+    M("α %r",   xbytes('β')             , x32("α b'β'",   "α 'β'"))
+    M("α %r",   xbytearray('β')         , "α bytearray(b'β')")
+    M("α %r",   b('β')                  , "α b('β')")
+    M("α %r",   u('β')                  , "α u('β')")
+    M("α %r",   [u'z']                  , x32("α ['z']",  "α [u'z']"))
+    M("α %r",   [u'β']                  , x32("α ['β']",  "α [u'β']"))
+    M("α %r",   [b'z']                  , x32("α [b'z']", "α ['z']"))
+    M("α %r",   [xbytes('β')]           , x32("α [b'β']", "α ['β']"))
+    M("α %r",   [xbytearray('β')]       , "α [bytearray(b'β')]")
+    M("α %r",   [b('β')]                , "α [b('β')]")
+    M("α %r",   [u('β')]                , "α [u('β')]")
+
 
 # verify print for bstr/ustr.
 def test_strings_print():

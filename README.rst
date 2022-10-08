@@ -269,6 +269,11 @@ Usage example::
    for c in s:          # c will iterate through
         ...             #     [u(_) for _ in ('п','р','и','в','е','т',' ','м','и','р')]
 
+   # the following gives b('привет мир труд май')
+   b('привет %s %s %s') % (u'мир',                  # raw unicode
+                           u'труд'.encode('utf-8'), # raw bytes
+                           u('май'))                # ustr
+
    def f(s):
       s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes, bytearray or buffer.
       ...               # (*) the decoding never fails nor looses information.

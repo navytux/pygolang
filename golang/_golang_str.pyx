@@ -58,6 +58,7 @@ from libc.stdint cimport uint8_t
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 import types as pytypes
 import functools as pyfunctools
+import re as pyre
 if PY_MAJOR_VERSION >= 3:
     import copyreg as pycopyreg
 else:
@@ -278,12 +279,12 @@ class pybstr(bytes):
     def __repr__(self):
         qself, nonascii_escape = _bpysmartquote_u3b2(self)
         bs = _inbstringify_get()
-        if bs.inbstringify == 0:
+        if bs.inbstringify == 0  or  bs.inrepr:
             if nonascii_escape:         # so that e.g. b(u'\x80') is represented as
                 qself = 'b' + qself     # b(b'\xc2\x80'),  not as b('\xc2\x80')
             return "b(" + qself + ")"
         else:
-            # [b('β')] goes as ['β'] when under _bstringify
+            # [b('β')] goes as ['β'] when under _bstringify for %s
             return qself
 
 
@@ -376,6 +377,19 @@ class pybstr(bytes):
         return pyb(bytes.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
+
+
+    # %-formatting
+    def __mod__(a, b):
+        return _bprintf(a, b)
+    def __rmod__(b, a):
+        # ("..." % x)  calls  "x.__rmod__()" for string subtypes
+        # determine output type as in __radd__
+        if isinstance(a, bytearray):
+            # on py2 bytearray does not implement %
+            return NotImplemented   # no need to check for py3 - there our __rmod__ is not invoked
+        a = _pybu_rcoerce(a)
+        return a.__mod__(b)
 
 
     # all other string methods
@@ -530,12 +544,12 @@ class pyustr(unicode):
     def __repr__(self):
         qself, nonascii_escape = _upysmartquote_u3b2(self)
         bs = _inbstringify_get()
-        if bs.inbstringify == 0:
+        if bs.inbstringify == 0  or  bs.inrepr:
             if nonascii_escape:
                 qself = 'b'+qself       # see bstr.__repr__
             return "u(" + qself + ")"
         else:
-            # [u('β')] goes as ['β'] when under _bstringify
+            # [u('β')] goes as ['β'] when under _bstringify for %s
             return qself
 
 
@@ -619,6 +633,18 @@ class pyustr(unicode):
         return pyu(unicode.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
+
+
+    # %-formatting
+    def __mod__(a, b):
+        return pyu(pyb(a).__mod__(b))
+    def __rmod__(b, a):
+        # ("..." % x)  calls  "x.__rmod__()" for string subtypes
+        # determine output type as in __radd__
+        if isinstance(a, bytearray):
+            return NotImplemented   # see bstr.__rmod__
+        a = _pybu_rcoerce(a)
+        return a.__mod__(b)
 
 
     # all other string methods
@@ -916,6 +942,15 @@ cdef _bstringify(object obj): # -> unicode|bytes
     finally:
         _bstringify_leave()
 
+# _bstringify_repr returns repr of obj.
+# it is similar to repr(obj), but handles bytes as UTF-8 encoded strings.
+cdef _bstringify_repr(object obj): # -> unicode|bytes
+    _bstringify_enter_repr()
+    try:
+        return repr(obj)
+    finally:
+        _bstringify_leave_repr()
+
 # patch bytes.{__repr__,__str__} and (py2) unicode.{__repr__,__str__}, so that both
 # bytes and unicode are treated as normal strings when under _bstringify.
 #
@@ -927,7 +962,7 @@ cdef _bstringify(object obj): # -> unicode|bytes
 #   py3: str(['β'.encode()])  ->  [b'\\xce\\xb2']       (4) x
 #
 # for us 3 is ok, while 1,2 and 4 are not. For all 1,2,3,4 we want e.g.
-# `bstr(·)` to give ['β']. This is fixed by patching __repr__.
+# `bstr(·)` or `b('%s') % ·` to give ['β']. This is fixed by patching __repr__.
 #
 # regarding patching __str__ - 6 and 8 in the following examples illustrate the
 # need to do it:
@@ -936,6 +971,8 @@ cdef _bstringify(object obj): # -> unicode|bytes
 #   py2: str(u'β')            ->  UnicodeEncodeError    (6) x
 #   py3: str( 'β')            ->  'β'                   (7)
 #   py3: str('β'.encode())    ->  b'\\xce\\xb2'         (8) x
+#
+# See also overview of %-formatting.
 
 cdef reprfunc _bytes_tp_repr   = Py_TYPE(b'').tp_repr
 cdef reprfunc _bytes_tp_str    = Py_TYPE(b'').tp_str
@@ -947,6 +984,8 @@ cdef object _bytes_tp_xrepr(object s):
     if bs.inbstringify == 0:
         return _bytes_tp_repr(s)
     s, _ = _bpysmartquote_u3b2(s)
+    if PY_MAJOR_VERSION >= 3  and  bs.inrepr != 0:
+        s = 'b'+s
     return s
 
 cdef object _bytes_tp_xstr(object s):
@@ -964,6 +1003,8 @@ cdef object _unicode2_tp_xrepr(object s):
     if bs.inbstringify == 0:
         return _unicode_tp_repr(s)
     s, _ = _upysmartquote_u3b2(s)
+    if PY_MAJOR_VERSION < 3  and  bs.inrepr != 0:
+        s = 'u'+s
     return s
 
 cdef object _unicode2_tp_xstr(object s):
@@ -1047,8 +1088,8 @@ if PY_MAJOR_VERSION < 3:
 
 
 # patch bytearray.{__repr__,__str__} similarly to bytes, so that e.g.
-# bstr( bytearray('β') )   turns into β      instead of  bytearray(b'\xce\xb2'),   and
-# bstr( [bytearray('β'] )  turns into ['β']  instead of  [bytearray(b'\xce\xb2')].
+# '%s' % bytearray('β')   turns into β      instead of  bytearray(b'\xce\xb2'),   and
+# '%s' % [bytearray('β']  turns into ['β']  instead of  [bytearray(b'\xce\xb2')].
 #
 # also patch:
 #
@@ -1069,6 +1110,8 @@ cdef object _bytearray_tp_xrepr(object a):
     if bs.inbstringify == 0:
         return _bytearray_tp_repr(a)
     s, _ = _bpysmartquote_u3b2(a)
+    if bs.inrepr != 0:
+        s = 'bytearray(b' + s + ')'
     return s
 
 cdef object _bytearray_tp_xstr(object a):
@@ -1148,15 +1191,17 @@ cdef bytes _bytearray_data(object s):
         return _bytearray_tp_str(s)
 
 
-# _bstringify_enter/_bstringify_leave/_inbstringify_get allow _bstringify to
+# _bstringify_enter*/_bstringify_leave*/_inbstringify_get allow _bstringify* to
 # indicate to further invoked code whether it has been invoked from under
-# _bstringify or not.
+# _bstringify* or not.
 cdef object _inbstringify_key = "golang._inbstringify"
 @final
 cdef class _InBStringify:
-    cdef int inbstringify   # >0 if we are running under _bstringify
+    cdef int inbstringify   # >0 if we are running under _bstringify/_bstringify_repr
+    cdef int inrepr         # >0 if we are running under             _bstringify_repr
     def __cinit__(self):
         self.inbstringify = 0
+        self.inrepr       = 0
 
 cdef void _bstringify_enter() except*:
     bs = _inbstringify_get()
@@ -1165,6 +1210,16 @@ cdef void _bstringify_enter() except*:
 cdef void _bstringify_leave() except*:
     bs = _inbstringify_get()
     bs.inbstringify -= 1
+
+cdef void _bstringify_enter_repr() except*:
+    bs = _inbstringify_get()
+    bs.inbstringify += 1
+    bs.inrepr       += 1
+
+cdef void _bstringify_leave_repr() except*:
+    bs = _inbstringify_get()
+    bs.inbstringify -= 1
+    bs.inrepr       -= 1
 
 cdef _InBStringify _inbstringify_get():
     cdef PyObject*  _ts_dict = PyThreadState_GetDict() # borrowed
@@ -1212,6 +1267,272 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
         return pyfunctools.partial(self.func, obj)
 
 
+# ---- % formatting ----
+
+# When formatting string is bstr/ustr we treat bytes in all arguments as
+# UTF8-encoded bytestrings. The following approach is used to implement this:
+#
+# 1. both bstr and ustr format via bytes-based _bprintf.
+# 2. we parse the format string and handle every formatting specifier separately:
+# 3. for formats besides %s/%r we use bytes.__mod__ directly.
+#
+# 4. for %s we stringify corresponding argument specially with all, potentially
+#    internal, bytes instances treated as UTF8-encoded strings:
+#
+#       '%s' % b'\xce\xb2'      ->  "β"
+#       '%s' % [b'\xce\xb2']    ->  "['β']"
+#
+# 5. for %r, similarly to %s, we prepare repr of corresponding argument
+#    specially with all, potentially internal, bytes instances also treated as
+#    UTF8-encoded strings:
+#
+#       '%r' % b'\xce\xb2'      ->  "b'β'"
+#       '%r' % [b'\xce\xb2']    ->  "[b'β']"
+#
+#
+# For "2" we implement %-format parsing ourselves. test_strings_mod
+# has good coverage for this phase to make sure we get it right and behaving
+# exactly the same way as standard Python does.
+#
+# For "4" we monkey-patch bytes.__repr__ to repr bytes as strings when called
+# from under bstr.__mod__(). See _bstringify for details.
+#
+# For "5", similarly to "4", we rely on adjustments to bytes.__repr__ .
+# See _bstringify_repr for details.
+#
+# See also overview of patching bytes.{__repr__,__str__} near _bstringify.
+cdef object _missing  = object()
+cdef object _atidx_re = pyre.compile('.* at index ([0-9]+)$')
+cdef _bprintf(const uint8_t[::1] fmt, xarg): # -> pybstr
+    cdef bytearray out = bytearray()
+
+    cdef tuple  argv = None  # if xarg is tuple
+    cdef object argm = None  # if xarg is mapping
+
+    # https://github.com/python/cpython/blob/2.7-0-g8d21aa21f2c/Objects/stringobject.c#L4298-L4300
+    # https://github.com/python/cpython/blob/v3.11.0b1-171-g70aa1b9b912/Objects/unicodeobject.c#L14319-L14320
+    if _XPyMapping_Check(xarg)   and \
+       (not isinstance(xarg, tuple))    and \
+       (not isinstance(xarg, (bytes,unicode))):
+        argm = xarg
+
+    if isinstance(xarg, tuple):
+        argv = xarg
+        xarg = _missing
+
+    #print()
+    #print('argv:', argv)
+    #print('argm:', argm)
+    #print('xarg:', xarg)
+
+    cdef int argv_idx = 0
+    def nextarg():
+        nonlocal argv_idx, xarg
+        # NOTE for `'%s %(x)s' % {'x':1}`  python gives  "{'x': 1} 1"
+        # -> so we avoid argm check completely here
+        #if argm is not None:
+        if 0:
+            raise ValueError('mixing dict/tuple')
+
+        elif argv is not None:
+            # tuple xarg
+            if argv_idx < len(argv):
+                arg = argv[argv_idx]
+                argv_idx += 1
+                return arg
+
+        elif xarg is not _missing:
+            # sole xarg
+            arg = xarg
+            xarg = _missing
+            return arg
+
+        raise TypeError('not enough arguments for format string')
+
+    def badf():
+        raise ValueError('incomplete format')
+
+    # parse format string locating formatting specifiers
+    # if we see %s/%r - use _bstringify
+    # else use builtin %-formatting
+    #
+    #   %[(name)][flags][width|*][.[prec|*]][len](type)
+    #
+    # https://docs.python.org/3/library/stdtypes.html#printf-style-string-formatting
+    # https://github.com/python/cpython/blob/2.7-0-g8d21aa21f2c/Objects/stringobject.c#L4266-L4765
+    #
+    # Rejected alternative: try to format; if we get "TypeError: %b requires a
+    # bytes-like object ..." retry with that argument converted to bstr.
+    #
+    # Rejected because e.g. for  `%(x)s %(x)r` % {'x': obj}`  we need to use
+    # access number instead of key 'x' to determine which accesses to
+    # bstringify. We could do that, but unfortunately on Python2 the access
+    # number is not easily predictable because string could be upgraded to
+    # unicode in the midst of being formatted and so some access keys will be
+    # accesses not once.
+    #
+    # Another reason for rejection: b'%r' and u'%r' handle arguments
+    # differently - on b %r is aliased to %a.
+    cdef int i = 0
+    cdef int l = len(fmt)
+    cdef uint8_t c
+    while i < l:
+        c  = fmt[i]
+        i += 1
+        if c != ord('%'):
+            out.append(c)
+            continue
+
+        fmt_istart = i-1
+        nameb = _missing
+        width = _missing
+        prec  = _missing
+        value = _missing
+
+        # `c = fmt_nextchar()`  avoiding https://github.com/cython/cython/issues/4798
+        if i >= l: badf()
+        c = fmt[i]; i += 1
+
+        # (name)
+        if c == ord('('):
+            #print('(name)')
+            if argm is None:
+                raise TypeError('format requires a mapping')
+            nparen = 1
+            nameb = b''
+            while 1:
+                if i >= l:
+                    raise ValueError('incomplete format key')
+                c = fmt[i]; i += 1
+                if c == ord('('):
+                    nparen += 1
+                elif c == ord(')'):
+                    nparen -= 1
+                    if i >= l: badf()
+                    c = fmt[i]; i += 1
+                    break
+                else:
+                    nameb += bchr(c)
+
+        # flags
+        while chr(c) in '#0- +':
+            #print('flags')
+            if i >= l: badf()
+            c = fmt[i]; i += 1
+
+        # [width|*]
+        if c == ord('*'):
+            #print('*width')
+            width = nextarg()
+            if i >= l: badf()
+            c = fmt[i]; i += 1
+        else:
+            while chr(c).isdigit():
+                #print('width')
+                if i >= l: badf()
+                c = fmt[i]; i += 1
+
+        # [.prec|*]
+        if c == ord('.'):
+            #print('dot')
+            if i >= l: badf()
+            c = fmt[i]; i += 1
+            if c == ord('*'):
+                #print('.*')
+                prec = nextarg()
+                if i >= l: badf()
+                c = fmt[i]; i += 1
+            else:
+                while chr(c).isdigit():
+                    #print('.prec')
+                    if i >= l: badf()
+                    c = fmt[i]; i += 1
+
+        # [len]
+        while chr(c) in 'hlL':
+            #print('len')
+            if i >= l: badf()
+            c = fmt[i]; i += 1
+
+        fmt_type = c
+        #print('fmt_type:', repr(chr(fmt_type)))
+
+        if fmt_type == ord('%'):
+            if i-2 == fmt_istart:   # %%
+                out.append(b'%')
+                continue
+
+        if nameb is not _missing:
+            xarg = _missing # `'%(x)s %s' % {'x':1}`  raises "not enough arguments"
+            nameu = _utf8_decode_surrogateescape(nameb)
+            try:
+                value = argm[nameb]
+            except KeyError:
+                # retry with changing key via bytes <-> unicode
+                # e.g. for `b('%(x)s') % {'x': ...}` builtin bytes.__mod__ will
+                # extract b'x' as key and raise KeyError: b'x'. We avoid that via
+                # retrying with second string type for key.
+                value = argm[nameu]
+        else:
+            # NOTE for `'%4%' % ()` python raises "not enough arguments ..."
+            #if fmt_type != ord('%'):
+            if 1:
+                value = nextarg()
+
+        if fmt_type == ord('%'):
+            raise ValueError("unsupported format character '%s' (0x%x) at index %i" % (chr(c), c, i-1))
+
+        fmt1 = memoryview(fmt[fmt_istart:i]).tobytes()
+        #print('fmt_istart:', fmt_istart)
+        #print('i:         ', i)
+        #print(' ~> __mod__ ', repr(fmt1))
+
+        # bytes %r is aliased of %a (ASCII), but we want unicode-like %r
+        # -> handle it ourselves
+        if fmt_type == ord('r'):
+            value = pyb(_bstringify_repr(value))
+            fmt_type = ord('s')
+            fmt1 = fmt1[:-1] + b's'
+
+        elif fmt_type == ord('s'):
+            # %s -> feed value through _bstringify
+            # this also converts e.g. int to bstr, else e.g. on `b'%s' % 123` python
+            # complains '%b requires a bytes-like object ...'
+            value = pyb(_bstringify(value))
+
+        if nameb is not _missing:
+            arg = {nameb: value, nameu: value}
+        else:
+            t = []
+            if width is not _missing:   t.append(width)
+            if prec  is not _missing:   t.append(prec)
+            if value is not _missing:   t.append(value)
+            t = tuple(t)
+            arg = t
+
+        #print('--> __mod__ ', repr(fmt1), ' % ', repr(arg))
+        try:
+            s = bytes.__mod__(fmt1, arg)
+        except ValueError as e:
+            # adjust position in '... at index <idx>' from fmt1 to fmt
+            if len(e.args) == 1:
+                a = e.args[0]
+                m = _atidx_re.match(a)
+                if m is not None:
+                    a = a[:m.start(1)] + str(i-1)
+                    e.args = (a,)
+            raise
+        out.extend(s)
+
+    if argm is None:
+        #print('END')
+        #print('argv:', argv, 'argv_idx:', argv_idx, 'xarg:', xarg)
+        if (argv is not None  and  argv_idx != len(argv))  or  (xarg is not _missing):
+            raise TypeError("not all arguments converted during string formatting")
+
+    return pybstr(out)
+
+
 # ---- misc ----
 
 # _strhas returns whether unicode string type has specified method.
@@ -1253,6 +1574,21 @@ cdef extern from "Python.h":
     }
     """
     bint _XPyObject_CheckOldBuffer(object o)
+
+cdef extern from "Python.h":
+    """
+    static int _XPyMapping_Check(PyObject *o) {
+    #if PY_MAJOR_VERSION >= 3
+        return PyMapping_Check(o);
+    #else
+        // on py2 PyMapping_Check besides checking tp_as_mapping->mp_subscript
+        // also verifies !tp_as_sequence->sq_slice. We want to avoid that
+        // because PyString_Format checks only tp_as_mapping->mp_subscript.
+        return Py_TYPE(o)->tp_as_mapping && Py_TYPE(o)->tp_as_mapping->mp_subscript;
+    #endif
+    }
+    """
+    bint _XPyMapping_Check(object o)
 
 
 # ---- UTF-8 encode/decode ----
