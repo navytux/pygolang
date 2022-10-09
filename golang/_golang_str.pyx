@@ -1731,6 +1731,23 @@ cdef extern from "Python.h":
 
 # ---- UTF-8 encode/decode ----
 
+# TODO(kirr) adjust UTF-8 encode/decode surrogateescape(*) a bit so that not
+# only bytes -> unicode -> bytes is always identity for any bytes (this is
+# already true), but also that unicode -> bytes -> unicode is also always true
+# for all unicode codepoints.
+#
+# The latter currently fails for all surrogate codepoints outside of U+DC80..U+DCFF range:
+#
+#   In [1]: x = u'\udc00'
+#
+#   In [2]: x.encode('utf-8')
+#   UnicodeEncodeError: 'utf-8' codec can't encode character '\udc00' in position 0: surrogates not allowed
+#
+#   In [3]: x.encode('utf-8', 'surrogateescape')
+#   UnicodeEncodeError: 'utf-8' codec can't encode character '\udc00' in position 0: surrogates not allowed
+#
+# (*) aka UTF-8b (see http://hyperreal.org/~est/utf-8b/releases/utf-8b-20060413043934/kuhn-utf-8b.html)
+
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
 
