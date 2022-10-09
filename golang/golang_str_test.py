@@ -610,6 +610,74 @@ def test_strings_iter():
     assert list(XIter()) == ['м','и','р','у',' ','м','и','р']
 
 
+# verify .encode/.decode .
+def test_strings_encodedecode():
+    us = u('мир')
+    bs = b('май')
+
+    # TODO also raise AttributeError on .encode/.decode lookup on classes
+    assert     hasattr(us, 'encode')   ;   assert     hasattr(ustr, 'encode')
+    assert not hasattr(bs, 'encode')  #;   assert not hasattr(bstr, 'encode')
+    assert not hasattr(us, 'decode')  #;   assert not hasattr(ustr, 'decode')
+    assert     hasattr(bs, 'decode')   ;   assert     hasattr(bstr, 'decode')
+
+    _ = us.encode();         assert type(_) is bstr;  assert _bdata(_) == xbytes('мир')
+    _ = us.encode('utf-8');  assert type(_) is bstr;  assert _bdata(_) == xbytes('мир')
+    _ = bs.decode();         assert type(_) is ustr;  assert _udata(_) == u'май'
+    _ = bs.decode('utf-8');  assert type(_) is ustr;  assert _udata(_) == u'май'
+
+    # !utf-8
+    k8mir = u'мир'.encode('koi8-r')
+    b_k8mir = b(k8mir)
+    assert type(b_k8mir) is bstr
+    assert _bdata(b_k8mir) == k8mir
+    assert _bdata(b_k8mir) == b'\xcd\xc9\xd2'
+
+    _ = b_k8mir.decode('koi8-r')
+    assert type(_) is ustr
+    assert _udata(_) == u'мир'
+
+    b_cpmir = us.encode('cp1251')
+    assert type(b_cpmir) is bstr
+    assert _bdata(b_cpmir) == u'мир'.encode('cp1251')
+    assert _bdata(b_cpmir) == b'\xec\xe8\xf0'
+
+    # decode/encode errors
+    u_k8mir = b_k8mir.decode()                          # no decode error with
+    assert type(u_k8mir) is ustr                        # default parameters
+    assert _udata(u_k8mir) == u'\udccd\udcc9\udcd2'
+    _ = b_k8mir.decode('utf-8', 'surrogateescape')      # no decode error with
+    assert type(_) is ustr                              # explicit utf-8/surrogateescape
+    assert _udata(_) == _udata(u_k8mir)
+
+    with raises(UnicodeDecodeError):  # decode error if encoding is explicitly specified
+        b_k8mir.decode('utf-8')
+    with raises(UnicodeDecodeError):
+        b_k8mir.decode('utf-8', 'strict')
+    with raises(UnicodeDecodeError):
+        b_k8mir.decode('ascii')
+
+    with raises(UnicodeEncodeError):
+        us.encode('ascii')
+
+    _ = u_k8mir.encode()                                # no encode error with
+    assert type(_) is bstr                              # default parameters
+    assert _bdata(_) == k8mir
+    _ = u_k8mir.encode('utf-8', 'surrogateescape')      # no encode error with
+    assert type(_) is bstr                              # explicit utf-8/surrogateescape
+    assert _bdata(_) == k8mir
+
+    # on py2 unicode.encode accepts surrogate pairs and does not complain
+    # TODO(?) manually implement encode/py2 and reject surrogate pairs by default
+    if six.PY3:
+        with raises(UnicodeEncodeError):  # encode error if encoding is explicit specified
+            u_k8mir.encode('utf-8')
+        with raises(UnicodeEncodeError):
+            u_k8mir.encode('utf-8', 'strict')
+    with raises(UnicodeEncodeError):
+        u_k8mir.encode('ascii')
+
+
 # verify string operations like `x * 3` for all cases from bytes, bytearray, unicode, bstr and ustr.
 @mark.parametrize('tx', (bytes, unicode, bytearray, bstr, ustr))
 def test_strings_ops1(tx):

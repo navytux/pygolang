@@ -407,6 +407,27 @@ class pybstr(bytes):
         return pyu(self).__format__(format_spec)
 
 
+    # encode/decode
+    def decode(self, encoding=None, errors=None):
+        if encoding is None and errors is None:
+            encoding = 'utf-8'             # NOTE always UTF-8, not sys.getdefaultencoding
+            errors   = 'surrogateescape'
+        else:
+            if encoding is None:  encoding = 'utf-8'
+            if errors   is None:  errors   = 'strict'
+
+        if encoding == 'utf-8'  and  errors == 'surrogateescape':
+            x = _utf8_decode_surrogateescape(self)
+        else:
+            x = bytes.decode(self, encoding, errors)
+        return pyu(x)
+
+    if PY_MAJOR_VERSION < 3:
+        # whiteout encode inherited from bytes
+        # TODO ideally whiteout it in such a way that bstr.encode also raises AttributeError
+        encode = property(doc='bstr has no encode')
+
+
     # all other string methods
 
     def capitalize(self):                       return pyb(pyu(self).capitalize())
@@ -671,6 +692,27 @@ class pyustr(unicode):
         #      the only format code that string.__format__ should support is
         #      's', not e.g. 'r'.
         return pyu(unicode.__format__(self, format_spec))
+
+
+    # encode/decode
+    def encode(self, encoding=None, errors=None):
+        if encoding is None and errors is None:
+            encoding = 'utf-8'             # NOTE always UTF-8, not sys.getdefaultencoding
+            errors   = 'surrogateescape'
+        else:
+            if encoding is None:  encoding = 'utf-8'
+            if errors   is None:  errors   = 'strict'
+
+        if encoding == 'utf-8'  and  errors == 'surrogateescape':
+            x = _utf8_encode_surrogateescape(self)
+        else:
+            x = unicode.encode(self, encoding, errors)
+        return pyb(x)
+
+    if PY_MAJOR_VERSION < 3:
+        # whiteout decode inherited from unicode
+        # TODO ideally whiteout it in such a way that ustr.decode also raises AttributeError
+        decode = property(doc='ustr has no decode')
 
 
     # all other string methods
