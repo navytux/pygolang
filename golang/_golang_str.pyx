@@ -54,6 +54,7 @@ cdef extern from "Python.h":
 
 
 from libc.stdint cimport uint8_t
+from libc.stdio cimport FILE
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
 import string as pystring
@@ -902,12 +903,11 @@ def _udata(obj): # -> unicode
 # Do it only on python2, because python3 does not use tp_print at all.
 # NOTE pyustr does not need this because on py2 str(pyustr) returns pybstr.
 IF PY2:
-    # NOTE Cython does not define tp_print for PyTypeObject - do it ourselves
-    from libc.stdio cimport FILE
+    # Cython does not define tp_print for PyTypeObject - do it ourselves
     cdef extern from "Python.h":
         ctypedef int (*printfunc)(PyObject *, FILE *, int) except -1
         ctypedef struct _PyTypeObject_Print "PyTypeObject":
-            printfunc tp_print
+            printfunc   tp_print
         int Py_PRINT_RAW
 
     cdef int _pybstr_tp_print(PyObject *obj, FILE *f, int flags) except -1:
@@ -1904,7 +1904,7 @@ else:
 # _xunichr returns unicode character for an ordinal i.
 #
 # it works correctly even on ucs2 python builds, where ordinals >= 0x10000 are
-# represented as 2 unicode pointe.
+# represented as 2 unicode points.
 if not _ucs2_build:
     _xunichr = unichr
 else:
