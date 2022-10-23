@@ -29,6 +29,7 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
+from cpython cimport Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, PyType_Ready
 cdef extern from "Python.h":
     """
     #if PY_MAJOR_VERSION < 3
@@ -43,10 +44,23 @@ cdef extern from "Python.h":
     void PyType_Modified(PyTypeObject *)
 
 cdef extern from "Python.h":
+    ctypedef struct PyVarObject:
+        Py_ssize_t ob_size
+
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
+        PyObject* tp_new(PyTypeObject*, PyObject*, PyObject*) except NULL
         initproc  tp_init
         PySequenceMethods *tp_as_sequence
+
+        Py_ssize_t tp_vectorcall_offset
+        Py_ssize_t tp_weaklistoffset
+
+        PyObject *tp_bases
+        PyObject *tp_mro
+        PyObject *tp_cache
+        PyObject *tp_weaklist
+        PyObject *tp_subclasses
 
     ctypedef struct PySequenceMethods:
         binaryfunc sq_concat
@@ -54,9 +68,16 @@ cdef extern from "Python.h":
         object (*sq_slice) (object, Py_ssize_t, Py_ssize_t)     # present only on py2
 
 
+    PyTypeObject PyType_Type
+    PyTypeObject PyBaseObject_Type
     PyTypeObject PyUnicode_Type
     PyTypeObject PyBytes_Type
 
+    bint PyType_IS_GC(PyTypeObject*)
+
+
+
+from cython cimport no_gc
 
 from libc.stdint cimport uint8_t
 from libc.stdio cimport FILE
@@ -136,7 +157,10 @@ cdef _pyb(bcls, s): # -> ~bstr | None
             return None
 
     assert type(s) is bytes         # XXX not `is xbytes`
-    return xbytes.__new__(bcls, s)
+    #return xbytes.__new__(bcls, s)
+    argv = (s,)
+    return <object>(<_XPyTypeObject*>xbytes).tp_new(<PyTypeObject*>bcls, <PyObject*>argv, NULL)
+
 
 cdef _pyu(ucls, s): # -> ~ustr | None
     if type(s) is ucls:
@@ -155,7 +179,10 @@ cdef _pyu(ucls, s): # -> ~ustr | None
             return None
 
     assert type(s) is unicode       # XXX not `is xunicode`
-    return xunicode.__new__(ucls, s)
+    #return xunicode.__new__(ucls, s)
+    argv = (s,)
+    return <object>(<_XPyTypeObject*>xunicode).tp_new(<PyTypeObject*>ucls, <PyObject*>argv, NULL)
+
 
 # _ifbuffer_data returns contained data if obj provides buffer interface.
 cdef _ifbuffer_data(obj): # -> bytes|None
@@ -227,9 +254,20 @@ def pyuchr(int i):  # -> 1-character ustr
     """uchr(i) returns 1-character ustr with unicode ordinal i."""
     return pyu(unichr(i))
 
+# XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
+def _pybstr__new__(cls, object='', encoding=None, errors=None):
+    # encoding or errors  ->  object must expose buffer interface
+    if not (encoding is None and errors is None):
+        object = _buffer_decode(object, encoding, errors)
 
-# XXX cannot `cdef class`: github.com/cython/cython/issues/711
-class pybstr(bytes):
+    # _bstringify. Note: it handles bstr/ustr / unicode/bytes/bytearray as documented
+    object = _bstringify(object)
+    assert isinstance(object, (xunicode, xbytes)), object
+    bobj = _pyb(cls, object)
+    assert bobj is not None
+    return bobj
+#@no_gc
+cdef class _pybstr(bytes):
     """bstr is byte-string.
 
     It is based on bytes and can automatically convert to/from unicode.
@@ -265,6 +303,7 @@ class pybstr(bytes):
     # won't be needed after switch to -> `cdef class`
     __slots__ = ()
 
+    """
     def __new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
         if not (encoding is None and errors is None):
@@ -276,6 +315,7 @@ class pybstr(bytes):
         bobj = _pyb(cls, object)
         assert bobj is not None
         return bobj
+    """
 
 
     def __bytes__(self):    return self
@@ -290,7 +330,7 @@ class pybstr(bytes):
     def __repr__(self):
         qself, nonascii_escape = _bpysmartquote_u3b2(self)
         bs = _inbstringify_get()
-        if bs.inbstringify == 0  or  bs.inrepr:
+        if (bs.inbstringify == 0  or  bs.inrepr)  and  (pybstr is not bytes):
             if nonascii_escape:         # so that e.g. b(u'\x80') is represented as
                 qself = 'b' + qself     # b(b'\xc2\x80'),  not as b('\xc2\x80')
             return "b(" + qself + ")"
@@ -368,8 +408,10 @@ class pybstr(bytes):
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
         # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
-        # but pybstr is currently _not_ cdef'ed class
         # see also https://github.com/cython/cython/issues/4750
+        if type(a) is not pybstr:
+             assert type(b) is pybstr
+             return b.__radd__(a)
         return pyb(xbytes.__add__(a, _pyb_coerce(b)))
 
     def __radd__(b, a):
@@ -385,6 +427,9 @@ class pybstr(bytes):
 
     # __mul__, __rmul__     (no need to override __imul__)
     def __mul__(a, b):
+        if type(a) is not pybstr:
+            assert type(b) is pybstr
+            return b.__rmul__(a)
         return pyb(xbytes.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
@@ -533,8 +578,56 @@ class pybstr(bytes):
         return pyustr.maketrans(x, y, z)
 
 
+cdef PyObject* _pybstr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
+    argv = ()
+    if _argv != NULL:
+        argv = <object>_argv
+    kw = {}
+    if _kw != NULL:
+        kw = <object>_kw
+
+    cdef object x = _pybstr__new__(<object>_cls, *argv, **kw)
+    Py_INCREF(x)            # XXX ok?
+    return <PyObject*>x
+
+cdef void _pybstr_tp_dealloc(PyObject *self):
+    (<PyTypeObject*>xbytes).tp_dealloc(self)
+
+(<_XPyTypeObject*>_pybstr).tp_new     = &_pybstr_tp_new
+(<  PyTypeObject*>_pybstr).tp_dealloc = &_pybstr_tp_dealloc
+
+def _pybstr_x__new__(_, cls, *argv, **kw):  # XXX _ because _patch_slot installs as "unbound method"
+    assert isinstance(cls, type), cls
+    x = <object>_pybstr_tp_new(<PyTypeObject*>cls, <PyObject*>argv, <PyObject*>kw)
+    Py_INCREF(x)    # XXX ok?
+    return x
+
+_patch_slot(<PyTypeObject*>_pybstr, '__new__', _pybstr_x__new__)
+
+# bytes uses "optimized" and custom .tp_basicsize and .tp_itemsize:
+# https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L26-L32
+# https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L3816-L3820
+(<PyTypeObject*>_pybstr) .tp_basicsize  =  (<PyTypeObject*>bytes).tp_basicsize
+(<PyTypeObject*>_pybstr) .tp_itemsize   =  (<PyTypeObject*>bytes).tp_itemsize
+
+
+pybstr = _pybstr
+
+
 # XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
-class pyustr(unicode):
+def _pyustr__new__(cls, object='', encoding=None, errors=None):
+    # encoding or errors  ->  object must expose buffer interface
+    if not (encoding is None and errors is None):
+        object = _buffer_decode(object, encoding, errors)
+
+    # _bstringify. Note: it handles bstr/ustr / unicode/bytes/bytearray as documented
+    object = _bstringify(object)
+    assert isinstance(object, (xunicode, xbytes)), object
+    uobj = _pyu(cls, object)
+    assert uobj is not None
+    return uobj
+#@no_gc
+cdef class _pyustr(unicode):
     """ustr is unicode-string.
 
     It is based on unicode and can automatically convert to/from bytes.
@@ -565,6 +658,7 @@ class pyustr(unicode):
     # won't be needed after switch to -> `cdef class`
     __slots__ = ()
 
+    """
     def __new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
         if not (encoding is None and errors is None):
@@ -576,6 +670,7 @@ class pyustr(unicode):
         uobj = _pyu(cls, object)
         assert uobj is not None
         return uobj
+    """
 
 
     def __bytes__(self):    return pyb(self)
@@ -657,8 +752,10 @@ class pyustr(unicode):
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
         # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
-        # but pyustr is currently _not_ cdef'ed class
         # see also https://github.com/cython/cython/issues/4750
+        if type(a) is not pyustr:
+            assert type(b) is pyustr
+            return b.__radd__(a)
         return pyu(xunicode.__add__(a, _pyu_coerce(b)))
 
     def __radd__(b, a):
@@ -676,6 +773,9 @@ class pyustr(unicode):
 
     # __mul__, __rmul__     (no need to override __imul__)
     def __mul__(a, b):
+        if type(a) is not pyustr:
+            assert type(b) is pyustr
+            return b.__rmul__(a)
         return pyu(xunicode.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
@@ -800,7 +900,7 @@ class pyustr(unicode):
                 v = xunicode.split(self, maxsplit=maxsplit)
             else:
                 # on py2 xunicode.split does not accept keyword arguments
-                v = _udata(self).split(None, maxsplit)
+                v = xunicode.split(self, None, maxsplit)
         else:
             v = xunicode.split(self, _pyu_coerce(sep), maxsplit)
         return list([pyu(_) for _ in v])
@@ -869,6 +969,46 @@ class pyustr(unicode):
         return t
 
 
+cdef PyObject* _pyustr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
+    argv = ()
+    if _argv != NULL:
+        argv = <object>_argv
+    kw = {}
+    if _kw != NULL:
+        kw = <object>_kw
+
+    #print('cls:', <object>_cls)
+    ##print('argv:', repr(argv))
+    ##print('kw:  ', repr(kw))
+    #print('#argv:', len(argv))
+    #print('#kw:  ', len(kw))
+    #print('argv[0]:', type(argv[0]))
+    #print('pyustr:', pyustr)
+    #cdef object x = _pyustr.____new__(<object>_cls, *argv, **kw)
+    cdef object x = _pyustr__new__(<object>_cls, *argv, **kw)
+    Py_INCREF(x)            # XXX ok?
+    return <PyObject*>x
+
+cdef void _pyustr_tp_dealloc(PyObject *self):
+    (<PyTypeObject*>xunicode).tp_dealloc(self)
+
+
+(<_XPyTypeObject*>_pyustr).tp_new     = &_pyustr_tp_new
+(<  PyTypeObject*>_pyustr).tp_dealloc = &_pyustr_tp_dealloc
+
+
+def _pyustr_x__new__(_, cls, *argv, **kw):  # XXX _ because _patch_slot installs as "unbound method"
+    assert isinstance(cls, type), cls
+    x = <object>_pyustr_tp_new(<PyTypeObject*>cls, <PyObject*>argv, <PyObject*>kw)
+    Py_INCREF(x)    # XXX ok?
+    return x
+
+_patch_slot(<PyTypeObject*>_pyustr, '__new__', _pyustr_x__new__)
+
+
+pyustr = _pyustr
+
+
 # _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
 cdef class _pyustrIter:
     cdef object uiter
@@ -885,7 +1025,7 @@ cdef class _pyustrIter:
 def _bdata(obj): # -> bytes
     assert isinstance(obj, xbytes)
     _ = obj.__getnewargs__()[0] # (`bytes-data`,)
-    assert type(_) is xbytes
+    assert type(_) is bytes
     return _
     """
     bcopy = xbytes(memoryview(obj))
@@ -895,7 +1035,7 @@ def _bdata(obj): # -> bytes
 def _udata(obj): # -> unicode
     assert isinstance(obj, xunicode)
     _ = obj.__getnewargs__()[0] # (`unicode-data`,)
-    assert type(_) is xunicode
+    assert type(_) is unicode
     return _
     """
     cdef Py_UNICODE* u     = PyUnicode_AsUnicode(obj)
@@ -930,9 +1070,9 @@ IF PY2:
             o = repr(o)
 
         assert isinstance(o, bytes)
-        o = <bytes>o
-        o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
-        return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
+        #o = <bytes>o
+        #o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
+        return (<_PyTypeObject_Print*>xbytes) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
 
     (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
 
@@ -957,6 +1097,13 @@ cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
     if isinstance(s, bytearray):
         s = _bytearray_data(s)
     assert isinstance(s, bytes), s
+
+    # XXX temp (pystrconv is not yet initialized during __init__.py import)
+    if pystrconv is None:
+        if isinstance(s, pybstr):
+            s = _bdata(s)
+        assert type(s) is bytes
+        return _bytes_tp_repr(s)[1:], False       # XXX nonascii_escape
 
     # smartquotes: choose ' or " as quoting character exactly the same way python does
     # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L905-L909
@@ -1351,6 +1498,151 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
         self.func = func
     def __get__(self, obj, objtype):
         return pyfunctools.partial(self.func, obj)
+
+
+# ---- patch unicode/str types to be ustr/bstr under gpython ----
+
+# _pytype_clone clones PyTypeObject src into dst.
+# dst must not be previousy initialized.
+#
+# dst will have reference-count = 1 meaning new reference to it is returned.
+cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst):
+    assert (src.tp_flags & Py_TPFLAGS_READY) != 0
+    assert (src.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0    # src is not allocated on heap
+    #assert not PyType_IS_GC((<PyObject*>src).ob_type)  # XXX not true as unicode.ob_type is PyType_Type
+                                                        #     which generally has GC support, but
+                                                        #     GC is deactivated for non-heap types.
+    # copy the struct
+    dst[0] = src[0]
+    (<PyObject*>dst).ob_refcnt = 1
+
+    # now reinitialize things like .tp_dict etc, where PyType_Ready built slots that point to src.
+    # we want all those slots to be rebuilt and point to dst instead.
+    _dst = <_XPyTypeObject*>dst
+    dst .tp_flags &= ~Py_TPFLAGS_READY
+    dst .tp_dict     = NULL
+    _dst.tp_bases    = NULL
+    _dst.tp_mro      = NULL
+    _dst.tp_cache    = NULL
+    _dst.tp_weaklist = NULL
+
+    # dst.__subclasses__ will be empty because existing children inherit from src, not from dst.
+    _dst.tp_subclasses = NULL
+
+    PyType_Ready(<object>dst)
+    assert (dst.tp_flags & Py_TPFLAGS_READY) != 0
+
+
+# _pytype_replace_by_child replaces typ by its child egg.
+#
+# All existing objects that have type typ will switch to having type egg.
+# The inheritance diagram for existing types will also switch as depicted below:
+#
+#           base                    base
+#            ↑                       ↑
+#           typ        ------>      typ_clone
+#            ↑ ↖                        ↖
+#            X  egg                  X → egg
+#            ↑                       ↑
+#            Y                       Y
+#
+# typ_clone must be initialized via _pytype_clone(typ, typ_clone).
+cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone, PyTypeObject *egg):
+    otyp = <PyObject*>typ           ; oegg = <PyObject*>egg
+    vtyp = <PyVarObject*>typ        ; vegg = <PyVarObject*>egg
+    _typ = <_XPyTypeObject*>typ     ; _egg = <_XPyTypeObject*>egg
+
+    assert egg.tp_base == typ
+
+    assert (typ.tp_flags & Py_TPFLAGS_READY)  != 0
+    assert (egg.tp_flags & Py_TPFLAGS_READY)  != 0
+
+    assert (typ.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
+    assert (egg.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0 # XXX will be not true
+                                                     # -> ! Py_TPFLAGS_HAVE_GC
+                                                     # -> ? set Py_TPFLAGS_HEAPTYPE back on typ' ?
+
+    # (generally not required)
+    assert (typ.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
+    assert (egg.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
+    # XXX also check PyObject_IS_GC  (verifies .tp_is_gc() = n)  ?
+
+
+    assert vtyp.ob_size               ==  vegg.ob_size
+    assert typ .tp_basicsize          ==  egg .tp_basicsize
+    assert typ .tp_itemsize           ==  egg .tp_itemsize
+    IF PY3:
+        assert _typ.tp_vectorcall_offset  ==  _egg.tp_vectorcall_offset
+    assert _typ.tp_weaklistoffset     ==  _egg.tp_weaklistoffset
+    assert typ .tp_dictoffset         ==  egg .tp_dictoffset
+
+    # XXX also copy parts of __dict__, so that e.g. @property(ustr.decode) is preserved ?
+
+    # typ <- egg  preserving original typ's refcnt, weak referencs and subclasses.
+    # typ will be now playing the role of egg
+    typ_refcnt     = otyp.ob_refcnt
+    typ_weaklist   = _typ.tp_weaklist
+    typ_subclasses = _typ.tp_subclasses
+
+    typ[0] = egg[0]
+    otyp.ob_refcnt     = typ_refcnt
+    _typ.tp_weaklist   = typ_weaklist
+    _typ.tp_subclasses = typ_subclasses
+
+    # adjust .tp_base
+    typ.tp_base = typ_clone
+    egg.tp_base = typ_clone
+
+    # reinitialize .tp_bases, .tp_mro and friends since we adjusted .tp_base
+    # do it for both typ (new egg) and origin egg for generality, even though
+    # original egg won't be used anymore.
+    typ.tp_flags &= ~Py_TPFLAGS_READY
+    egg.tp_flags &= ~Py_TPFLAGS_READY
+
+    typ .tp_dict   = NULL  # not strictly needed, but let's do full reinit
+    _typ.tp_bases  = NULL
+    _typ.tp_mro    = NULL
+    _typ.tp_cache  = NULL
+
+    egg .tp_dict   = NULL
+    _egg.tp_bases  = NULL
+    _egg.tp_mro    = NULL
+    _egg.tp_cache  = NULL
+
+    PyType_Ready(<object>typ)
+    PyType_Ready(<object>egg)
+    assert (typ.tp_flags & Py_TPFLAGS_READY) != 0
+    assert (egg.tp_flags & Py_TPFLAGS_READY) != 0
+
+
+cdef PyTypeObject _unicode_orig
+cdef PyTypeObject _bytes_orig
+def _patch_str():
+    global xbytes,   _bytes_orig,   pybstr
+    global xunicode, _unicode_orig, pyustr
+
+    # patch unicode to be pyustr. This patches
+    # - unicode (py2)
+    # - str     (py3)
+    _pytype_clone(<PyTypeObject*>unicode, &_unicode_orig)
+    Py_INCREF(unicode)  # XXX needed?
+    xunicode = <object>&_unicode_orig
+
+    _pytype_replace_by_child(<PyTypeObject*>unicode, &_unicode_orig, <PyTypeObject*>_pyustr)
+    pyustr = unicode
+    #(<PyTypeObject*>unicode).tp_name = "u patched"  # XXX
+
+    # py2: patch str to be pybstr
+    if PY_MAJOR_VERSION < 3:
+        _pytype_clone(<PyTypeObject*>bytes, &_bytes_orig)
+        Py_INCREF(bytes)    # XXX needed?
+        xbytes = <object>&_bytes_orig
+
+        _pytype_replace_by_child(<PyTypeObject*>bytes, &_bytes_orig, <PyTypeObject*>_pybstr)
+        pybstr = bytes
+        #(<PyTypeObject*>bytes).tp_name = "b patched"  # XXX
+
+    print('(patched)')
 
 
 # ---- % formatting ----
@@ -1935,3 +2227,10 @@ else:
         uh = i - 0x10000
         return unichr(0xd800 + (uh >> 10)) + \
                unichr(0xdc00 + (uh & 0x3ff))
+
+
+# --------
+#print('is_gc(unicode):', PyType_IS_GC(<PyTypeObject*>xunicode))
+#print('is_gc(pyustr):',  PyType_IS_GC(<PyTypeObject*>pyustr))
+_patch_str()
+#print('(patched 2)')

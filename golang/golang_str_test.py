@@ -2498,7 +2498,7 @@ def bench_bencode(b):
 
 # xbytes/xunicode/xbytearray convert provided bytes/unicode object to bytes,
 # unicode or bytearray correspondingly to function name.
-def xbytes(x):     return x.encode('utf-8') if type(x) is unicode else x
+def xbytes(x):     return _bdata(x.encode('utf-8') if type(x) is unicode else x)
 def xunicode(x):   return x.decode('utf-8') if type(x) is bytes   else x
 def xbytearray(x): return bytearray(xbytes(x))
 
