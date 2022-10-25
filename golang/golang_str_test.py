@@ -577,6 +577,19 @@ def test_strings_index():
     assert U.endswith(("α","β","мир")) == True
     assert B.endswith(("α","β","мир")) == True
 
+def test_strings_index2():
+    # test_strings_index verifies __getitem__ thoroughly, but on py2
+    # for [x:y] access plain python uses __getslice__ if present, while
+    # pytest, because it does AST rewriting, calls __getitem__. This
+    # way [x:y] handling remains untested if verified only via pytest.
+    # -> test it also via running external program via plain python.
+    outok = readfile(dir_testprog + "/golang_test_str_index2.txt")
+    retcode, stdout, stderr = _pyrun(["golang_test_str_index2.py"],
+                                cwd=dir_testprog, stdout=PIPE, stderr=PIPE)
+    assert retcode == 0, (stdout, stderr)
+    assert stderr == b""
+    assertDoc(outok, stdout)
+
 
 # verify strings iteration.
 def test_strings_iter():

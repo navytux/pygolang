@@ -51,6 +51,7 @@ cdef extern from "Python.h":
     ctypedef struct PySequenceMethods:
         binaryfunc sq_concat
         binaryfunc sq_inplace_concat
+        object (*sq_slice) (object, Py_ssize_t, Py_ssize_t)     # present only on py2
 
 
 from libc.stdint cimport uint8_t
@@ -926,6 +927,15 @@ IF PY2:
         return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
 
     (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
+
+
+# whiteout .sq_slice for pybstr/pyustr inherited from str/unicode.
+# This way slice access always goes through our __getitem__ implementation.
+# If we don't do this e.g. bstr[:] will be handled by str.__getslice__ instead
+# of bstr.__getitem__, and will return str instead of bstr.
+if PY2:
+    (<_XPyTypeObject*>pybstr) .tp_as_sequence.sq_slice = NULL
+    (<_XPyTypeObject*>pyustr) .tp_as_sequence.sq_slice = NULL
 
 
 # _bpysmartquote_u3b2 quotes bytes/bytearray s the same way python would do for string.
