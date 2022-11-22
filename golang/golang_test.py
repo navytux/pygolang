@@ -30,7 +30,7 @@ import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
 from six.moves import range as xrange
-import gc, weakref, warnings
+import gc, weakref
 import re
 
 from golang import _golang_test
@@ -1818,8 +1818,11 @@ def assertDoc(want, got):
 #       ...
 #   fmtargspec(f) -> '(x, y=3)'
 def fmtargspec(f): # -> str
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', DeprecationWarning)
+    # inspect.formatargspec is deprecated since py3.5 and was removed in py3.11
+    # -> use inspect.signature instead.
+    if six.PY3:
+        return str(inspect.signature(f))
+    else:
         return inspect.formatargspec(*inspect.getargspec(f))
 
 def test_fmtargspec():
