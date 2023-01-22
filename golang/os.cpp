@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -226,8 +226,8 @@ tuple<string, error> ReadFile(const string& path) {
 
     while (1) {
         int n;
-        tie(n, err) = f->Read(&buf[0], buf.size());
-        data.append(&buf[0], n);
+        tie(n, err) = f->Read(buf.data(), buf.size());
+        data.append(buf.data(), n);
         if (err != nil) {
             if (err == io::EOF_)
                 err = nil;

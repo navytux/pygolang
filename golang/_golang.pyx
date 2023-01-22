@@ -5,7 +5,7 @@
 # distutils: language = c++
 # distutils: depends = libgolang.h os/signal.h _golang_str.pyx
 #
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -469,7 +469,7 @@ def pyselect(*pycasev):
                 casev[i].user = pych.dtype
 
         with nogil:
-            selected = _chanselect_pyexc(&casev[0], casev.size())
+            selected = _chanselect_pyexc(casev.data(), casev.size())
 
     finally:
         # decref not sent tx (see ^^^ send prepare)
