@@ -31,7 +31,7 @@ import sys
 import six
 from six import text_type as unicode, unichr
 from six.moves import range as xrange
-import re, pickle, copy, types
+import gc, re, pickle, copy, types
 import array, collections
 
 
@@ -282,6 +282,25 @@ def test_strings_basic():
             us.hello = 1
         with raises(AttributeError):
             bs.hello = 1
+
+
+# verify that bstr/ustr are created with correct refcount.
+def test_strings_refcount():
+    # first verify our logic on std type
+    obj = xbytes(u'abc');   assert type(obj) is bytes
+    gc.collect();   assert sys.getrefcount(obj) == 1+1   # +1 due to obj passed to getrefcount call
+
+    # bstr
+    obj = b('abc');         assert type(obj) is bstr
+    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    obj = bstr('abc');      assert type(obj) is bstr
+    gc.collect();           assert sys.getrefcount(obj) == 1+1
+
+    # ustr
+    obj = u('abc');         assert type(obj) is ustr
+    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    obj = ustr('abc');      assert type(obj) is ustr
+    gc.collect();           assert sys.getrefcount(obj) == 1+1
 
 
 # verify memoryview(bstr|ustr).

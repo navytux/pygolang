@@ -29,6 +29,15 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
+
+cdef extern from "Python.h":
+    ctypedef struct PyBytesObject:
+        pass
+
+cdef extern from "Python.h":
+    ctypedef struct PyUnicodeObject:
+        pass
+
 cdef extern from "Python.h":
     """
     #if PY_MAJOR_VERSION < 3
@@ -45,6 +54,7 @@ cdef extern from "Python.h":
 cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
+        PyObject* tp_new(PyTypeObject*, PyObject*, PyObject*) except NULL
         initproc  tp_init
         PySequenceMethods *tp_as_sequence
 
@@ -53,6 +63,8 @@ cdef extern from "Python.h":
         binaryfunc sq_inplace_concat
         object (*sq_slice) (object, Py_ssize_t, Py_ssize_t)     # present only on py2
 
+
+from cython cimport no_gc
 
 from libc.stdint cimport uint8_t
 from libc.stdio cimport FILE
@@ -128,7 +140,12 @@ cdef _pyb(bcls, s): # -> ~bstr | None
             return None
 
     assert type(s) is bytes
-    return bytes.__new__(bcls, s)
+    # like  bytes.__new__(bcls, s)  but call bytes.tp_new directly
+    # else tp_new_wrapper complains because pybstr.tp_new != bytes.tp_new
+    argv = (s,)
+    obj = <object>(<_XPyTypeObject*>bytes).tp_new(<PyTypeObject*>bcls, <PyObject*>argv, NULL)
+    Py_DECREF(obj)
+    return obj
 
 cdef _pyu(ucls, s): # -> ~ustr | None
     if type(s) is ucls:
@@ -147,7 +164,12 @@ cdef _pyu(ucls, s): # -> ~ustr | None
             return None
 
     assert type(s) is unicode
-    return unicode.__new__(ucls, s)
+    # like  unicode .__new__(bcls, s)  but call unicode.tp_new directly
+    # else tp_new_wrapper complains because pyustr.tp_new != unicode.tp_new
+    argv = (s,)
+    obj = <object>(<_XPyTypeObject*>unicode).tp_new(<PyTypeObject*>ucls, <PyObject*>argv, NULL)
+    Py_DECREF(obj)
+    return obj
 
 # _ifbuffer_data returns contained data if obj provides buffer interface.
 cdef _ifbuffer_data(obj): # -> bytes|None
@@ -220,8 +242,8 @@ def pyuchr(int i):  # -> 1-character ustr
     return pyu(unichr(i))
 
 
-# XXX cannot `cdef class`: github.com/cython/cython/issues/711
-class pybstr(bytes):
+@no_gc                      # note setup.py assist this to compile despite
+cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     """bstr is byte-string.
 
     It is based on bytes and can automatically convert to/from unicode.
@@ -253,11 +275,10 @@ class pybstr(bytes):
     See also: b, ustr/u.
     """
 
-    # don't allow to set arbitrary attributes.
-    # won't be needed after switch to -> `cdef class`
-    __slots__ = ()
-
-    def __new__(cls, object='', encoding=None, errors=None):
+    # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
+    # pybstr.__new__ is hand-made in _pybstr_tp_new which invokes ↓ .____new__() .
+    @staticmethod
+    def ____new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
         if not (encoding is None and errors is None):
             object = _buffer_decode(object, encoding, errors)
@@ -360,8 +381,10 @@ class pybstr(bytes):
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
         # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
-        # but pybstr is currently _not_ cdef'ed class
         # see also https://github.com/cython/cython/issues/4750
+        if type(a) is not pybstr:
+            assert type(b) is pybstr
+            return b.__radd__(a)
         return pyb(bytes.__add__(a, _pyb_coerce(b)))
 
     def __radd__(b, a):
@@ -377,6 +400,9 @@ class pybstr(bytes):
 
     # __mul__, __rmul__     (no need to override __imul__)
     def __mul__(a, b):
+        if type(a) is not pybstr:
+            assert type(b) is pybstr
+            return b.__rmul__(a)
         return pyb(bytes.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
@@ -436,8 +462,7 @@ class pybstr(bytes):
     # all other string methods
 
     def capitalize(self):                       return pyb(pyu(self).capitalize())
-    if _strhas('casefold'): # py3.3  TODO provide py2 implementation
-        def casefold(self):                     return pyb(pyu(self).casefold())
+    def casefold(self):                         return pyb(pyu(self).casefold())
     def center(self, width, fillchar=' '):      return pyb(pyu(self).center(width, fillchar))
 
     def count(self, sub, start=None, end=None): return bytes.count(self, _pyb_coerce(sub), start, end)
@@ -463,12 +488,10 @@ class pybstr(bytes):
     # isascii(self)         no need to override
     def isdecimal(self):    return pyu(self).isdecimal()
     def isdigit(self):      return pyu(self).isdigit()
-    if _strhas('isidentifier'): # py3  TODO provide fallback implementation
-        def isidentifier(self): return pyu(self).isidentifier()
+    def isidentifier(self): return pyu(self).isidentifier()
     def islower(self):      return pyu(self).islower()
     def isnumeric(self):    return pyu(self).isnumeric()
-    if _strhas('isprintable'):  # py3  TODO provide fallback implementation
-        def isprintable(self):  return pyu(self).isprintable()
+    def isprintable(self):  return pyu(self).isprintable()
     def isspace(self):      return pyu(self).isspace()
     def istitle(self):      return pyu(self).istitle()
 
@@ -477,10 +500,8 @@ class pybstr(bytes):
     def lower(self):                        return pyb(pyu(self).lower())
     def lstrip(self, chars=None):           return pyb(pyu(self).lstrip(chars))
     def partition(self, sep):               return tuple(pyb(_) for _ in bytes.partition(self, _pyb_coerce(sep)))
-    if _strhas('removeprefix'): # py3.9  TODO provide fallback implementation
-        def removeprefix(self, prefix):     return pyb(pyu(self).removeprefix(prefix))
-    if _strhas('removesuffix'): # py3.9  TODO provide fallback implementation
-        def removesuffix(self, suffix):     return pyb(pyu(self).removesuffix(suffix))
+    def removeprefix(self, prefix):         return pyb(pyu(self).removeprefix(prefix))
+    def removesuffix(self, suffix):         return pyb(pyu(self).removesuffix(suffix))
     def replace(self, old, new, count=-1):  return pyb(bytes.replace(self, _pyb_coerce(old), _pyb_coerce(new), count))
 
     # NOTE rfind/rindex & friends should return byte-position, not unicode-position
@@ -528,8 +549,35 @@ class pybstr(bytes):
         return pyustr.maketrans(x, y, z)
 
 
-# XXX cannot `cdef class` with __new__: https://github.com/cython/cython/issues/799
-class pyustr(unicode):
+# hand-made pybstr.__new__  (workaround for https://github.com/cython/cython/issues/799)
+cdef PyObject* _pybstr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
+    argv = ()
+    if _argv != NULL:
+        argv = <object>_argv
+    kw = {}
+    if _kw != NULL:
+        kw = <object>_kw
+
+    cdef object x = pybstr.____new__(<object>_cls, *argv, **kw)
+    Py_INCREF(x)
+    return <PyObject*>x
+(<_XPyTypeObject*>pybstr).tp_new    = &_pybstr_tp_new
+
+# bytes uses "optimized" and custom .tp_basicsize and .tp_itemsize:
+# https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L26-L32
+# https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L3816-L3820
+(<PyTypeObject*>pybstr) .tp_basicsize  =  (<PyTypeObject*>bytes).tp_basicsize
+(<PyTypeObject*>pybstr) .tp_itemsize   =  (<PyTypeObject*>bytes).tp_itemsize
+
+# make sure pybstr C layout corresponds to bytes C layout exactly
+# we patched cython to allow from-bytes cdef class inheritance and we also set
+# .tp_basicsize directly above. All this works ok only if C layouts for pybstr
+# and bytes are completely the same.
+assert sizeof(pybstr) == sizeof(PyBytesObject)
+
+
+@no_gc
+cdef class pyustr(unicode):
     """ustr is unicode-string.
 
     It is based on unicode and can automatically convert to/from bytes.
@@ -556,11 +604,10 @@ class pyustr(unicode):
     See also: u, bstr/b.
     """
 
-    # don't allow to set arbitrary attributes.
-    # won't be needed after switch to -> `cdef class`
-    __slots__ = ()
-
-    def __new__(cls, object='', encoding=None, errors=None):
+    # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
+    # pyustr.__new__ is hand-made in _pyustr_tp_new which invokes ↓ .____new__() .
+    @staticmethod
+    def ____new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
         if not (encoding is None and errors is None):
             object = _buffer_decode(object, encoding, errors)
@@ -652,8 +699,10 @@ class pyustr(unicode):
     def __add__(a, b):
         # NOTE Cython < 3 does not automatically support __radd__ for cdef class
         # https://cython.readthedocs.io/en/latest/src/userguide/migrating_to_cy30.html#arithmetic-special-methods
-        # but pyustr is currently _not_ cdef'ed class
         # see also https://github.com/cython/cython/issues/4750
+        if type(a) is not pyustr:
+            assert type(b) is pyustr
+            return b.__radd__(a)
         return pyu(unicode.__add__(a, _pyu_coerce(b)))
 
     def __radd__(b, a):
@@ -671,6 +720,9 @@ class pyustr(unicode):
 
     # __mul__, __rmul__     (no need to override __imul__)
     def __mul__(a, b):
+        if type(a) is not pyustr:
+            assert type(b) is pyustr
+            return b.__rmul__(a)
         return pyu(unicode.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
@@ -723,8 +775,7 @@ class pyustr(unicode):
     # all other string methods
 
     def capitalize(self):   return pyu(unicode.capitalize(self))
-    if _strhas('casefold'): # py3.3  TODO provide fallback implementation
-        def casefold(self): return pyu(unicode.casefold(self))
+    def casefold(self):     return pyu(unicode.casefold(self))
     def center(self, width, fillchar=' '):      return pyu(unicode.center(self, width, _pyu_coerce(fillchar)))
     def count(self, sub, start=None, end=None):
         # cython optimizes unicode.count to directly call PyUnicode_Count -
@@ -768,10 +819,8 @@ class pyustr(unicode):
     def lower(self):                        return pyu(unicode.lower(self))
     def lstrip(self, chars=None):           return pyu(unicode.lstrip(self, _xpyu_coerce(chars)))
     def partition(self, sep):               return tuple(pyu(_) for _ in unicode.partition(self, _pyu_coerce(sep)))
-    if _strhas('removeprefix'): # py3.9  TODO provide fallback implementation
-        def removeprefix(self, prefix):     return pyu(unicode.removeprefix(self, _pyu_coerce(prefix)))
-    if _strhas('removesuffix'): # py3.9  TODO provide fallback implementation
-        def removesuffix(self, suffix):     return pyu(unicode.removesuffix(self, _pyu_coerce(suffix)))
+    def removeprefix(self, prefix):         return pyu(unicode.removeprefix(self, _pyu_coerce(prefix)))
+    def removesuffix(self, suffix):         return pyu(unicode.removesuffix(self, _pyu_coerce(suffix)))
     def replace(self, old, new, count=-1):  return pyu(unicode.replace(self, _pyu_coerce(old), _pyu_coerce(new), count))
     def rfind(self, sub, start=None, end=None):
         if start is None: start = 0
@@ -864,6 +913,24 @@ class pyustr(unicode):
         return t
 
 
+# hand-made pyustr.__new__  (workaround for https://github.com/cython/cython/issues/799)
+cdef PyObject* _pyustr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
+    argv = ()
+    if _argv != NULL:
+        argv = <object>_argv
+    kw = {}
+    if _kw != NULL:
+        kw = <object>_kw
+
+    cdef object x = pyustr.____new__(<object>_cls, *argv, **kw)
+    Py_INCREF(x)
+    return <PyObject*>x
+(<_XPyTypeObject*>pyustr).tp_new    = &_pyustr_tp_new
+
+# similarly to bytes - want same C layout for pyustr vs unicode
+assert sizeof(pyustr) == sizeof(PyUnicodeObject)
+
+
 # _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
 cdef class _pyustrIter:
     cdef object uiter
@@ -940,6 +1007,31 @@ if PY2:
     (<_XPyTypeObject*>pybstr) .tp_as_sequence.sq_slice = NULL
     (<_XPyTypeObject*>pyustr) .tp_as_sequence.sq_slice = NULL
 
+
+# ---- adjust bstr/ustr classes after what cython generated ----
+
+# remove unsupported bstr/ustr methods. do it outside of `cdef class` to
+# workaround https://github.com/cython/cython/issues/4556 (`if ...` during
+# `cdef class` is silently handled wrongly)
+cdef _bstrustr_remove_unsupported_slots():
+    vslot = (
+        'casefold',     # py3.3     TODO provide py2 implementation
+        'isidentifier', # py3       TODO provide fallback implementation
+        'isprintable',  # py3       TODO provide fallback implementation
+        'removeprefix', # py3.9     TODO provide fallback implementation
+        'removesuffix', # py3.9     TODO provide fallback implementation
+    )
+    for slot in vslot:
+        if not hasattr(unicode, slot):
+            _patch_slot(<PyTypeObject*>pybstr, slot, DEL)
+            try:
+                _patch_slot(<PyTypeObject*>pyustr, slot, DEL)
+            except KeyError:    # e.g. we do not define ustr.isprintable ourselves
+                pass
+_bstrustr_remove_unsupported_slots()
+
+
+# ---- quoting ----
 
 # _bpysmartquote_u3b2 quotes bytes/bytearray s the same way python would do for string.
 #
@@ -1321,12 +1413,15 @@ cdef _InBStringify _inbstringify_get():
 #
 # if func_or_descr is descriptor (has __get__), it is installed as is.
 # otherwise it is wrapped with "unbound method" descriptor.
+#
+# if func_or_descr is DEL the slot is removed from typ's __dict__.
+cdef DEL = object()
 cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr):
     typdict = <dict>(typ.tp_dict)
     #print("\npatching %s.%s  with  %r" % (typ.tp_name, name, func_or_descr))
     #print("old:  %r" % typdict.get(name))
 
-    if hasattr(func_or_descr, '__get__'):
+    if hasattr(func_or_descr, '__get__')  or  func_or_descr is DEL:
         descr = func_or_descr
     else:
         func = func_or_descr
@@ -1335,7 +1430,10 @@ cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr):
         else:
             descr = _UnboundMethod(func)
 
-    typdict[name] = descr
+    if descr is DEL:
+        del typdict[name]
+    else:
+        typdict[name] = descr
     #print("new:  %r" % typdict.get(name))
     PyType_Modified(typ)
 
@@ -1685,10 +1783,6 @@ class _BFormatter(pystring.Formatter):
 
 
 # ---- misc ----
-
-# _strhas returns whether unicode string type has specified method.
-cdef bint _strhas(str meth) except *:
-    return hasattr(unicode, meth)
 
 cdef object _xpyu_coerce(obj):
     return _pyu_coerce(obj) if obj is not None else None

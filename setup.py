@@ -18,6 +18,25 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+# patch cython to allow `cdef class X(bytes)` while building pygolang to
+# workaround https://github.com/cython/cython/issues/711
+# see `cdef class pybstr` in golang/_golang_str.pyx for details.
+# (should become unneeded with cython 3 once https://github.com/cython/cython/pull/5212 is finished)
+import inspect
+from Cython.Compiler.PyrexTypes import BuiltinObjectType
+def pygo_cy_builtin_type_name_set(self, v):
+    self._pygo_name = v
+def pygo_cy_builtin_type_name_get(self):
+    name = self._pygo_name
+    if name == 'bytes':
+        caller = inspect.currentframe().f_back.f_code.co_name
+        if caller == 'analyse_declarations':
+            # need anything different from 'bytes' to deactivate check in
+            # https://github.com/cython/cython/blob/c21b39d4/Cython/Compiler/Nodes.py#L4759-L4762
+            name = 'xxx'
+    return name
+BuiltinObjectType.name = property(pygo_cy_builtin_type_name_get, pygo_cy_builtin_type_name_set)
+
 from setuptools import find_packages
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
