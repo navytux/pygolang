@@ -31,10 +31,12 @@ from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
 
 cdef extern from "Python.h":
+    PyTypeObject PyBytes_Type
     ctypedef struct PyBytesObject:
         pass
 
 cdef extern from "Python.h":
+    PyTypeObject PyUnicode_Type
     ctypedef struct PyUnicodeObject:
         pass
 
@@ -78,6 +80,12 @@ if PY_MAJOR_VERSION >= 3:
     import copyreg as pycopyreg
 else:
     import copy_reg as pycopyreg
+
+
+# zbytes/zunicode point to original std bytes/unicode types even if they will be patched.
+# we use them to invoke original bytes/unicode methods.
+cdef object zbytes   = <object>(&PyBytes_Type)
+cdef object zunicode = <object>(&PyUnicode_Type)
 
 
 def pyb(s): # -> bstr
@@ -140,10 +148,10 @@ cdef _pyb(bcls, s): # -> ~bstr | None
             return None
 
     assert type(s) is bytes
-    # like  bytes.__new__(bcls, s)  but call bytes.tp_new directly
-    # else tp_new_wrapper complains because pybstr.tp_new != bytes.tp_new
+    # like  zbytes.__new__(bcls, s)  but call zbytes.tp_new directly
+    # else tp_new_wrapper complains because pybstr.tp_new != zbytes.tp_new
     argv = (s,)
-    obj = <object>(<_XPyTypeObject*>bytes).tp_new(<PyTypeObject*>bcls, <PyObject*>argv, NULL)
+    obj = <object>(<_XPyTypeObject*>zbytes).tp_new(<PyTypeObject*>bcls, <PyObject*>argv, NULL)
     Py_DECREF(obj)
     return obj
 
@@ -164,10 +172,10 @@ cdef _pyu(ucls, s): # -> ~ustr | None
             return None
 
     assert type(s) is unicode
-    # like  unicode .__new__(bcls, s)  but call unicode.tp_new directly
-    # else tp_new_wrapper complains because pyustr.tp_new != unicode.tp_new
+    # like  zunicode .__new__(bcls, s)  but call zunicode.tp_new directly
+    # else tp_new_wrapper complains because pyustr.tp_new != zunicode.tp_new
     argv = (s,)
-    obj = <object>(<_XPyTypeObject*>unicode).tp_new(<PyTypeObject*>ucls, <PyObject*>argv, NULL)
+    obj = <object>(<_XPyTypeObject*>zunicode).tp_new(<PyTypeObject*>ucls, <PyObject*>argv, NULL)
     Py_DECREF(obj)
     return obj
 
@@ -317,7 +325,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     # retrieve state, which gives bstr, not bytes. Fix state to be bytes ourselves.
     def __reduce_ex__(self, protocol):
         if protocol >= 2:
-            return bytes.__reduce_ex__(self, protocol)
+            return zbytes.__reduce_ex__(self, protocol)
         return (
             pycopyreg._reconstructor,
             (self.__class__, self.__class__, _bdata(self))
@@ -332,7 +340,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if PY_MAJOR_VERSION >= 3:
             return hash(pyu(self))
         else:
-            return bytes.__hash__(self)
+            return zbytes.__hash__(self)
 
     # == != < > <= >=
     # NOTE == and != are special: they must succeed against any type so that
@@ -342,18 +350,18 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
             b = _pyb_coerce(b)
         except TypeError:
             return False
-        return bytes.__eq__(a, b)
+        return zbytes.__eq__(a, b)
     def __ne__(a, b):   return not a.__eq__(b)
-    def __lt__(a, b):   return bytes.__lt__(a, _pyb_coerce(b))
-    def __gt__(a, b):   return bytes.__gt__(a, _pyb_coerce(b))
-    def __le__(a, b):   return bytes.__le__(a, _pyb_coerce(b))
-    def __ge__(a, b):   return bytes.__ge__(a, _pyb_coerce(b))
+    def __lt__(a, b):   return zbytes.__lt__(a, _pyb_coerce(b))
+    def __gt__(a, b):   return zbytes.__gt__(a, _pyb_coerce(b))
+    def __le__(a, b):   return zbytes.__le__(a, _pyb_coerce(b))
+    def __ge__(a, b):   return zbytes.__ge__(a, _pyb_coerce(b))
 
     # len - no need to override
 
     # [], [:]
     def __getitem__(self, idx):
-        x = bytes.__getitem__(self, idx)
+        x = zbytes.__getitem__(self, idx)
         if type(idx) is slice:
             return pyb(x)
         else:
@@ -374,7 +382,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     def __contains__(self, key):
         # NOTE on py3 bytes.__contains__ accepts numbers and buffers. We don't want to
         # automatically coerce any of them to bytestrings
-        return bytes.__contains__(self, _pyb_coerce(key))
+        return zbytes.__contains__(self, _pyb_coerce(key))
 
 
     # __add__, __radd__     (no need to override __iadd__)
@@ -385,7 +393,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if type(a) is not pybstr:
             assert type(b) is pybstr
             return b.__radd__(a)
-        return pyb(bytes.__add__(a, _pyb_coerce(b)))
+        return pyb(zbytes.__add__(a, _pyb_coerce(b)))
 
     def __radd__(b, a):
         # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
@@ -403,7 +411,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if type(a) is not pybstr:
             assert type(b) is pybstr
             return b.__rmul__(a)
-        return pyb(bytes.__mul__(a, b))
+        return pyb(zbytes.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
 
@@ -447,7 +455,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if encoding == 'utf-8'  and  errors == 'surrogateescape':
             x = _utf8_decode_surrogateescape(self)
         else:
-            x = bytes.decode(self, encoding, errors)
+            x = zbytes.decode(self, encoding, errors)
         # on py2 e.g. bytes.decode('string-escape') returns bytes
         if PY_MAJOR_VERSION < 3  and  isinstance(x, bytes):
             return pyb(x)
@@ -465,7 +473,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     def casefold(self):                         return pyb(pyu(self).casefold())
     def center(self, width, fillchar=' '):      return pyb(pyu(self).center(width, fillchar))
 
-    def count(self, sub, start=None, end=None): return bytes.count(self, _pyb_coerce(sub), start, end)
+    def count(self, sub, start=None, end=None): return zbytes.count(self, _pyb_coerce(sub), start, end)
 
     def endswith(self, suffix, start=None, end=None):
         if isinstance(suffix, tuple):
@@ -475,13 +483,13 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
             return False
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return bytes.endswith(self, _pyb_coerce(suffix), start, end)
+        return zbytes.endswith(self, _pyb_coerce(suffix), start, end)
 
     def expandtabs(self, tabsize=8):            return pyb(pyu(self).expandtabs(tabsize))
 
     # NOTE find/index & friends should return byte-position, not unicode-position
-    def find(self, sub, start=None, end=None):  return bytes.find(self, _pyb_coerce(sub), start, end)
-    def index(self, sub, start=None, end=None): return bytes.index(self, _pyb_coerce(sub), start, end)
+    def find(self, sub, start=None, end=None):  return zbytes.find(self, _pyb_coerce(sub), start, end)
+    def index(self, sub, start=None, end=None): return zbytes.index(self, _pyb_coerce(sub), start, end)
 
     def isalnum(self):      return pyu(self).isalnum()
     def isalpha(self):      return pyu(self).isalpha()
@@ -495,21 +503,21 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     def isspace(self):      return pyu(self).isspace()
     def istitle(self):      return pyu(self).istitle()
 
-    def join(self, iterable):               return pyb(bytes.join(self, (_pyb_coerce(_) for _ in iterable)))
+    def join(self, iterable):               return pyb(zbytes.join(self, (_pyb_coerce(_) for _ in iterable)))
     def ljust(self, width, fillchar=' '):   return pyb(pyu(self).ljust(width, fillchar))
     def lower(self):                        return pyb(pyu(self).lower())
     def lstrip(self, chars=None):           return pyb(pyu(self).lstrip(chars))
-    def partition(self, sep):               return tuple(pyb(_) for _ in bytes.partition(self, _pyb_coerce(sep)))
+    def partition(self, sep):               return tuple(pyb(_) for _ in zbytes.partition(self, _pyb_coerce(sep)))
     def removeprefix(self, prefix):         return pyb(pyu(self).removeprefix(prefix))
     def removesuffix(self, suffix):         return pyb(pyu(self).removesuffix(suffix))
-    def replace(self, old, new, count=-1):  return pyb(bytes.replace(self, _pyb_coerce(old), _pyb_coerce(new), count))
+    def replace(self, old, new, count=-1):  return pyb(zbytes.replace(self, _pyb_coerce(old), _pyb_coerce(new), count))
 
     # NOTE rfind/rindex & friends should return byte-position, not unicode-position
-    def rfind(self, sub, start=None, end=None):   return bytes.rfind(self, _pyb_coerce(sub), start, end)
-    def rindex(self, sub, start=None, end=None):  return bytes.rindex(self, _pyb_coerce(sub), start, end)
+    def rfind(self, sub, start=None, end=None):   return zbytes.rfind(self, _pyb_coerce(sub), start, end)
+    def rindex(self, sub, start=None, end=None):  return zbytes.rindex(self, _pyb_coerce(sub), start, end)
 
     def rjust(self, width, fillchar=' '):   return pyb(pyu(self).rjust(width, fillchar))
-    def rpartition(self, sep):              return tuple(pyb(_) for _ in bytes.rpartition(self, _pyb_coerce(sep)))
+    def rpartition(self, sep):              return tuple(pyb(_) for _ in zbytes.rpartition(self, _pyb_coerce(sep)))
     def rsplit(self, sep=None, maxsplit=-1):
         v = pyu(self).rsplit(sep, maxsplit)
         return list([pyb(_) for _ in v])
@@ -527,16 +535,16 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
             return False
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return bytes.startswith(self, _pyb_coerce(prefix), start, end)
+        return zbytes.startswith(self, _pyb_coerce(prefix), start, end)
 
     def strip(self, chars=None):            return pyb(pyu(self).strip(chars))
     def swapcase(self):                     return pyb(pyu(self).swapcase())
     def title(self):                        return pyb(pyu(self).title())
     def translate(self, table, delete=None):
         # bytes mode  (compatibility with str/py2)
-        if table is None  or isinstance(table, bytes)  or  delete is not None:
+        if table is None  or isinstance(table, zbytes)  or  delete is not None:
             if delete is None:  delete = b''
-            return pyb(bytes.translate(self, table, delete))
+            return pyb(zbytes.translate(self, table, delete))
         # unicode mode
         else:
             return pyb(pyu(self).translate(table))
@@ -566,8 +574,8 @@ cdef PyObject* _pybstr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw
 # bytes uses "optimized" and custom .tp_basicsize and .tp_itemsize:
 # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L26-L32
 # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L3816-L3820
-(<PyTypeObject*>pybstr) .tp_basicsize  =  (<PyTypeObject*>bytes).tp_basicsize
-(<PyTypeObject*>pybstr) .tp_itemsize   =  (<PyTypeObject*>bytes).tp_itemsize
+(<PyTypeObject*>pybstr) .tp_basicsize  =  (<PyTypeObject*>zbytes).tp_basicsize
+(<PyTypeObject*>pybstr) .tp_itemsize   =  (<PyTypeObject*>zbytes).tp_itemsize
 
 # make sure pybstr C layout corresponds to bytes C layout exactly
 # we patched cython to allow from-bytes cdef class inheritance and we also set
@@ -646,7 +654,7 @@ cdef class pyustr(unicode):
     # retrieve state, which gives ustr, not unicode. Fix state to be unicode ourselves.
     def __reduce_ex__(self, protocol):
         if protocol >= 2:
-            return unicode.__reduce_ex__(self, protocol)
+            return zunicode.__reduce_ex__(self, protocol)
         return (
             pycopyreg._reconstructor,
             (self.__class__, self.__class__, _udata(self))
@@ -656,7 +664,7 @@ cdef class pyustr(unicode):
     def __hash__(self):
         # see pybstr.__hash__ for why we stick to hash of current str
         if PY_MAJOR_VERSION >= 3:
-            return unicode.__hash__(self)
+            return zunicode.__hash__(self)
         else:
             return hash(pyb(self))
 
@@ -668,23 +676,23 @@ cdef class pyustr(unicode):
             b = _pyu_coerce(b)
         except TypeError:
             return False
-        return unicode.__eq__(a, b)
+        return zunicode.__eq__(a, b)
     def __ne__(a, b):   return not a.__eq__(b)
-    def __lt__(a, b):   return unicode.__lt__(a, _pyu_coerce(b))
-    def __gt__(a, b):   return unicode.__gt__(a, _pyu_coerce(b))
-    def __le__(a, b):   return unicode.__le__(a, _pyu_coerce(b))
-    def __ge__(a, b):   return unicode.__ge__(a, _pyu_coerce(b))
+    def __lt__(a, b):   return zunicode.__lt__(a, _pyu_coerce(b))
+    def __gt__(a, b):   return zunicode.__gt__(a, _pyu_coerce(b))
+    def __le__(a, b):   return zunicode.__le__(a, _pyu_coerce(b))
+    def __ge__(a, b):   return zunicode.__ge__(a, _pyu_coerce(b))
 
     # len - no need to override
 
     # [], [:]
     def __getitem__(self, idx):
-        return pyu(unicode.__getitem__(self, idx))
+        return pyu(zunicode.__getitem__(self, idx))
 
     # __iter__
     def __iter__(self):
         if PY_MAJOR_VERSION >= 3:
-            return _pyustrIter(unicode.__iter__(self))
+            return _pyustrIter(zunicode.__iter__(self))
         else:
             # on python 2 unicode does not have .__iter__
             return PySeqIter_New(self)
@@ -692,7 +700,7 @@ cdef class pyustr(unicode):
 
     # __contains__
     def __contains__(self, key):
-        return unicode.__contains__(self, _pyu_coerce(key))
+        return zunicode.__contains__(self, _pyu_coerce(key))
 
 
     # __add__, __radd__     (no need to override __iadd__)
@@ -703,7 +711,7 @@ cdef class pyustr(unicode):
         if type(a) is not pyustr:
             assert type(b) is pyustr
             return b.__radd__(a)
-        return pyu(unicode.__add__(a, _pyu_coerce(b)))
+        return pyu(zunicode.__add__(a, _pyu_coerce(b)))
 
     def __radd__(b, a):
         # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
@@ -723,7 +731,7 @@ cdef class pyustr(unicode):
         if type(a) is not pyustr:
             assert type(b) is pyustr
             return b.__rmul__(a)
-        return pyu(unicode.__mul__(a, b))
+        return pyu(zunicode.__mul__(a, b))
     def __rmul__(b, a):
         return b.__mul__(a)
 
@@ -748,7 +756,7 @@ cdef class pyustr(unicode):
         # NOTE not e.g. `_bvformat(_pyu_coerce(format_spec), (self,))` because
         #      the only format code that string.__format__ should support is
         #      's', not e.g. 'r'.
-        return pyu(unicode.__format__(self, format_spec))
+        return pyu(zunicode.__format__(self, format_spec))
 
 
     # encode/decode
@@ -763,7 +771,7 @@ cdef class pyustr(unicode):
         if encoding == 'utf-8'  and  errors == 'surrogateescape':
             x = _utf8_encode_surrogateescape(self)
         else:
-            x = unicode.encode(self, encoding, errors)
+            x = zunicode.encode(self, encoding, errors)
         return pyb(x)
 
     if PY_MAJOR_VERSION < 3:
@@ -774,15 +782,15 @@ cdef class pyustr(unicode):
 
     # all other string methods
 
-    def capitalize(self):   return pyu(unicode.capitalize(self))
-    def casefold(self):     return pyu(unicode.casefold(self))
-    def center(self, width, fillchar=' '):      return pyu(unicode.center(self, width, _pyu_coerce(fillchar)))
+    def capitalize(self):   return pyu(zunicode.capitalize(self))
+    def casefold(self):     return pyu(zunicode.casefold(self))
+    def center(self, width, fillchar=' '):      return pyu(zunicode.center(self, width, _pyu_coerce(fillchar)))
     def count(self, sub, start=None, end=None):
         # cython optimizes unicode.count to directly call PyUnicode_Count -
         # - cannot use None for start/stop  https://github.com/cython/cython/issues/4737
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.count(self, _pyu_coerce(sub), start, end)
+        return zunicode.count(self, _pyu_coerce(sub), start, end)
     def endswith(self, suffix, start=None, end=None):
         if isinstance(suffix, tuple):
             for _ in suffix:
@@ -791,16 +799,16 @@ cdef class pyustr(unicode):
             return False
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.endswith(self, _pyu_coerce(suffix), start, end)
-    def expandtabs(self, tabsize=8):            return pyu(unicode.expandtabs(self, tabsize))
+        return zunicode.endswith(self, _pyu_coerce(suffix), start, end)
+    def expandtabs(self, tabsize=8):            return pyu(zunicode.expandtabs(self, tabsize))
     def find(self, sub, start=None, end=None):
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.find(self, _pyu_coerce(sub), start, end)
+        return zunicode.find(self, _pyu_coerce(sub), start, end)
     def index(self, sub, start=None, end=None):
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.index(self, _pyu_coerce(sub), start, end)
+        return zunicode.index(self, _pyu_coerce(sub), start, end)
 
     # isalnum(self)         no need to override
     # isalpha(self)         no need to override
@@ -814,41 +822,41 @@ cdef class pyustr(unicode):
     # isspace(self)         no need to override
     # istitle(self)         no need to override
 
-    def join(self, iterable):               return pyu(unicode.join(self, (_pyu_coerce(_) for _ in iterable)))
-    def ljust(self, width, fillchar=' '):   return pyu(unicode.ljust(self, width, _pyu_coerce(fillchar)))
-    def lower(self):                        return pyu(unicode.lower(self))
-    def lstrip(self, chars=None):           return pyu(unicode.lstrip(self, _xpyu_coerce(chars)))
-    def partition(self, sep):               return tuple(pyu(_) for _ in unicode.partition(self, _pyu_coerce(sep)))
-    def removeprefix(self, prefix):         return pyu(unicode.removeprefix(self, _pyu_coerce(prefix)))
-    def removesuffix(self, suffix):         return pyu(unicode.removesuffix(self, _pyu_coerce(suffix)))
-    def replace(self, old, new, count=-1):  return pyu(unicode.replace(self, _pyu_coerce(old), _pyu_coerce(new), count))
+    def join(self, iterable):               return pyu(zunicode.join(self, (_pyu_coerce(_) for _ in iterable)))
+    def ljust(self, width, fillchar=' '):   return pyu(zunicode.ljust(self, width, _pyu_coerce(fillchar)))
+    def lower(self):                        return pyu(zunicode.lower(self))
+    def lstrip(self, chars=None):           return pyu(zunicode.lstrip(self, _xpyu_coerce(chars)))
+    def partition(self, sep):               return tuple(pyu(_) for _ in zunicode.partition(self, _pyu_coerce(sep)))
+    def removeprefix(self, prefix):         return pyu(zunicode.removeprefix(self, _pyu_coerce(prefix)))
+    def removesuffix(self, suffix):         return pyu(zunicode.removesuffix(self, _pyu_coerce(suffix)))
+    def replace(self, old, new, count=-1):  return pyu(zunicode.replace(self, _pyu_coerce(old), _pyu_coerce(new), count))
     def rfind(self, sub, start=None, end=None):
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.rfind(self, _pyu_coerce(sub), start, end)
+        return zunicode.rfind(self, _pyu_coerce(sub), start, end)
     def rindex(self, sub, start=None, end=None):
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.rindex(self, _pyu_coerce(sub), start, end)
-    def rjust(self, width, fillchar=' '):   return pyu(unicode.rjust(self, width, _pyu_coerce(fillchar)))
-    def rpartition(self, sep):              return tuple(pyu(_) for _ in unicode.rpartition(self, _pyu_coerce(sep)))
+        return zunicode.rindex(self, _pyu_coerce(sub), start, end)
+    def rjust(self, width, fillchar=' '):   return pyu(zunicode.rjust(self, width, _pyu_coerce(fillchar)))
+    def rpartition(self, sep):              return tuple(pyu(_) for _ in zunicode.rpartition(self, _pyu_coerce(sep)))
     def rsplit(self, sep=None, maxsplit=-1):
-        v = unicode.rsplit(self, _xpyu_coerce(sep), maxsplit)
+        v = zunicode.rsplit(self, _xpyu_coerce(sep), maxsplit)
         return list([pyu(_) for _ in v])
-    def rstrip(self, chars=None):           return pyu(unicode.rstrip(self, _xpyu_coerce(chars)))
+    def rstrip(self, chars=None):           return pyu(zunicode.rstrip(self, _xpyu_coerce(chars)))
     def split(self, sep=None, maxsplit=-1):
         # cython optimizes unicode.split to directly call PyUnicode_Split - cannot use None for sep
         # and cannot also use object=NULL  https://github.com/cython/cython/issues/4737
         if sep is None:
             if PY_MAJOR_VERSION >= 3:
-                v = unicode.split(self, maxsplit=maxsplit)
+                v = zunicode.split(self, maxsplit=maxsplit)
             else:
                 # on py2 unicode.split does not accept keyword arguments
-                v = _udata(self).split(None, maxsplit)
+                v = zunicode.split(self, None, maxsplit)
         else:
-            v = unicode.split(self, _pyu_coerce(sep), maxsplit)
+            v = zunicode.split(self, _pyu_coerce(sep), maxsplit)
         return list([pyu(_) for _ in v])
-    def splitlines(self, keepends=False):   return list(pyu(_) for _ in unicode.splitlines(self, keepends))
+    def splitlines(self, keepends=False):   return list(pyu(_) for _ in zunicode.splitlines(self, keepends))
     def startswith(self, prefix, start=None, end=None):
         if isinstance(prefix, tuple):
             for _ in prefix:
@@ -857,10 +865,10 @@ cdef class pyustr(unicode):
             return False
         if start is None: start = 0
         if end   is None: end   = PY_SSIZE_T_MAX
-        return unicode.startswith(self, _pyu_coerce(prefix), start, end)
-    def strip(self, chars=None):            return pyu(unicode.strip(self, _xpyu_coerce(chars)))
-    def swapcase(self):                     return pyu(unicode.swapcase(self))
-    def title(self):                        return pyu(unicode.title(self))
+        return zunicode.startswith(self, _pyu_coerce(prefix), start, end)
+    def strip(self, chars=None):            return pyu(zunicode.strip(self, _xpyu_coerce(chars)))
+    def swapcase(self):                     return pyu(zunicode.swapcase(self))
+    def title(self):                        return pyu(zunicode.title(self))
 
     def translate(self, table):
         # unicode.translate does not accept bstr values
@@ -869,10 +877,10 @@ cdef class pyustr(unicode):
             if not isinstance(v, int):  # either unicode ordinal,
                 v = _xpyu_coerce(v)     # character or None
             t[k] = v
-        return pyu(unicode.translate(self, t))
+        return pyu(zunicode.translate(self, t))
 
-    def upper(self):                        return pyu(unicode.upper(self))
-    def zfill(self, width):                 return pyu(unicode.zfill(self, width))
+    def upper(self):                        return pyu(zunicode.upper(self))
+    def zfill(self, width):                 return pyu(zunicode.zfill(self, width))
 
     @staticmethod
     def maketrans(x=None, y=None, z=None):
@@ -884,11 +892,11 @@ cdef class pyustr(unicode):
                     if not isinstance(k, int):
                         k = pyu(k)
                     _[k] = v
-                return unicode.maketrans(_)
+                return zunicode.maketrans(_)
             elif z is None:
-                return unicode.maketrans(pyu(x), pyu(y))  # std maketrans does not accept b
+                return zunicode.maketrans(pyu(x), pyu(y))  # std maketrans does not accept b
             else:
-                return unicode.maketrans(pyu(x), pyu(y), pyu(z))  # ----//----
+                return zunicode.maketrans(pyu(x), pyu(y), pyu(z))  # ----//----
 
         # hand-made on py2
         t = {}
@@ -994,7 +1002,7 @@ IF PY2:
         assert isinstance(o, bytes)
         o = <bytes>o
         o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
-        return (<_PyTypeObject_Print*>Py_TYPE(o)) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
+        return (<_PyTypeObject_Print*>zbytes) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
 
     (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
 
@@ -1691,7 +1699,7 @@ cdef _bprintf(const uint8_t[::1] fmt, xarg): # -> pybstr
 
         #print('--> __mod__ ', repr(fmt1), ' % ', repr(arg))
         try:
-            s = bytes.__mod__(fmt1, arg)
+            s = zbytes.__mod__(fmt1, arg)
         except ValueError as e:
             # adjust position in '... at index <idx>' from fmt1 to fmt
             if len(e.args) == 1:
@@ -1945,7 +1953,7 @@ def _utf8_decode_surrogateescape(const uint8_t[::1] s): # -> unicode
 def _utf8_encode_surrogateescape(s): # -> bytes
     assert isinstance(s, unicode)
     if PY_MAJOR_VERSION >= 3:
-        return unicode.encode(s, 'UTF-8', 'surrogateescape')
+        return zunicode.encode(s, 'UTF-8', 'surrogateescape')
 
     # py2 does not have surrogateescape error handler, and even if we
     # provide one, builtin unicode.encode() does not treat
