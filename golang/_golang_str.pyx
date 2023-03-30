@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -221,8 +221,9 @@ cdef (int, int) _utf8_decode_rune(const uint8_t[::1] s):
         if _ucs2_build and len(r) == 2:
             try:
                 return _xuniord(r), l
-            # e.g. TypeError: ord() expected a character, but string of length 2 found
-            except TypeError:
+            # py: TypeError: ord() expected a character, but string of length 2 found
+            # cy: ValueError: only single character unicode strings can be converted to Py_UCS4, got length 2
+            except (TypeError, ValueError):
                 l -= 1
                 continue
 
