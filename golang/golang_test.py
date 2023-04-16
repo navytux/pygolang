@@ -1559,6 +1559,7 @@ RuntimeError: gamma
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _
     return f(*argv, **kw)
+           ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1579,9 +1580,11 @@ Traceback (most recent call last):
     caller()
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1596,9 +1599,11 @@ Traceback (most recent call last):
     caller()
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1611,6 +1616,7 @@ RuntimeError: aaa
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _
     return f(*argv, **kw)
+           ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1631,9 +1637,11 @@ Traceback (most recent call last):
     caller()
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1800,9 +1808,25 @@ def assertDoc(want, got):
     got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
     # want: process conditionals
-    # PY39(...) -> ... if py39 else ø
-    py39 = sys.version_info >= (3, 9)
-    want = re.sub(r"PY39\((.*)\)", r"\1" if py39 else "", want)
+    # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
+    # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
+    # `... -PY39` -> ... if py < 3.9 else ø  (whole line)
+    have = {}  # 'PYxy' -> y/n
+    for minor in (9,10,11):
+        have['PY3%d' % minor] = (sys.version_info >= (3, minor))
+    for x, havex in have.items():
+        want = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", want)
+        r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
+        v = []
+        for l in want.splitlines():
+            m = r.match(l)
+            if m is not None:
+                l = m.group('main')
+                y = {'+':True, '-':False}[m.group('y')]
+                if (y and not havex) or (havex and not y):
+                    continue
+            v.append(l)
+        want = '\n'.join(v)+'\n'
 
     # want: ^$ -> <BLANKLINE>
     while "\n\n" in want:
