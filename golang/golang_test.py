@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -23,7 +23,7 @@ from __future__ import print_function, absolute_import
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, \
         defer, recover, u
 from golang import sync
-from pytest import raises, mark, fail
+from pytest import raises, mark, fail, skip
 from _pytest._code import Traceback
 from os.path import dirname
 import os, sys, inspect, importlib, traceback, doctest
@@ -1654,6 +1654,13 @@ def test_defer_excchain_dump():
 
 # ----//---- (ipython)
 def test_defer_excchain_dump_ipython():
+    # ipython 8 changed traceback output significantly
+    # we do not need to test it because we acticate ipython-related patch only
+    # on py2 for which latest ipython version is 5.
+    import IPython
+    if six.PY3 and IPython.version_info >= (8,0):
+        skip("ipython is patched only on py2; ipython8 changed traceback format")
+
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-ipython")
     retcode, stdout, stderr = _pyrun(["-m", "IPython", "--quick", "--colors=NoColor",
                                 "-m", "golang_test_defer_excchain"],
