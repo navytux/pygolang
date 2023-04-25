@@ -3,7 +3,6 @@ include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 include golang/runtime/libpyxruntime.cpp
 include golang/pyx/runtime.h
-include golang/pyx/runtime.cpp
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
 include golang/runtime/internal.h
 include golang/runtime/internal/atomic.h
@@ -37,3 +36,4 @@ include golang/_testing.h
 recursive-include golang    *.py *.pxd *.pyx *.toml *.txt*
 recursive-include gpython   *.py
 recursive-include 3rdparty  *.h
+recursive-exclude golang    *_dsoinfo.py
