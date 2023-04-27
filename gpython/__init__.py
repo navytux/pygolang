@@ -50,19 +50,27 @@ _pyopt_long = ('version',)
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
-    from os.path import dirname, realpath
+    import os
+    from os.path import dirname, realpath, splitext
 
     # sys.executable
     # on windows there are
-    #   gpython-script.py
     #   gpython.exe
+    #   gpython-script.py
     #   gpython.manifest
-    # and argv[0] is gpython-script.py
+    # with gpython-script.py sometimes embedded into gpython.exe (pip/distlib)
+    # and argv[0] is 'gpython-script.py' (setuptools)  or  'gpython' (pip/distlib; note no .exe)
     exe  = realpath(argv[0])
     argv = argv[1:]
-    if exe.endswith('-script.py'):
-        exe = exe[:-len('-script.py')]
-        exe = exe + '.exe'
+    if os.name == 'nt':
+        if exe.endswith('-script.py'):
+            exe = exe[:-len('-script.py')]  # gpython-script.py  ->  gpython.exe
+            exe = exe + '.exe'
+        else:
+            _, ext = splitext(exe)          # gpython            ->  gpython.exe
+            if not ext:
+                exe += '.exe'
+
     sys._gpy_underlying_executable = sys.executable
     sys.executable  = exe
 
@@ -70,20 +78,26 @@ def pymain(argv, init=None):
     # `gpython file` will add path-to-file to sys.path[0] by itself, and
     # /path/to/gpython is unnecessary and would create difference in behaviour
     # in between gpython and python.
+    #
+    # on windows when gpython.exe comes with embedded __main__.py, it is
+    # gpython.exe that is installed into sys.path[0] .
     exedir = dirname(exe)
-    if sys.path[0] == exedir:
+    if sys.path[0] in (exedir, exe):
         del sys.path[0]
     else:
         # buildout injects `sys.path[0:0] = eggs` into python scripts.
         # detect that and remove sys.path entry corresponding to exedir.
         if not _is_buildout_script(exe):
-            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe):'
+            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe) or exe:'
                     '\n\n\texe:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
         else:
-            if exedir in sys.path:
-                sys.path.remove(exedir)
-            else:
-                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe):'
+            ok = False
+            for _ in (exedir, exe):
+                if _ in sys.path:
+                    sys.path.remove(_)
+                    ok = True
+            if not ok:
+                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe) or exe:'
                     '\n\n\texe:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
 
 
@@ -202,7 +216,6 @@ def pymain(argv, init=None):
     #
     #   python -O gpython file.py
     if len(reexec_with) > 0:
-        import os
         argv = [sys._gpy_underlying_executable] + reexec_with + [sys.executable] + reexec_argv
         os.execv(argv[0], argv)
 
