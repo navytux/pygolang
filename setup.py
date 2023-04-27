@@ -319,10 +319,9 @@ setup(
                         # only runtime part: for dylink_prepare_dso
                         'setuptools_dso >= 2.7',
                         # pyx.build -> setuptools_dso uses multiprocessing
-                        # FIXME geventmp fails on python2, but setuptools_dso
-                        # uses multiprocessing only on Python3, so for now we
-                        # are ok. https://github.com/karellen/geventmp/pull/2
-                        'geventmp;python_version>="3"',
+                        # setuptools_dso uses multiprocessing only on Python3, and only on systems where
+                        # mp.get_start_method()!='fork', while geventmp does not work on windows.
+                        'geventmp ; python_version>="3" and platform_system != "Windows" ',
                        ],
     extras_require   = extras_require,
 
