@@ -1807,6 +1807,13 @@ def assertDoc(want, got):
     got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
     got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
+    # got: normalize PYGOLANG\a\b\c -> PYGOLANG/a/b/c
+    #                a\b\c\d.py  -> a/b/c/d.py
+    def _(m):
+        return m.group(0).replace(os.path.sep, '/')
+    got = re.sub(r"(?<=PYGOLANG)[^\s]+(?=\s)",  _, got)
+    got = re.sub(r"([\w\\\.]+)(?=\.py)",        _, got)
+
     # want: process conditionals
     # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
     # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
