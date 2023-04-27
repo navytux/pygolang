@@ -73,8 +73,10 @@ _dso_build_ext = setuptools_dso.build_ext
 class build_ext(_dso_build_ext):
     def build_extension(self, ext):
         # wrap _compiler <src> -> <obj> with our code
+
+        # ._compile is used on gcc/clang but not with msvc
         _compile = self.compiler._compile
-        def _(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        def xcompile(obj, src, ext, cc_args, extra_postargs, pp_opts):
             # filter_out removes arguments that start with argprefix
             cc_args         = cc_args[:]
             extra_postargs  = extra_postargs[:]
@@ -101,11 +103,30 @@ class build_ext(_dso_build_ext):
                 filter_out('-std=gnu++')
 
             _compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
-        self.compiler._compile = _
+
+        # msvc handles all sources directly in the loop in .compile and we can
+        # do per-source adjustsment only in .spawn .
+        spawn = self.compiler.spawn
+        def xspawn(argv):
+            c = False
+            for arg in argv:
+                if arg.startswith('/Tc'):
+                    c = True
+            if c:
+                argv = argv[:]
+                for i in range(len(argv)):
+                    if argv[i] == '/std:c++20':
+                        argv[i] = '/std:c11'
+
+            return spawn(argv)
+
+        self.compiler._compile = xcompile
+        self.compiler.spawn    = xspawn
         try:
             _dso_build_ext.build_extension(self, ext) # super doesn't work for _dso_build_ext
         finally:
             self.compiler._compile = _compile
+            self.compiler.spawn    = spawn
 
 
 # setup should be used instead of setuptools.setup
@@ -144,6 +165,10 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
 
     kw = kw.copy()
 
+    sysname = platform.system().lower()
+    win  = (sysname == 'windows')
+    msvc = win  # TODO also support mingw ?
+
     # prepend -I<pygolang> so that e.g. golang/libgolang.h is found
     incv = kw.get('include_dirs', [])[:]
     incv.insert(0, pygo)
@@ -161,13 +186,20 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
     # default to C++11 (chan[T] & co require C++11 features)
     ccdefault = []
     if lang == 'c++':
-        if name == 'golang.runtime.libgolang':
-            ccdefault.append('-std=gnu++11') # not c++11 as linux/list.h uses typeof
+        if not msvc:
+            if name == 'golang.runtime.libgolang':
+                ccdefault.append('-std=gnu++11') # not c++11 as linux/list.h uses typeof
+            else:
+                ccdefault.append('-std=c++11')
         else:
-            ccdefault.append('-std=c++11')
+            # MSVC requries C++20 for designated struct initializers
+            ccdefault.append('/std:c++20')
+            # and make exception handling: "fully conformant", so that e.g. extern "C" `panic` works
+            ccdefault.extend(['/EHc-', '/EHsr'])
 
     # default to no strict-aliasing
-    ccdefault.append('-fno-strict-aliasing')
+    if not msvc:
+        ccdefault.append('-fno-strict-aliasing') # use only on gcc/clang - msvc does it by default
 
     _ = kw.get('extra_compile_args', [])[:]
     _[0:0] = ccdefault              # if another e.g. -std=... was already there -
