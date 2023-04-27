@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -439,13 +439,13 @@ def main():
 
 # _is_buildout_script returns whether file @path is generated as python buildout script.
 def _is_buildout_script(path):
-    with open(path, 'r') as f:
+    with open(path, 'rb') as f:
         src = f.read()
     # buildout injects the following prologues into python scripts:
     #   sys.path[0:0] = [
     #     ...
     #   ]
-    return ('\nsys.path[0:0] = [\n' in src)
+    return (b'\nsys.path[0:0] = [\n' in src)
 
 
 # _IGetOpt provides getopt-style incremental options parsing.

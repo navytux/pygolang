@@ -26,9 +26,12 @@ from os.path import dirname, join
 import sys, os, re
 
 # read file content
-def readfile(path):
-    with open(path, 'r') as f:
-        return f.read()
+def readfile(path): # -> str
+    with open(path, 'rb') as f:
+        data = f.read()
+        if not isinstance(data, str):   # py3
+            data = data.decode('utf-8')
+        return data
 
 # reuse golang.pyx.build to build pygolang dso and extensions.
 # we have to be careful and inject synthetic golang package in order to be

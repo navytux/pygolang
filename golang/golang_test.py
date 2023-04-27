@@ -1889,8 +1889,10 @@ def test_fmtargspec():
 
 
 # readfile returns content of file @path.
-def readfile(path):
-    with open(path, "r") as f:
+def readfile(path): # -> bytes
+    # on windows in text mode files are opened with encoding=locale.getdefaultlocale()
+    # which is CP125X instead of UTF-8. -> manually decode as 'UTF-8'
+    with open(path, "rb") as f:
         return f.read()
 
 # abbrev_home returns path with user home prefix abbreviated with ~.
