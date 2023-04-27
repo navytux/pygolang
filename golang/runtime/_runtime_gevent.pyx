@@ -346,7 +346,19 @@ cdef:
         cdef uint8_t[::1] mem = <uint8_t[:count]>buf
         xmem = memoryview(mem) # to avoid https://github.com/cython/cython/issues/3900 on mem[:0]=b''
         try:
-            n = pygfobj.readinto(xmem)
+            # NOTE buf might be on stack, so it must not be accessed, e.g. from
+            # FileObjectThread, while our greenlet is parked (see STACK_DEAD_WHILE_PARKED
+            # for details). -> Use intermediate on-heap buffer to protect from that.
+            #
+            # Also: we cannot use pygfobj.readinto due to
+            # https://github.com/gevent/gevent/pull/1948
+            #
+            # TODO use .readinto() when buf is not on stack and gevent is
+            # recent enough or pygfobj is not FileObjectThread.
+            #n = pygfobj.readinto(xmem)
+            buf2 = pygfobj.read(count)
+            n = len(buf2)
+            xmem[:n] = buf2
         except OSError as e:
             n = -e.errno
         out_n[0] = n
@@ -369,8 +381,14 @@ cdef:
     bint _io_write(IOH* ioh, int* out_n, const void *buf, size_t count):
         pygfobj = <object>ioh.pygfobj
         cdef const uint8_t[::1] mem = <const uint8_t[:count]>buf
+
+        # NOTE buf might be on stack, so it must not be accessed, e.g. from
+        # FileObjectThread, while our greenlet is parked (see STACK_DEAD_WHILE_PARKED
+        # for details). -> Use intermediate on-heap buffer to protect from that.
+        buf2 = bytearray(mem)
+
         try:
-            n = pygfobj.write(mem)
+            n = pygfobj.write(buf2)
         except OSError as e:
             n = -e.errno
         out_n[0] = n
