@@ -114,6 +114,8 @@ static void _notify(int signo);
 static void _checksig(int signo);
 static void _checkActEqual(const struct sigaction *a, const struct sigaction *b);
 static void _spinwaitNextQueueCycle();
+
+static int  sys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact);
 static void xsys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact);
 static void xsigemptyset(sigset_t *sa_mask);
 static bool _sigact_equal(const struct sigaction *a, const struct sigaction *b);
@@ -339,7 +341,7 @@ static int/*syserr*/ _Notify1(chan<os::Signal> ch, os::Signal sig) {
 
     // retrieve current signal action
     struct sigaction cur;
-    int syserr = sys::Sigaction(sig.signo, nil, &cur);
+    int syserr = sys_sigaction(sig.signo, nil, &cur);
     if (syserr < 0) {
         // TODO reenable once we can panic with any object
         //return fmt::errorf("sigaction sig%d: %w", sig.signo, sys::NewErrno(syserr);
@@ -385,7 +387,7 @@ static int/*syserr*/ _Notify1(chan<os::Signal> ch, os::Signal sig) {
 
         // register our sigaction
         struct sigaction old;
-        syserr = sys::Sigaction(sig.signo, &_actNotify, &old);
+        syserr = sys_sigaction(sig.signo, &_actNotify, &old);
         if (syserr < 0) {
             // TODO reenable once we can panic with any object
             //return fmt::errorf("sigaction sig%d: %w", sig.signo, sys::NewErrno(syserr);
@@ -465,7 +467,7 @@ static int/*syserr*/ _Ignore1(os::Signal sig) {
     if (h == nil) {
         h = new _SigHandler();
         h->sigstate.store(_SigIgnoring);
-        int syserr = sys::Sigaction(sig.signo, nil, &h->prev_act);
+        int syserr = sys_sigaction(sig.signo, nil, &h->prev_act);
         if (syserr < 0) {
             delete h;
             return syserr; // TODO errctx
@@ -477,7 +479,7 @@ static int/*syserr*/ _Ignore1(os::Signal sig) {
     h->sigstate.store(_SigIgnoring);
     h->subscribers.clear();
 
-    int syserr = sys::Sigaction(sig.signo, &_actIgnore, nil);
+    int syserr = sys_sigaction(sig.signo, &_actIgnore, nil);
     if (syserr < 0)
         return syserr; // TODO errctx
 
@@ -505,7 +507,7 @@ static int/*syserr*/ _Reset1(os::Signal sig) {
     h->sigstate.store(_SigReset);
 
     struct sigaction act;
-    int syserr = sys::Sigaction(sig.signo, &h->prev_act, &act);
+    int syserr = sys_sigaction(sig.signo, &h->prev_act, &act);
     if (syserr < 0)
         return syserr; // TODO errctx
     if (sigstate == _SigNotifying)
@@ -619,9 +621,12 @@ static void xsigemptyset(sigset_t *sa_mask) {
 }
 
 static void xsys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact) {
-    int syserr = sys::Sigaction(signo, act, oldact);
+    int syserr = sys_sigaction(signo, act, oldact);
     if (syserr != 0)
         panic("sigaction failed");   // TODO add errno detail
+}
+static int sys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact) {
+    return sys::Sigaction(signo, act, oldact);
 }
 
 static bool _sigact_equal(const struct sigaction *a, const struct sigaction *b) {
