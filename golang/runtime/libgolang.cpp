@@ -50,6 +50,16 @@
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 #include <linux/list.h>
+// MSVC does not support statement expressions and typeof
+// -> redo list_entry via C++ lambda.
+#ifdef _MSC_VER
+# undef list_entry
+# define list_entry(ptr, type, member) [&]() {                      \
+        const decltype( ((type *)0)->member ) *__mptr = (ptr);      \
+        return (type *)( (char *)__mptr - offsetof(type,member) );  \
+    }()
+#endif
+
 
 using std::atomic;
 using std::bad_alloc;
