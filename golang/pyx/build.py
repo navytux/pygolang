@@ -169,9 +169,11 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
     win  = (sysname == 'windows')
     msvc = win  # TODO also support mingw ?
 
-    # prepend -I<pygolang> so that e.g. golang/libgolang.h is found
+    # prepend   -I<pygolang> so that e.g. golang/libgolang.h is found
+    # same with -I<pygolang>/golang/_compat/<os>
     incv = kw.get('include_dirs', [])[:]
     incv.insert(0, pygo)
+    incv.insert(1, join(pygo, 'golang', '_compat', sysname))
     kw['include_dirs'] = incv
 
     # link with libgolang.so  if it is not libgolang itself
@@ -225,6 +227,8 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
         'os/signal.h',
         'pyx/runtime.h',
         '_testing.h',
+        '_compat/windows/strings.h',
+        '_compat/windows/unistd.h',
     ]])
     kw['depends'] = dependv
 

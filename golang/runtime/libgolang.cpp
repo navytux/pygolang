@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2022  Nexedi SA and Contributors.
+// Copyright (C) 2018-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -43,6 +43,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 // linux/list.h needs ARRAY_SIZE    XXX -> better use c.h or ccan/array_size.h ?
 #ifndef ARRAY_SIZE
