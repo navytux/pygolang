@@ -57,15 +57,18 @@ string _Errno::Error() {
     _Errno& e = *this;
 
     char ebuf[128];
+    bool ok;
 #if __APPLE__
-    int x = ::strerror_r(-e.syserr, ebuf, sizeof(ebuf));
-    if (x == 0)
-        return string(ebuf);
-    return "unknown error " + std::to_string(-e.syserr);
+    ok = (::strerror_r(-e.syserr, ebuf, sizeof(ebuf)) == 0);
+#elif defined(_WIN32)
+    ok = (::strerror_s(ebuf, sizeof(ebuf), -e.syserr) == 0);
 #else
     char *estr = ::strerror_r(-e.syserr, ebuf, sizeof(ebuf));
     return string(estr);
 #endif
+    if (ok)
+        return string(ebuf);
+    return "unknown error " + std::to_string(-e.syserr);
 }
 
 
@@ -99,6 +102,7 @@ __Errno Close(int fd) {
     return err;
 }
 
+#ifndef _WIN32
 __Errno Fcntl(int fd, int cmd, int arg) {
     int save_errno = errno;
     int err = ::fcntl(fd, cmd, arg);
@@ -107,6 +111,7 @@ __Errno Fcntl(int fd, int cmd, int arg) {
     errno = save_errno;
     return err;
 }
+#endif
 
 __Errno Fstat(int fd, struct ::stat *out_st) {
     int save_errno = errno;
@@ -119,6 +124,10 @@ __Errno Fstat(int fd, struct ::stat *out_st) {
 
 int Open(const char *path, int flags, mode_t mode) {
     int save_errno = errno;
+#ifdef _WIN32  // default to open files in binary mode
+    if ((flags & (_O_TEXT | _O_BINARY)) == 0)
+        flags |= _O_BINARY;
+#endif
     int fd = ::open(path, flags, mode);
     if (fd < 0)
         fd = -errno;
@@ -134,6 +143,8 @@ __Errno Pipe(int vfd[2], int flags) {
     int err;
 #ifdef __linux__
     err = ::pipe2(vfd, flags);
+#elif defined(_WIN32)
+    err = ::_pipe(vfd, 4096, flags | _O_BINARY);
 #else
     err = ::pipe(vfd);
     if (err)
@@ -156,6 +167,7 @@ out:
     return err;
 }
 
+#ifndef _WIN32
 __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact) {
     int save_errno = errno;
     int err = ::sigaction(signo, act, oldact);
@@ -164,6 +176,7 @@ __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *
     errno = save_errno;
     return err;
 }
+#endif
 
 
 }}} // golang::internal::syscall::
