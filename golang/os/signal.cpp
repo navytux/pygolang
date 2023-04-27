@@ -89,6 +89,10 @@
 #include <atomic>
 #include <tuple>
 
+#if defined(_WIN32)
+# include <windows.h>
+#endif
+
 
 #define DEBUG 0
 #if DEBUG
@@ -190,8 +194,15 @@ void _init() {
     if (err != nil)
         panic("os::newFile(_wakerx");
     _waketx = vfd[1];
+#ifndef _WIN32
     if (sys::Fcntl(_waketx, F_SETFL, O_NONBLOCK) < 0)
         panic("fcntl(_waketx, O_NONBLOCK)");    // TODO +syserr
+#else
+    HANDLE hwaketx = (HANDLE)_get_osfhandle(_waketx);
+    DWORD  mode    = PIPE_READMODE_BYTE | PIPE_NOWAIT;
+    if (!SetNamedPipeHandleState(hwaketx, &mode, NULL, NULL))
+        panic("SetNamedPipeHandleState(hwaketx, PIPE_NOWAIT)"); // TODO +syserr
+#endif
 
     _actIgnore.sa_handler = SIG_IGN;
     _actIgnore.sa_flags   = 0;
