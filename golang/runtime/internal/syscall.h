@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_RUNTIME_INTERNAL_SYSCALL_H
 #define _NXD_LIBGOLANG_RUNTIME_INTERNAL_SYSCALL_H
 
-// Copyright (C) 2021-2022  Nexedi SA and Contributors.
+// Copyright (C) 2021-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -59,15 +59,15 @@ error NewErrno(__Errno syserr); // TODO better return Errno directly.
 
 // system calls
 
-int/*n|err*/ Read(int fd, void *buf, size_t count);
-int/*n|err*/ Write(int fd, const void *buf, size_t count);
+LIBGOLANG_API int/*n|err*/ Read(int fd, void *buf, size_t count);
+LIBGOLANG_API int/*n|err*/ Write(int fd, const void *buf, size_t count);
 
-__Errno Close(int fd);
-__Errno Fcntl(int fd, int cmd, int arg);
-__Errno Fstat(int fd, struct ::stat *out_st);
-int/*fd|err*/ Open(const char *path, int flags, mode_t mode);
-__Errno Pipe(int vfd[2]);
-__Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact);
+LIBGOLANG_API __Errno Close(int fd);
+LIBGOLANG_API __Errno Fcntl(int fd, int cmd, int arg);
+LIBGOLANG_API __Errno Fstat(int fd, struct ::stat *out_st);
+LIBGOLANG_API int/*fd|err*/ Open(const char *path, int flags, mode_t mode);
+LIBGOLANG_API __Errno Pipe(int vfd[2]);
+LIBGOLANG_API __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact);
 
 
 }}} // golang::internal::syscall::

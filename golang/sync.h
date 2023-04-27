@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_SYNC_H
 #define	_NXD_LIBGOLANG_SYNC_H
 
-// Copyright (C) 2018-2020  Nexedi SA and Contributors.
+// Copyright (C) 2018-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -212,7 +212,7 @@ class _WorkGroup : public object {
 private:
     _WorkGroup();
     ~_WorkGroup();
-    friend WorkGroup NewWorkGroup(context::Context ctx);
+    friend LIBGOLANG_API WorkGroup NewWorkGroup(context::Context ctx);
 public:
     LIBGOLANG_API void decref();
 

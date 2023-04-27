@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_TIME_H
 #define	_NXD_LIBGOLANG_TIME_H
 
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -123,7 +123,7 @@ private:
 private:
     _Ticker();
     ~_Ticker();
-    friend Ticker new_ticker(double dt);
+    friend Ticker LIBGOLANG_API new_ticker(double dt);
 public:
     LIBGOLANG_API void decref();
 

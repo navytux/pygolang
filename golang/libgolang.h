@@ -829,7 +829,7 @@ struct _interface {
 
 protected:
     // don't use destructor -> use decref
-    ~_interface();
+    LIBGOLANG_API ~_interface();
 };
 typedef refptr<_interface> interface;
 

@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_OS_H
 #define _NXD_LIBGOLANG_OS_H
 //
-// Copyright (C) 2019-2022  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -61,7 +61,7 @@ private:
     ~_File();
     friend File _newFile(_libgolang_ioh* ioh, const string& name);
 public:
-    void decref();
+    LIBGOLANG_API void decref();
 
 public:
     LIBGOLANG_API string  Name()  const;
