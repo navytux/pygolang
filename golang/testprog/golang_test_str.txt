@@ -1,2 +1,2 @@
-print(qq(b)): "привет b"
-print(qq(u)): "привет u"
+print(qq(b)): "привет αβγ b"
+print(qq(u)): "привет αβγ u"

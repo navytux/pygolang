@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2022  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2022-2023  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -29,8 +29,8 @@ from golang import b, u
 from golang.gcompat import qq
 
 def main():
-    sb = b("привет b")
-    su = u("привет u")
+    sb = b("привет αβγ b")
+    su = u("привет αβγ u")
     print("print(qq(b)):", qq(sb))
     print("print(qq(u)):", qq(su))
 

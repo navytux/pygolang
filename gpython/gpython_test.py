@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2021  Nexedi SA and Contributors.
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -180,7 +180,7 @@ def test_pymain():
     _ = pyout(['-m', 'hello', 'abc', 'def'], cwd=testdata)
     # realpath rewrites e.g. `local/lib -> lib` if local/lib is symlink
     hellopy = realpath(join(testdata, 'hello.py'))
-    assert _ == b"hello\nworld\n['%s', 'abc', 'def']\n" % b(hellopy)
+    assert _ == b"hello\nworld\n[%s, 'abc', 'def']\n" % b(repr(hellopy))
     # -m<module>
     __ = pyout(['-mhello', 'abc', 'def'], cwd=testdata)
     assert __ == _
@@ -191,8 +191,8 @@ def test_pymain():
 
     # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
     d = {
-        b'hellopy': b(hellopy),
-        b'ps1':     b'' # cpython emits prompt to stderr
+        b'repr(hellopy)': b(repr(hellopy)),
+        b'ps1':           b'' # cpython emits prompt to stderr
     }
     if is_pypy and not is_gpython:
         d[b'ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
@@ -208,7 +208,7 @@ def test_pymain():
     assert _ == b"hello\nworld\n['-c']\n%(ps1)s'~~HELLO~~'\n%(ps1)s"    % d
     # -i after -m
     _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', cwd=testdata)
-    assert _ == b"hello\nworld\n['%(hellopy)s']\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
+    assert _ == b"hello\nworld\n[%(repr(hellopy))s]\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
     # -i after file
     _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d

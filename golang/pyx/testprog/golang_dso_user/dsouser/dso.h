@@ -1,5 +1,5 @@
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
-//                         Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2023  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,17 +17,17 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Small library that uses a bit of libgolang features, mainly to verify
-// that external project can build against libgolang.
+#ifndef _NXD_GOLANG_DSOUSER_DSO_H
+#define _NXD_GOLANG_DSOUSER_DSO_H
 
-#include "dso.h"
-using namespace golang;
+#include <golang/libgolang.h>
 
-#include <stdio.h>
+#if BUILDING_DSOUSER_DSO
+#  define DSOUSER_DSO_API LIBGOLANG_DSO_EXPORT
+#else
+#  define DSOUSER_DSO_API LIBGOLANG_DSO_IMPORT
+#endif
 
-void dsotest() {
-    chan<int> ch = makechan<int>();
-    ch.close();
+DSOUSER_DSO_API void dsotest();
 
-    printf("dso.cpp: OK\n");
-}
+#endif // _NXD_GOLANG_DSOUSER_DSO_H

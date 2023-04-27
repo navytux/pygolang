@@ -176,6 +176,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <fcntl.h>
+#ifdef _MSC_VER // no mode_t on msvc
+typedef int mode_t;
+#endif
+
+
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
   #define LIBGOLANG_DSO_EXPORT __declspec(dllexport)
@@ -829,7 +835,7 @@ struct _interface {
 
 protected:
     // don't use destructor -> use decref
-    ~_interface();
+    LIBGOLANG_API ~_interface();
 };
 typedef refptr<_interface> interface;
 

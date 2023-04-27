@@ -1,5 +1,5 @@
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -24,7 +24,9 @@ setup(
     name        = 'golang_dso_user',
     description = 'test project that uses libgolang from a dso',
 
-    x_dsos      = [DSO('dsouser.dso', ['dsouser/dso.cpp'])],
+    x_dsos      = [DSO('dsouser.dso',
+                       ['dsouser/dso.cpp'],
+                       define_macros = [('BUILDING_DSOUSER_DSO', None)])],
     ext_modules = [Extension('dsouser.test',
                     ['dsouser/test.pyx'],
                     dsos = ['dsouser.dso'])],

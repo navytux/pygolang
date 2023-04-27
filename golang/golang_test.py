@@ -1739,8 +1739,28 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
         pathv.extend(envpath.split(os.pathsep))
     env['PYTHONPATH'] = os.pathsep.join(pathv)
 
+    # set $PYTHONIOENCODING to encoding of stdin/stdout/stderr
+    # we need to do it because on Windows `python x.py | ...` runs with stdio
+    # encoding set to cp125X even if just `python x.py` runs with stdio
+    # encoding=UTF-8.
+    if 'PYTHONIOENCODING' not in env:
+        enc = set([_.encoding for _ in (sys.stdin, sys.stdout, sys.stderr)])
+        if None in enc:         # without -s pytest uses _pytest.capture.DontReadFromInput
+            enc.remove(None)    # with None .encoding
+        assert len(enc) == 1
+        env['PYTHONIOENCODING'] = enc.pop()
+
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
+
+    # on windows print emits \r\n instead of just \n
+    # normalize that to \n in *out
+    if os.name == 'nt':
+        if stdout is not None:
+            stdout = stdout.replace(b'\r\n', b'\n')
+        if stderr is not None:
+            stderr = stderr.replace(b'\r\n', b'\n')
+
     return p.returncode, stdout, stderr
 
 # pyrun runs `sys.executable argv... <stdin`.
@@ -1807,6 +1827,13 @@ def assertDoc(want, got):
     got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
     got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
+    # got: normalize PYGOLANG\a\b\c -> PYGOLANG/a/b/c
+    #                a\b\c\d.py  -> a/b/c/d.py
+    def _(m):
+        return m.group(0).replace(os.path.sep, '/')
+    got = re.sub(r"(?<=PYGOLANG)[^\s]+(?=\s)",  _, got)
+    got = re.sub(r"([\w\\\.]+)(?=\.py)",        _, got)
+
     # want: process conditionals
     # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
     # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
@@ -1862,8 +1889,10 @@ def test_fmtargspec():
 
 
 # readfile returns content of file @path.
-def readfile(path):
-    with open(path, "r") as f:
+def readfile(path): # -> bytes
+    # on windows in text mode files are opened with encoding=locale.getdefaultlocale()
+    # which is CP125X instead of UTF-8. -> manually decode as 'UTF-8'
+    with open(path, "rb") as f:
         return f.read()
 
 # abbrev_home returns path with user home prefix abbreviated with ~.
