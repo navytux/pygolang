@@ -1739,6 +1739,17 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
         pathv.extend(envpath.split(os.pathsep))
     env['PYTHONPATH'] = os.pathsep.join(pathv)
 
+    # set $PYTHONIOENCODING to encoding of stdin/stdout/stderr
+    # we need to do it because on Windows `python x.py | ...` runs with stdio
+    # encoding set to cp125X even if just `python x.py` runs with stdio
+    # encoding=UTF-8.
+    if 'PYTHONIOENCODING' not in env:
+        enc = set([_.encoding for _ in (sys.stdin, sys.stdout, sys.stderr)])
+        if None in enc:         # without -s pytest uses _pytest.capture.DontReadFromInput
+            enc.remove(None)    # with None .encoding
+        assert len(enc) == 1
+        env['PYTHONIOENCODING'] = enc.pop()
+
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
 
