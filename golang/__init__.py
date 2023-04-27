@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -41,6 +41,9 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
 import decorator, six
+
+import setuptools_dso
+setuptools_dso.dylink_prepare_dso('golang.runtime.libgolang')
 
 from golang._golang import _pysys_exc_clear as _sys_exc_clear
 

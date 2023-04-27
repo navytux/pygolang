@@ -152,7 +152,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.7'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 2.7'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -313,6 +313,8 @@ setup(
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"',
+                        # only runtime part: for dylink_prepare_dso
+                        'setuptools_dso >= 2.7',
                         # pyx.build -> setuptools_dso uses multiprocessing
                         # FIXME geventmp fails on python2, but setuptools_dso
                         # uses multiprocessing only on Python3, so for now we
