@@ -36,11 +36,17 @@ def main():
             if sig not in allsigv: # avoid e.g. SIGCHLD/SIGCLD dups
                 allsigv.append(sig)
     allsigv.sort(key=lambda sig: sig.signo)
-    allsigv.remove(syscall.SIGKILL) # SIGKILL/SIGSTOP cannot be caught
-    allsigv.remove(syscall.SIGSTOP)
-    allsigv.remove(syscall.SIGBUS)  # AddressSanitizer crashes on SIGBUS/SIGFPE/SIGSEGV
-    allsigv.remove(syscall.SIGFPE)
-    allsigv.remove(syscall.SIGSEGV)
+    def without(signame):
+        sig = getattr(syscall, signame, None)
+        if sig is not None:
+            allsigv.remove(sig)
+    without('SIGKILL') # SIGKILL/SIGSTOP cannot be caught
+    without('SIGSTOP')
+    without('SIGBUS')  # AddressSanitizer crashes on SIGBUS/SIGFPE/SIGSEGV
+    without('SIGFPE')
+    without('SIGSEGV')
+    without('SIGILL')  # SIGILL/SIGABRT cause termination on windows
+    without('SIGABRT')
 
     # Notify() -> kill * -> should be notified
     ch = chan(10, dtype=gos.Signal)
