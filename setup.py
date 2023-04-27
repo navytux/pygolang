@@ -355,6 +355,11 @@ setup(
         Programming Language :: Python :: 3.11
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
+        Operating System :: POSIX
+        Operating System :: POSIX :: Linux
+        Operating System :: Unix
+        Operating System :: MacOS
+        Operating System :: Microsoft :: Windows
         Topic :: Software Development :: Interpreters
         Topic :: Software Development :: Libraries :: Python Modules\
     """.splitlines()]
