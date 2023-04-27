@@ -23,7 +23,7 @@ from setuptools.command.install_scripts import install_scripts as _install_scrip
 from setuptools.command.develop import develop as _develop
 from distutils import sysconfig
 from os.path import dirname, join
-import sys, re
+import sys, os, re
 
 # read file content
 def readfile(path):
@@ -170,6 +170,14 @@ for k in sorted(R.keys()):
     extras_require[k] = list(sorted(R[k]))
 
 
+# get_python_libdir() returns path where libpython is located
+def get_python_libdir():
+    # mimic what distutils.command.build_ext does
+    if os.name == 'nt':
+        return join(sysconfig.get_config_var('installed_platbase'), 'libs')
+    else:
+        return sysconfig.get_config_var('LIBDIR')
+
 setup(
     name        = 'pygolang',
     version     = version,
@@ -227,6 +235,7 @@ setup(
                         ['golang/runtime/libpyxruntime.cpp'],
                         depends = ['golang/pyx/runtime.h'],
                         include_dirs    = [sysconfig.get_python_inc()],
+                        library_dirs    = [get_python_libdir()],
                         define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
                         soversion       = '0.1')],
 
