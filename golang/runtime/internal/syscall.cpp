@@ -178,5 +178,15 @@ __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *
 }
 #endif
 
+sighandler_t Signal(int signo, sighandler_t handler, int *out_psyserr) {
+    int save_errno = errno;
+    sighandler_t oldh = ::signal(signo, handler);
+    *out_psyserr = (oldh == SIG_ERR
+        ? (errno ? -errno : -EINVAL) // windows returns SIG_ERR/errno=0 for invalid signo
+        : 0);
+    errno = save_errno;
+    return oldh;
+}
+
 
 }}} // golang::internal::syscall::

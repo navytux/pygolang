@@ -97,6 +97,12 @@
 #  define debugf(format, ...) do {} while (0)
 #endif
 
+#if defined(_MSC_VER)
+# define HAVE_SIGACTION 0
+#else
+# define HAVE_SIGACTION 1
+#endif
+
 // golang::os::signal::
 namespace golang {
 namespace os {
@@ -109,6 +115,22 @@ using std::tie;
 using std::vector;
 using cxx::set;
 
+#if HAVE_SIGACTION
+static void xsigemptyset(sigset_t *sa_mask);
+#else
+// custom `struct sigaction` emulated via signal(2)
+#define SA_SIGINFO  1
+typedef struct {} siginfo_t;
+struct sigaction {
+    union {
+        void (*sa_handler)(int);
+        void (*sa_sigaction)(int, siginfo_t*, void*);
+    };
+    int  sa_flags;
+};
+static void _os_sighandler_nosigaction(int sig);
+#endif
+
 static void _os_sighandler(int sig, siginfo_t *info, void *ucontext);
 static void _notify(int signo);
 static void _checksig(int signo);
@@ -117,7 +139,6 @@ static void _spinwaitNextQueueCycle();
 
 static int  sys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact);
 static void xsys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact);
-static void xsigemptyset(sigset_t *sa_mask);
 static bool _sigact_equal(const struct sigaction *a, const struct sigaction *b);
 
 
@@ -174,11 +195,12 @@ void _init() {
 
     _actIgnore.sa_handler = SIG_IGN;
     _actIgnore.sa_flags   = 0;
-    xsigemptyset(&_actIgnore.sa_mask);
-
     _actNotify.sa_sigaction = _os_sighandler;
     _actNotify.sa_flags     = SA_SIGINFO;
+#if HAVE_SIGACTION
+    xsigemptyset(&_actIgnore.sa_mask);
     xsigemptyset(&_actNotify.sa_mask);
+#endif
 }
 
 
@@ -246,6 +268,14 @@ done:
             if (sah != SIG_IGN) {
                 if (sah != SIG_DFL) {
                     sah(sig);
+                    // handlers installed via signal usually reinstall themselves
+                    // return it back to us
+                    struct sigaction after;
+                    xsys_sigaction(sig, &_actNotify, &after);
+                    if (! (_sigact_equal(&after, &_actNotify)   ||
+                           ( ((after.sa_flags & SA_SIGINFO) == 0)   &&
+                             ((after.sa_handler == SIG_DFL) || (after.sa_handler == sah)))))
+                        panic("collision detected wrt thirdparty signal usage");
                 }
                 else {
                     // SIG_DFL && _SigReset - reraise to die if the signal is fatal
@@ -615,10 +645,12 @@ static void _checksig(int signo) {
 }
 
 
+#if HAVE_SIGACTION
 static void xsigemptyset(sigset_t *sa_mask) {
     if (sigemptyset(sa_mask) < 0)
         panic("sigemptyset failed"); // must always succeed
 }
+#endif
 
 static void xsys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact) {
     int syserr = sys_sigaction(signo, act, oldact);
@@ -626,8 +658,62 @@ static void xsys_sigaction(int signo, const struct sigaction *act, struct sigact
         panic("sigaction failed");   // TODO add errno detail
 }
 static int sys_sigaction(int signo, const struct sigaction *act, struct sigaction *oldact) {
+#if HAVE_SIGACTION
     return sys::Sigaction(signo, act, oldact);
+#else
+    sys::sighandler_t oldh, newh;
+    int syserr;
+
+    if (act == nil) {
+        newh = SIG_GET;
+    }
+    else if (act->sa_flags & SA_SIGINFO) {
+        if (act->sa_sigaction != _os_sighandler)
+            panic("BUG: compat sigaction: act->sa_sigaction != _os_sighandler");
+        newh = _os_sighandler_nosigaction;
+    }
+    else {
+        newh = act->sa_handler;
+    }
+
+    oldh = sys::Signal(signo, newh, &syserr);
+    if (oldh == SIG_ERR)
+        return syserr;
+    if (oldact != nil) {
+        if (oldh == _os_sighandler_nosigaction) {
+            oldact->sa_sigaction = _os_sighandler;
+            oldact->sa_flags     = SA_SIGINFO;
+        }
+        else {
+            oldact->sa_handler   = oldh;
+            oldact->sa_flags     = 0;
+        }
+    }
+    return 0;
+#endif
 }
+
+#if !HAVE_SIGACTION
+static void _os_sighandler_nosigaction(int sig) {
+    // reinstall sighandler since on handler invocation it is reset to SIG_DFL.
+    // do it as fast as we can as the first thing - to minimize window of race
+    // while signal handler is reset from being our _os_sighandler.
+    //
+    // NOTE it is ok to reinstall before invoking _os_sighandler because
+    // _os_sighandler uses only atomics and pipe write and so is reentrant.
+    sys::sighandler_t h;
+    int syserr;
+    h = sys::Signal(sig, _os_sighandler_nosigaction, &syserr);
+    if (h == SIG_ERR)
+        panic("signal(reinstall) failed");
+    if ( !(h == SIG_DFL /*reset*/ ||
+           h == _os_sighandler_nosigaction /*concurrent sighandler*/) )
+        panic("collision detected wrt thirdparty signal usage");
+
+    // invoke _os_sighandler as if it was setup by sigaction.
+    _os_sighandler(sig, NULL, NULL);
+}
+#endif
 
 static bool _sigact_equal(const struct sigaction *a, const struct sigaction *b) {
     // don't compare sigaction by memcmp - it will fail because struct sigaction

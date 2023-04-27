@@ -72,6 +72,8 @@ LIBGOLANG_API __Errno Pipe(int vfd[2], int flags);
 #ifndef _WIN32
 LIBGOLANG_API __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact);
 #endif
+typedef void (*sighandler_t)(int);
+LIBGOLANG_API sighandler_t /*sigh|SIG_ERR*/ Signal(int signo, sighandler_t handler, int *out_psyserr);
 
 
 }}} // golang::internal::syscall::
