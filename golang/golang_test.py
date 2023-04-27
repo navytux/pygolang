@@ -1741,6 +1741,15 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
 
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
+
+    # on windows print emits \r\n instead of just \n
+    # normalize that to \n in *out
+    if os.name == 'nt':
+        if stdout is not None:
+            stdout = stdout.replace(b'\r\n', b'\n')
+        if stderr is not None:
+            stderr = stderr.replace(b'\r\n', b'\n')
+
     return p.returncode, stdout, stderr
 
 # pyrun runs `sys.executable argv... <stdin`.
