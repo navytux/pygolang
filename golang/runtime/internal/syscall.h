@@ -66,7 +66,7 @@ LIBGOLANG_API __Errno Close(int fd);
 LIBGOLANG_API __Errno Fcntl(int fd, int cmd, int arg);
 LIBGOLANG_API __Errno Fstat(int fd, struct ::stat *out_st);
 LIBGOLANG_API int/*fd|err*/ Open(const char *path, int flags, mode_t mode);
-LIBGOLANG_API __Errno Pipe(int vfd[2]);
+LIBGOLANG_API __Errno Pipe(int vfd[2], int flags);
 LIBGOLANG_API __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact);
 
 

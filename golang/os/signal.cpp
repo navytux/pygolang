@@ -1,4 +1,4 @@
-// Copyright (C) 2021-2022  Nexedi SA and Contributors.
+// Copyright (C) 2021-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -160,10 +160,8 @@ void _init() {
 
     // create _wakerx <-> _waketx pipe; set _waketx to nonblocking mode
     int vfd[2];
-    if (sys::Pipe(vfd) < 0)
+    if (sys::Pipe(vfd, O_CLOEXEC) < 0)
         panic("pipe(_wakerx, _waketx)");        // TODO +syserr
-    if (sys::Fcntl(vfd[0], F_SETFD, FD_CLOEXEC) < 0)
-        panic("fcntl(_wakerx, FD_CLOEXEC)");    // TODO +syserr
     error err;
     tie(_wakerx, err) = os::NewFile(vfd[0], "_wakerx");
     if (err != nil)
@@ -171,8 +169,6 @@ void _init() {
     _waketx = vfd[1];
     if (sys::Fcntl(_waketx, F_SETFL, O_NONBLOCK) < 0)
         panic("fcntl(_waketx, O_NONBLOCK)");    // TODO +syserr
-    if (sys::Fcntl(_waketx, F_SETFD, FD_CLOEXEC) < 0)
-        panic("fcntl(_waketx, FD_CLOEXEC)");    // TODO +syserr
 
     _actIgnore.sa_handler = SIG_IGN;
     _actIgnore.sa_flags   = 0;

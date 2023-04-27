@@ -1,4 +1,4 @@
-// Copyright (C) 2021-2022  Nexedi SA and Contributors.
+// Copyright (C) 2021-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -126,9 +126,30 @@ int Open(const char *path, int flags, mode_t mode) {
     return fd;
 }
 
-__Errno Pipe(int vfd[2]) {
+__Errno Pipe(int vfd[2], int flags) {
+    // supported flags: O_CLOEXEC
+    if (flags & ~(O_CLOEXEC))
+        return -EINVAL;
     int save_errno = errno;
-    int err = ::pipe(vfd);
+    int err;
+#ifdef __linux__
+    err = ::pipe2(vfd, flags);
+#else
+    err = ::pipe(vfd);
+    if (err)
+        goto out;
+    if (flags & O_CLOEXEC) {
+        for (int i=0; i<2; i++) {
+            err = Fcntl(vfd[i], F_SETFD, FD_CLOEXEC);
+            if (err) {
+                Close(vfd[0]);
+                Close(vfd[1]);
+                goto out;
+            }
+        }
+    }
+out:
+#endif
     if (err == -1)
         err = -errno;
     errno = save_errno;

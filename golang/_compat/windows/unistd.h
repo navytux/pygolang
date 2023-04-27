@@ -26,4 +26,6 @@
 
 #include <io.h>
 
+#define O_CLOEXEC  _O_NOINHERIT
+
 #endif  // _NXD_LIBGOLANG_COMPAT_WIN_UNISTD_H

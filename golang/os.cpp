@@ -249,7 +249,7 @@ tuple<string, error> ReadFile(const string& path) {
 
 tuple<File, File, error> Pipe() {
     int vfd[2], syserr;
-    syserr = sys::Pipe(vfd);
+    syserr = sys::Pipe(vfd, 0);
     if (syserr != 0)
         return make_tuple(nil, nil, fmt::errorf("pipe: %w", sys::NewErrno(syserr)));
 
