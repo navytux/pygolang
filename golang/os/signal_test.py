@@ -30,6 +30,11 @@ from golang.golang_test import panics, _pyrun
 from pytest import raises
 from subprocess import PIPE
 
+try:
+    from signal import raise_signal
+except ImportError: # py2
+    from _testcapi import raise_signal
+
 
 # directories
 dir_os       = dirname(__file__)    # .../pygolang/os
@@ -363,8 +368,9 @@ def test_stdlib_interop_KeyboardInterrupt():
 
 # killme sends signal sig to own process.
 def killme(sig):
-    mypid = os.getpid()
-    os.kill(mypid, sig.signo)
+    # use raise(sig) instead of kill(mypid, sig) so that it works on windows,
+    # where os.kill unconditionally terminates target process.
+    raise_signal(sig.signo)
 
 # wait for waits until cond() becomes true or timeout.
 def waitfor(cond):

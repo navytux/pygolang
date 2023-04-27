@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2021-2022  Nexedi SA and Contributors.
+# Copyright (C) 2021-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -24,7 +24,8 @@ from __future__ import print_function, absolute_import
 from golang import chan
 from golang import os as gos, syscall, time
 from golang.os import signal
-import os, sys
+from golang.os.signal_test import killme
+import sys
 
 def main():
     # build "all signals" list
@@ -71,11 +72,6 @@ def main():
     emit("terminating ...")
     killme(syscall.SIGTERM)
     raise AssertionError("not terminated")
-
-# killme sends signal sig to own process.
-def killme(sig):
-    mypid = os.getpid()
-    os.kill(mypid, sig.signo)
 
 def emit(msg=''):
     print(msg)
