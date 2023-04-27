@@ -203,7 +203,7 @@ def test_signal_all():
     assert b"ok (notify)"        in out
     assert b"ok (ignore)"        in out
     assert b"terminating ..."    in out
-    assert retcode == -syscall.SIGTERM.signo
+    assert retcode == (-syscall.SIGTERM.signo  if os.name != 'nt'  else 3)
 
 
 # test_stdlib_interop verifies that there is minimal compatibility in between
