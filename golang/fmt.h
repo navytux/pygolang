@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_FMT_H
 #define _NXD_LIBGOLANG_FMT_H
 
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -40,7 +40,7 @@ namespace golang {
 namespace fmt {
 
 // sprintf formats text into string.
-LIBGOLANG_API string sprintf(const string &format, ...);
+LIBGOLANG_API string sprintf(const string format, ...);
 
 
 // intseq<i1, i2, ...> and intrange<n> are used by errorf to handle %w.
@@ -75,7 +75,7 @@ namespace {
 //
 // format suffix ": %w" is additionally handled as in Go with
 // `errorf("... : %w", ..., err)` creating error that can be unwrapped back to err.
-LIBGOLANG_API error ___errorf(const string& format, ...);
+LIBGOLANG_API error ___errorf(const string format, ...);
 LIBGOLANG_API error ___errorfTryWrap(const string& format, error last_err, ...);
 LIBGOLANG_API string ___error_str(error err);
 
@@ -111,7 +111,10 @@ inline error errorf(const string& format, Argv... argv) {
 // `const char *` overloads just to catch format mistakes as
 // __attribute__(format) does not work with std::string.
 LIBGOLANG_API string sprintf(const char *format, ...)
-                                __attribute__ ((format (printf, 1, 2)));
+#ifndef _MSC_VER
+                                __attribute__ ((format (printf, 1, 2)))
+#endif
+	;
 
 // cannot use __attribute__(format) for errorf as we add %w handling.
 // still `const char *` overload is useful for performance.
