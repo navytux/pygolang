@@ -95,9 +95,15 @@ private:
 
 // Open opens file @path.
 LIBGOLANG_API std::tuple<File, error> Open(const string &path, int flags = O_RDONLY,
-        mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR |
+        mode_t mode =
+#if !defined(_MSC_VER)
+                      S_IRUSR | S_IWUSR | S_IXUSR |
                       S_IRGRP | S_IWGRP | S_IXGRP |
-                      S_IROTH | S_IWOTH | S_IXOTH);
+                      S_IROTH | S_IWOTH | S_IXOTH
+#else
+                      _S_IREAD | _S_IWRITE
+#endif
+        );
 
 // NewFile wraps OS-level file-descriptor into File.
 // The ownership of sysfd is transferred to File.
