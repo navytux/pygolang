@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -128,14 +128,14 @@ def setup(**kw):
 #       x_dsos = [DSO('mypkg.mydso', ['mypkg/mydso.cpp'])],
 #   )
 def DSO(name, sources, **kw):
-    _, kw = _with_build_defaults(kw)
+    _, kw = _with_build_defaults(name, kw)
     dso = setuptools_dso.DSO(name, sources, **kw)
     return dso
 
 
 # _with_build_defaults returns copy of kw amended with build options common for
 # both DSO and Extension.
-def _with_build_defaults(kw):   # -> (pygo, kw')
+def _with_build_defaults(name, kw):   # -> (pygo, kw')
     # find pygolang root
     gopkg = _findpkg("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
@@ -149,10 +149,11 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
     incv.insert(0, pygo)
     kw['include_dirs'] = incv
 
-    # link with libgolang.so
-    dsov = kw.get('dsos', [])[:]
-    dsov.insert(0, 'golang.runtime.libgolang')
-    kw['dsos'] = dsov
+    # link with libgolang.so  if it is not libgolang itself
+    if name != 'golang.runtime.libgolang':
+        dsov = kw.get('dsos', [])[:]
+        dsov.insert(0, 'golang.runtime.libgolang')
+        kw['dsos'] = dsov
 
     # default language to C++ (chan[T] & co are accessible only via C++)
     lang = kw.setdefault('language', 'c++')
@@ -160,7 +161,11 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
     # default to C++11 (chan[T] & co require C++11 features)
     ccdefault = []
     if lang == 'c++':
-        ccdefault.append('-std=c++11')
+        if name == 'golang.runtime.libgolang':
+            ccdefault.append('-std=gnu++11') # not c++11 as linux/list.h uses typeof
+        else:
+            ccdefault.append('-std=c++11')
+
     # default to no strict-aliasing
     ccdefault.append('-fno-strict-aliasing')
 
@@ -203,7 +208,7 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
 #       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
 #   )
 def Extension(name, sources, **kw):
-    pygo, kw = _with_build_defaults(kw)
+    pygo, kw = _with_build_defaults(name, kw)
 
     # some pyx-level depends to workaround a bit lack of proper dependency
     # tracking in setuptools/distutils.

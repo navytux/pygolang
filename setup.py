@@ -19,10 +19,6 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 from setuptools import find_packages
-# setuptools has Library but this days it is not well supported and test for it
-# has been killed https://github.com/pypa/setuptools/commit/654c26f78a30
-# -> use setuptools_dso instead.
-from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
 from distutils import sysconfig
@@ -34,13 +30,13 @@ def readfile(path):
     with open(path, 'r') as f:
         return f.read()
 
-# reuse golang.pyx.build to build pygolang extensions.
+# reuse golang.pyx.build to build pygolang dso and extensions.
 # we have to be careful and inject synthetic golang package in order to be
 # able to import golang.pyx.build without built/working golang.
 trun = {}
 exec(readfile('trun'), trun)
 trun['ximport_empty_golangmod']()
-from golang.pyx.build import setup, Extension as Ext
+from golang.pyx.build import setup, DSO, Extension as Ext
 
 
 # grep searches text for pattern.
@@ -223,19 +219,16 @@ setup(
                             'golang/strings.h',
                             'golang/sync.h',
                             'golang/time.h'],
-                        include_dirs    = ['.', '3rdparty/include'],
+                        include_dirs    = ['3rdparty/include'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
-                        extra_compile_args = ['-std=gnu++11'], # not c++11 as linux/list.h uses typeof
                         soversion       = '0.1'),
 
                     DSO('golang.runtime.libpyxruntime',
                         ['golang/runtime/libpyxruntime.cpp'],
                         depends = ['golang/pyx/runtime.h'],
-                        include_dirs    = ['.', sysconfig.get_python_inc()],
+                        include_dirs    = [sysconfig.get_python_inc()],
                         define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
-                        extra_compile_args = ['-std=c++11'],
-                        soversion       = '0.1',
-                        dsos = ['golang.runtime.libgolang'])],
+                        soversion       = '0.1')],
 
     ext_modules = [
                     Ext('golang._golang',
