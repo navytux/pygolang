@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2022  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2022-2023  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -29,7 +29,8 @@ from builtin str/unicode, does not get into our way.
 
 from __future__ import print_function, absolute_import
 
-from golang import b, u
+from golang import b, u, bstr, ustr
+from golang.gcompat import qq
 
 
 def main():
@@ -37,8 +38,10 @@ def main():
     bs = b("миру мир")
 
     def emit(what, uobj, bobj):
-        print("u"+what, repr(uobj))
-        print("b"+what, repr(bobj))
+        assert type(uobj) is ustr
+        assert type(bobj) is bstr
+        print("u"+what, qq(uobj))
+        print("b"+what, qq(bobj))
 
     emit("s",       us,        bs)
     emit("s[:]",    us[:],     bs[:])
