@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -313,7 +313,7 @@ def test_strings_pickle():
     us = u("май")
 
     #from pickletools import dis
-    for proto in range(0, pickle.HIGHEST_PROTOCOL):
+    for proto in range(0, pickle.HIGHEST_PROTOCOL+1):
         p_bs = pickle.dumps(bs, proto)
         #dis(p_bs)
         bs_ = pickle.loads(p_bs)
