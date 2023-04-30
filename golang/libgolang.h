@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2022  Nexedi SA and Contributors.
+// Copyright (C) 2018-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -175,6 +175,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include <fcntl.h>
+#ifdef _MSC_VER // no mode_t on msvc
+typedef int mode_t;
+#endif
+
 
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
@@ -577,7 +583,7 @@ int select(const _selcase (&casev)[N]) {
 
 static inline                       // select(vector<casev>)
 int select(const std::vector<_selcase> &casev) {
-    return _chanselect(&casev[0], casev.size());
+    return _chanselect(casev.data(), casev.size());
 }
 
 // defer(f) mimics `defer f()` from golang.
@@ -829,7 +835,7 @@ struct _interface {
 
 protected:
     // don't use destructor -> use decref
-    ~_interface();
+    LIBGOLANG_API ~_interface();
 };
 typedef refptr<_interface> interface;
 

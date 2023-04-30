@@ -10,6 +10,8 @@ build/
 *.so.*
 *.dylib
 *.dll
+*.lib
+*.exp
 *.pyd
 *_dsoinfo.py
 

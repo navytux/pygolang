@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -73,8 +73,10 @@ _dso_build_ext = setuptools_dso.build_ext
 class build_ext(_dso_build_ext):
     def build_extension(self, ext):
         # wrap _compiler <src> -> <obj> with our code
+
+        # ._compile is used on gcc/clang but not with msvc
         _compile = self.compiler._compile
-        def _(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        def xcompile(obj, src, ext, cc_args, extra_postargs, pp_opts):
             # filter_out removes arguments that start with argprefix
             cc_args         = cc_args[:]
             extra_postargs  = extra_postargs[:]
@@ -101,11 +103,30 @@ class build_ext(_dso_build_ext):
                 filter_out('-std=gnu++')
 
             _compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
-        self.compiler._compile = _
+
+        # msvc handles all sources directly in the loop in .compile and we can
+        # do per-source adjustsment only in .spawn .
+        spawn = self.compiler.spawn
+        def xspawn(argv):
+            c = False
+            for arg in argv:
+                if arg.startswith('/Tc'):
+                    c = True
+            if c:
+                argv = argv[:]
+                for i in range(len(argv)):
+                    if argv[i] == '/std:c++20':
+                        argv[i] = '/std:c11'
+
+            return spawn(argv)
+
+        self.compiler._compile = xcompile
+        self.compiler.spawn    = xspawn
         try:
             _dso_build_ext.build_extension(self, ext) # super doesn't work for _dso_build_ext
         finally:
             self.compiler._compile = _compile
+            self.compiler.spawn    = spawn
 
 
 # setup should be used instead of setuptools.setup
@@ -128,14 +149,14 @@ def setup(**kw):
 #       x_dsos = [DSO('mypkg.mydso', ['mypkg/mydso.cpp'])],
 #   )
 def DSO(name, sources, **kw):
-    _, kw = _with_build_defaults(kw)
+    _, kw = _with_build_defaults(name, kw)
     dso = setuptools_dso.DSO(name, sources, **kw)
     return dso
 
 
 # _with_build_defaults returns copy of kw amended with build options common for
 # both DSO and Extension.
-def _with_build_defaults(kw):   # -> (pygo, kw')
+def _with_build_defaults(name, kw):   # -> (pygo, kw')
     # find pygolang root
     gopkg = _findpkg("golang")
     pygo  = dirname(gopkg.path) # .../pygolang/golang -> .../pygolang
@@ -144,15 +165,22 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
 
     kw = kw.copy()
 
-    # prepend -I<pygolang> so that e.g. golang/libgolang.h is found
+    sysname = platform.system().lower()
+    win  = (sysname == 'windows')
+    msvc = win  # TODO also support mingw ?
+
+    # prepend   -I<pygolang> so that e.g. golang/libgolang.h is found
+    # same with -I<pygolang>/golang/_compat/<os>
     incv = kw.get('include_dirs', [])[:]
     incv.insert(0, pygo)
+    incv.insert(1, join(pygo, 'golang', '_compat', sysname))
     kw['include_dirs'] = incv
 
-    # link with libgolang.so
-    dsov = kw.get('dsos', [])[:]
-    dsov.insert(0, 'golang.runtime.libgolang')
-    kw['dsos'] = dsov
+    # link with libgolang.so  if it is not libgolang itself
+    if name != 'golang.runtime.libgolang':
+        dsov = kw.get('dsos', [])[:]
+        dsov.insert(0, 'golang.runtime.libgolang')
+        kw['dsos'] = dsov
 
     # default language to C++ (chan[T] & co are accessible only via C++)
     lang = kw.setdefault('language', 'c++')
@@ -160,9 +188,20 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
     # default to C++11 (chan[T] & co require C++11 features)
     ccdefault = []
     if lang == 'c++':
-        ccdefault.append('-std=c++11')
+        if not msvc:
+            if name == 'golang.runtime.libgolang':
+                ccdefault.append('-std=gnu++11') # not c++11 as linux/list.h uses typeof
+            else:
+                ccdefault.append('-std=c++11')
+        else:
+            # MSVC requries C++20 for designated struct initializers
+            ccdefault.append('/std:c++20')
+            # and make exception handling: "fully conformant", so that e.g. extern "C" `panic` works
+            ccdefault.extend(['/EHc-', '/EHsr'])
+
     # default to no strict-aliasing
-    ccdefault.append('-fno-strict-aliasing')
+    if not msvc:
+        ccdefault.append('-fno-strict-aliasing') # use only on gcc/clang - msvc does it by default
 
     _ = kw.get('extra_compile_args', [])[:]
     _[0:0] = ccdefault              # if another e.g. -std=... was already there -
@@ -188,6 +227,8 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
         'os/signal.h',
         'pyx/runtime.h',
         '_testing.h',
+        '_compat/windows/strings.h',
+        '_compat/windows/unistd.h',
     ]])
     kw['depends'] = dependv
 
@@ -203,7 +244,7 @@ def _with_build_defaults(kw):   # -> (pygo, kw')
 #       ext_modules = [Extension('mypkg.mymod', ['mypkg/mymod.pyx'])],
 #   )
 def Extension(name, sources, **kw):
-    pygo, kw = _with_build_defaults(kw)
+    pygo, kw = _with_build_defaults(name, kw)
 
     # some pyx-level depends to workaround a bit lack of proper dependency
     # tracking in setuptools/distutils.

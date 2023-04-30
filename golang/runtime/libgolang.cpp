@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2022  Nexedi SA and Contributors.
+// Copyright (C) 2018-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -43,12 +43,23 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 // linux/list.h needs ARRAY_SIZE    XXX -> better use c.h or ccan/array_size.h ?
 #ifndef ARRAY_SIZE
 # define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 #include <linux/list.h>
+// MSVC does not support statement expressions and typeof
+// -> redo list_entry via C++ lambda.
+#ifdef _MSC_VER
+# undef list_entry
+# define list_entry(ptr, type, member) [&]() {                      \
+        const decltype( ((type *)0)->member ) *__mptr = (ptr);      \
+        return (type *)( (char *)__mptr - offsetof(type,member) );  \
+    }()
+#endif
+
 
 using std::atomic;
 using std::bad_alloc;
@@ -899,6 +910,13 @@ template<> int _chanselect2</*onstack=*/true> (const _selcase *, int, const vect
 template<> int _chanselect2</*onstack=*/false>(const _selcase *, int, const vector<int>&);
 static int __chanselect2(const _selcase *, int, const vector<int>&, _WaitGroup*);
 
+// PRNG for select.
+// TODO consider switching to xoroshiro or wyrand if speed is an issue
+// https://thompsonsed.co.uk/random-number-generators-for-c-performance-tested
+// https://nullprogram.com/blog/2017/09/21/
+static std::random_device        _devrand;
+static thread_local std::mt19937 _t_rng(_devrand());
+
 // _chanselect executes one ready send or receive channel case.
 //
 // if no case is ready and default case was provided, select chooses default.
@@ -925,7 +943,7 @@ int _chanselect(const _selcase *casev, int casec) {
     vector<int> nv(casec); // n -> n(case)      TODO -> caller stack-allocate nv
     for (int i=0; i <casec; i++)
         nv[i] = i;
-    std::random_shuffle(nv.begin(), nv.end());
+    std::shuffle(nv.begin(), nv.end(), _t_rng);
 
     // first pass: poll all cases and bail out in the end if default was provided
     int  ndefault = -1;

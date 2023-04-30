@@ -1,5 +1,8 @@
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
-//                         Kirill Smelkov <kirr@nexedi.com>
+#ifndef _NXD_LIBGOLANG_COMPAT_WIN_UNISTD_H
+#define _NXD_LIBGOLANG_COMPAT_WIN_UNISTD_H
+//
+// Copyright (C) 2023  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,17 +20,12 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Small library that uses a bit of libgolang features, mainly to verify
-// that external project can build against libgolang.
+// stub unistd.h to be used on Windows where it is absent.
+// we need this because e.g. `cimport posix.stat` forces inclusion of unistd.h
+// even if we use part of posix.stat that is available everywhere.
 
-#include "dso.h"
-using namespace golang;
+#include <io.h>
 
-#include <stdio.h>
+#define O_CLOEXEC  _O_NOINHERIT
 
-void dsotest() {
-    chan<int> ch = makechan<int>();
-    ch.close();
-
-    printf("dso.cpp: OK\n");
-}
+#endif  // _NXD_LIBGOLANG_COMPAT_WIN_UNISTD_H

@@ -1,7 +1,7 @@
-print(b): привет b
-print(u): привет u
-print(qq(b)): "привет b"
-print(qq(u)): "привет u"
-print(repr(b)): b('привет b')
-print(repr(u)): u('привет u')
-print({b: u}): {b('привет b'): u('привет u')}
+print(b): привет αβγ b
+print(u): привет αβγ u
+print(qq(b)): "привет αβγ b"
+print(qq(u)): "привет αβγ u"
+print(repr(b)): b('привет αβγ b')
+print(repr(u)): u('привет αβγ u')
+print({b: u}): {b('привет αβγ b'): u('привет αβγ u')}

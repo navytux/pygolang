@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2022  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -37,7 +37,8 @@
 // GLIBC <  2.32 provides sys_siglist but not sigdescr_np in its headers
 // cut this short
 // (on darwing sys_siglist declaration is normally provided)
-#ifndef __APPLE__
+// (on windows sys_siglist is not available at all)
+#if !(defined(__APPLE__) || defined(_WIN32))
 extern "C" {
     extern const char * const sys_siglist[];
 }
@@ -226,8 +227,8 @@ tuple<string, error> ReadFile(const string& path) {
 
     while (1) {
         int n;
-        tie(n, err) = f->Read(&buf[0], buf.size());
-        data.append(&buf[0], n);
+        tie(n, err) = f->Read(buf.data(), buf.size());
+        data.append(buf.data(), n);
         if (err != nil) {
             if (err == io::EOF_)
                 err = nil;
@@ -248,7 +249,7 @@ tuple<string, error> ReadFile(const string& path) {
 
 tuple<File, File, error> Pipe() {
     int vfd[2], syserr;
-    syserr = sys::Pipe(vfd);
+    syserr = sys::Pipe(vfd, 0);
     if (syserr != 0)
         return make_tuple(nil, nil, fmt::errorf("pipe: %w", sys::NewErrno(syserr)));
 
@@ -286,8 +287,20 @@ string Signal::String() const {
     const Signal& sig = *this;
     const char *sigstr = nil;
 
+#ifdef _WIN32
+    switch (sig.signo) {
+    case SIGABRT:   return "Aborted";
+    case SIGBREAK:  return "Break";
+    case SIGFPE:    return "Floating point exception";
+    case SIGILL:    return "Illegal instruction";
+    case SIGINT:    return "Interrupt";
+    case SIGSEGV:   return "Segmentation fault";
+    case SIGTERM:   return "Terminated";
+    }
+#else
     if (0 <= sig.signo && sig.signo < NSIG)
         sigstr = ::sys_siglist[sig.signo]; // might be nil as well
+#endif
 
     if (sigstr != nil)
         return string(sigstr);

@@ -1,5 +1,5 @@
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -29,4 +29,9 @@ class mybuild_ext(build_ext):
 
 setup(
     cmdclass    = {'build_ext': mybuild_ext},
+
+    # avoid setuptools thinking nearby golang_pyx_user/ golang_dso_user/ also
+    # relate to hereby setup and rejecting the build.
+    # https://stackoverflow.com/questions/72294299/multiple-top-level-packages-discovered-in-a-flat-layout
+    py_modules  = [],
 )

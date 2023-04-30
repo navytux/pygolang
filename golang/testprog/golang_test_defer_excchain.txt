@@ -1,6 +1,7 @@
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _
     return f(*argv, **kw)
+           ^^^^^^^^^^^^^^                                       +PY311
   File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 42, in main
     raise RuntimeError("err")
 RuntimeError: err
@@ -21,6 +22,7 @@ Traceback (most recent call last):
     ...
   File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 33, in d2
     1/0
+    ~^~                                                         +PY311
 ZeroDivisionError: ...
 
 During handling of the above exception, another exception occurred:
@@ -30,7 +32,8 @@ Traceback (most recent call last):
     main()
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     ...
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__

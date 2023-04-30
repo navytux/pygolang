@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_PYX_RUNTIME_H
 #define _NXD_LIBGOLANG_PYX_RUNTIME_H
 
-// Copyright (C) 2018-2019  Nexedi SA and Contributors.
+// Copyright (C) 2018-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -58,8 +58,8 @@ class _PyError final : public _error, object {
 private:
     _PyError();
     ~_PyError();
-    friend error PyErr_Fetch();
-    friend void  PyErr_ReRaise(PyError pyerr);
+    friend LIBPYXRUNTIME_API error PyErr_Fetch();
+    friend LIBPYXRUNTIME_API void  PyErr_ReRaise(PyError pyerr);
 public:
     LIBPYXRUNTIME_API void incref();
     LIBPYXRUNTIME_API void decref();

@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -48,7 +48,7 @@ string _vsprintf(const char *format, va_list argp) {
     return string(buf.get(), buf.get() + nchar); // without trailing '\0'
 }
 
-string sprintf(const string &format, ...) {
+string sprintf(const string format, ...) {
     va_list argp;
     va_start(argp, format);
     string str = fmt::_vsprintf(format.c_str(), argp);
@@ -64,7 +64,7 @@ string sprintf(const char *format, ...) {
     return str;
 }
 
-error ___errorf(const string &format, ...) {
+error ___errorf(const string format, ...) {
     va_list argp;
     va_start(argp, format);
     error err = errors::New(fmt::_vsprintf(format.c_str(), argp));
