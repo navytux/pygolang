@@ -1530,7 +1530,10 @@ def test_strings_methods():
     # argv and kw being various combinations of unicode,bstr,ustr, bytes/bytearray.
     def checkop(s, meth, *argv, **kw):
         assert type(s) is str
-        ok = kw.pop('ok', None)
+        ok = kw.pop('ok')
+        if six.PY2:
+            ok = deepReplaceStr(ok, xunicode)
+        optional = kw.pop('optional', False)
         bs = b(s)
         us = u(s)
         # verify {str,bstr,ustr}.meth with str arguments
@@ -1545,13 +1548,11 @@ def test_strings_methods():
             r = xcall(s, meth, *argv_unicode, **kw_unicode)
 
         # we provide fallback implementations on e.g. py2
-        if ok is not None:
-            if six.PY2:
-                ok = xunicode(ok)
-            if isinstance(r, NotImplementedError):
+        if isinstance(r, NotImplementedError):
+            if not optional:
                 r = ok
-            else:
-                assert r == ok
+        else:
+            assert r == ok
 
         assert type(s) is unicode
         br = xcall(bs, meth, *argv, **kw)
@@ -1662,90 +1663,91 @@ def test_strings_methods():
 
     _ = Verifier
 
-    _("миру мир").__contains__("ру")
-    _("миру мир").__contains__("α")
-    _("мир").capitalize()
-    _("МиР").casefold()
-    _("мир").center(10)
-    _("мир").center(10, "ж")
+    _("миру мир").__contains__("ру",                ok=True)
+    _("миру мир").__contains__("α",                 ok=False)
+    _("мир").capitalize(                            ok="Мир")
+    _("МиР").casefold(                              ok="мир",   optional=True)  # py3.3
+    _("мир").center(10,                             ok="   мир    ")
+    _("мир").center(10, "ж",                        ok="жжжмиржжжж")
     # count, endswith       - tested in test_strings_index
-    _("миру\tмир").expandtabs()
-    _("миру\tмир").expandtabs(4)
+    _("миру\tмир").expandtabs(                      ok="миру    мир")
+    _("миру\tмир").expandtabs(2,                    ok="миру  мир")
     # find, index           - tested in test_strings_index
-    _("мир").isalnum()
-    _("мир!").isalnum()
-    _("мир").isalpha()
-    _("мир!").isalpha()
-    _("мир").isascii()
-    _("hello").isascii()
-    _("hellЫ").isascii()
-    _("123 мир").isdecimal()
-    _("123 q").isdecimal()
-    _("123").isdecimal()
-    _("мир").isdigit()
-    _("123 мир").isdigit()
-    _("123 q").isdigit()
-    _("123").isdigit()
-    _("٤").isdigit()            # arabic 4
-    _("мир").isidentifier()
-    _("мир$").isidentifier()
-    _("мир").islower()
-    _("Мир").islower()
-    _("мир").isnumeric()
-    _("123").isnumeric()
-    _("0x123").isnumeric()
-    _("мир").isprintable()
-    _("\u2009").isspace()       # thin space
-    _("  ").isspace()
-    _("мир").isspace()
-    _("мир").istitle()
-    _("Мир").istitle()
-    _(" мир ").join(["да", "май", "труд"])
-    _("мир").ljust(10)
-    _("мир").ljust(10, 'ж')
-    _("МиР").lower()
-    _("\u2009 мир").lstrip()
-    _("\u2009 мир\u2009 ").lstrip()
-    _("мммир").lstrip('ми')
-    _("миру мир").partition('ру')
-    _("миру мир").partition('ж')
-    _("миру мир").removeprefix("мир")
-    _("миру мир").removesuffix("мир")
-    _("миру мир").replace("ир", "ж")
-    _("миру мир").replace("ир", "ж", 1)
+    _("мир").isalnum(                               ok=True)
+    _("мир!").isalnum(                              ok=False)
+    _("мир").isalpha(                               ok=True)
+    _("мир!").isalpha(                              ok=False)
+    _("мир").isascii(                               ok=False,   optional=True)  # py3.7
+    _("hello").isascii(                             ok=True,    optional=True)  # py3.7
+    _("hellЫ").isascii(                             ok=False,   optional=True)  # py3.7
+    _("123 мир").isdecimal(                         ok=False)
+    _("123 q").isdecimal(                           ok=False)
+    _("123").isdecimal(                             ok=True)
+    _("мир").isdigit(                               ok=False)
+    _("123 мир").isdigit(                           ok=False)
+    _("123 q").isdigit(                             ok=False)
+    _("123").isdigit(                               ok=True)
+    _("٤").isdigit(                                 ok=True)                    # arabic 4
+    _("мир").isidentifier(                          ok=True,    optional=True)  # py3.0
+    _("мир$").isidentifier(                         ok=False,   optional=True)  # py3.0
+    _("мир").islower(                               ok=True)
+    _("Мир").islower(                               ok=False)
+    _("мир").isnumeric(                             ok=False)
+    _("123").isnumeric(                             ok=True)
+    _("0x123").isnumeric(                           ok=False)
+    _("мир").isprintable(                           ok=True,    optional=True)  # py3.0
+    _("\u2009").isspace(                            ok=x32(True,False))         # thin space
+    _("  ").isspace(                                ok=True)
+    _("мир").isspace(                               ok=False)
+    _("мир").istitle(                               ok=False)
+    _("Мир").istitle(                               ok=True)
+    _("МИр").istitle(                               ok=False)
+    _(" мир ").join(["да", "май", "труд"],          ok="да мир май мир труд")
+    _("мир").ljust(10,                              ok="мир       ")
+    _("мир").ljust(10, 'ж',                         ok="миржжжжжжж")
+    _("МиР").lower(                                 ok="мир")
+    _("\u2009 мир").lstrip(                         ok=x32("мир", "\u2009 мир"))
+    _("\u2009 мир\u2009 ").lstrip(                  ok=x32("мир\u2009 ", "\u2009 мир\u2009 "))
+    _("мммир").lstrip('ми',                         ok="р")
+    _("миру мир").partition('ру',                   ok=("ми", "ру", " мир"))
+    _("миру мир").partition('ж',                    ok=("миру мир", "", ""))
+    _("миру мир").removeprefix("мир",               ok="у мир", optional=True)  # py3.9
+    _("миру мир").removesuffix("мир",               ok="миру ", optional=True)  # py3.9
+    _("миру мир").replace("ир", "ж",                ok="мжу мж")
+    _("миру мир").replace("ир", "ж", 1,             ok="мжу мир")
     # rfind, rindex         - tested in test_strings_index
-    _("мир").rjust(10)
-    _("мир").rjust(10, 'ж')
-    _("миру мир").rpartition('ру')
-    _("миру мир").rpartition('ж')
-    _("мир").rsplit()
-    _("привет мир").rsplit()
-    _("привет\u2009мир").rsplit()
-    _("привет мир").rsplit("и")
-    _("привет мир").rsplit("и", 1)
-    _("мир \u2009").rstrip()
-    _(" мир \u2009").rstrip()
-    _("мируу").rstrip('ру')
-    _("мир").split()
-    _("привет мир").split()
-    _("привет\u2009мир").split()
-    _("привет мир").split("и")
-    _("привет мир").split("и", 1)
-    _("мир").splitlines()
-    _("миру\nмир").splitlines()
-    _("миру\nмир").splitlines(True)
-    _("миру\nмир\n").splitlines(True)
-    _("мир\nтруд\nмай\n").splitlines()
-    _("мир\nтруд\nмай\n").splitlines(True)
+    _("мир").rjust(10,                              ok="       мир")
+    _("мир").rjust(10, 'ж',                         ok="жжжжжжжмир")
+    _("миру мир").rpartition('ру',                  ok=("ми", "ру", " мир"))
+    _("миру мир").rpartition('ж',                   ok=("", "", "миру мир"))
+    _("мир").rsplit(                                ok=["мир"])
+    _("привет мир").rsplit(                         ok=["привет", "мир"])
+    _("привет\u2009мир").rsplit(                    ok=x32(["привет", "мир"], ["привет\u2009мир"]))
+    _("привет мир").rsplit("и",                     ok=["пр", "вет м", "р"])
+    _("привет мир").rsplit("и", 1,                  ok=["привет м", "р"])
+    _("мир \u2009").rstrip(                         ok=x32("мир", "мир \u2009"))
+    _(" мир \u2009").rstrip(                        ok=x32(" мир", " мир \u2009"))
+    _("мируу").rstrip('ру',                         ok="ми")
+    _("мир").split(                                 ok=["мир"])
+    _("привет мир").split(                          ok=["привет", "мир"])
+    _("привет\u2009мир").split(                     ok=x32(['привет', 'мир'], ["привет\u2009мир"]))
+    _("привет мир").split("и",                      ok=["пр", "вет м", "р"])
+    _("привет мир").split("и", 1,                   ok=["пр", "вет мир"])
+    _("мир").splitlines(                            ok=["мир"])
+    _("миру\nмир").splitlines(                      ok=["миру", "мир"])
+    _("миру\nмир").splitlines(True,                 ok=["миру\n", "мир"])
+    _("миру\nмир\n").splitlines(True,               ok=["миру\n", "мир\n"])
+    _("мир\nтруд\nмай\n").splitlines(               ok=["мир", "труд", "май"])
+    _("мир\nтруд\nмай\n").splitlines(True,          ok=["мир\n", "труд\n", "май\n"])
     # startswith            - tested in test_strings_index
-    _("\u2009 мир \u2009").strip()
-    _("миру мир").strip('мир')
-    _("МиР").swapcase()
-    _("МиР").title()
-    _("мир").translate({ord(u'м'):ord(u'и'), ord(u'и'):'я', ord(u'р'):None})
-    _("МиР").upper()
-    _("мир").zfill(10)
-    _("123").zfill(10)
+    _("\u2009 мир \u2009").strip(                   ok=x32("мир", "\u2009 мир \u2009"))
+    _("миру мир").strip('мир',                      ok="у ")
+    _("МиР").swapcase(                              ok="мИр")
+    _("МиР").title(                                 ok="Мир")
+    _("мир").translate({ord(u'м'):ord(u'и'), ord(u'и'):'я', ord(u'р'):None},        ok="ия")
+    _("МиР").upper(                                 ok="МИР")
+    _("мир").zfill(10,                              ok="0000000мир")
+    _("123").zfill(10,                              ok="0000000123")
 
 
 # verify bstr.translate in bytes mode
