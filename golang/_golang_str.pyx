@@ -87,6 +87,14 @@ else:
 cdef object zbytes   = <object>(&PyBytes_Type)
 cdef object zunicode = <object>(&PyUnicode_Type)
 
+# pybstr/pyustr point to version of bstr/ustr types that is actually in use:
+# - when bytes/unicode are not patched -> to _pybstr/_pyustr
+# - when bytes/unicode will be patched -> to bytes/unicode to where original
+#   _pybstr/_pyustr were copied during bytes/unicode patching.
+# at runtime the code should use pybstr/pyustr instead of _pybstr/_pyustr.
+pybstr = _pybstr    # initially point to -> _pybstr/_pyustr
+pyustr = _pyustr    # TODO -> cdef for speed
+
 
 def pyb(s): # -> bstr
     """b converts object to bstr.
@@ -250,8 +258,8 @@ def pyuchr(int i):  # -> 1-character ustr
     return pyu(unichr(i))
 
 
-@no_gc                      # note setup.py assist this to compile despite
-cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
+@no_gc                       # note setup.py assist this to compile despite
+cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
     """bstr is byte-string.
 
     It is based on bytes and can automatically convert to/from unicode.
@@ -284,7 +292,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
     """
 
     # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
-    # pybstr.__new__ is hand-made in _pybstr_tp_new which invokes ↓ .____new__() .
+    # _pybstr.__new__ is hand-made in _pybstr_tp_new which invokes ↓ .____new__() .
     @staticmethod
     def ____new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
@@ -557,7 +565,7 @@ cdef class pybstr(bytes):   # https://github.com/cython/cython/issues/711
         return pyustr.maketrans(x, y, z)
 
 
-# hand-made pybstr.__new__  (workaround for https://github.com/cython/cython/issues/799)
+# hand-made _pybstr.__new__  (workaround for https://github.com/cython/cython/issues/799)
 cdef PyObject* _pybstr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
     argv = ()
     if _argv != NULL:
@@ -566,26 +574,26 @@ cdef PyObject* _pybstr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw
     if _kw != NULL:
         kw = <object>_kw
 
-    cdef object x = pybstr.____new__(<object>_cls, *argv, **kw)
+    cdef object x = _pybstr.____new__(<object>_cls, *argv, **kw)
     Py_INCREF(x)
     return <PyObject*>x
-(<_XPyTypeObject*>pybstr).tp_new    = &_pybstr_tp_new
+(<_XPyTypeObject*>_pybstr).tp_new   = &_pybstr_tp_new
 
 # bytes uses "optimized" and custom .tp_basicsize and .tp_itemsize:
 # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L26-L32
 # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L3816-L3820
-(<PyTypeObject*>pybstr) .tp_basicsize  =  (<PyTypeObject*>zbytes).tp_basicsize
-(<PyTypeObject*>pybstr) .tp_itemsize   =  (<PyTypeObject*>zbytes).tp_itemsize
+(<PyTypeObject*>_pybstr) .tp_basicsize  =  (<PyTypeObject*>zbytes).tp_basicsize
+(<PyTypeObject*>_pybstr) .tp_itemsize   =  (<PyTypeObject*>zbytes).tp_itemsize
 
-# make sure pybstr C layout corresponds to bytes C layout exactly
+# make sure _pybstr C layout corresponds to bytes C layout exactly
 # we patched cython to allow from-bytes cdef class inheritance and we also set
-# .tp_basicsize directly above. All this works ok only if C layouts for pybstr
+# .tp_basicsize directly above. All this works ok only if C layouts for _pybstr
 # and bytes are completely the same.
-assert sizeof(pybstr) == sizeof(PyBytesObject)
+assert sizeof(_pybstr) == sizeof(PyBytesObject)
 
 
 @no_gc
-cdef class pyustr(unicode):
+cdef class _pyustr(unicode):
     """ustr is unicode-string.
 
     It is based on unicode and can automatically convert to/from bytes.
@@ -613,7 +621,7 @@ cdef class pyustr(unicode):
     """
 
     # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
-    # pyustr.__new__ is hand-made in _pyustr_tp_new which invokes ↓ .____new__() .
+    # _pyustr.__new__ is hand-made in _pyustr_tp_new which invokes ↓ .____new__() .
     @staticmethod
     def ____new__(cls, object='', encoding=None, errors=None):
         # encoding or errors  ->  object must expose buffer interface
@@ -662,7 +670,7 @@ cdef class pyustr(unicode):
 
 
     def __hash__(self):
-        # see pybstr.__hash__ for why we stick to hash of current str
+        # see _pybstr.__hash__ for why we stick to hash of current str
         if PY_MAJOR_VERSION >= 3:
             return zunicode.__hash__(self)
         else:
@@ -921,7 +929,7 @@ cdef class pyustr(unicode):
         return t
 
 
-# hand-made pyustr.__new__  (workaround for https://github.com/cython/cython/issues/799)
+# hand-made _pyustr.__new__  (workaround for https://github.com/cython/cython/issues/799)
 cdef PyObject* _pyustr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw) except NULL:
     argv = ()
     if _argv != NULL:
@@ -930,13 +938,13 @@ cdef PyObject* _pyustr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw
     if _kw != NULL:
         kw = <object>_kw
 
-    cdef object x = pyustr.____new__(<object>_cls, *argv, **kw)
+    cdef object x = _pyustr.____new__(<object>_cls, *argv, **kw)
     Py_INCREF(x)
     return <PyObject*>x
-(<_XPyTypeObject*>pyustr).tp_new    = &_pyustr_tp_new
+(<_XPyTypeObject*>_pyustr).tp_new   = &_pyustr_tp_new
 
-# similarly to bytes - want same C layout for pyustr vs unicode
-assert sizeof(pyustr) == sizeof(PyUnicodeObject)
+# similarly to bytes - want same C layout for _pyustr vs unicode
+assert sizeof(_pyustr) == sizeof(PyUnicodeObject)
 
 
 # _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
@@ -1004,7 +1012,7 @@ IF PY2:
         o = bytes(buffer(o))  # change tp_type to bytes instead of pybstr
         return (<_PyTypeObject_Print*>zbytes) .tp_print(<PyObject*>o, f, Py_PRINT_RAW)
 
-    (<_PyTypeObject_Print*>Py_TYPE(pybstr())) .tp_print = _pybstr_tp_print
+    (<_PyTypeObject_Print*>Py_TYPE(_pybstr())) .tp_print = _pybstr_tp_print
 
 
 # whiteout .sq_slice for pybstr/pyustr inherited from str/unicode.
@@ -1012,8 +1020,8 @@ IF PY2:
 # If we don't do this e.g. bstr[:] will be handled by str.__getslice__ instead
 # of bstr.__getitem__, and will return str instead of bstr.
 if PY2:
-    (<_XPyTypeObject*>pybstr) .tp_as_sequence.sq_slice = NULL
-    (<_XPyTypeObject*>pyustr) .tp_as_sequence.sq_slice = NULL
+    (<_XPyTypeObject*>_pybstr) .tp_as_sequence.sq_slice = NULL
+    (<_XPyTypeObject*>_pyustr) .tp_as_sequence.sq_slice = NULL
 
 
 # ---- adjust bstr/ustr classes after what cython generated ----
