@@ -409,6 +409,11 @@ def main():
 
     argv = [sys.argv[0]] + argv_ + igetopt.argv
 
+    # propagate those settings as defaults to subinterpreters, so that e.g.
+    # sys.executable spawned from under `gpython -X gpython.runtime=threads`
+    # also uses "threads" runtime by default.
+    os.environ['GPYTHON_RUNTIME'] = gpy_runtime
+
     # init initializes according to selected runtime
     # it is called after options are parsed and sys.path is setup correspondingly.
     # this way golang and gevent are imported from exactly the same place as

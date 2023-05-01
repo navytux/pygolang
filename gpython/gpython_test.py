@@ -365,6 +365,9 @@ def test_Xruntime(runtime):
 
 # _xopt_assert_in_subprocess runs tfunc in subprocess interpreter spawned with
 # `-X xopt=xval` and checks that there is no error.
+#
+# It is also verified that tfunc runs ok in sub-subprocess interpreter spawned
+# _without_ `-X ...`, i.e. once given -X setting is inherited by spawned interpreters.
 def _xopt_assert_in_subprocess(xopt, xval, tfunc):
     XOPT = xopt.upper().replace('.','_')    # gpython.runtime -> GPYTHON_RUNTIME
     env = os.environ.copy()
@@ -373,8 +376,10 @@ def _xopt_assert_in_subprocess(xopt, xval, tfunc):
     argv = []
     if xval != '':
         argv += ['-X', xopt+'='+xval]
-    prog = 'from gpython import gpython_test as t; '
+    prog = import_t = 'from gpython import gpython_test as t; '
     prog += 't.%s(); ' % tfunc.__name__
+    prog += import_t  # + same in subprocess
+    prog += "t.pyrun(['-c', '%s t.%s(); ']); " % (import_t, tfunc.__name__)
     prog += 'print("ok")'
     argv += ['-c', prog]
 
