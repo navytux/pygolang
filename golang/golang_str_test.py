@@ -690,6 +690,17 @@ def test_strings_encodedecode():
     with raises(UnicodeEncodeError):
         u_k8mir.encode('ascii')
 
+    # on py2 there are encodings for which bytes.decode returns bytes
+    # e.g. bytes.decode('string-escape') is actually used by pickle
+    # verify that this exact semantic is preserved
+    if six.PY3:
+        with raises(LookupError):  bs.decode('hex')
+        with raises(LookupError):  bs.decode('string-escape')
+    else:
+        _ = bs.decode('string-escape');          assert type(_) is bstr;  assert _ == bs
+        _ = b(r'x\'y').decode('string-escape');  assert type(_) is bstr;  assert _bdata(_) == b"x'y"
+        _ = b('616263').decode('hex');           assert type(_) is bstr;  assert _bdata(_) == b"abc"
+
 
 # verify string operations like `x * 3` for all cases from bytes, bytearray, unicode, bstr and ustr.
 @mark.parametrize('tx', (bytes, unicode, bytearray, bstr, ustr))
