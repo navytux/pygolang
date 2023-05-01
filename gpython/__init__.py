@@ -395,7 +395,7 @@ def main():
                     sys._xoptions['gpython.runtime'] = gpy_runtime
 
                 else:
-                    raise RuntimeError('gpython: unknown -X option %s' % opt)
+                    raise RuntimeError('gpython: unknown -X option %s' % arg)
 
                 continue
 
