@@ -355,20 +355,26 @@ def test_pymain_run_via_relpath():
     out2 = pyout(['./__init__.py'] + argv, pyexe=sys._gpy_underlying_executable, cwd=here)
     assert out1 == out2
 
+
 # verify -X gpython.runtime=...
 @gpython_only
 def test_Xruntime(runtime):
+    _xopt_assert_in_subprocess('gpython.runtime', runtime,
+                                assert_gevent_activated  if runtime != 'threads'  else \
+                                assert_gevent_not_activated)
+
+# _xopt_assert_in_subprocess runs tfunc in subprocess interpreter spawned with
+# `-X xopt=xval` and checks that there is no error.
+def _xopt_assert_in_subprocess(xopt, xval, tfunc):
+    XOPT = xopt.upper().replace('.','_')    # gpython.runtime -> GPYTHON_RUNTIME
     env = os.environ.copy()
-    env.pop('GPYTHON_RUNTIME', None) # del
+    env.pop(XOPT, None) # del
 
     argv = []
-    if runtime != '':
-        argv += ['-X', 'gpython.runtime='+runtime]
+    if xval != '':
+        argv += ['-X', xopt+'='+xval]
     prog = 'from gpython import gpython_test as t; '
-    if runtime != 'threads':
-        prog += 't.assert_gevent_activated(); '
-    else:
-        prog += 't.assert_gevent_not_activated(); '
+    prog += 't.%s(); ' % tfunc.__name__
     prog += 'print("ok")'
     argv += ['-c', prog]
 
