@@ -422,6 +422,9 @@ class pybstr(bytes):
             x = _utf8_decode_surrogateescape(self)
         else:
             x = bytes.decode(self, encoding, errors)
+        # on py2 e.g. bytes.decode('string-escape') returns bytes
+        if PY_MAJOR_VERSION < 3  and  isinstance(x, bytes):
+            return pyb(x)
         return pyu(x)
 
     if PY_MAJOR_VERSION < 3:
