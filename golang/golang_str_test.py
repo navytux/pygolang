@@ -1960,6 +1960,27 @@ def test_strings_subclasses(tx):
     _  = b(xx);     assert type(_)  is bstr ; assert _ == 'мир'
     _  = u(xx);     assert type(_)  is ustr ; assert _ == 'мир'
 
+    # __str__ returns *str, not MyStr
+    txstr = {
+        unicode: str,
+        bstr:    x32(ustr, bstr),
+        ustr:    x32(ustr, bstr),
+    }[tx]
+    if six.PY2  and  tx is unicode: # on py2 unicode.__str__ raises UnicodeEncodeError:
+        aa = u'mir'                 # `'ascii' codec can't encode ...` -> do the test on ascii
+        _  = aa.__str__();  assert _ == 'mir'
+    else:
+        _  = xx.__str__();  assert _ == 'мир'
+    assert type(_) is txstr
+
+    # for bstr/ustr  __unicode__ returns *str, never MyStr
+    #                __bytes__   returns bytes leaving string domain
+    # (builtin unicode has no __unicode__/__bytes__)
+    if tx is not unicode:
+        _ = xx.__unicode__();  assert type(_) is ustr;  assert _ == 'мир'
+        _ = xx.__bytes__();    assert type(_) is bytes; assert _ == xbytes('мир')
+
+
     # subclass with __str__
     class MyStr(tx):
         def __str__(self): return u'αβγ'

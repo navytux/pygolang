@@ -318,7 +318,7 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if PY_MAJOR_VERSION >= 3:
             return pyu(self)
         else:
-            return self
+            return pyb(self)  # self  or  pybstr if it was subclass
 
     def __repr__(self):
         qself, nonascii_escape = _bpysmartquote_u3b2(self)
@@ -709,7 +709,7 @@ cdef class _pyustr(unicode):
     def __unicode__(self):  return pyu(self)  # see __str__
     def __str__(self):
         if PY_MAJOR_VERSION >= 3:
-            return self
+            return pyu(self)  # self  or  pyustr if it was subclass
         else:
             return pyb(self)
 
