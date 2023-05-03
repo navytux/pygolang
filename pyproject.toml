@@ -1,2 +1,2 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools_dso >= 2.7", "cython", "gevent"]
+requires = ["setuptools", "wheel", "setuptools_dso >= 2.8", "cython", "gevent"]
