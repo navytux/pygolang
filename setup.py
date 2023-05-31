@@ -154,7 +154,7 @@ class develop(XInstallGPython, _develop):
 
 # requirements of packages under "golang." namespace
 R = {
-    'cmd.pybench':      {'pytest'},
+    'cmd.pybench':      {'pytest', 'py ; python_version >= "3"'},
     'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.8'},
     'x.perf.benchlib':  {'numpy'},
 }
