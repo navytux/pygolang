@@ -22,6 +22,8 @@
 It is included from _golang.pyx .
 """
 
+from golang.unicode cimport utf8
+
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
 from cpython cimport PyUnicode_DecodeUTF8
 from cpython cimport PyTypeObject, Py_TYPE, reprfunc, richcmpfunc, binaryfunc
@@ -1873,8 +1875,7 @@ cdef extern from "Python.h":
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
 
-cdef int _rune_error = 0xFFFD # unicode replacement character
-_py_rune_error = _rune_error
+_py_rune_error = utf8.RuneError
 
 cdef bint _ucs2_build = (sys.maxunicode ==     0xffff)      #    ucs2
 assert    _ucs2_build or sys.maxunicode >= 0x0010ffff       # or ucs4
@@ -1886,7 +1887,7 @@ def _py_utf8_decode_rune(const byte[::1] s):
     return _utf8_decode_rune(s)
 cdef (rune, int) _utf8_decode_rune(const byte[::1] s):
     if len(s) == 0:
-        return _rune_error, 0
+        return utf8.RuneError, 0
 
     cdef int l = min(len(s), 4)  # max size of an UTF-8 encoded character
     while l > 0:
@@ -1913,7 +1914,7 @@ cdef (rune, int) _utf8_decode_rune(const byte[::1] s):
         continue
 
     # invalid UTF-8
-    return _rune_error, 1
+    return utf8.RuneError, 1
 
 
 # _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
@@ -1932,7 +1933,7 @@ def _utf8_decode_surrogateescape(const byte[::1] s): # -> unicode
 
     while len(s) > 0:
         r, width = _utf8_decode_rune(s)
-        if r == _rune_error  and  width == 1:
+        if r == utf8.RuneError  and  width == 1:
             b = s[0]
             assert 0x80 <= b <= 0xff, b
             emit(unichr(0xdc00 + b))
