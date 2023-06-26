@@ -72,7 +72,7 @@ from cython cimport no_gc
 
 from libc.stdio cimport FILE
 
-pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
+from golang cimport strconv
 import string as pystring
 import types as pytypes
 import functools as pyfunctools
@@ -97,7 +97,7 @@ pybstr = _pybstr    # initially point to -> _pybstr/_pyustr
 pyustr = _pyustr    # TODO -> cdef for speed
 
 
-def pyb(s): # -> bstr
+cpdef pyb(s): # -> bstr
     """b converts object to bstr.
 
        - For bstr the same object is returned.
@@ -118,7 +118,7 @@ def pyb(s): # -> bstr
         raise TypeError("b: invalid type %s" % type(s))
     return bs
 
-def pyu(s): # -> ustr
+cpdef pyu(s): # -> ustr
     """u converts object to ustr.
 
        - For ustr the same object is returned.
@@ -1068,7 +1068,7 @@ cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
     if (quote in s) and (b'"' not in s):
         quote = b'"'
 
-    x, nonascii_escape = pystrconv._quote(s, quote)             # raw bytes
+    x, nonascii_escape = strconv._quote(s, quote)     # raw bytes
     if PY_MAJOR_VERSION < 3:
         return x, nonascii_escape
     else:
@@ -1093,7 +1093,7 @@ def pyqq(obj):
     # py3: str     | bytes
     if not isinstance(obj, (unicode, bytes)):
         obj = _bstringify(obj)
-    return pystrconv.quote(obj)
+    return strconv.pyquote(obj)
 
 
 
@@ -1875,16 +1875,12 @@ cdef extern from "Python.h":
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
 
-_py_rune_error = utf8.RuneError
-
 cdef bint _ucs2_build = (sys.maxunicode ==     0xffff)      #    ucs2
 assert    _ucs2_build or sys.maxunicode >= 0x0010ffff       # or ucs4
 
 # _utf8_decode_rune decodes next UTF8-character from byte string s.
 #
 # _utf8_decode_rune(s) -> (r, size)
-def _py_utf8_decode_rune(const byte[::1] s):
-    return _utf8_decode_rune(s)
 cdef (rune, int) _utf8_decode_rune(const byte[::1] s):
     if len(s) == 0:
         return utf8.RuneError, 0
@@ -2029,10 +2025,10 @@ else:
 #
 # it works correctly even on ucs2 python builds, where ordinals >= 0x10000 are
 # represented as 2 unicode points.
-if not _ucs2_build:
-    _xunichr = unichr
-else:
-    def _xunichr(i):
+cdef unicode _xunichr(rune i):
+    if not _ucs2_build:
+        return unichr(i)
+    else:
         if i < 0x10000:
             return unichr(i)
 

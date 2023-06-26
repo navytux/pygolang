@@ -374,11 +374,3 @@ from ._golang import    \
     pyu         as u,       \
     pyustr      as ustr,    \
     pyuchr      as uchr
-
-# import golang.strconv into _golang from here to workaround cyclic golang ↔ strconv dependency
-def _():
-    from . import _golang
-    from . import strconv
-    _golang.pystrconv = strconv
-_()
-del _

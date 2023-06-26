@@ -25,16 +25,17 @@ from __future__ import print_function, absolute_import
 import unicodedata, codecs
 from six.moves import range as xrange
 
-from golang import b
-from golang._golang import _py_utf8_decode_rune as _utf8_decode_rune, _py_rune_error as _rune_error, _xunichr
+from golang cimport pyb
+from golang cimport _utf8_decode_rune, _xunichr
+from golang.unicode cimport utf8
 
 
 # quote quotes unicode|bytes string into valid "..." bytestring always quoted with ".
-def quote(s):  # -> bstr
-    q, _ = _quote(b(s), b'"')
-    return b(q)
+cpdef pyquote(s):  # -> bstr
+    q, _ = _quote(pyb(s), b'"')
+    return pyb(q)
 
-def _quote(s, quote): # -> (quoted, nonascii_escape)
+cdef _quote(s, quote): # -> (quoted, nonascii_escape)
     assert isinstance(s, bytes),     type(s)
     assert isinstance(quote, bytes), type(quote)
     assert len(quote) == 1,          repr(quote)
@@ -74,7 +75,7 @@ def _quote(s, quote): # -> (quoted, nonascii_escape)
             isize = i + size
 
             # decode error - just emit raw byte as escaped
-            if r == _rune_error  and  size == 1:
+            if r == utf8.RuneError  and  size == 1:
                 nonascii_escape = True
                 emit(br'\x%02x' % ord(c))
 
@@ -96,8 +97,8 @@ def _quote(s, quote): # -> (quoted, nonascii_escape)
 # unquote decodes "-quoted unicode|byte string.
 #
 # ValueError is raised if there are quoting syntax errors.
-def unquote(s):  # -> bstr
-    us, tail = unquote_next(s)
+def pyunquote(s):  # -> bstr
+    us, tail = pyunquote_next(s)
     if len(tail) != 0:
         raise ValueError('non-empty tail after closing "')
     return us
@@ -107,11 +108,11 @@ def unquote(s):  # -> bstr
 # it returns -> (unquoted(s), tail-after-")
 #
 # ValueError is raised if there are quoting syntax errors.
-def unquote_next(s):  # -> (bstr, bstr)
-    us, tail = _unquote_next(b(s))
-    return b(us), b(tail)
+def pyunquote_next(s):  # -> (bstr, bstr)
+    us, tail = _unquote_next(pyb(s))
+    return pyb(us), pyb(tail)
 
-def _unquote_next(s):
+cdef _unquote_next(s):
     assert isinstance(s, bytes)
 
     if len(s) == 0 or s[0:0+1] != b'"':
