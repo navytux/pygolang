@@ -22,7 +22,6 @@
 from __future__ import print_function, absolute_import
 
 from golang._strconv import \
-    quote,       \
-    _quote,      \
-    unquote,     \
-    unquote_next
+    pyquote             as quote,       \
+    pyunquote           as unquote,     \
+    pyunquote_next      as unquote_next

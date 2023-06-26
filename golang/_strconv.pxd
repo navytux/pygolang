@@ -19,3 +19,8 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package strconv provides Go-compatible string conversions."""
+
+from golang cimport byte
+
+cpdef pyquote(s)
+cdef _quote(s, quote) # -> (quoted, nonascii_escape)

@@ -43,7 +43,7 @@ In addition to Cython/nogil API, golang.pyx provides runtime for golang.py:
 - Python-level channels are represented by pychan + pyselect.
 - Python-level error is represented by pyerror.
 - Python-level panic is represented by pypanic.
-- Python-level strings are represented by pybstr and pyustr.
+- Python-level strings are represented by pybstr/pyustr and pyb/pyu.
 """
 
 
@@ -269,4 +269,11 @@ cdef class pyerror(Exception):
     cdef object from_error (error err) # -> pyerror | None
 
 
+# strings
+cpdef pyb(s) # -> bstr
+cpdef pyu(s) # -> ustr
 cdef __pystr(object obj)
+
+
+cdef (rune, int) _utf8_decode_rune(const byte[::1] s)
+cdef unicode _xunichr(rune i)
