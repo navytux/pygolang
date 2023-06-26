@@ -9,6 +9,7 @@
 /_io.cpp
 /_os.cpp
 /_os_test.cpp
+/_strconv.cpp
 /_strings_test.cpp
 /_sync.cpp
 /_sync_test.cpp

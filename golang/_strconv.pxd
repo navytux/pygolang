@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# cython: language_level=2
 # Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
@@ -18,11 +19,3 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package strconv provides Go-compatible string conversions."""
-
-from __future__ import print_function, absolute_import
-
-from golang._strconv import \
-    quote,       \
-    _quote,      \
-    unquote,     \
-    unquote_next

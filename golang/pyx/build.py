@@ -265,6 +265,8 @@ def Extension(name, sources, **kw):
         '_fmt.pxd',
         'io.pxd',
         '_io.pxd',
+        'strconv.pxd',
+        '_strconv.pxd',
         'strings.pxd',
         'sync.pxd',
         '_sync.pxd',
