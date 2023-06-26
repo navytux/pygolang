@@ -226,6 +226,7 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
         'os.h',
         'os/signal.h',
         'pyx/runtime.h',
+        'unicode/utf8.h',
         '_testing.h',
         '_compat/windows/strings.h',
         '_compat/windows/unistd.h',
@@ -274,6 +275,8 @@ def Extension(name, sources, **kw):
         'os/signal.pxd',
         'os/_signal.pxd',
         'pyx/runtime.pxd',
+        'unicode/utf8.pxd',
+        'unicode/_utf8.pxd',
     ]])
     kw['depends'] = dependv
 
