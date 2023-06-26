@@ -433,6 +433,10 @@ constexpr Nil nil = nullptr;
 // string is alias for std::string.
 using string = std::string;
 
+// byte/rune types related to string.
+using byte = uint8_t;
+using rune = int32_t;
+
 // func is alias for std::function.
 template<typename F>
 using func = std::function<F>;

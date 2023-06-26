@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -65,6 +65,9 @@ cdef extern from *:
 # on the edge of Python/nogil world.
 from libcpp.string cimport string  # golang::string = std::string
 cdef extern from "golang/libgolang.h" namespace "golang" nogil:
+    ctypedef unsigned char  byte
+    ctypedef signed int     rune  # = int32
+
     void panic(const char *)
     const char *recover()
 
