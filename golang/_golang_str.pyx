@@ -68,7 +68,6 @@ cdef extern from "Python.h":
 
 from cython cimport no_gc
 
-from libc.stdint cimport uint8_t
 from libc.stdio cimport FILE
 
 pystrconv = None  # = golang.strconv imported at runtime (see __init__.py)
@@ -1056,7 +1055,7 @@ _bstrustr_remove_unsupported_slots()
 # NOTE the return type is str type of current python, so that quoted result
 # could be directly used in __repr__ or __str__ implementation.
 cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
-    # TODO change to `const uint8_t[::1] s` after strconv._quote is moved to pyx
+    # TODO change to `const byte[::1] s` after strconv._quote is moved to pyx
     if isinstance(s, bytearray):
         s = _bytearray_data(s)
     assert isinstance(s, bytes), s
@@ -1498,7 +1497,7 @@ cdef class _UnboundMethod(object): # they removed unbound methods on py3
 # See also overview of patching bytes.{__repr__,__str__} near _bstringify.
 cdef object _missing  = object()
 cdef object _atidx_re = pyre.compile('.* at index ([0-9]+)$')
-cdef _bprintf(const uint8_t[::1] fmt, xarg): # -> pybstr
+cdef _bprintf(const byte[::1] fmt, xarg): # -> pybstr
     cdef bytearray out = bytearray()
 
     cdef tuple  argv = None  # if xarg is tuple
@@ -1570,7 +1569,7 @@ cdef _bprintf(const uint8_t[::1] fmt, xarg): # -> pybstr
     # differently - on b %r is aliased to %a.
     cdef int i = 0
     cdef int l = len(fmt)
-    cdef uint8_t c
+    cdef byte c
     while i < l:
         c  = fmt[i]
         i += 1
@@ -1883,9 +1882,9 @@ assert    _ucs2_build or sys.maxunicode >= 0x0010ffff       # or ucs4
 # _utf8_decode_rune decodes next UTF8-character from byte string s.
 #
 # _utf8_decode_rune(s) -> (r, size)
-def _py_utf8_decode_rune(const uint8_t[::1] s):
+def _py_utf8_decode_rune(const byte[::1] s):
     return _utf8_decode_rune(s)
-cdef (int, int) _utf8_decode_rune(const uint8_t[::1] s):
+cdef (rune, int) _utf8_decode_rune(const byte[::1] s):
     if len(s) == 0:
         return _rune_error, 0
 
@@ -1918,7 +1917,7 @@ cdef (int, int) _utf8_decode_rune(const uint8_t[::1] s):
 
 
 # _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
-def _utf8_decode_surrogateescape(const uint8_t[::1] s): # -> unicode
+def _utf8_decode_surrogateescape(const byte[::1] s): # -> unicode
     if PY_MAJOR_VERSION >= 3:
         if len(s) == 0:
             return u''  # avoid out-of-bounds slice access on &s[0]

@@ -40,7 +40,7 @@ ELSE:
 
 from gevent import sleep as pygsleep
 
-from libc.stdint cimport uint8_t, uint64_t
+from libc.stdint cimport uint64_t
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 from cython cimport final
 
@@ -49,7 +49,7 @@ from golang.runtime._libgolang cimport _libgolang_runtime_ops, _libgolang_sema, 
 from golang.runtime.internal cimport syscall
 from golang.runtime cimport _runtime_thread
 from golang.runtime._runtime_pymisc cimport PyExc, pyexc_fetch, pyexc_restore
-from golang cimport topyexc
+from golang cimport byte, topyexc
 
 from libc.stdlib cimport calloc, free
 from libc.errno  cimport EBADF
@@ -343,7 +343,7 @@ cdef nogil:
 cdef:
     bint _io_read(IOH* ioh, int* out_n, void *buf, size_t count):
         pygfobj = <object>ioh.pygfobj
-        cdef uint8_t[::1] mem = <uint8_t[:count]>buf
+        cdef byte[::1] mem = <byte[:count]>buf
         xmem = memoryview(mem) # to avoid https://github.com/cython/cython/issues/3900 on mem[:0]=b''
         try:
             # NOTE buf might be on stack, so it must not be accessed, e.g. from
@@ -380,7 +380,7 @@ cdef nogil:
 cdef:
     bint _io_write(IOH* ioh, int* out_n, const void *buf, size_t count):
         pygfobj = <object>ioh.pygfobj
-        cdef const uint8_t[::1] mem = <const uint8_t[:count]>buf
+        cdef const byte[::1] mem = <const byte[:count]>buf
 
         # NOTE buf might be on stack, so it must not be accessed, e.g. from
         # FileObjectThread, while our greenlet is parked (see STACK_DEAD_WHILE_PARKED
