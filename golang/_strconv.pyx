@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -23,49 +23,81 @@
 from __future__ import print_function, absolute_import
 
 import unicodedata, codecs
-from six.moves import range as xrange
 
-from golang cimport pyb
+from golang cimport pyb, byte, rune
 from golang cimport _utf8_decode_rune, _xunichr
 from golang.unicode cimport utf8
+
+from cpython cimport PyObject, _PyBytes_Resize
+
+cdef extern from "Python.h":
+    PyObject* PyBytes_FromStringAndSize(char*, Py_ssize_t) except NULL
+    char* PyBytes_AS_STRING(PyObject*)
+    void Py_DECREF(PyObject*)
 
 
 # quote quotes unicode|bytes string into valid "..." bytestring always quoted with ".
 cpdef pyquote(s):  # -> bstr
-    q, _ = _quote(pyb(s), b'"')
+    cdef bint _
+    q = _quote(pyb(s), '"', &_)
     return pyb(q)
 
-cdef _quote(s, quote): # -> (quoted, nonascii_escape)
-    assert isinstance(s, bytes),     type(s)
-    assert isinstance(quote, bytes), type(quote)
-    assert len(quote) == 1,          repr(quote)
 
-    outv = []
-    emit = outv.append
-    nonascii_escape = False
-    i = 0
+cdef char[16] hexdigit # = '0123456789abcdef'
+for i, c in enumerate('0123456789abcdef'):
+    hexdigit[i] = ord(c)
+
+
+# XXX not possible to use `except (NULL, False)`
+#     (https://stackoverflow.com/a/66335433/9456786)
+cdef bytes _quote(const byte[::1] s, char quote, bint* out_nonascii_escape): # -> (quoted, nonascii_escape)
+    # 2*" + max(4)*each byte (+ 1 for tail \0 implicitly by PyBytesObject)
+    cdef Py_ssize_t qmaxsize = 1 + 4*len(s) + 1
+    cdef PyObject*  qout     = PyBytes_FromStringAndSize(NULL, qmaxsize)
+    cdef byte*      q        = <byte*>PyBytes_AS_STRING(qout)
+
+    cdef bint nonascii_escape = False
+    cdef Py_ssize_t i = 0, j
+    cdef Py_ssize_t isize
+    cdef int size
+    cdef rune r
+    cdef byte c
+    q[0] = quote;  q += 1
     while i < len(s):
-        c = s[i:i+1]
+        c = s[i]
         # fast path - ASCII only
-        if ord(c) < 0x80:
-            if c in (b'\\', quote):
-                emit(b'\\'+c)
+        if c < 0x80:
+            if c in (ord('\\'), quote):
+                q[0] = ord('\\')
+                q[1] = c
+                q += 2
 
             # printable ASCII
-            elif b' ' <= c <= b'\x7e':
-                emit(c)
+            elif 0x20 <= c <= 0x7e:
+                q[0] = c
+                q += 1
 
             # non-printable ASCII
-            elif c == b'\t':
-                emit(br'\t')
-            elif c == b'\n':
-                emit(br'\n')
-            elif c == b'\r':
-                emit(br'\r')
+            elif c == ord('\t'):
+                q[0] = ord('\\')
+                q[1] = ord('t')
+                q += 2
+            elif c == ord('\n'):
+                q[0] = ord('\\')
+                q[1] = ord('n')
+                q += 2
+            elif c == ord('\r'):
+                q[0] = ord('\\')
+                q[1] = ord('r')
+                q += 2
 
             # everything else is non-printable
             else:
-                emit(br'\x%02x' % ord(c))
+                q[0] = ord('\\')
+                q[1] = ord('x')
+                q[2] = hexdigit[c >> 4]
+                q[3] = hexdigit[c & 0xf]
+                q += 4
 
             i += 1
 
@@ -77,21 +109,41 @@ cdef _quote(s, quote): # -> (quoted, nonascii_escape)
             # decode error - just emit raw byte as escaped
             if r == utf8.RuneError  and  size == 1:
                 nonascii_escape = True
-                emit(br'\x%02x' % ord(c))
+                q[0] = ord('\\')
+                q[1] = ord('x')
+                q[2] = hexdigit[c >> 4]
+                q[3] = hexdigit[c & 0xf]
+                q += 4
 
             # printable utf-8 characters go as is
-            elif unicodedata.category(_xunichr(r))[0] in _printable_cat0:
-                emit(s[i:isize])
+            elif _unicodedata_category(_xunichr(r))[0] in 'LNPS': # letters, numbers, punctuation, symbols
+                for j in range(i, isize):
+                    q[0] = s[j]
+                    q += 1
 
             # everything else goes in numeric byte escapes
             else:
                 nonascii_escape = True
-                for j in xrange(i, isize):
-                    emit(br'\x%02x' % ord(s[j:j+1]))
+                for j in range(i, isize):
+                    c = s[j]
+                    q[0] = ord('\\')
+                    q[1] = ord('x')
+                    q[2] = hexdigit[c >> 4]
+                    q[3] = hexdigit[c & 0xf]
+                    q += 4
 
             i = isize
 
-    return (quote + b''.join(outv) + quote, nonascii_escape)
+    q[0] = quote;  q += 1
+    q[0] = 0;      # don't q++ at last because size does not include tail \0
+    cdef Py_ssize_t qsize = (q - <byte*>PyBytes_AS_STRING(qout))
+    assert qsize <= qmaxsize
+    _PyBytes_Resize(&qout, qsize)
+
+    bqout = <bytes>qout
+    Py_DECREF(qout)
+    out_nonascii_escape[0] = nonascii_escape
+    return bqout
 
 
 # unquote decodes "-quoted unicode|byte string.
@@ -181,4 +233,4 @@ cdef _unquote_next(s):
     return b''.join(outv), s
 
 
-_printable_cat0 = frozenset(['L', 'N', 'P', 'S'])   # letters, numbers, punctuation, symbols
+cdef _unicodedata_category = unicodedata.category

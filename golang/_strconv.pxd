@@ -23,4 +23,4 @@
 from golang cimport byte
 
 cpdef pyquote(s)
-cdef _quote(s, quote) # -> (quoted, nonascii_escape)
+cdef bytes _quote(const byte[::1] s, char quote, bint* out_nonascii_escape) # -> (quoted, nonascii_escape)
