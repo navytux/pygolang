@@ -316,6 +316,9 @@ setup(
                     Ext('golang.os._signal',
                         ['golang/os/_signal.pyx']),
 
+                    Ext('golang._strconv',
+                        ['golang/_strconv.pyx']),
+
                     Ext('golang._strings_test',
                         ['golang/_strings_test.pyx',
                          'golang/strings_test.cpp']),
