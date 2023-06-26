@@ -1056,19 +1056,15 @@ _bstrustr_remove_unsupported_slots()
 #
 # NOTE the return type is str type of current python, so that quoted result
 # could be directly used in __repr__ or __str__ implementation.
-cdef _bpysmartquote_u3b2(s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
-    # TODO change to `const byte[::1] s` after strconv._quote is moved to pyx
-    if isinstance(s, bytearray):
-        s = _bytearray_data(s)
-    assert isinstance(s, bytes), s
-
+cdef _bpysmartquote_u3b2(const byte[::1] s): # -> (unicode(py3)|bytes(py2), nonascii_escape)
     # smartquotes: choose ' or " as quoting character exactly the same way python does
     # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Objects/stringobject.c#L905-L909
-    quote = b"'"
-    if (quote in s) and (b'"' not in s):
-        quote = b'"'
+    cdef byte quote = ord("'")
+    if (quote in s) and (ord('"') not in s):
+        quote = ord('"')
 
-    x, nonascii_escape = strconv._quote(s, quote)     # raw bytes
+    cdef bint nonascii_escape
+    x = strconv._quote(s, quote, &nonascii_escape)              # raw bytes
     if PY_MAJOR_VERSION < 3:
         return x, nonascii_escape
     else:
