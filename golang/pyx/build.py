@@ -35,7 +35,7 @@ from __future__ import print_function, absolute_import
 # pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
-import sys, pkgutil, platform, sysconfig
+import os, sys, pkgutil, platform, sysconfig
 from os.path import dirname, join, exists
 from distutils.errors import DistutilsError
 
@@ -68,7 +68,7 @@ def _findpkg(pkgname):  # -> _PyPkg
 
 # build_ext amends setuptools_dso.build_ext to allow combining C and C++
 # sources in one extension without hitting `error: invalid argument
-# '-std=c++11' not allowed with 'C'`.
+# '-std=c++11' not allowed with 'C'`. XXX + asm
 _dso_build_ext = setuptools_dso.build_ext
 class build_ext(_dso_build_ext):
     def build_extension(self, ext):
@@ -108,12 +108,33 @@ class build_ext(_dso_build_ext):
         # do per-source adjustsment only in .spawn .
         spawn = self.compiler.spawn
         def xspawn(argv):
+            argv = argv[:]
+
             c = False
-            for arg in argv:
+            S = False
+            for i,arg in enumerate(argv):
                 if arg.startswith('/Tc'):
-                    c = True
-            if c:
-                argv = argv[:]
+                    if arg.endswith('.S'):
+                        argv[i] = arg[3:]   # /Tcabc.S -> abc.S
+                        S = True
+                    else:
+                        c = True
+
+            # change cl.exe -> clang-cl.exe for assembly files so that assembler dialect is the same everywhere
+            if S:
+                assert argv[0] == self.compiler.cc, (argv, self.compiler.cc)
+                argv[0] = self.compiler.clang_cl
+
+                # clang-cl fails on *.S if also given /EH... -> remove /EH...
+                while 1:
+                    for i in range(len(argv)):
+                        if argv[i].startswith('/EH'):
+                            del argv[i]
+                            break
+                    else:
+                        break
+
+            if c or S:
                 for i in range(len(argv)):
                     if argv[i] == '/std:c++20':
                         argv[i] = '/std:c11'
@@ -127,6 +148,22 @@ class build_ext(_dso_build_ext):
         finally:
             self.compiler._compile = _compile
             self.compiler.spawn    = spawn
+
+    def build_extensions(self):
+        # adjust .compiler to support assembly sources
+        cc = self.compiler
+        if '.S' not in cc.src_extensions:
+            cc.src_extensions.append('.S')
+            cc.language_map['.S'] = 'asm'
+            cc.language_order.append('asm')
+            # XXX refer to https://blog.mozilla.org/nfroyd/2019/04/25/an-unexpected-benefit-of-standardizing-on-clang-cl/
+            if cc.compiler_type == 'msvc':
+                if not cc.initialized:
+                    cc.initialize()
+                ccmod = sys.modules[cc.__module__]
+                cc.clang_cl = ccmod._find_exe('clang-cl.exe', cc._paths.split(os.pathsep))
+                cc._c_extensions.append('.S')   # MSVCCompiler thinks it is C, but xspawn handles .S specially
+        _dso_build_ext.build_extensions(self)
 
 
 # setup should be used instead of setuptools.setup
@@ -176,8 +213,8 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
     incv.insert(1, join(pygo, 'golang', '_compat', sysname))
     kw['include_dirs'] = incv
 
-    # link with libgolang.so  if it is not libgolang itself
-    if name != 'golang.runtime.libgolang':
+    # link with libgolang.so  if it is not libgolang itself, or another internal DSO
+    if name not in ('golang.runtime.libgolang', 'golang.runtime.funchook'):
         dsov = kw.get('dsos', [])[:]
         dsov.insert(0, 'golang.runtime.libgolang')
         kw['dsos'] = dsov
@@ -212,9 +249,11 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
     dependv = kw.get('depends', [])[:]
     dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
         'libgolang.h',
+        'runtime.h',
         'runtime/internal.h',
         'runtime/internal/atomic.h',
         'runtime/internal/syscall.h',
+        'runtime/platform.h',
         'context.h',
         'cxx.h',
         'errors.h',

@@ -47,20 +47,34 @@ gpython_only = pytest.mark.skipif(not is_gpython, reason="gpython-only test")
 def runtime(request):
     yield request.param
 
+# strings is pytest fixture that yields all variants of should be supported gpython strings:
+# '' - not specified (gpython should autoselect)
+# 'bstr+ustr'
+# 'pystd'
+@pytest.fixture(scope="function", params=['', 'bstr+ustr', 'pystd'])
+def strings(request):
+    yield request.param
+
 # gpyenv returns environment appropriate for spawning gpython with
-# specified runtime.
-def gpyenv(runtime): # -> env
+# specified runtime and strings.
+def gpyenv(runtime, strings): # -> env
     env = os.environ.copy()
     if runtime != '':
         env['GPYTHON_RUNTIME'] = runtime
     else:
         env.pop('GPYTHON_RUNTIME', None)
+    if strings != '':
+        env['GPYTHON_STRINGS'] = strings
+    else:
+        env.pop('GPYTHON_STRINGS', None)
     return env
 
 
 @gpython_only
 def test_defaultencoding_utf8():
     assert sys.getdefaultencoding() == 'utf-8'
+    assert eval("u'αβγ'") == u'αβγ'     # FIXME fails on py2 which uses hardcoded default latin1
+    # XXX +exec, +run file
 
 @gpython_only
 def test_golang_builtins():
@@ -143,19 +157,42 @@ def assert_gevent_not_activated():
 
 
 @gpython_only
-def test_executable(runtime):
+def test_str_patched():
+    # gpython, by default, patches str/unicode to be bstr/ustr.
+    # handling of various string modes is explicitly tested in test_Xstrings.
+    assert_str_patched()
+
+def assert_str_patched():
+    #assert str.__name__ == ('bstr'  if PY2 else  'ustr')
+    assert str.__name__ == 'str'
+    assert str          is (bstr    if PY2 else  ustr)
+    if PY2:
+        assert unicode.__name__ == 'unicode'
+        assert unicode  is ustr
+    assert type('')     is str
+    assert type(b'')    is (bstr    if PY2 else  bytes)
+    assert type(u'')    is ustr
+
+def assert_str_not_patched():
+    assert str.__name__ == 'str'
+    assert str is not bstr
+    assert str is not ustr
+    if PY2:
+        assert unicode.__name__ == 'unicode'
+        assert unicode is not bstr
+        assert unicode is not ustr
+    assert type('')     is str
+    assert type(b'')    is bytes
+    assert type(u'')    is (unicode if PY2 else str)
+
+
+@gpython_only
+def test_executable():
     # sys.executable must point to gpython and we must be able to execute it.
-    import gevent
     assert 'gpython' in sys.executable
-    ver = pyout(['-c', 'import sys; print(sys.version)'], env=gpyenv(runtime))
+    ver = pyout(['-c', 'import sys; print(sys.version)'], env=gpyenv('', ''))
     ver = str(ver)
     assert ('[GPython %s]' % golang.__version__) in ver
-    if runtime != 'threads':
-        assert ('[gevent %s]'  % gevent.__version__)     in ver
-        assert ('[threads]')                         not in ver
-    else:
-        assert ('[gevent ')                          not in ver
-        assert ('[threads]')                             in ver
 
 
 # verify pymain.
@@ -322,15 +359,20 @@ def test_pymain_opt():
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
 @gpython_only
-def test_pymain_ver(runtime):
+def test_pymain_ver(runtime, strings):
     from golang import b
     from gpython import _version_info_str as V
     import gevent
     vok = 'GPython %s' % golang.__version__
     if runtime != 'threads':
-        vok += ' [gevent %s]' % gevent.__version__
+        vok += ' [runtime gevent %s]' % gevent.__version__
     else:
-        vok += ' [threads]'
+        vok += ' [runtime threads]'
+
+    if strings != 'pystd':
+        vok += ' [strings bstr+ustr]'
+    else:
+        vok += ' [strings pystd]'
 
     if is_cpython:
         vok += ' / CPython %s' % platform.python_version()
@@ -341,10 +383,12 @@ def test_pymain_ver(runtime):
 
     vok += '\n'
 
-    ret, out, err = _pyrun(['-V'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
+    env = gpyenv(runtime, strings)
+
+    ret, out, err = _pyrun(['-V'], stdout=PIPE, stderr=PIPE, env=env)
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
-    ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
+    ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=env)
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
 # verify that ./bin/gpython runs ok.

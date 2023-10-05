@@ -96,7 +96,7 @@ private:
 // Open opens file @path.
 LIBGOLANG_API std::tuple<File, error> Open(const string &path, int flags = O_RDONLY,
         mode_t mode =
-#if !defined(_MSC_VER)
+#if !defined(LIBGOLANG_CC_msc)
                       S_IRUSR | S_IWUSR | S_IXUSR |
                       S_IRGRP | S_IWGRP | S_IXGRP |
                       S_IROTH | S_IWOTH | S_IXOTH

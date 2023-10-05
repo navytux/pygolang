@@ -3,7 +3,7 @@
 # cython: binding=False
 # cython: c_string_type=str, c_string_encoding=utf8
 # distutils: language = c++
-# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx
+# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
 #
 # Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -34,7 +34,7 @@ from __future__ import print_function, absolute_import
 _init_libgolang()
 _init_libpyxruntime()
 
-from cpython cimport PyObject, Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
+from cpython cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, PY_MAJOR_VERSION
 ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:

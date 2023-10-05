@@ -111,7 +111,7 @@ inline error errorf(const string& format, Argv... argv) {
 // `const char *` overloads just to catch format mistakes as
 // __attribute__(format) does not work with std::string.
 LIBGOLANG_API string sprintf(const char *format, ...)
-#ifndef _MSC_VER
+#ifndef LIBGOLANG_CC_msc
                                 __attribute__ ((format (printf, 1, 2)))
 #endif
 	;

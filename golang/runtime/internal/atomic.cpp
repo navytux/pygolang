@@ -20,7 +20,7 @@
 #include "golang/runtime/internal/atomic.h"
 #include "golang/libgolang.h"
 
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
 #include <pthread.h>
 #endif
 
@@ -44,7 +44,7 @@ static void _forkNewEpoch() {
 
 void _init() {
 // there is no fork on windows
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
     int e = pthread_atfork(/*prepare*/nil, /*inparent*/nil, /*inchild*/_forkNewEpoch);
     if (e != 0)
         panic("pthread_atfork failed");

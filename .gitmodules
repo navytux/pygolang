@@ -1,0 +1,6 @@
+[submodule "3rdparty/funchook"]
+	path = 3rdparty/funchook
+	url = https://github.com/kubo/funchook.git
+[submodule "3rdparty/capstone"]
+	path = 3rdparty/capstone
+	url = https://github.com/capstone-engine/capstone.git

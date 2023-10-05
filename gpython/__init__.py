@@ -25,10 +25,14 @@ differences:
 
 - gevent is pre-activated and stdlib is patched to be gevent aware;
 - go, chan, select etc are put into builtin namespace;
-- default string encoding is always set to UTF-8.
+- default string encoding is always set to UTF-8;
+- bstr/ustr replace builtin str/unicode types.
 
 Gevent activation can be disabled via `-X gpython.runtime=threads`, or
 $GPYTHON_RUNTIME=threads.
+
+String types replacement can be disabled via `-X gpython.strings=pystd`, or
+$GPYTHON_STRINGS=pystd.
 """
 
 # NOTE gpython is kept out of golang/ , since even just importing e.g. golang.cmd.gpython,
@@ -230,9 +234,13 @@ def pymain(argv, init=None):
             gevent = sys.modules.get('gevent', None)
             gpyver = 'GPython %s' % golang.__version__
             if gevent is not None:
-                gpyver += ' [gevent %s]' % gevent.__version__
+                gpyver += ' [runtime gevent %s]' % gevent.__version__
             else:
-                gpyver += ' [threads]'
+                gpyver += ' [runtime threads]'
+            if type(u'') is golang.ustr:
+                gpyver += ' [strings bstr+ustr]'
+            else:
+                gpyver += ' [strings pystd]'
             ver.append(gpyver)
 
         import platform
@@ -344,6 +352,9 @@ def main():
     # imported first, e.g. to support sys.modules.
     import sys
 
+    # import pyx/c part of gpython
+    from gpython import _gpython
+
     # safety check that we are not running from a setuptools entrypoint, where
     # it would be too late to monkey-patch stdlib.
     #
@@ -372,6 +383,7 @@ def main():
         reload(sys)
         sys.setdefaultencoding('utf-8')
         delattr(sys, 'setdefaultencoding')
+        _gpython.set_utf8_as_default_src_encoding()
 
 
     # import os to get access to environment.
@@ -381,10 +393,12 @@ def main():
     import os
 
     # extract and process `-X gpython.*`
-    # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
+    # -X gpython.runtime=(gevent|threads)       + $GPYTHON_RUNTIME
+    # -X gpython.strings=(bstr+ustr|pystd)      + $GPYTHON_STRINGS
     sys._xoptions = getattr(sys, '_xoptions', {})
     argv_ = []
     gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
+    gpy_strings = os.getenv('GPYTHON_STRINGS', 'bstr+ustr')
     igetopt = _IGetOpt(sys.argv[1:], _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
         if opt == '-X':
@@ -392,6 +406,10 @@ def main():
                 if arg.startswith('gpython.runtime='):
                     gpy_runtime = arg[len('gpython.runtime='):]
                     sys._xoptions['gpython.runtime'] = gpy_runtime
+
+                elif arg.startswith('gpython.strings='):
+                    gpy_strings = arg[len('gpython.strings='):]
+                    sys._xoptions['gpython.strings'] = gpy_strings
 
                 else:
                     raise RuntimeError('gpython: unknown -X option %s' % arg)
@@ -412,13 +430,15 @@ def main():
     # sys.executable spawned from under `gpython -X gpython.runtime=threads`
     # also uses "threads" runtime by default.
     os.environ['GPYTHON_RUNTIME'] = gpy_runtime
+    os.environ['GPYTHON_STRINGS'] = gpy_strings
 
-    # init initializes according to selected runtime
+    # init initializes according to selected runtime and strings
     # it is called after options are parsed and sys.path is setup correspondingly.
     # this way golang and gevent are imported from exactly the same place as
     # they would be in standard python after regular import (ex from golang/
     # under cwd if run under `python -c ...` or interactive console.
     def init():
+        gpy_runtime_ver = gpy_runtime
         if gpy_runtime == 'gevent':
             # make gevent pre-available & stdlib patched
             import gevent
@@ -434,22 +454,30 @@ def main():
             if _ not in (True, None):   # patched or nothing to do
                 # XXX provide details
                 raise RuntimeError('gevent monkey-patching failed')
-            gpy_verextra = 'gevent %s' % gevent.__version__
+            gpy_runtime_ver += ' %s' % gevent.__version__
 
         elif gpy_runtime == 'threads':
-            gpy_verextra = 'threads'
-
+            pass
         else:
-            raise RuntimeError('gpython: invalid runtime %s' % gpy_runtime)
+            raise RuntimeError('gpython: invalid runtime %r' % gpy_runtime)
+
+        if gpy_strings not in ('bstr+ustr', 'pystd'):
+            raise RuntimeError('gpython: invalid strings %r' % gpy_strings)
+
+        # import golang
+        # this will activate selected runtime and strings
+        sys._gpy_runtime = gpy_runtime
+        sys._gpy_strings = gpy_strings
+        import golang
 
         # put go, chan, select, ... into builtin namespace
-        import golang
         from six.moves import builtins
         for k in golang.__all__:
             setattr(builtins, k, getattr(golang, k))
+        setattr(builtins, 'CCC', CCC)
 
         # sys.version
-        sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
+        sys.version += (' [GPython %s] [runtime %s] [strings %s]' % (golang.__version__, gpy_runtime_ver, gpy_strings))
 
     # tail to pymain
     pymain(argv, init)
@@ -565,6 +593,12 @@ class _IGetOpt:
         return (opt, arg)
 
     next = __next__ # for py2
+
+
+# for tests XXX continue by first writing test  XXX
+1/0
+class _tEarlyStrSubclass(str):
+    pass
 
 
 if __name__ == '__main__':

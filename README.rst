@@ -4,7 +4,7 @@
 
 Package `golang` provides Go-like features for Python:
 
-- `gpython` is Python interpreter with support for lightweight threads.
+- `gpython` is Python interpreter with support for lightweight threads and uniform UTF8-based approach to strings.
 - `go` spawns lightweight thread.
 - `chan` and `select` provide channels with Go semantic.
 - `func` allows to define methods separate from class.
@@ -46,15 +46,16 @@ __ http://libuv.org/
 __ http://software.schmorp.de/pkg/libev.html
 
 
-Additionally GPython sets UTF-8 to be default encoding always, and puts `go`,
-`chan`, `select` etc into builtin namespace.
+Additionally GPython sets UTF-8 to be default encoding always, puts `go`,
+`chan`, `select` etc into builtin namespace, and makes `bstr`/`ustr` to be used
+instead of builtin string types.
 
 .. note::
 
    GPython is optional and the rest of Pygolang can be used from under standard Python too.
    However without gevent integration `go` spawns full - not lightweight - OS thread.
-   GPython can be also used with threads - not gevent - runtime. Please see
-   `GPython options`_ for details.
+   GPython can be also used with threads - not gevent - runtime and with builtin string types.
+   Please see `GPython options`_ for details.
 
 
 Goroutines and channels
@@ -571,3 +572,9 @@ GPython-specific options and environment variables are listed below:
     coroutines, while with `threads` `go` spawns full OS thread. `gevent` is
     default. The runtime to use can be also specified via `$GPYTHON_RUNTIME`
     environment variable.
+
+`-X gpython.strings=(bstr+ustr|pystd)`
+    Specify which string types GPython should use. `bstr+ustr` provide
+    uniform UTF8-based approach to strings, while `pystd` selects regular
+    `str` and `unicode`. `bstr+ustr` is default. String types to use can be
+    also specified via `$GPYTHON_STRINGS` environment variable.

@@ -38,7 +38,7 @@
 // cut this short
 // (on darwing sys_siglist declaration is normally provided)
 // (on windows sys_siglist is not available at all)
-#if !(defined(__APPLE__) || defined(_WIN32))
+#if !(defined(LIBGOLANG_OS_darwin) || defined(LIBGOLANG_OS_windows))
 extern "C" {
     extern const char * const sys_siglist[];
 }
@@ -287,7 +287,7 @@ string Signal::String() const {
     const Signal& sig = *this;
     const char *sigstr = nil;
 
-#ifdef _WIN32
+#ifdef LIBGOLANG_OS_windows
     switch (sig.signo) {
     case SIGABRT:   return "Aborted";
     case SIGBREAK:  return "Break";

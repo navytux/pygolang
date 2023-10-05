@@ -28,12 +28,11 @@ from golang cimport pyb, byte, rune
 from golang cimport _utf8_decode_rune, _xunichr
 from golang.unicode cimport utf8
 
-from cpython cimport PyObject
+from cpython cimport PyObject, _PyBytes_Resize
 
 cdef extern from "Python.h":
     PyObject* PyBytes_FromStringAndSize(char*, Py_ssize_t) except NULL
     char* PyBytes_AS_STRING(PyObject*)
-    int _PyBytes_Resize(PyObject**, Py_ssize_t) except -1
     void Py_DECREF(PyObject*)
 
 
@@ -65,7 +64,7 @@ cdef bytes _quote(const byte[::1] s, char quote, bint* out_nonascii_escape): # -
     cdef byte c
     q[0] = quote;  q += 1
     while i < len(s):
-        c = s[i]
+        c = s[i]        # XXX -> use raw pointer in the loop
         # fast path - ASCII only
         if c < 0x80:
             if c in (ord('\\'), quote):
@@ -104,7 +103,8 @@ cdef bytes _quote(const byte[::1] s, char quote, bint* out_nonascii_escape): # -
 
         # slow path - full UTF-8 decoding + unicodedata
         else:
-            r, size = _utf8_decode_rune(s[i:])
+            # XXX optimize non-ascii case
+            r, size = _utf8_decode_rune(s[i:])  # XXX -> raw pointer
             isize = i + size
 
             # decode error - just emit raw byte as escaped
@@ -117,6 +117,9 @@ cdef bytes _quote(const byte[::1] s, char quote, bint* out_nonascii_escape): # -
                 q += 4
 
             # printable utf-8 characters go as is
+            # XXX ? use Py_UNICODE_ISPRINTABLE (py3, not available on py2)  ?
+            # XXX ? and generate C table based on unicodedata for py2 ?
+            # XXX -> generate table based on unicodedata for both py2/py3 because Py_UNICODE_ISPRINTABLE is not exactly what matches strconv.IsPrint  (i.e. cat starts from LNPS)
             elif _unicodedata_category(_xunichr(r))[0] in 'LNPS': # letters, numbers, punctuation, symbols
                 for j in range(i, isize):
                     q[0] = s[j]

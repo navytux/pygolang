@@ -2,6 +2,9 @@ include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun .nxdtest
 include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 include golang/runtime/libpyxruntime.cpp
+include golang/runtime/platform.h
+include golang/runtime.h
+include golang/runtime.cpp
 include golang/pyx/runtime.h
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.h
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
@@ -36,7 +39,10 @@ include golang/time.cpp
 include golang/_testing.h
 include golang/_compat/windows/strings.h
 include golang/_compat/windows/unistd.h
+include gpython/_gpython_c.cpp
 recursive-include golang    *.py *.pxd *.pyx *.toml *.txt*
-recursive-include gpython   *.py
-recursive-include 3rdparty  *.h
+recursive-include gpython   *.py       *.pyx
+recursive-include 3rdparty  *.h *.c *.cpp *.S *.py *.cmake *.cs *.java
+recursive-include 3rdparty  LICENSE README.md README COPYING Makefile CMakeLists.txt
 recursive-exclude golang    *_dsoinfo.py
+include conftest.py

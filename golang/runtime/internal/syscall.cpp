@@ -58,9 +58,9 @@ string _Errno::Error() {
 
     char ebuf[128];
     bool ok;
-#if __APPLE__
+#ifdef LIBGOLANG_OS_darwin
     ok = (::strerror_r(-e.syserr, ebuf, sizeof(ebuf)) == 0);
-#elif defined(_WIN32)
+#elif defined(LIBGOLANG_OS_windows)
     ok = (::strerror_s(ebuf, sizeof(ebuf), -e.syserr) == 0);
 #else
     char *estr = ::strerror_r(-e.syserr, ebuf, sizeof(ebuf));
@@ -102,7 +102,7 @@ __Errno Close(int fd) {
     return err;
 }
 
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
 __Errno Fcntl(int fd, int cmd, int arg) {
     int save_errno = errno;
     int err = ::fcntl(fd, cmd, arg);
@@ -124,7 +124,7 @@ __Errno Fstat(int fd, struct ::stat *out_st) {
 
 int Open(const char *path, int flags, mode_t mode) {
     int save_errno = errno;
-#ifdef _WIN32  // default to open files in binary mode
+#ifdef LIBGOLANG_OS_windows  // default to open files in binary mode
     if ((flags & (_O_TEXT | _O_BINARY)) == 0)
         flags |= _O_BINARY;
 #endif
@@ -141,9 +141,9 @@ __Errno Pipe(int vfd[2], int flags) {
         return -EINVAL;
     int save_errno = errno;
     int err;
-#ifdef __linux__
+#ifdef LIBGOLANG_OS_linux
     err = ::pipe2(vfd, flags);
-#elif defined(_WIN32)
+#elif defined(LIBGOLANG_OS_windows)
     err = ::_pipe(vfd, 4096, flags | _O_BINARY);
 #else
     err = ::pipe(vfd);
@@ -167,7 +167,7 @@ out:
     return err;
 }
 
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
 __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact) {
     int save_errno = errno;
     int err = ::sigaction(signo, act, oldact);

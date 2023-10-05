@@ -42,15 +42,29 @@ from setuptools.command.install_scripts import install_scripts as _install_scrip
 from setuptools.command.develop import develop as _develop
 from distutils import sysconfig
 from os.path import dirname, join
-import sys, os, re
+import sys, os, re, platform, errno
 
-# read file content
+# read/write file content
 def readfile(path): # -> str
     with open(path, 'rb') as f:
         data = f.read()
         if not isinstance(data, str):   # py3
             data = data.decode('utf-8')
         return data
+
+def writefile(path, data):
+    if not isinstance(data, bytes):
+        data = data.encode('utf-8')
+    with open(path, 'wb') as f:
+        f.write(data)
+
+# mkdir -p
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
 # reuse golang.pyx.build to build pygolang dso and extensions.
 # we have to be careful and inject synthetic golang package in order to be
@@ -59,6 +73,7 @@ trun = {}
 exec(readfile('trun'), trun)
 trun['ximport_empty_golangmod']()
 from golang.pyx.build import setup, DSO, Extension as Ext
+from setuptools_dso import ProbeToolchain
 
 
 # grep searches text for pattern.
@@ -104,7 +119,7 @@ class XInstallGPython:
     # (script_name, script) -> (script_name, script)
     def transform_script(self, script_name, script):
         # on windows setuptools installs 3 files:
-        #   gpython-script.py
+        #   gpython-script.py           XXX do we need to adjust this similarly to pymain?
         #   gpython.exe
         #   gpython.exe.manifest
         # we want to override .py only.
@@ -173,8 +188,8 @@ class develop(XInstallGPython, _develop):
 
 # requirements of packages under "golang." namespace
 R = {
-    'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 2.7'},
+    'cmd.pybench':      {'pytest', 'py'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.7'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -184,7 +199,8 @@ for pkg in R:
 R['all'] = Rall
 
 # ipython/pytest are required to test py2 integration patches
-R['all_test'] = Rall.union(['ipython', 'pytest']) # pip does not like "+" in all+test
+# zodbpickle is used to test pickle support for bstr/ustr
+R['all_test'] = Rall.union(['ipython', 'pytest', 'zodbpickle']) # pip does not like "+" in all+test
 
 # extras_require <- R
 extras_require = {}
@@ -199,6 +215,206 @@ def get_python_libdir():
         return join(sysconfig.get_config_var('installed_platbase'), 'libs')
     else:
         return sysconfig.get_config_var('LIBDIR')
+
+# funchook_dso is DSO for libfunchook.so or None if CPU is not supported.
+def _():
+    cpu = platform.machine()
+    if re.match('x86|i.86|x86_64|amd64', cpu, re.I):
+        cpu = 'x86'
+        disasm = 'distorm'
+    elif re.match('aarch64|arm64', cpu, re.I):
+        cpu = 'arm64'
+        disasm = 'capstone'
+    else:
+        return None # no funchook support
+
+    # XXX temp test XXX no -> we need capstone for disasm
+    disasm = 'capstone'
+
+    if platform.system() == 'Windows':
+        os   = 'windows'
+        libv = ['psapi']
+    else:
+        os   = 'unix'
+        libv = ['dl']
+
+    FH = '3rdparty/funchook/'
+    srcv = [FH+'src/funchook.c',
+            FH+'src/funchook_%s.c' % cpu,
+            FH+'src/funchook_%s.c' % os,
+            FH+'src/disasm_%s.c'   % disasm]
+    depv = [FH+'include/funchook.h',
+            FH+'src/disasm.h',
+            FH+'src/funchook_arm64.h',
+            FH+'src/funchook_internal.h',
+            FH+'src/funchook_x86.h']
+    incv = [FH+'include']
+    defv = ['FUNCHOOK_EXPORTS']
+
+    if disasm == 'distorm':
+        D3 = '3rdparty/funchook/distorm/'
+        srcv += [D3+'src/decoder.c',
+                 D3+'src/distorm.c',
+                 D3+'src/instructions.c',
+                 D3+'src/insts.c',
+                 D3+'src/mnemonics.c',
+                 D3+'src/operands.c',
+                 D3+'src/prefix.c',
+                 D3+'src/textdefs.c']
+        depv += [D3+'include/distorm.h',
+                 D3+'include/mnemonics.h',
+                 D3+'src/config.h',
+                 D3+'src/decoder.h',
+                 D3+'src/instructions.h',
+                 D3+'src/insts.h',
+                 D3+'src/operands.h',
+                 D3+'src/prefix.h',
+                 D3+'src/textdefs.h',
+                 D3+'src/wstring.h',
+                 D3+'src/x86defs.h']
+        incv += [D3+'include']
+
+    if disasm == 'capstone':
+        CS = '3rdparty/capstone/'
+        srcv += [CS+'cs.c',
+                 CS+'Mapping.c',
+                 CS+'MCInst.c',
+                 CS+'MCInstrDesc.c',
+                 CS+'MCRegisterInfo.c',
+                 CS+'SStream.c',
+                 CS+'utils.c']
+        depv += [CS+'cs_simple_types.h',
+                 CS+'cs_priv.h',
+                 CS+'LEB128.h',
+                 CS+'Mapping.h',
+                 CS+'MathExtras.h',
+                 CS+'MCDisassembler.h',
+                 CS+'MCFixedLenDisassembler.h',
+                 CS+'MCInst.h',
+                 CS+'MCInstrDesc.h',
+                 CS+'MCRegisterInfo.h',
+                 CS+'SStream.h',
+                 CS+'utils.h']
+        incv += [CS+'include']
+
+        depv += [CS+'include/capstone/arm64.h',
+                 CS+'include/capstone/arm.h',
+                 CS+'include/capstone/capstone.h',
+                 CS+'include/capstone/evm.h',
+                 CS+'include/capstone/wasm.h',
+                 CS+'include/capstone/mips.h',
+                 CS+'include/capstone/ppc.h',
+                 CS+'include/capstone/x86.h',
+                 CS+'include/capstone/sparc.h',
+                 CS+'include/capstone/systemz.h',
+                 CS+'include/capstone/xcore.h',
+                 CS+'include/capstone/m68k.h',
+                 CS+'include/capstone/tms320c64x.h',
+                 CS+'include/capstone/m680x.h',
+                 CS+'include/capstone/mos65xx.h',
+                 CS+'include/capstone/bpf.h',
+                 CS+'include/capstone/riscv.h',
+                 CS+'include/capstone/sh.h',
+                 CS+'include/capstone/tricore.h',
+                 CS+'include/capstone/platform.h']
+
+        defv += ['CAPSTONE_SHARED', 'CAPSTONE_USE_SYS_DYN_MEM']
+
+        if cpu == 'arm64':
+            defv += ['CAPSTONE_HAS_ARM64']
+            srcv += [CS+'arch/AArch64/AArch64BaseInfo.c',
+                     CS+'arch/AArch64/AArch64Disassembler.c',
+                     CS+'arch/AArch64/AArch64InstPrinter.c',
+                     CS+'arch/AArch64/AArch64Mapping.c',
+                     CS+'arch/AArch64/AArch64Module.c']
+            depv += [CS+'arch/AArch64/AArch64AddressingModes.h',
+                     CS+'arch/AArch64/AArch64BaseInfo.h',
+                     CS+'arch/AArch64/AArch64Disassembler.h',
+                     CS+'arch/AArch64/AArch64InstPrinter.h',
+                     CS+'arch/AArch64/AArch64Mapping.h',
+                     CS+'arch/AArch64/AArch64GenAsmWriter.inc',
+                     CS+'arch/AArch64/AArch64GenDisassemblerTables.inc',
+                     CS+'arch/AArch64/AArch64GenInstrInfo.inc',
+                     CS+'arch/AArch64/AArch64GenRegisterInfo.inc',
+                     CS+'arch/AArch64/AArch64GenRegisterName.inc',
+                     CS+'arch/AArch64/AArch64GenRegisterV.inc',
+                     CS+'arch/AArch64/AArch64GenSubtargetInfo.inc',
+                     CS+'arch/AArch64/AArch64GenSystemOperands.inc',
+                     CS+'arch/AArch64/AArch64GenSystemOperands_enum.inc',
+                     CS+'arch/AArch64/AArch64MappingInsn.inc',
+                     CS+'arch/AArch64/AArch64MappingInsnName.inc',
+                     CS+'arch/AArch64/AArch64MappingInsnOp.inc']
+
+        if cpu == 'x86':
+            defv += ['CAPSTONE_HAS_X86']
+            srcv += [CS+'arch/X86/X86ATTInstPrinter.c',     # !diet
+                     CS+'arch/X86/X86Disassembler.c',
+                     CS+'arch/X86/X86DisassemblerDecoder.c',
+                     CS+'arch/X86/X86IntelInstPrinter.c',
+                     CS+'arch/X86/X86InstPrinterCommon.c',
+                     CS+'arch/X86/X86Mapping.c',
+                     CS+'arch/X86/X86Module.c']
+            depv += [CS+'arch/X86/X86BaseInfo.h',
+                     CS+'arch/X86/X86Disassembler.h',
+                     CS+'arch/X86/X86DisassemblerDecoder.h',
+                     CS+'arch/X86/X86DisassemblerDecoderCommon.h',
+                     CS+'arch/X86/X86GenAsmWriter.inc',
+                     CS+'arch/X86/X86GenAsmWriter1.inc',
+                     CS+'arch/X86/X86GenAsmWriter1_reduce.inc',
+                     CS+'arch/X86/X86GenAsmWriter_reduce.inc',
+                     CS+'arch/X86/X86GenDisassemblerTables.inc',
+                     CS+'arch/X86/X86GenDisassemblerTables_reduce.inc',
+                     CS+'arch/X86/X86GenInstrInfo.inc',
+                     CS+'arch/X86/X86GenInstrInfo_reduce.inc',
+                     CS+'arch/X86/X86GenRegisterInfo.inc',
+                     CS+'arch/X86/X86InstPrinter.h',
+                     CS+'arch/X86/X86Mapping.h',
+                     CS+'arch/X86/X86MappingInsn.inc',
+                     CS+'arch/X86/X86MappingInsnOp.inc',
+                     CS+'arch/X86/X86MappingInsnOp_reduce.inc',
+                     CS+'arch/X86/X86MappingInsn_reduce.inc']
+
+    # config.h
+    probe = ProbeToolchain()
+    config_h = []
+    def cfgemit(line):
+        config_h.append(line+'\n')
+    def defif(name, ok):
+        if ok:
+            cfgemit('#define %s 1' % name)
+        else:
+            cfgemit('#undef  %s'   % name)
+
+    for d in ('capstone', 'distorm', 'zydis'):
+        defif('DISASM_%s' % d.upper(), d == disasm)
+
+    cfgemit('#define SIZEOF_VOID_P %d' % probe.sizeof('void*'))
+
+    defif('_GNU_SOURCE', 1)
+    defif('GNU_SPECIFIC_STRERROR_R', probe.try_compile("""
+#define _GNU_SOURCE 1
+#include <string.h>
+int main()
+{
+    char dummy[128];
+    return *strerror_r(0, dummy, sizeof(dummy));
+}
+"""))
+
+    fbuild_src = 'build/3rdparty/funchook/src'
+    mkdir_p(fbuild_src)
+    writefile(fbuild_src+'/config.h', ''.join(config_h))
+    incv  += [fbuild_src]
+
+    return DSO('golang.runtime.funchook', srcv,
+               depends         = depv,
+               language        = 'c',
+               include_dirs    = incv,
+               define_macros   = [(_, None) for _ in defv],
+               libraries       = libv,
+               soversion       = '1.1')
+funchook_dso = _()
+
 
 setup(
     name        = 'pygolang',
@@ -225,6 +441,7 @@ setup(
                         ['golang/runtime/libgolang.cpp',
                          'golang/runtime/internal/atomic.cpp',
                          'golang/runtime/internal/syscall.cpp',
+                         'golang/runtime.cpp',
                          'golang/context.cpp',
                          'golang/errors.cpp',
                          'golang/fmt.cpp',
@@ -236,9 +453,11 @@ setup(
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/runtime.h',
                             'golang/runtime/internal.h',
                             'golang/runtime/internal/atomic.h',
                             'golang/runtime/internal/syscall.h',
+                            'golang/runtime/platform.h',
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
@@ -259,12 +478,21 @@ setup(
                         include_dirs    = [sysconfig.get_python_inc()],
                         library_dirs    = [get_python_libdir()],
                         define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
-                        soversion       = '0.1')],
+                        soversion       = '0.1')]
+                    + ([funchook_dso] if funchook_dso else []),
 
     ext_modules = [
                     Ext('golang._golang',
-                        ['golang/_golang.pyx'],
-                        depends = ['golang/_golang_str.pyx']),
+                        ['golang/_golang.pyx',
+                         'golang/_golang_str_pickle.S'],
+                        depends = [
+                            'golang/_golang_str.pyx',
+                            'golang/_golang_str_pickle.pyx',
+                            'golang/_golang_str_pickle_test.pyx',
+                            'golang/_golang_str_pickle.S'],
+                        dsos = ['golang.runtime.funchook'], # XXX only if available
+                        include_dirs = ['3rdparty/funchook/include',
+                                        '3rdparty/capstone/include']),
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx']),
@@ -334,6 +562,14 @@ setup(
                     Ext('golang._time',
                         ['golang/_time.pyx'],
                         dsos = ['golang.runtime.libpyxruntime']),
+
+                    # XXX consider putting everything into just gpython.pyx + .c
+                    Ext('gpython._gpython',
+                        ['gpython/_gpython.pyx',
+                         'gpython/_gpython_c.cpp'],    # XXX do we need C++ here?
+                        include_dirs =  ['3rdparty/funchook/include'],
+                        dsos = ['golang.runtime.funchook'], # XXX only if available
+                    ),
                   ],
     include_package_data = True,
 

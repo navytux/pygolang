@@ -89,7 +89,7 @@
 #include <atomic>
 #include <tuple>
 
-#if defined(_WIN32)
+#if defined(LIBGOLANG_OS_windows)
 # include <windows.h>
 #endif
 
@@ -101,7 +101,7 @@
 #  define debugf(format, ...) do {} while (0)
 #endif
 
-#if defined(_MSC_VER)
+#ifdef LIBGOLANG_CC_msc
 # define HAVE_SIGACTION 0
 #else
 # define HAVE_SIGACTION 1
@@ -194,7 +194,7 @@ void _init() {
     if (err != nil)
         panic("os::newFile(_wakerx");
     _waketx = vfd[1];
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
     if (sys::Fcntl(_waketx, F_SETFL, O_NONBLOCK) < 0)
         panic("fcntl(_waketx, O_NONBLOCK)");    // TODO +syserr
 #else

@@ -63,13 +63,13 @@ LIBGOLANG_API int/*n|err*/ Read(int fd, void *buf, size_t count);
 LIBGOLANG_API int/*n|err*/ Write(int fd, const void *buf, size_t count);
 
 LIBGOLANG_API __Errno Close(int fd);
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
 LIBGOLANG_API __Errno Fcntl(int fd, int cmd, int arg);
 #endif
 LIBGOLANG_API __Errno Fstat(int fd, struct ::stat *out_st);
 LIBGOLANG_API int/*fd|err*/ Open(const char *path, int flags, mode_t mode);
 LIBGOLANG_API __Errno Pipe(int vfd[2], int flags);
-#ifndef _WIN32
+#ifndef LIBGOLANG_OS_windows
 LIBGOLANG_API __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact);
 #endif
 typedef void (*sighandler_t)(int);
