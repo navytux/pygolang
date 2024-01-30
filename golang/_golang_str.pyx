@@ -2402,7 +2402,7 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
         assert isinstance(x, type)
         xtyp  = <PyTypeObject*>x
         _xtyp = <_XPyTypeObject*>x
-        fprintf(stderr, 'refreshing %s\n', xtyp.tp_name)
+        #fprintf(stderr, 'refreshing %s\n', xtyp.tp_name)
         assert (xtyp.tp_flags & Py_TPFLAGS_READY) != 0
         xtyp.tp_flags &= ~Py_TPFLAGS_READY
         Py_CLEAR(_xtyp.tp_mro)

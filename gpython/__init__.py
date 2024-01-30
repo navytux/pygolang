@@ -474,7 +474,6 @@ def main():
         from six.moves import builtins
         for k in golang.__all__:
             setattr(builtins, k, getattr(golang, k))
-        setattr(builtins, 'CCC', CCC)
 
         # sys.version
         sys.version += (' [GPython %s] [runtime %s] [strings %s]' % (golang.__version__, gpy_runtime_ver, gpy_strings))
@@ -596,7 +595,7 @@ class _IGetOpt:
 
 
 # for tests XXX continue by first writing test  XXX
-1/0
+#1/0
 class _tEarlyStrSubclass(str):
     pass
 
