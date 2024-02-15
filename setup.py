@@ -1,5 +1,5 @@
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -353,6 +353,7 @@ setup(
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.10
         Programming Language :: Python :: 3.11
+        Programming Language :: Python :: 3.12
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
         Operating System :: POSIX
