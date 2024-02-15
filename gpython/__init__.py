@@ -239,11 +239,12 @@ def pymain(argv, init=None):
         pyimpl = platform.python_implementation()
 
         v = _version_info_str
+        pyver  = platform.python_version()  # ~ v(sys.version_info) but might also have e.g. '+' at tail
         if pyimpl == 'CPython':
-            ver.append('CPython %s' % v(sys.version_info))
+            ver.append('CPython %s' % pyver)
         elif pyimpl == 'PyPy':
             ver.append('PyPy %s'   % v(sys.pypy_version_info))
-            ver.append('Python %s' % v(sys.version_info))
+            ver.append('Python %s' % pyver)
         else:
             ver = [] # unknown
 
