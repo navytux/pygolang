@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2019  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -34,11 +34,7 @@ from __future__ import print_function, absolute_import
 
 import os, os.path
 import sys
-
-import warnings
-with warnings.catch_warnings():
-    warnings.simplefilter('ignore', DeprecationWarning)
-    import imp
+import six
 
 # _gopathv returns $GOPATH vector.
 def _gopathv():
@@ -51,11 +47,25 @@ def _gopathv():
 
 # gimport imports python module or package from fully-qualified module name under $GOPATH.
 def gimport(name):
-    imp.acquire_lock()
+    _gimport_lock()
     try:
         return _gimport(name)
     finally:
-        imp.release_lock()
+        _gimport_unlock()
+
+# on py2 there is global import lock
+# on py3 we need to organize our own gimport synchronization
+if six.PY2:
+    import imp
+    _gimport_lock   = imp.acquire_lock
+    _gimport_unlock = imp.release_lock
+else:
+    from importlib import machinery as imp_machinery
+    from importlib import util      as imp_util
+    from golang import sync
+    _gimport_mu = sync.Mutex()
+    _gimport_lock   = _gimport_mu.lock
+    _gimport_unlock = _gimport_mu.unlock
 
 def _gimport(name):
     # we will register imported module into sys.modules with adjusted path.
@@ -93,4 +103,16 @@ def _gimport(name):
 
 
     # https://stackoverflow.com/a/67692
-    return imp.load_source(modname, modpath)
+    return _imp_load_source(modname, modpath)
+
+def _imp_load_source(modname, modpath):
+    if six.PY2:
+        return imp.load_source(modname, modpath)
+
+    # https://docs.python.org/3/whatsnew/3.12.html#imp
+    loader = imp_machinery.SourceFileLoader(modname, modpath)
+    spec   = imp_util.spec_from_file_location(modname, modpath, loader=loader)
+    mod    = imp_util.module_from_spec(spec)
+    sys.modules[modname] = mod
+    loader.exec_module(mod)
+    return mod
