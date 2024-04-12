@@ -2,7 +2,7 @@
 # cython: language_level=2
 # distutils: language=c++
 #
-# Copyright (C) 2018-2020  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -342,6 +342,25 @@ cdef nogil:
         pych.chan_double().send(obj)
     void    _pychan_double_close(pychan pych)               except +topyexc:
         pych.chan_double().close()
+
+
+# verify that pychan_from_raw is not leaking C channel.
+def test_pychan_from_raw_noleak():
+    # pychan_from_raw used to create another channel and leak it
+    #
+    # this test _implicitly_ verifies that it is no longer the case - if it is,
+    # LSAN will report a memory leak after running the test.
+    #
+    # TODO consider adding explicit verification effective even under regular
+    #      builds. Possible options:
+    #
+    #      * verify malloc totals before and after tested code
+    #        see e.g. https://stackoverflow.com/q/1761125/9456786
+    #      * hook _makechan and verify that it is not invoked from under
+    #        pychan_from_raw. Depends on funchook integration.
+    cdef chan[int] ch   = makechan[int]()
+    cdef pychan    pych = pychan.from_chan_int(ch)  # uses pychan_from_raw internally
+    # pych and ch are freed automatically
 
 
 # ---- benchmarks ----
