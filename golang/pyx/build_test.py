@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -28,7 +28,8 @@ testprog = dirname(__file__) + "/testprog"
 # verify that we can build/run external package that uses pygolang in pyx mode.
 def test_pyx_build():
     pyxuser = testprog + "/golang_pyx_user"
-    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser)
+    pyrun(["setup.py", "build_ext", "-i"], cwd=pyxuser,
+          lsan=False)   # gcc leaks
 
     # run built test.
     _ = pyout(["-c",
@@ -44,8 +45,8 @@ def test_pyx_build():
 # verify that we can build/run external dso that uses libgolang.
 def test_dso_build():
     dsouser = testprog + "/golang_dso_user"
-    pyrun(["setup.py", "build_dso", "-i"], cwd=dsouser)
-    pyrun(["setup.py", "build_ext", "-i"], cwd=dsouser)
+    pyrun(["setup.py", "build_dso", "-i"], cwd=dsouser,  lsan=False) # gcc leaks
+    pyrun(["setup.py", "build_ext", "-i"], cwd=dsouser,  lsan=False) # gcc leaks
 
     # run built test.
     _ = pyout(["-c",

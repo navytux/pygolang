@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -74,7 +74,8 @@ import_pyx_tests("golang._golang_test")
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
-    pyrun([dir_testprog + "/golang_test_goleaked.py"])
+    pyrun([dir_testprog + "/golang_test_goleaked.py"],
+          lsan=False)   # there are on-purpose leaks in this test
 
 # benchmark go+join a thread/coroutine.
 # pyx/nogil mirror is in _golang_test.pyx
@@ -1755,6 +1756,11 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
             enc.remove(None)    # with None .encoding
         assert len(enc) == 1
         env['PYTHONIOENCODING'] = enc.pop()
+
+    # disable LeakSanitizer if requested, e.g. when test is known to leak something on purpose
+    lsan = kw.pop('lsan', True)
+    if not lsan:
+        env['ASAN_OPTIONS'] = env.get('ASAN_OPTIONS', '') + ',detect_leaks=0'
 
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)

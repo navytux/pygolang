@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
@@ -34,7 +35,7 @@ trun cares to run python with LD_PRELOAD set appropriately to /path/to/libtsan.s
 
 from __future__ import print_function, absolute_import
 
-import os, sys, re, subprocess, types
+import os, os.path, sys, re, subprocess, platform, types
 PY3 = (bytes is not str)
 if PY3:
     from importlib import machinery as imp_machinery
@@ -87,6 +88,7 @@ def main():
 
     # determine if _golang.so is linked to a sanitizer, and if yes, to which
     # particular sanitizer DSO. Set LD_PRELOAD appropriately.
+    libxsan    = None
     ld_preload = None
     if 'linux' in sys.platform:
         p = subprocess.Popen(["ldd", _golang_so.path], stdout=subprocess.PIPE)
@@ -127,7 +129,8 @@ def main():
 
             _ = grep1("DYLD_INSERT_LIBRARIES=(.*)$", err)
             if _ is not None:
-                ld_preload = ("DYLD_INSERT_LIBRARIES", _.group(1))
+                libxsan = _.group(1)
+                ld_preload = ("DYLD_INSERT_LIBRARIES", libxsan)
             else:
                 print("trun %r: `import golang` failed with unexpected error:" % sys.argv[1:], file=sys.stderr)
                 print(err, file=sys.stderr)
@@ -144,7 +147,7 @@ def main():
     env_prepend("TSAN_OPTIONS", "halt_on_error=1")
     env_prepend("ASAN_OPTIONS", "halt_on_error=1")
 
-    # tweak TSAN/ASAN defaults:
+    # tweak TSAN/ASAN/LSAN defaults:
 
     # enable TSAN deadlock detector
     # (unfortunately it caughts only few _potential_ deadlocks and actually
@@ -152,14 +155,48 @@ def main():
     env_prepend("TSAN_OPTIONS", "detect_deadlocks=1")
     env_prepend("TSAN_OPTIONS", "second_deadlock_stack=1")
 
-    # many python allocations, whose lifetime coincides with python interpreter
-    # lifetime and which are not explicitly freed on python shutdown, are
-    # reported as leaks. Disable leak reporting to avoid huge non-pygolang
-    # related printouts.
-    env_prepend("ASAN_OPTIONS", "detect_leaks=0")
-
     # tune ASAN to check more aggressively by default
     env_prepend("ASAN_OPTIONS", "detect_stack_use_after_return=1")
+
+    # enable ASAN/LSAN leak detector.
+    #
+    # Do it only on CPython ≥ 3.11 because on py2 and on earlier py3 versions
+    # there are many many python allocations, whose lifetime coincide with
+    # python interpreter lifetime, and which are not explicitly freed on python
+    # shutdown. For py3 they significantly improved this step by step and
+    # starting from 3.11 it becomes practical to silence some still-leaks with
+    # suppressions, while for earlier py3 versions and especially for py2 it
+    # is, unfortunately, not manageable. Do not spend engineering time with
+    # activating LSAN on PyPy as that is tier 2 platform and bug tail history
+    # of memory leaks is very long even only on cpython.
+    if sys.version_info < (3,11):
+        env_prepend("ASAN_OPTIONS", "detect_leaks=0")
+        if libxsan is not None:
+            if 'asan' in libxsan.lower():
+                print("W: trun %r: asan: leak detection deactivated on %s %s" % (
+                    sys.argv[1:], platform.python_implementation(), platform.python_version()),
+                    file=sys.stderr)
+    else:
+        env_prepend("ASAN_OPTIONS", "detect_leaks=1")
+        env_prepend("LSAN_OPTIONS", "suppressions=%s" % os.path.abspath(os.path.join(
+                                        os.path.dirname(__file__), ".lsan-ignore.txt")))
+        # do not print statistics for suppressed leaks - else it breaks tests that verify program output
+        env_prepend("LSAN_OPTIONS", "print_suppressions=0")
+
+        # enable DWARF-based unwinding.
+        # else, if python is not compiled with -fno-omit-frame-pointer, it can show
+        # the whole traceback as e.g. just
+        #   Direct leak of 32 byte(s) in 1 object(s) allocated from:
+        #     #0 0x7f88522f3bd7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+        #     #1 0x55f910a3d9a4 in PyThread_allocate_lock Python/thread_pthread.h:385
+        # and our leak suppressions won't work.
+        # this is slower compared to default frame-pointer based unwinding, but
+        # still works reasonably timely when run with just tests.
+        env_prepend("ASAN_OPTIONS", "fast_unwind_on_malloc=0")
+        # leak suppression also needs full tracebacks to work correctly, since with
+        # python there are many levels of call nesting at C level, and to filter-out e.g.
+        # top-level PyImport_Import we need to go really deep.
+        env_prepend("ASAN_OPTIONS", "malloc_context_size=255")
 
     # exec `...`
     os.execvp(sys.argv[1], sys.argv[1:])
