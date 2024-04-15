@@ -229,8 +229,11 @@ setup(
                             'golang/os/signal.h',
                             'golang/strings.h',
                             'golang/sync.h',
-                            'golang/time.h'],
-                        include_dirs    = ['3rdparty/include'],
+                            'golang/time.h',
+                            '3rdparty/ratas/src/timer-wheel.h'],
+                        include_dirs    = [
+                            '3rdparty/include',
+                            '3rdparty/ratas/src'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
                         soversion       = '0.1'),
 

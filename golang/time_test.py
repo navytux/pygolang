@@ -23,6 +23,7 @@ from __future__ import print_function, absolute_import
 from golang import select, func, defer
 from golang import time, sync
 from golang.golang_test import panics
+from six.moves import range as xrange
 
 # all timer tests operate in dt units
 dt = 10*time.millisecond
@@ -222,3 +223,22 @@ def test_timer_reset_armed():
     t = time.Timer(10*dt);  defer(t.stop)
     with panics("Timer.reset: the timer is armed; must be stopped or expired"):
         t.reset(5*dt)
+
+
+# bench_timer_arm_cancel benchmarks arming timers that do not fire.
+# it shows how cheap or expensive it is to use timers to implement timeouts.
+def bench_timer_arm_cancel(b):
+    for i in xrange(b.N):
+        t = time.Timer(10*time.second)
+        _ = t.stop()
+        assert _ is True
+
+
+# bench_timer_arm_fire benchmarks arming timers that do fire.
+# it shows what it costs to go through all steps related to timer loop and firing timers.
+def bench_timer_arm_fire(b):
+    wg = sync.WaitGroup()
+    wg.add(b.N)
+    for i in xrange(b.N):
+        t = time.after_func(1*time.millisecond, wg.done)
+    wg.wait()

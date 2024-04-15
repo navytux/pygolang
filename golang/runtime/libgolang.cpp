@@ -131,6 +131,7 @@ using internal::_runtime;
 
 namespace internal { namespace atomic { extern void _init(); } }
 namespace os { namespace signal { extern void _init(); } }
+namespace time { extern void _init(); }
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     if (_runtime != nil) // XXX better check atomically
         panic("libgolang: double init");
@@ -138,6 +139,7 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
 
     internal::atomic::_init();
     os::signal::_init();
+    time::_init();
 }
 
 void _taskgo(void (*f)(void *), void *arg) {
