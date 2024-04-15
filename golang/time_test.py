@@ -199,6 +199,22 @@ def test_timer_stop_drain():
     assert len(tx.c) == 0
 
 
+# test_timer_stop_vs_func verifies that Timer .stop() works correctly with func-timer.
+@func
+def test_timer_stop_vs_func():
+    tv = []
+    def _1(): tv.append(1)
+    def _2(): tv.append(2)
+
+    t1 = time.after_func(1e6*dt, _1);   defer(t1.stop)
+    t2 = time.after_func(  1*dt, _2);   defer(t2.stop)
+
+    time.sleep(2*dt)
+    assert t1.stop() == True
+    assert t2.stop() == False
+    assert tv == [2]
+
+
 # test_timer_reset_armed verifies that .reset() panics if called on armed timer.
 @func
 def test_timer_reset_armed():
