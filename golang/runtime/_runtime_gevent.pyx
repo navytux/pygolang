@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -40,7 +40,10 @@ ELSE:
 
 from gevent import sleep as pygsleep
 
-from libc.stdint cimport uint8_t, uint64_t
+from libc.stdint cimport uint8_t, uint64_t, UINT64_MAX
+cdef extern from *:
+    ctypedef bint cbool "bool"
+
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 from cython cimport final
 
@@ -95,9 +98,12 @@ cdef:
         Py_DECREF(pygsema)
         return True
 
-    bint _sema_acquire(_libgolang_sema *gsema):
+    bint _sema_acquire(_libgolang_sema *gsema, uint64_t timeout_ns, cbool* pacq):
         pygsema = <PYGSema>gsema
-        pygsema.acquire()
+        timeout = None
+        if timeout_ns != UINT64_MAX:
+            timeout = float(timeout_ns) * 1e-9
+        pacq[0] = pygsema.acquire(timeout=timeout)
         return True
 
     bint _sema_release(_libgolang_sema *gsema):
@@ -142,14 +148,16 @@ cdef nogil:
         if not ok:
             panic("pyxgo: gevent: sema: free: failed")
 
-    void sema_acquire(_libgolang_sema *gsema):
+    cbool sema_acquire(_libgolang_sema *gsema, uint64_t timeout_ns):
         cdef PyExc exc
+        cdef cbool acq
         with gil:
             pyexc_fetch(&exc)
-            ok = _sema_acquire(gsema)
+            ok = _sema_acquire(gsema, timeout_ns, &acq)
             pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sema: acquire: failed")
+        return acq
 
     void sema_release(_libgolang_sema *gsema):
         cdef PyExc exc

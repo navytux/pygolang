@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2023  Nexedi SA and Contributors.
+// Copyright (C) 2018-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -166,7 +166,15 @@ void _semafree(_sema *sema) {
 }
 
 void _semaacquire(_sema *sema) {
-    _runtime->sema_acquire((_libgolang_sema *)sema);
+    bool ok;
+    ok = _runtime->sema_acquire((_libgolang_sema *)sema, UINT64_MAX);
+    if (!ok)
+        panic("semaacquire: failed");
+}
+
+// NOTE not currently exposed in public API
+bool _semaacquire_timed(_sema *sema, uint64_t timeout_ns) {
+    return _runtime->sema_acquire((_libgolang_sema *)sema, timeout_ns);
 }
 
 void _semarelease(_sema *sema) {

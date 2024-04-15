@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2023  Nexedi SA and Contributors.
+// Copyright (C) 2018-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -346,8 +346,13 @@ typedef struct _libgolang_runtime_ops {
     // previously successfully allocated via sema_alloc.
     void             (*sema_free)   (_libgolang_sema*);
 
-    // sema_acquire/sema_release should acquire/release live semaphore allocated via sema_alloc.
-    void             (*sema_acquire)(_libgolang_sema*);
+    // sema_acquire should try to acquire live semaphore allocated via sema_alloc during given time.
+    // it returns whether acquisition succeeded or timed out.
+    // the timeout is specified in nanoseconds.
+    // UINT64_MAX means no timeout.
+    bool             (*sema_acquire)(_libgolang_sema*, uint64_t timeout_ns);
+
+    // sema_release should release live semaphore allocated via sema_alloc.
     void             (*sema_release)(_libgolang_sema*);
 
     // nanosleep should pause current goroutine for at least dt nanoseconds.
