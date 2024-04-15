@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -50,6 +50,11 @@ chan<double> after(double dt) {
 Timer after_func(double dt, func<void()> f) {
     return _new_timer(dt, f);
 }
+
+Timer new_timer(double dt) {
+    return _new_timer(dt, nil);
+}
+
 
 // Ticker
 _Ticker::_Ticker()  {}
@@ -128,8 +133,22 @@ Timer _new_timer(double dt, func<void()> f) {
     return t;
 }
 
-Timer new_timer(double dt) {
-    return _new_timer(dt, nil);
+void _Timer::reset(double dt) {
+    _Timer &t = *this;
+
+    t._mu.lock();
+    if (t._dt != INFINITY) {
+        t._mu.unlock();
+        panic("Timer.reset: the timer is armed; must be stopped or expired");
+    }
+    t._dt  = dt;
+    t._ver += 1;
+    // TODO rework timers so that new timer does not spawn new goroutine.
+    Timer tref = newref(&t); // pass t reference to spawned goroutine
+    go([tref, dt](int ver) {
+        tref->_fire(dt, ver);
+    }, t._ver);
+    t._mu.unlock();
 }
 
 bool _Timer::stop() {
@@ -153,24 +172,6 @@ bool _Timer::stop() {
 
     t._mu.unlock();
     return canceled;
-}
-
-void _Timer::reset(double dt) {
-    _Timer &t = *this;
-
-    t._mu.lock();
-    if (t._dt != INFINITY) {
-        t._mu.unlock();
-        panic("Timer.reset: the timer is armed; must be stopped or expired");
-    }
-    t._dt  = dt;
-    t._ver += 1;
-    // TODO rework timers so that new timer does not spawn new goroutine.
-    Timer tref = newref(&t); // pass t reference to spawned goroutine
-    go([tref, dt](int ver) {
-        tref->_fire(dt, ver);
-    }, t._ver);
-    t._mu.unlock();
 }
 
 void _Timer::_fire(double dt, int ver) {
