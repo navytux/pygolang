@@ -38,12 +38,12 @@ __version__ = "0.1"
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
            'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'bbyte', 'uchr', 'gimport']
 
+import setuptools_dso
+setuptools_dso.dylink_prepare_dso('golang.runtime.libgolang')
+
 from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
 import decorator, six
-
-import setuptools_dso
-setuptools_dso.dylink_prepare_dso('golang.runtime.libgolang')
 
 from golang._golang import _pysys_exc_clear as _sys_exc_clear
 

@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_RUNTIME_INTERNAL_SYSCALL_H
 #define _NXD_LIBGOLANG_RUNTIME_INTERNAL_SYSCALL_H
 
-// Copyright (C) 2021-2023  Nexedi SA and Contributors.
+// Copyright (C) 2021-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -26,6 +26,7 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
+from gpython import _tEarlyStrSubclass
 from pytest import raises, mark, skip
 import sys
 import six
@@ -2556,6 +2557,50 @@ def test_strings_patched_transparently():
     assert _(b'a')      == b'a'
     assert _(b'b')      == b'ab'
     assert _(b'cde')    == b'abcde'
+
+
+# verify that str subclasses, created before str/unicode are replaced with
+# bstr/ustr, continue to work ok.
+#
+# Even though we try to patch string types early, there are always some str
+# subclasses created by builtin modules before golang is loaded. For example
+# enum.StrEnum is created early during python startup process via
+# pathlib -> fnmatch -> re -> enum import. So if we don't preserve those
+# classes to continue to work correctly things are breaking badly.
+#
+# XXX note !gpystr_only ...
+# XXX also test bytes?
+def tests_strings_early_str_subclass():
+    xstr = _tEarlyStrSubclass
+
+    # .tp_new should be adjusted to point to current str
+    # (else str.__new__ breaks with "str.__new__(xstr) is not safe ...")
+    obj = str.__new__(xstr, 'abc')
+    assert type(obj) is xstr
+    assert obj == 'abc'
+    assert xstr.__new__ is str.__new__
+
+    # follow-up .__init__ should be noop  (enum uses str.__init__ for real)
+    obj.__init__('xyz')
+    assert obj == 'abc'
+    assert str.__init__  is object.__init__
+    assert xstr.__init__ is str.__init__
+
+
+    # XXX place
+    assert xstr.__base__  is str
+    assert xstr.__bases__ == (str,)
+
+    # XXX __bases__ + __mro__ for MI
+
+
+    """
+    assert str.__base__  is object
+    assert str.__bases__ == (object,)
+    """
+
+
+    # XXX more...
 
 
 # ---- benchmarks ----

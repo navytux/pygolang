@@ -1682,6 +1682,12 @@ def test_defer_excchain_dump_ipython():
 
 # ----//---- (pytest)
 def test_defer_excchain_dump_pytest():
+    # pytest 7.4 also changed traceback output format
+    # similarly to ipython we do not need to test it becase we activate
+    # pytest-related patch only on py2 for which latest pytest version is 4.6.11 .
+    import pytest
+    if six.PY3 and pytest.version_tuple >= (7,4):
+        skip("pytest is patched only on py2; pytest7.4 changed traceback format")
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
     retcode, stdout, stderr = _pyrun([
                                 # don't let pytest emit internal deprecation warnings to stderr

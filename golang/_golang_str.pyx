@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -34,7 +34,9 @@ from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
 from cpython cimport Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, PyType_Ready
+from cpython cimport Py_TPFLAGS_VALID_VERSION_TAG
 from cpython cimport PyBytes_Format, PyUnicode_Format, PyObject_Str
+from cpython cimport PyObject_GetAttr, PyObject_SetAttr
 
 cdef extern from "Python.h":
     PyTypeObject PyBytes_Type
@@ -408,7 +410,6 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
             else:
                 return pyb(x)
 
-    # XXX temp disabled
     # __iter__  - yields unicode characters
     def __iter__(self):
         # TODO iterate without converting self to u
@@ -1145,7 +1146,7 @@ cdef _bstringify(object obj): # -> unicode|bytes
     _bstringify_enter()
 
     try:
-        if False:   # PY_MAJOR_VERSION >= 3:
+        if False:   # PY_MAJOR_VERSION >= 3:                # XXX restore ?
             # NOTE this depends on patches to bytes.{__repr__,__str__} below
             return unicode(obj)
 
@@ -1251,7 +1252,7 @@ def _():
     cdef PyTypeObject* t
     # NOTE patching bytes and its already-created subclasses that did not override .tp_repr/.tp_str
     # NOTE if we don't also patch __dict__ - e.g. x.__repr__() won't go through patched .tp_repr
-    for pyt in [bytes] + bytes.__subclasses__():
+    for pyt in [bytes] + bytes.__subclasses__():    # FIXME also handle sub-sub-classes
         assert isinstance(pyt, type)
         t = <PyTypeObject*>pyt
         if t.tp_repr == _bytes_tp_repr:
@@ -1264,7 +1265,7 @@ _()
 
 if PY_MAJOR_VERSION < 3:
     def _():
-        cdef PyTypeObject* t
+        cdef PyTypeObject* t    # FIXME also handle sub-sub-classes
         for pyt in [unicode] + unicode.__subclasses__():
             assert isinstance(pyt, type)
             t = <PyTypeObject*>pyt
@@ -1301,7 +1302,7 @@ cdef object _unicode_x__ge__(object a, object b):   return _unicode_tp_richcompa
 if PY_MAJOR_VERSION < 3:
     def _():
         cdef PyTypeObject* t
-        for pyt in [unicode] + unicode.__subclasses__():
+        for pyt in [unicode] + unicode.__subclasses__():    # XXX sub-sub-classes
             assert isinstance(pyt, type)
             t = <PyTypeObject*>pyt
             if t.tp_richcompare == _unicode_tp_richcompare:
@@ -1385,7 +1386,7 @@ def _bytearray_x__iadd__(a, b): return _bytearray_sq_xiconcat(a, b)
 
 def _():
     cdef PyTypeObject* t
-    for pyt in [bytearray] + bytearray.__subclasses__():
+    for pyt in [bytearray] + bytearray.__subclasses__():    # XXX sub-sub-classes
         assert isinstance(pyt, type)
         t = <PyTypeObject*>pyt
         if t.tp_repr == _bytearray_tp_repr:
@@ -1408,7 +1409,7 @@ def _():
 _()
 
 
-# _bytearray_data return raw data in bytearray as bytes.
+# _bytearray_data returns raw data in bytearray as bytes.
 # XXX `bytearray s` leads to `TypeError: Expected bytearray, got hbytearray`
 cdef bytes _bytearray_data(object s):
     if PY_MAJOR_VERSION >= 3:
@@ -1849,6 +1850,7 @@ class _BFormatter(pystring.Formatter):
 # XXX place, comments
 # str % ... : ceval on py2 and py3 < 3.11 invokes PyString_Format / PyUnicode_Format
 #   directly upon seeing BINARY_MODULO. This leads to bstr.__mod__ not being called.
+# XXX -> patch PyString_Format / PyUnicode_Format to invoke our .__mod__ ...
 ctypedef unicode uformatfunc(object, object)
 ctypedef bytes   bformatfunc(object, object)
 cdef uformatfunc* _punicode_Format = PyUnicode_Format
@@ -1867,7 +1869,7 @@ cdef _patch_capi_str_format():
 
 
 # XXX place, comments, test
-#py3.11: specializes instructions. e.g. ustr(obj) will specialize (after
+# py3.11: specializes instructions. e.g. ustr(obj) will specialize (after
 #    executing 8 times) to directly invoke
 #
 #   PyObject_Str(obj)
@@ -1888,6 +1890,37 @@ cdef objstrfunc* _pobject_Str = PyObject_Str
 cdef  _patch_capi_object_str():
     cpatch(<void**>&_pobject_Str, <void*>_object_xStr)
 
+
+# XXX place, comments, test
+# on py3 PyObject_GetAttr & co insist on name to be unicode
+# XXX _PyObject_LookupAttr
+# XXX _PyObject_GenericGetAttrWithDict
+# XXX _PyObject_GenericSetAttrWithDict
+# XXX type_getattro
+IF PY3:
+    ctypedef object obj_getattr_func(object, object)
+    ctypedef int    obj_setattr_func(object, object, object) except -1
+
+    cdef obj_getattr_func* _pobject_GetAttr = PyObject_GetAttr
+    cdef obj_setattr_func* _pobject_SetAttr = PyObject_SetAttr
+
+    cdef object _object_xGetAttr(object obj, object name):
+#       fprintf(stderr, "xgetattr...\n")
+        if isinstance(name, pybstr):
+            name = pyustr(name)
+        return _pobject_GetAttr(obj, name)
+
+    cdef int    _object_xSetAttr(object obj, object name, object v) except -1:
+#       fprintf(stderr, "xsetattr...\n")
+        if isinstance(name, pybstr):
+            name = pyustr(name)
+        return _pobject_SetAttr(obj, name, v)
+
+
+cdef _patch_capi_object_attr_bstr():
+    IF PY3:
+        cpatch(<void**>&_pobject_GetAttr, <void*>_object_xGetAttr)
+        cpatch(<void**>&_pobject_SetAttr, <void*>_object_xSetAttr)
 
 
 # ---- misc ----
@@ -2213,6 +2246,7 @@ cdef _patch_str():
             upreserve_slots)
     pyustr = unicode    # retarget pyustr -> unicode to where it was copied
     # XXX vvv needed so that patched unicode could be saved by py2:cPickle at all
+    # XXX vvv should be done by pytype_replace... ?  just us original unicode.tp_name ?
     (<PyTypeObject*>pyustr).tp_name = ("unicode" if PY_MAJOR_VERSION < 3  else "str")
 
     # py2: patch str to be pybstr
@@ -2248,6 +2282,7 @@ cdef _patch_str():
 
     _patch_capi_str_format()
     _patch_capi_object_str()
+    _patch_capi_object_attr_bstr()
     _patch_capi_unicode_decode_as_bstr()
     _patch_str_pickle()
     # ...
@@ -2259,16 +2294,16 @@ cdef _patch_str():
 include '_golang_str_pickle.pyx'
 
 # _pytype_clone clones PyTypeObject src into dst.
-# dst must not be previously initialized.
 #
-# dst will have reference-count = 1 meaning new reference to it is returned.
+# src must be not heap-allocated type.
+# dst must be statically allocated and not previously initialized.
+#
+# dst will have reference-count = 1 meaning new reference to the clone is returned.
 cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst, const char* new_name):
     assert (src.tp_flags & Py_TPFLAGS_READY) != 0
     assert (src.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0    # src is not allocated on heap
-    #assert not PyType_IS_GC((<PyObject*>src).ob_type)  # XXX not true as unicode.ob_type is PyType_Type
-                                                        #     which generally has GC support, but
-                                                        #     GC is deactivated for non-heap types.
-    # copy the struct   XXX + .ob_next / .ob_prev (Py_TRACE_REFS)
+                                                        # and so GC for it is disabled
+    # copy the struct   XXX + ._ob_next / ._ob_prev (Py_TRACE_REFS) (set to NULL)
     dst[0] = src[0]
     (<PyObject*>dst).ob_refcnt = 1
 
@@ -2277,6 +2312,7 @@ cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst, const char* new_name):
 
     # now reinitialize things like .tp_dict etc, where PyType_Ready built slots that point to src.
     # we want all those slots to be rebuilt and point to dst instead.
+    # XXX test
     _dst = <_XPyTypeObject*>dst
     dst .tp_flags &= ~Py_TPFLAGS_READY
     dst .tp_dict     = NULL
@@ -2286,10 +2322,17 @@ cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst, const char* new_name):
     _dst.tp_weaklist = NULL
 
     # dst.__subclasses__ will be empty because existing children inherit from src, not from dst.
+    # XXX but ustr, after copy to unicode, will inherit from unicode(pystd)  -- recheck
+    # XXX test
     _dst.tp_subclasses = NULL
+
+    # XXX -> common reinherit fixup
+    if _dst.tp_init == (<_XPyTypeObject*>(dst.tp_base)).tp_init:
+        _dst.tp_init = NULL
 
     PyType_Ready(<object>dst)
     assert (dst.tp_flags & Py_TPFLAGS_READY) != 0
+    assert (dst.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
 
 # _pytype_replace_by_child replaces typ by its child egg.
 #
@@ -2305,8 +2348,10 @@ cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst, const char* new_name):
 #            ↑                       ↑
 #            Y                       Y
 #
+# typ and egg must be static non heap-allocated types.
+#
 # typ_clone must be initialized via _pytype_clone(typ, typ_clone).
-# egg' is egg clone put inplace of typ
+# egg' is egg clone put inplace of typ.
 #
 # XXX preserve_slots - describe
 cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
@@ -2323,15 +2368,11 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
     assert (egg.tp_flags & Py_TPFLAGS_READY)  != 0
 
     assert (typ.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
-    assert (egg.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0 # XXX will be not true
-                                                     # -> ! Py_TPFLAGS_HAVE_GC
-                                                     # -> ? set Py_TPFLAGS_HEAPTYPE back on typ' ?
+    assert (egg.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
 
     # (generally not required)
     assert (typ.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
     assert (egg.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
-    # XXX also check PyObject_IS_GC  (verifies .tp_is_gc() = n)  ?
-
 
     assert vtyp.ob_size               ==  vegg.ob_size
     assert typ .tp_basicsize          ==  egg .tp_basicsize
@@ -2353,11 +2394,14 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
     Py_CLEAR(_egg.tp_bases)
     Py_CLEAR(_egg.tp_mro)
     Py_CLEAR(_egg.tp_cache)
+    # XXX 3.12 +tp_watched
 
     # typ <- egg  preserving original typ's refcnt, weak references and subclasses\egg.
     # typ will be now playing the role of egg
     typ_refcnt     = otyp.ob_refcnt
+    # XXX py3.12 "For the static builtin types this is always NULL, even if weakrefs are added ..."
     typ_weaklist   = _typ.tp_weaklist
+    # XXX py3.12 "May be an invalid pointer" (for static builtin types it became `size_t index`
     typ_subclasses = _typ.tp_subclasses
     typ[0] = egg[0]
     otyp.ob_refcnt     = typ_refcnt
@@ -2376,6 +2420,63 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
     # live in .tp_dict and point to their type. Do it for both typ (new egg)
     # and origin egg for generality, even though original egg won't be used
     # anymore.
+    #
+    # XXX also check which pointers/other things are propagated from base to
+    #     subclasses. It is e.g. tp_new but others might be as well.
+    #
+    # https://docs.python.org/3/c-api/typeobj.html -> inheritance + defaults:
+    #
+    # D(default):
+    #     tp_base     X
+    #     tp_dict     ?
+    #     tp_alloc    ?
+    #     tp_new      ?
+    #     tp_free     ?
+    #
+    #     <tp_bases>  ~
+    #     <tp_mro>    ~
+    #
+    # I(inherited):
+    #     ob_type                       ==  &PyType_Type
+    #   + tp_basicsize                  ==
+    #   + tp_itemsize                   ==
+    #     tp_dealloc
+    #   + tp_vectorcall_offset          ==
+    #     tp_getattr / tp_getattro
+    #     tp_setattr / tp_setattro      NULL
+    #     tp_as_async                   NULL
+    #     tp_repr
+    #     tp_as_number                  for %
+    #     tp_as_sequence                len concat repeat sq_item contains ...
+    #     tp_as_mapping                 len subscript
+    #     tp_hash / tp_richcompare
+    #     tp_call                       NULL
+    #     tp_str
+    #     tp_as_buffer                  NULL(unicode)  !NULL(ustr)
+    #     tp_flags                      XXX recheck how flags are rebuild by PyTypes_Ready
+    #     tp_traverse / tp_clear        NULL    <- Py_TPFLAGS_HAVE_GC
+    #     tp_clear                      NULL
+    #   + tp_weaklistoffset
+    #     tp_iter
+    #     tp_iternext                   NULL
+    #     tp_descr_get                  NULL
+    #     tp_descr_set                  NULL
+    #   + tp_dictoffset                 0
+    #     tp_init                       NULL
+    #     tp_alloc                      == (PyType_GenericAlloc)
+    #     tp_new
+    #     tp_free                       XXX recheck
+    #     tp_is_gc                      NULL
+    #     tp_finalize                   NULL
+    #
+    # XXX also check PyHeapTypeObject
+
+    # don't let PyType_Ready to create __init__ if tp_init is inherited
+    if _typ.tp_init == (<_XPyTypeObject*>(typ.tp_base)).tp_init:
+        _typ.tp_init = NULL
+    if _egg.tp_init == (<_XPyTypeObject*>(egg.tp_base)).tp_init:
+        _egg.tp_init = NULL
+
     typ.tp_flags &= ~Py_TPFLAGS_READY
     egg.tp_flags &= ~Py_TPFLAGS_READY
     PyType_Ready(<object>typ)
@@ -2398,11 +2499,72 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
     # initially X.__mro__ = (X, typ, base) and without rebuilding it would
     # remain (X, egg', base) instead of correct (X, egg' typ_clone, base)
     # XXX py3 does this automatically?  XXX -> no, it can invalidate .__mro__, but not .tp_mro
+
+    # refresh fields related to X inheriting from its base.
+    # currents state of base is Bnew.
+    # old state of base is represented by Bold.
+    # NOTE for first-level children of typ Bnew=egg' and Bold=typ_clone
+    #      for further levels Bnew=bold
+    def inherit_refresh(X, Bold, Bnew):
+        # depth-first
+        for Y in X.__subclasses__():
+            inherit_refresh(Y, X, X)
+        assert isinstance(Bold, type)
+        assert isinstance(Bnew, type)
+        assert isinstance(X,    type)
+        o  = <PyTypeObject*>Bold    ; _o = <_XPyTypeObject*>Bold
+        b  = <PyTypeObject*>Bnew    ; _b = <_XPyTypeObject*>Bnew
+        x  = <PyTypeObject*>X       ; _x = <_XPyTypeObject*>X
+#       fprintf(stderr, 'refresh  %s\t<- %s', x.tp_name, b.tp_name)
+#       if Bold is not Bnew:
+#           fprintf(stderr, '\t#  was <- %s', o.tp_name)
+#       fprintf(stderr, '\n')
+        assert (x.tp_flags & Py_TPFLAGS_READY) != 0
+        x.tp_flags &= ~Py_TPFLAGS_READY
+
+        xdict = <dict>(x.tp_dict)
+        def clear(slotname):
+            del xdict[slotname]
+#       Py_CLEAR(_x.tp_dict)     # XXX preserve some ?
+#       Py_CLEAR(_x.tp_bases)    # to be rebuilt    XXX not ok to clear wrt multi-inheritance XXX test
+        Py_CLEAR(_x.tp_mro)      # ----//----
+        Py_CLEAR(_x.tp_cache)    # ----//----
+
+        if _x.tp_new  == _o.tp_new:
+            _x.tp_new = NULL    # reinherit from Bnew on reready
+            # del xdict['__new__']  XXX raises KeyError - why?
+        if _x.tp_init == _o.tp_init:    # XXX also check other bases from mro (ex. StrEnum(str,Enum) which has Enum.__init__)
+#           fprintf(stderr, '  tp_init <- NULL\n')
+            _x.tp_init = NULL
+            #clear('__init__')      XXX
+
+    def inherit_reready(X):
+        assert isinstance(X,    type)
+        x = <PyTypeObject*>X
+#       fprintf(stderr, 'ready    %s\n', x.tp_name)
+        assert (x.tp_flags & Py_TPFLAGS_READY) == 0
+        PyType_Ready(X)
+        assert (x.tp_flags & Py_TPFLAGS_READY) != 0
+
+        # top-down
+        for Y in X.__subclasses__():
+            inherit_reready(Y)
+
+        assert (x.tp_flags & Py_TPFLAGS_VALID_VERSION_TAG) != 0
+
+    for X in (<object>typ).__subclasses__():
+        inherit_refresh(X, <object>typ_clone, <object>typ)
+    for X in (<object>typ).__subclasses__():
+        inherit_reready(X)
+
+    PyType_Modified(typ)    # XXX needed ?
+
+    """
     def refresh(x):
         assert isinstance(x, type)
         xtyp  = <PyTypeObject*>x
         _xtyp = <_XPyTypeObject*>x
-        #fprintf(stderr, 'refreshing %s\n', xtyp.tp_name)
+        fprintf(stderr, 'refreshing %s\n', xtyp.tp_name)
         assert (xtyp.tp_flags & Py_TPFLAGS_READY) != 0
         xtyp.tp_flags &= ~Py_TPFLAGS_READY
         Py_CLEAR(_xtyp.tp_mro)
@@ -2410,7 +2572,8 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
         assert (xtyp.tp_flags & Py_TPFLAGS_READY) != 0
         for _ in x.__subclasses__():
             refresh(_)
-    for _ in (<object>typ).__subclasses__():
+    for _ in (<object>typ).__subclasses__():    # XXX + sub-sub-classes
         refresh(_)
+    """
 
     # XXX also preserve ._ob_next + ._ob_prev  (present in Py_TRACE_REFS builds)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2022-2023  Nexedi SA and Contributors.
+# Copyright (C) 2022-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -70,30 +70,30 @@ gpystr_only = mark.skipif(not is_gpystr, reason="gpystr-only test")
 
 # ---- pickling/unpickling under gpystr ----
 
+# test pickles with *STRING
+STRING_bytes = xbytes('мир')+b'\xff'    # binary data in all test *STRING pickles
+p_str   = b"S'\\xd0\\xbc\\xd0\\xb8\\xd1\\x80\\xff'\n."      # STRING 'мир\xff'
+p_utf8  = b"S'"+xbytes('мир')+b"\\xff'\n."                  # STRING 'мир\xff'
+p_sbins = b'U\x07\xd0\xbc\xd0\xb8\xd1\x80\xff.'             # SHORT_BINSTRING 'мир\xff'
+p_bins  = b'T\x07\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80\xff.' # BINSTRING 'мир\xff'
+
+# checkSTRING invokes f on all test *STRING pickles.
+def checkSTRING(f):
+    f(p_str)
+    f(p_utf8)
+    f(p_sbins)
+    f(p_bins)
+
 # verify that loading *STRING opcodes loads them as bstr on gpython by default.
-# TODO or with encoding='bstr' under plain py
 @gpystr_only
-def test_string_pickle_load_STRING(pickle):
-    p_str   = b"S'\\xd0\\xbc\\xd0\\xb8\\xd1\\x80\\xff'\n."      # STRING 'мир\xff'
-    p_utf8  = b"S'"+xbytes('мир')+b"\\xff'\n."                  # STRING 'мир\xff'
-    p_sbins = b'U\x07\xd0\xbc\xd0\xb8\xd1\x80\xff.'             # SHORT_BINSTRING 'мир\xff'
-    p_bins  = b'T\x07\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80\xff.' # BINSTRING 'мир\xff'
-
-    p_bytes = xbytes('мир')+b'\xff'
-
-    # check invokes f on all test pickles
-    def check(f):
-        f(p_str)
-        f(p_utf8)
-        f(p_sbins)
-        f(p_bins)
+def test_strings_pickle_load_STRING(pickle):
+    check = checkSTRING
 
     # default -> bstr  on both py2 and py3
-    # TODO only this check is gpystr_only -> remove whole-func @gpystr_only
     def _(p):
         obj = xloads(pickle, p)
         assert type(obj) is bstr
-        assert obj == p_bytes
+        assert obj == STRING_bytes
     check(_)
 
     # also test bstr inside tuple (for symmetry with save)
@@ -104,48 +104,33 @@ def test_string_pickle_load_STRING(pickle):
         assert len(tobj) == 1
         obj = tobj[0]
         assert type(obj) is bstr
-        assert obj == p_bytes
+        assert obj == STRING_bytes
     check(_)
 
-    # pickle supports encoding=... only on py3
-    if six.PY3:
-        # encoding='bstr'  -> bstr
-        def _(p):
-            obj = xloads(pickle, p, encoding='bstr')
-            assert type(obj) is bstr
-            assert obj == p_bytes
-        check(_)
-
-        # encoding='bytes' -> bytes
-        def _(p):
-            obj = xloads(pickle, p, encoding='bytes')
-            assert type(obj) is bytes
-            assert obj == p_bytes
-        check(_)
-
-        # encoding='utf-8' -> UnicodeDecodeError
-        def _(p):
-            with raises(UnicodeDecodeError):
-                xloads(pickle, p, encoding='utf-8')
-        check(_)
-
-        # encoding='utf-8', errors=... -> unicode
-        def _(p):
-            obj = xloads(pickle, p, encoding='utf-8', errors='backslashreplace')
-            assert type(obj) is unicode
-            assert obj == u'мир\\xff'
-        check(_)
-
+    # also test bstr used as persistent reference directly and as part of tuple (symmetry with save)
+    def _(p):
+        p_ = p[:-1] + b'Q.'
+        pobj = ploads(pickle, p_)
+        assert type(pobj) is tPersistent
+        assert type(pobj._p_oid) is bstr
+        assert pobj._p_oid == STRING_bytes
+    check(_)
+    def _(p):
+        p_ = b'(' + p[:-1] + b'tQ.'
+        pobj = ploads(pickle, p_)
+        assert type(pobj) is tPersistent
+        assert type(pobj._p_oid) is tuple
+        assert len(pobj._p_oid) == 1
+        obj = pobj._p_oid[0]
+        assert type(obj) is bstr
+        assert obj == STRING_bytes
+    check(_)
 
 # verify that saving bstr results in *STRING opcodes on gpython.
 @gpystr_only
 def test_strings_pickle_save_STRING(pickle):
-    s = s0 = b(xbytes('мир')+b'\xff')
+    s = s0 = b(STRING_bytes)
     assert type(s) is bstr
-
-    p_utf8  = b"S'"+xbytes('мир')+b"\\xff'\n."                  # STRING 'мир\xff'
-    p_sbins = b'U\x07\xd0\xbc\xd0\xb8\xd1\x80\xff.'             # SHORT_BINSTRING 'мир\xff'
-    p_bins  = b'T\x07\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80\xff.' # BINSTRING 'мир\xff'
 
     def dumps(proto):
         return xdumps(pickle, s, proto)
@@ -163,18 +148,84 @@ def test_strings_pickle_save_STRING(pickle):
     # also test bstr inside tuple to verify that what we patched is actually
     # _pickle.save that is invoked from inside other save_X functions.
     s = (s0,)
-    p_tutf8  = b'(' + p_utf8[:-1]  + b't.'
-    p_tsbins = b'(' + p_sbins[:-1] + b't.'
-    assert dumps(0) == p_tutf8
-    assert dumps(1) == p_tsbins
+    p_tuple_utf8  = b'(' + p_utf8[:-1]  + b't.'
+    p_tuple_sbins = b'(' + p_sbins[:-1] + b't.'
+    assert dumps(0) == p_tuple_utf8
+    assert dumps(1) == p_tuple_sbins
     # don't test proto ≥ 2 because they start to use TUPLE1 instead of TUPLE
+
+    # also test bstr used as persistent reference to verify pers_save codepath
+    obj = tPersistent(s0)
+    def dumps(proto):
+        return pdumps(pickle, obj, proto)
+    assert dumps(0) == b'P' + STRING_bytes + '\n.'
+    for proto in range(1, HIGHEST_PROTOCOL(pickle)+1):
+        assert dumps(proto) == p_sbins[:-1] + b'Q.'
+
+    # ... and peristent reference being tuple to verifiy pers_save
+    # stringification in proto=0 and recursion to save in proto≥1.
+    obj = tPersistent((s0,))
+    try:
+        assert dumps(0) == b'P(' + p_utf8[1:-2] + ',)\n.'
+    except pickle.PicklingError as e:
+        # on py2 cpickle insists that with proto=0 pid must be string
+        if six.PY2:
+            assert e.args == ('persistent id must be string',)
+        else:
+            raise
+    assert dumps(1) == p_tuple_sbins[:-1] + b'Q.'
+    # no proto ≥ 2 because they start to use TUPLE1 instead of TUPLE
+
+    # proto 0 with \n in persid -> rejected
+    obj = tPersistent(b('a\nb'))
+    if six.PY3: # TODO also consider patching save_pers codepath on py2
+        with raises(pickle.PicklingError, match=r'persistent ID contains \\n') as e:
+            dumps(0)
+    for proto in range(1, HIGHEST_PROTOCOL(pickle)+1):
+        assert dumps(proto) == b'U\x03a\nbQ.'
+
+
+# verify that unpickling handles encoding=bstr|* .
+# TODO also handle encoding='bstr' under plain py
+@mark.skipif(not six.PY3, reason="pickle supports encoding=... only on py3")
+@gpystr_only
+def test_strings_pickle_load_encoding(pickle):
+    check = checkSTRING
+
+    # encoding='bstr'  -> bstr
+    def _(p):
+        obj = xloads(pickle, p, encoding='bstr')
+        assert type(obj) is bstr
+        assert obj == STRING_bytes
+    check(_)
+
+    # encoding='bytes' -> bytes
+    def _(p):
+        obj = xloads(pickle, p, encoding='bytes')
+        assert type(obj) is bytes
+        assert obj == STRING_bytes
+    check(_)
+
+    # encoding='utf-8' -> UnicodeDecodeError
+    def _(p):
+        with raises(UnicodeDecodeError):
+            xloads(pickle, p, encoding='utf-8')
+    check(_)
+
+    # encoding='utf-8', errors=... -> unicode
+    def _(p):
+        obj = xloads(pickle, p, encoding='utf-8', errors='backslashreplace')
+        assert type(obj) is unicode
+        assert obj == u'мир\\xff'
+    check(_)
+
 
 
 # verify that loading *UNICODE opcodes loads them as unicode/ustr.
 # this is standard behaviour but we verify it since we patch pickle's strings processing.
 # also verify save lightly for symmetry.
 # NOTE not @gpystr_only
-def test_string_pickle_loadsave_UNICODE(pickle):
+def test_strings_pickle_loadsave_UNICODE(pickle):
     # NOTE builtin pickle behaviour is to save unicode via 'surrogatepass' error handler
     #      this means that b'мир\xff' -> ustr/unicode -> save will emit *UNICODE with
     #      b'мир\xed\xb3\xbf' instead of b'мир\xff' as data.
@@ -263,7 +314,7 @@ def test_strings_pickle_bstr_ustr(pickle):
              b'cgolang\nbstr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
                         b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbftR.')
 
-    # NOTE BINUNICODE ...edb3bf not ...ff  (see test_string_pickle_loadsave_UNICODE for details)
+    # NOTE BINUNICODE ...edb3bf not ...ff  (see test_strings_pickle_loadsave_UNICODE for details)
     _(us, 1, b'X\x09\x00\x00\x00\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbf.',     # BINUNICODE
              b'cgolang\nustr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
                         b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbftR.')
@@ -302,38 +353,48 @@ def xdiss(pickletools, p): # -> str
     pickletools.dis(p, out)
     return out.getvalue()
 
-# verify that disassembling *STRING opcodes works with treating strings as UTF8b.
+# verify that disassembling *STRING and related opcodes works with treating strings as UTF8b.
 @gpystr_only
-def test_string_pickle_dis_STRING(pickletools):
-    p_str   = b"S'\\xd0\\xbc\\xd0\\xb8\\xd1\\x80'\n."       # STRING 'мир'
-    p_sbins = b'U\x06\xd0\xbc\xd0\xb8\xd1\x80.'             # SHORT_BINSTRING 'мир'
-    p_bins  = b'T\x06\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80.' # BINSTRING 'мир'
-
-    bmir = x32("b('мир')", "'мир'")
+def test_strings_pickle_dis_STRING(pickletools):
+    brepr = repr(b(STRING_bytes))
 
     assert xdiss(pickletools, p_str) == """\
     0: S    STRING     %s
-   28: .    STOP
+   32: .    STOP
 highest protocol among opcodes = 0
-""" % bmir
+""" % brepr
+
+    assert xdiss(pickletools, p_utf8) == """\
+    0: S    STRING     %s
+   14: .    STOP
+highest protocol among opcodes = 0
+""" % brepr
 
     assert xdiss(pickletools, p_sbins) == """\
     0: U    SHORT_BINSTRING %s
-    8: .    STOP
+    9: .    STOP
 highest protocol among opcodes = 1
-""" % bmir
+""" % brepr
 
     assert xdiss(pickletools, p_bins) == """\
     0: T    BINSTRING  %s
-   11: .    STOP
+   12: .    STOP
 highest protocol among opcodes = 1
-""" % bmir
+""" % brepr
+
+    assert xdiss(pickletools, b'P' + STRING_bytes + b'\n.') == """\
+    0: P    PERSID     %s
+    9: .    STOP
+highest protocol among opcodes = 0
+""" % brepr
 
 
 # ---- loads and normalized dumps ----
 
 # xloads loads pickle p via pickle.loads
 # it also verifies that .load and Unpickler.load give the same result.
+#
+# see also: ploads.
 def xloads(pickle, p, **kw):
     obj1 = _xpickle_attr(pickle, 'loads')(p, **kw)
     obj2 = _xpickle_attr(pickle, 'load') (io.BytesIO(p), **kw)
@@ -346,6 +407,8 @@ def xloads(pickle, p, **kw):
 # xdumps dumps obj via pickle.dumps
 # it also verifies that .dump and Pickler.dump give the same.
 # the pickle is returned in normalized form - see pickle_normalize for details.
+#
+# see also: pdumps.
 def xdumps(pickle, obj, proto, **kw):
     p1 = _xpickle_attr(pickle, 'dumps')(obj, proto, **kw)
     f2 = io.BytesIO();  _xpickle_attr(pickle, 'dump')(obj, f2, proto, **kw)
@@ -359,9 +422,84 @@ def xdumps(pickle, obj, proto, **kw):
 
     # remove not interesting parts: PROTO / FRAME header and unused PUTs
     if proto >= 2:
-        protover = PROTO(proto)
-        assert p1.startswith(protover)
+        assert p1.startswith(PROTO(proto))
     return pickle_normalize(pickle2tools(pickle), p1)
+
+# ploads loads pickle p via pickle.Unpickler with handling persistent references.
+#
+# see also: xloads.
+def ploads(pickle, p, **kw):
+    Unpickler = _xpickle_attr(pickle, 'Unpickler')
+
+    u1 = Unpickler(io.BytesIO(p), **kw)
+    u1.persistent_load = lambda pid: tPersistent(pid)
+    obj1 = u1.load()
+
+    # same with .persistent_load defined as class method
+    try:
+        class Unpickler2(Unpickler):
+            def persistent_load(self, pid): return tPersistent(pid)
+    except TypeError:
+        if six.PY2:
+            # on py2 cPickle.Unpickler is not subclassable at all
+            obj2 = obj1
+        else:
+            raise
+    else:
+        u2 = Unpickler2(io.BytesIO(p), **kw)
+        obj2 = u2.load()
+
+    assert obj1 == obj2
+    return obj1
+
+# pdumps dumps obj via pickle.Pickler with handling persistent references.
+# the pickle is returned in normalized form - see pickle_normalize for details.
+#
+# see also: xdumps.
+def pdumps(pickle, obj, proto, **kw):
+    Pickler = _xpickle_attr(pickle, 'Pickler')
+
+    f1 = io.BytesIO()
+    p1 = Pickler(f1, proto, **kw)
+    def _(obj):
+        if isinstance(obj, tPersistent):
+            return obj._p_oid
+        return None
+    p1.persistent_id = _
+    p1.dump(obj)
+    pobj1 = f1.getvalue()
+
+    # same with .persistent_id defined as class method
+    try:
+        class Pickler2(Pickler):
+            def persistent_id(self, obj):
+                if isinstance(obj, tPersistent):
+                    return obj._p_oid
+                return None
+    except TypeError:
+        if six.PY2:
+            # on py2 cPickle.Pickler is not subclassable at all
+            pobj2 = pobj1
+        else:
+            raise
+    else:
+        f2 = io.BytesIO()
+        p2 = Pickler2(f2, proto, **kw)
+        p2.dump(obj)
+        pobj2 = f2.getvalue()
+
+    assert pobj1 == pobj2
+
+    if proto >= 2:
+        assert pobj1.startswith(PROTO(proto))
+    return pickle_normalize(pickle2tools(pickle), pobj1)
+
+# tPersistent is test class to verify handling of persistent references.
+class tPersistent(object):
+    def __init__(t, pid):
+        t._p_oid = pid
+    def __eq__(t, rhs): return (type(rhs) is type(t))  and  (rhs._p_oid == t._p_oid)
+    def __ne__(t, rhs): return not (t.__eq__(rhs))
 
 def _xpickle_attr(pickle, name):
     # on py3 pickle.py tries to import from C _pickle to optimize by default

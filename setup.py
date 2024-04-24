@@ -1,5 +1,5 @@
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -189,7 +189,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest', 'py'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.7'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.8'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -575,7 +575,7 @@ setup(
 
     install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"',
                         # only runtime part: for dylink_prepare_dso
-                        'setuptools_dso >= 2.7',
+                        'setuptools_dso >= 2.8',
                         # pyx.build -> setuptools_dso uses multiprocessing
                         # setuptools_dso uses multiprocessing only on Python3, and only on systems where
                         # mp.get_start_method()!='fork', while geventmp does not work on windows.
@@ -611,6 +611,7 @@ setup(
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.10
         Programming Language :: Python :: 3.11
+        Programming Language :: Python :: 3.12
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
         Operating System :: POSIX

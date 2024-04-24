@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2023  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2023-2024  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -102,16 +102,16 @@ cdef extern from * nogil:
     int CALLCONV(fastcall)
     tfunc_fastcall3(int x, int y, int z)    { return x; }
 
-    #ifndef LIBGOLANG_CC_msc    // see note about C3865 in FOR_EACH_CALLCONV
+    # ifndef LIBGOLANG_CC_msc   // see note about C3865 in FOR_EACH_CALLCONV
     int CALLCONV(thiscall)
     tfunc_thiscall1(int x)                  { return x; }
     int CALLCONV(thiscall)
     tfunc_thiscall2(int x, int y)           { return x; }
     int CALLCONV(thiscall)
     tfunc_thiscall3(int x, int y, int z)    { return x; }
-    #endif
+    # endif
 
-    #ifndef LIBGOLANG_CC_msc    // no regparm on MSCV
+    # ifndef LIBGOLANG_CC_msc   // no regparm on MSVC
     int CALLCONV(regparm(1))
     tfunc_regparm1_1(int x)                 { return x; }
     int CALLCONV(regparm(1))
@@ -132,7 +132,7 @@ cdef extern from * nogil:
     tfunc_regparm3_2(int x, int y)          { return x; }
     int CALLCONV(regparm(3))
     tfunc_regparm3_3(int x, int y, int z)   { return x; }
-    #endif
+    # endif
 
     static std::vector<_Test_cfunc_is_callee_clenup> _cfunc_is_callee_cleanup_testv = {
         CASE(tfunc_cdecl1     , 0 * 4),
@@ -144,12 +144,12 @@ cdef extern from * nogil:
         CASE(tfunc_fastcall1  , 0 * 4),
         CASE(tfunc_fastcall2  , 0 * 4),
         CASE(tfunc_fastcall3  , 1 * 4),
-    #ifndef LIBGOLANG_CC_msc
+    # ifndef LIBGOLANG_CC_msc
         CASE(tfunc_thiscall1  , 0 * 4),
         CASE(tfunc_thiscall2  , 1 * 4),
         CASE(tfunc_thiscall3  , 2 * 4),
-    #endif
-    #ifndef LIBGOLANG_CC_msc
+    # endif
+    # ifndef LIBGOLANG_CC_msc
         CASE(tfunc_regparm1_1 , 0 * 4),
         CASE(tfunc_regparm1_2 , 0 * 4),
         CASE(tfunc_regparm1_3 , 0 * 4),
@@ -159,7 +159,7 @@ cdef extern from * nogil:
         CASE(tfunc_regparm3_1 , 0 * 4),
         CASE(tfunc_regparm3_2 , 0 * 4),
         CASE(tfunc_regparm3_3 , 0 * 4),
-    #endif
+    # endif
     };
 
     #else

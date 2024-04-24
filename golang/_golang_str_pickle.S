@@ -1,5 +1,5 @@
-// Copyright (C) 2023  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -288,7 +288,7 @@ inside_counted_stk:
 
 
 // disable executable stack
-#ifndef LIBGOLANG_OS_windows
+#ifdef LIBGOLANG_OS_linux
     .section        .note.GNU-stack,"",@progbits
 #endif
 
@@ -304,7 +304,7 @@ inside_counted_stk:
 
 #if defined(LIBGOLANG_ARCH_386)
 
-#ifdef LIBGOLANG_CC_msc
+#ifdef LIBGOLANG_OS_windows     // both msvc and clang-cl
 # define CSYM_FASTCALL3(name)   @name@12     // MSVC mangles __fastcall
 # define CSYM_FASTCALL4(name)   @name@16
 #else

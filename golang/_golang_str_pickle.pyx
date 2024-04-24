@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2023  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2023-2024  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -27,6 +27,7 @@ The main entry-points are _patch_str_pickle and _patch_capi_unicode_decode_as_bs
 
 from cpython cimport PyUnicode_Decode
 from cpython cimport PyBytes_FromStringAndSize, _PyBytes_Resize
+from cpython cimport PyObject_CallObject, PyObject_CallFunctionObjArgs
 
 cdef extern from "Python.h":
     char* PyBytes_AS_STRING(PyObject*)
@@ -130,6 +131,8 @@ cdef struct PicklerTypeInfo:
     Py_ssize_t off_poutput_buffer   # offsetof `PyObject *output_buffer`
     Py_ssize_t off_output_len       # offsetof `Py_ssize_t output_len`
     Py_ssize_t off_max_output_len   # offsetof `Py_ssize_t max_output_len`
+    Py_ssize_t off_pers_func        # offsetof `PyObject *pers_func`
+    Py_ssize_t off_pers_func_self   # offsetof `PyObject *pers_func_self` or -1 if this field is not there
 
 
 # XXX place ?
@@ -147,36 +150,61 @@ cdef extern from * nogil:
 
 
     // FOR_EACH_CALLCONV invokes macro X(ccname, callconv, cckind) for every supported calling convention.
-    // cckind is one of `builtin` or `custom`.
+    // cckind is one of `builtin`, `custom` or `builtin_psave0`.
+    //
+    // - `builtin` represents native calling conventions of the compiler
+    //    available to the programmer via function attributes.
+    // - `custom`  represents custom calling convention for which there is no
+    //    public attribute and via-assembly proxy needs to be used to call such function.
+    // - `builtin_psave0` represents native calling convention, but indicates
+    //    that the third argument of `save` was const-propagated with `pers_save=0`.
+    //
+    // NOTE: psave0 variants go last so that !constprop versions have higher priority to be probed.
     #ifdef LIBGOLANG_ARCH_386
     # ifndef LIBGOLANG_CC_msc
     #  define FOR_EACH_CALLCONV(X)  \
-         X(default,,                            builtin)    \
-         X(cdecl,       CALLCONV(cdecl),        builtin)    \
-         X(stdcall,     CALLCONV(stdcall),      builtin)    \
-         X(fastcall,    CALLCONV(fastcall),     builtin)    \
-         X(thiscall,    CALLCONV(thiscall),     builtin)    \
-         X(regparm1,    CALLCONV(regparm(1)),   builtin)    \
-         X(regparm2,    CALLCONV(regparm(2)),   builtin)    \
-         X(regparm3,    CALLCONV(regparm(3)),   builtin)    \
-         X(fastcall_nostkclean,  na,            custom )
+         X(default,,                                    builtin)            \
+         X(cdecl,               CALLCONV(cdecl),        builtin)            \
+         X(stdcall,             CALLCONV(stdcall),      builtin)            \
+         X(fastcall,            CALLCONV(fastcall),     builtin)            \
+         X(thiscall,            CALLCONV(thiscall),     builtin)            \
+         X(regparm1,            CALLCONV(regparm(1)),   builtin)            \
+         X(regparm2,            CALLCONV(regparm(2)),   builtin)            \
+         X(regparm3,            CALLCONV(regparm(3)),   builtin)            \
+         X(fastcall_nostkclean, na,                     custom )            \
+         X(default_psave0,,                             builtin_psave0)     \
+         X(cdecl_psave0,        CALLCONV(cdecl),        builtin_psave0)     \
+         X(stdcall_psave0,      CALLCONV(stdcall),      builtin_psave0)     \
+         X(fastcall_psave0,     CALLCONV(fastcall),     builtin_psave0)     \
+         X(thiscall_psave0,     CALLCONV(thiscall),     builtin_psave0)     \
+         X(regparm1_psave0,     CALLCONV(regparm(1)),   builtin_psave0)     \
+         X(regparm2_psave0,     CALLCONV(regparm(2)),   builtin_psave0)     \
+         X(regparm3_psave0,     CALLCONV(regparm(3)),   builtin_psave0)
     # else // MSC
     #  define FOR_EACH_CALLCONV(X)  \
-         X(default,,                            builtin)    \
-         X(cdecl,       CALLCONV(cdecl),        builtin)    \
-         X(stdcall,     CALLCONV(stdcall),      builtin)    \
-         X(fastcall,    CALLCONV(fastcall),     builtin)    \
-         /* X(CALLCONV(thiscall),   thiscall)   MSVC emits "C3865: '__thiscall': can only be used on native member functions"       */ \
+         X(default,,                                    builtin)            \
+         X(cdecl,               CALLCONV(cdecl),        builtin)            \
+         X(stdcall,             CALLCONV(stdcall),      builtin)            \
+         X(fastcall,            CALLCONV(fastcall),     builtin)            \
+         /* X(thiscall,         CALLCONV(thiscall),     builtin)   MSVC emits "C3865: '__thiscall': can only be used on native member functions"    */ \
          /* in theory we can emulate thiscall via fastcall https://tresp4sser.wordpress.com/2012/10/06/how-to-hook-thiscall-functions/ */ \
-         X(vectorcall,  CALLCONV(vectorcall),   builtin)    \
-         X(fastcall_nostkclean,  na,            custom )
+         X(vectorcall,          CALLCONV(vectorcall),   builtin)            \
+         X(fastcall_nostkclean, na,                     custom )            \
+         X(default_psave0,,                             builtin_psave0)     \
+         X(cdecl_psave0,        CALLCONV(cdecl),        builtin_psave0)     \
+         X(stdcall_psave0,      CALLCONV(stdcall),      builtin_psave0)     \
+         X(fastcall_psave0,     CALLCONV(fastcall),     builtin_psave0)     \
+         /* X(thiscall_psave0,  CALLCONV(thiscall),     builtin_psave0) */  \
+         X(vectorcall_psave0,   CALLCONV(vectorcall),   builtin_psave0)
     # endif
     #elif defined(LIBGOLANG_ARCH_amd64)
     # define FOR_EACH_CALLCONV(X)   \
-        X(default,,                             builtin)
+        X(default,,                                     builtin)            \
+        X(default_psave0,,                              builtin_psave0)
     #elif defined(LIBGOLANG_ARCH_arm64)
     # define FOR_EACH_CALLCONV(X)   \
-        X(default,,             builtin)
+        X(default,,                                     builtin)            \
+        X(default_psave0,,                              builtin_psave0)
     #else
     # error "unsupported architecture"
     #endif
@@ -221,6 +249,7 @@ cdef struct _pickle_PatchCtx:
     SaveFunc          Pickler_save_orig     # what was there before
 
     PicklerTypeInfo iPickler                # information detected about PicklerObject type
+    PyObject* pymod                         # module of the patched type
 
 
 # patch contexts for _pickle and _zodbpickle modules
@@ -234,7 +263,7 @@ cdef _pickle_PatchCtx _zpickle_patchctx
 #
 # - *STRING are loaded as bstr
 # - bstr is saved as *STRING
-# - pickletools decodes *STRING as UTF-8
+# - pickletools decodes *STRING and related opcodes as UTF-8b
 cdef _patch_str_pickle():
     try:
         import zodbpickle
@@ -246,6 +275,9 @@ cdef _patch_str_pickle():
     if PY_MAJOR_VERSION >= 3:
         import pickletools, codecs
         _codecs_escape_decode = codecs.escape_decode
+        def xread_stringnl_noescape(f):
+            data = pickletools.read_stringnl(f, decode=False, stripquotes=False)
+            return pybstr(data)
         def xread_stringnl(f):
             data = _codecs_escape_decode(pickletools.read_stringnl(f, decode=False))[0]
             return pybstr(data)
@@ -256,13 +288,15 @@ cdef _patch_str_pickle():
             data = pickletools.read_string4(f).encode('latin1')
             return pybstr(data)
 
+        pickletools.stringnl_noescape.reader = xread_stringnl_noescape
         pickletools.stringnl.reader = xread_stringnl
         pickletools.string1.reader  = xread_string1
         pickletools.string4.reader  = xread_string4
 
         if zodbpickle:
             from zodbpickle import pickletools_3 as zpickletools
-            zpickletools.stringnl.reader = xread_stringnl   # was same logic as in std pickletools
+            zpickletools.stringnl_noescape.reader = xread_stringnl_noescape # was same logic
+            zpickletools.stringnl.reader = xread_stringnl                   # as in std pickletools
             zpickletools.string1.reader  = xread_string1
             zpickletools.string4.reader  = xread_string4
 
@@ -323,7 +357,7 @@ cdef _patch_pickle(pickle, _pickle, _pickle_PatchCtx* _pctx):
             pickle.loads     = _pickle.loads
             pickle.Unpickler = _pickle.Unpickler
             pickle.dump      = _pickle.dump
-            pickle.dumps     = _pickle.dumps        # XXX needed?
+            pickle.dumps     = _pickle.dumps
             pickle.Pickler   = _pickle.Pickler
 
     # patch py
@@ -376,6 +410,18 @@ cdef _patch_pypickle(pickle, shadowed):
         self.memoize(obj)
     Pickler.dispatch[pybstr] = save_bstr
 
+    # adjust Pickler to save persistent ID in protocol 0 as UTF-8
+    Pickler_save_pers = Pickler.save_pers
+    def save_pers(self, pid):
+        if self.proto >= 1:
+            Pickler_save_pers(self, pid)
+        else:
+            pid_str = pybstr(pid)
+            if b'\n' in pid_str:
+                raise pickle.PicklingError(r'persistent ID contains \n')
+            self.write(b'P' + pid_str + b'\n')
+    Pickler.save_pers = save_pers
+
 # _patch_cpickle serves _patch_pickle for C version.
 cdef _patch_cpickle(_pickle, _pickle_PatchCtx *pctx):
     # adjust load / loads to use 'bstr' encoding by default
@@ -417,6 +463,10 @@ cdef _patch_cpickle(_pickle, _pickle_PatchCtx *pctx):
     assert xsave.cconv == save.cconv, (callconv_str(xsave.cconv), callconv_str(save.cconv))
     cpatch(&pctx.Pickler_save_orig.addr, xsave.addr)
 
+    # remember the module of patched type
+    pctx.pymod = <PyObject*>_pickle
+    Py_INCREF(_pickle)  # stays alive forever
+
     # XXX test at runtime that we hooked save correctly
 
 
@@ -454,8 +504,9 @@ cdef _patch_capi_unicode_decode_as_bstr():
 
 # ---- adjusted C bits for saving ----
 
-# adjust Pickler save to save bstr via *STRING opcodes.
-# This mirrors corresponding py saving adjustments, but is more involved to implement.
+# adjust Pickler save to save bstr via *STRING opcodes and handle persistent
+# references via our codepath. This mirrors corresponding py saving
+# adjustments, but is more involved to implement.
 
 cdef int _pickle_Pickler_xsave(PicklerObject* self, PyObject* obj, int pers_save) except -1:
     return __Pickler_xsave(&_pickle_patchctx, self, obj, pers_save)
@@ -463,12 +514,17 @@ cdef int _pickle_Pickler_xsave(PicklerObject* self, PyObject* obj, int pers_save
 cdef int _zpickle_Pickler_xsave(PicklerObject* self, PyObject* obj, int pers_save) except -1:
     return __Pickler_xsave(&_zpickle_patchctx, self, obj, pers_save)
 
+cdef int _pickle_Pickler_xsave_psave0(PicklerObject* self, PyObject* obj) except -1:
+    return __Pickler_xsave_psave0(&_pickle_patchctx, self, obj)
+
+cdef int _zpickle_Pickler_xsave_psave0(PicklerObject* self, PyObject* obj) except -1:
+    return __Pickler_xsave_psave0(&_zpickle_patchctx, self, obj)
+
 # callconv wrappers XXX place
 cdef extern from *:
     r"""
     static int __pyx_f_6golang_7_golang__pickle_Pickler_xsave(PicklerObject*, PyObject*, int);
     static int __pyx_f_6golang_7_golang__zpickle_Pickler_xsave(PicklerObject*, PyObject*, int);
-
     #define DEF_PICKLE_XSAVE_builtin(ccname, callconv)                                      \
     static int callconv                                                                     \
     _pickle_Pickler_xsave_##ccname(PicklerObject* self, PyObject* obj, int pers_save) {     \
@@ -478,6 +534,19 @@ cdef extern from *:
     static int callconv                                                                     \
     _zpickle_Pickler_xsave_##ccname(PicklerObject* self, PyObject* obj, int pers_save) {    \
         return __pyx_f_6golang_7_golang__zpickle_Pickler_xsave(self, obj, pers_save);       \
+    }
+
+    static int __pyx_f_6golang_7_golang__pickle_Pickler_xsave_psave0(PicklerObject*, PyObject*);
+    static int __pyx_f_6golang_7_golang__zpickle_Pickler_xsave_psave0(PicklerObject*, PyObject*);
+    #define DEF_PICKLE_XSAVE_builtin_psave0(ccname, callconv)                               \
+    static int callconv                                                                     \
+    _pickle_Pickler_xsave_##ccname(PicklerObject* self, PyObject* obj) {                    \
+        return __pyx_f_6golang_7_golang__pickle_Pickler_xsave_psave0(self, obj);            \
+    }
+    #define DEF_ZPICKLE_XSAVE_builtin_psave0(ccname, callconv)                              \
+    static int callconv                                                                     \
+    _zpickle_Pickler_xsave_##ccname(PicklerObject* self, PyObject* obj) {                   \
+        return __pyx_f_6golang_7_golang__zpickle_Pickler_xsave_psave0(self, obj);           \
     }
 
     #define DEF_PICKLE_XSAVE_custom(ccname, _)                                              \
@@ -496,7 +565,6 @@ cdef extern from *:
         SaveFunc{(void*)&_pickle_Pickler_xsave_##ccname, CALLCONV_##ccname},
     FOR_EACH_CALLCONV(PICKLE_CC_XSAVE)
     };
-
     static std::vector<SaveFunc> _zpickle_Pickler_xsave_ccv = {
     #define ZPICKLE_CC_XSAVE(ccname, _, __) \
         SaveFunc{(void*)&_zpickle_Pickler_xsave_##ccname, CALLCONV_##ccname},
@@ -520,12 +588,52 @@ cdef extern from *:
 
 
 cdef int __Pickler_xsave(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* obj, int pers_save) except -1:
-    # !bstr -> use builtin pickle code
-    if obj.ob_type != <PyTypeObject*>pybstr:
-        return save_invoke(pctx.Pickler_save_orig.addr, pctx.Pickler_save_orig.cconv,
-                                self, obj, pers_save)
+    # do not rely on pers_save value and instead set .pers_func=NULL during the
+    # call not to let xpers_save to be entered recursively and to deactivate
+    # original save->pers_save codepath. See note in __detect_save_callconv
+    # about why pers_save value might be unreliable.
+    #
+    # we are ok to do adjust .pers_save because Pickler, from the beginning, is
+    # not safe to be used form multiple threads simultaneously.
+    ppers_func = <PyObject**>((<byte*>self) + pctx.iPickler.off_pers_func)
+    pers_func  = ppers_func[0]
+    try:
+        ppers_func[0] = NULL
+        return ___Pickler_xsave(pctx, self, obj, pers_func)
+    finally:
+        ppers_func[0] = pers_func
 
-    # bstr  -> pickle it as *STRING
+# __Pickler_xsave_psave0 is used instead of __Pickler_xsave when we detected
+# that original save might be compiled with pers_save const-propagated with 0.
+cdef int __Pickler_xsave_psave0(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* obj) except -1:
+    # similarly to __Pickler_xsave set .pers_func=NULL during the call not to
+    # let xpers_save to be entered recursively and to deactivate original
+    # save->pers_save codepath.
+    ppers_func = <PyObject**>((<byte*>self) + pctx.iPickler.off_pers_func)
+    pers_func  = ppers_func[0]
+    try:
+        ppers_func[0] = NULL
+        return ___Pickler_xsave(pctx, self, obj, pers_func)
+    finally:
+        ppers_func[0] = pers_func
+
+cdef int ___Pickler_xsave(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* obj, PyObject* pers_func) except -1:
+    # persistent reference
+    if pers_func != NULL:
+        st = __Pickler_xsave_pers(pctx, self, obj, pers_func)
+        if st != 0:
+            return st
+
+    # bstr
+    if obj.ob_type == <PyTypeObject*>pybstr:
+        return __Pickler_xsave_bstr(pctx, self, obj)
+
+    # everything else -> use builtin pickle code
+    return save_invoke(pctx.Pickler_save_orig.addr, pctx.Pickler_save_orig.cconv, self, obj)
+
+
+# __Pickler_xsave_bstr saves bstr as *STRING.
+cdef int __Pickler_xsave_bstr(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* obj) except -1:
     cdef const char* s
     cdef Py_ssize_t  l
     cdef byte[5]     h
@@ -563,6 +671,43 @@ cdef int __Pickler_xsave(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* 
         __Pickler_xWrite(pctx, self, s, l)
 
     return 0
+
+# __Pickler_xsave_pers detects if obj has persistent ID and, if yes, saves it as persistent references.
+# XXX explain: proto=0 UTF8-b instead of ascii and \n rejected
+# XXX and exists to be able to patch save when CC does constprop
+cdef int __Pickler_xsave_pers(_pickle_PatchCtx* pctx, PicklerObject* self, PyObject* obj, PyObject* pers_func) except -1:
+    cdef PyObject* pers_func_self = NULL
+
+    if pctx.iPickler.off_pers_func_self != -1:
+        pers_func_self = (<PyObject**>((<byte*>self) + pctx.iPickler.off_pers_func_self))[0]
+
+    pid = _call_meth(pers_func, pers_func_self, obj)
+    if pid is None:
+        return 0
+
+    cdef int bin = (<int*>((<byte*>self) + pctx.iPickler.off_bin))[0]
+    if bin:
+        __Pickler_xsave(pctx, self, <PyObject*>pid, 1)
+        __Pickler_xWrite(pctx, self, b'Q', 1)   # BINPERSID
+
+    else:
+        pid_str = pybstr(pid)
+        if b'\n' in pid_str:
+            raise (<object>pctx.pymod).PicklingError(r'persistent ID contains \n')
+        s = PyBytes_AS_STRING(<PyObject*>pid_str)
+        l = PyBytes_GET_SIZE(<PyObject*>pid_str)
+        __Pickler_xWrite(pctx, self, b'P', 1)   # PERSID
+        __Pickler_xWrite(pctx, self, s, l)
+        __Pickler_xWrite(pctx, self, b'\n', 1)
+
+    return 1
+
+# _call_meth invokes func(self, obj)  or func(obj) if self is NULL.
+cdef object _call_meth(PyObject* func, PyObject* self, PyObject* obj):
+    if self != NULL:
+        return PyObject_CallFunctionObjArgs(<object>func, self, obj, NULL)
+    return PyObject_CallObject(<object>func, (<object>obj,))    # XXX PyObject_CallOneArg on py3
+
 
 
 # __Pickler_xWrite mimics original _Pickler_Write.
@@ -607,7 +752,7 @@ cdef int __Pickler_xWrite(_pickle_PatchCtx* pctx, PicklerObject* self, const cha
 # _detect_Pickler_typeinfo detects information about PicklerObject type
 # through runtime introspection.
 #
-# This information is used mainly by __Pickler_xWrite.
+# This information is used mainly by __Pickler_xWrite and __Pickler_xsave_pers.
 cdef PicklerTypeInfo _detect_Pickler_typeinfo(pyPickler) except *:
     cdef PicklerTypeInfo t
 
@@ -805,6 +950,65 @@ cdef PicklerTypeInfo _detect_Pickler_typeinfo(pyPickler) except *:
     markbusy(t.off_max_output_len, sizeof(Py_ssize_t))
     trace(".max_output_len:\t", t.off_max_output_len)
 
+    # .pers_func
+    # set .persistent_id to known function and find that pointers
+    obj_copy()
+    def persid_func(obj): pass
+    pyobj.persistent_id = persid_func
+    dpersid_func = obj_diff(sizeof(PyObject*))
+    assert len(dpersid_func) == 1,  dpersid_func
+    t.off_pers_func = dpersid_func[0]
+    assert (<PyObject**>(bobj + <Py_ssize_t>t.off_pers_func))[0] == <PyObject*>persid_func
+    markbusy(t.off_pers_func, sizeof(PyObject*))
+    trace('.pers_func:\t', t.off_pers_func)
+
+    # .pers_func_self
+    # start with class that defines .persistent_id methond, then set .persistent_id
+    # to known function and find which pointers change:
+    #   * if it is only 1 pointer - there is no .pers_func_self  (e.g. zodbpickle)
+    #   * if it is 2 pointers     - .pers_func_self is there and it is reset to NULL
+    class pyPickler2(pyPickler):
+        def persistent_id(self, obj): pass
+    assert isinstance(pyPickler2, type)
+    cdef PyTypeObject*   Pickler2  = <PyTypeObject*>   pyPickler2
+    cdef _XPyTypeObject* xPickler2 = <_XPyTypeObject*> pyPickler2
+
+    assert Pickler2.tp_basicsize >= t.size
+    assert Pickler2.tp_itemsize  == 0
+
+    pyobj = pyPickler2(Null())
+    obj = <PyObject*>pyobj
+    assert obj.ob_type == Pickler2
+    bobj = <byte*>obj
+
+    obj_copy()
+    pyPickler.persistent_id.__set__(pyobj, persid_func)
+    dpersid_meth = obj_diff(sizeof(PyObject*))
+    assert len(dpersid_meth) in (1,2),  dpersid_meth
+    cdef Py_ssize_t off1, off2
+    if len(dpersid_meth) == 1:
+        t.off_pers_func_self = -1
+        assert dpersid_meth[0] == t.off_pers_func
+        assert (<PyObject**>(bobj + <Py_ssize_t>t.off_pers_func))[0] == <PyObject*>persid_func
+    else:
+        assert len(dpersid_meth) == 2
+        off1 = <Py_ssize_t>(dpersid_meth[0])
+        off2 = <Py_ssize_t>(dpersid_meth[1])
+        val1 = (<PyObject**>(bobj + off1))[0]
+        val2 = (<PyObject**>(bobj + off2))[0]
+        if val1 == NULL:
+            assert off2 == t.off_pers_func
+            assert val2 == <PyObject*>persid_func
+            t.off_pers_func_self = off1
+        elif val2 == NULL:
+            assert off1 == t.off_pers_func
+            assert val1 == <PyObject*>persid_func
+            t.off_pers_func_self = off2
+        else:
+            assert False, "cannot find NULL after resetting .pers_func_self"
+        markbusy(t.off_pers_func_self, sizeof(PyObject*))
+    trace('.pers_func_self:\t', t.off_pers_func_self)
+
     free(bobj2)
     return t
 
@@ -931,6 +1135,22 @@ cdef extern from * nogil: # see _golang_str_pickle.S for details
 # convention is usually the same as default, but on e.g. i386 - where the
 # default cdecl means to put arguments on the stack, the compiler usually
 # changes calling convention to use registers instead.
+#
+# It might be also the case that the code is generated with const-propagated
+# pers_save=0 so save becomes a function with 2 arguments instead of 3. Such
+# variants are also probed, and if we see that 2-args probe worked ok, we do not
+# delve into proving whether pers_save was really const-propagated or not: even
+# if it is not const-propagated __Pickler_xsave_psave0 deactivates original
+# save->pers_save codepath so the worst that can happen is that we ignore
+# pers_save argument passed in a register or on the stack. We are ok to do that
+# because we let the probe go only if stkclean_by_callee is the same for both
+# save and probe, and because original code passes pers_save=0 all around
+# except from inside pers_save which we deactivate.
+#
+# Note that regarding pers_save the detection of calling convention is not
+# reliable because save is invoked with pers_save=0 and zeros might be present
+# in a register or on the stack for unrelated reason. For this reason
+# __Pickler_xsave does not rely on pers_save value at all in its control flow.
 cdef Callconv __detect_save_callconv(pyPickler, void* save) except *:
     for p in saveprobe_test_ccv:
         #print("save: probing %s" % callconv_str(p.cconv))
@@ -1001,6 +1221,11 @@ cdef extern from * nogil:
         saveprobe_##ccname(void* self, PyObject* obj, int pers_save) {  \
             return saveprobe(self, obj, pers_save);                     \
         }
+    #define DEF_SAVEPROBE_builtin_psave0(ccname, callconv)              \
+        static int callconv                                             \
+        saveprobe_##ccname(void* self, PyObject* obj) {                 \
+            return saveprobe(self, obj, 0);                             \
+        }
     #define DEF_SAVEPROBE_custom(ccname, _)                             \
         extern "C" char saveprobe_##ccname;
     #define DEF_SAVEPROBE(ccname, callconv, cckind) DEF_SAVEPROBE_##cckind(ccname, callconv)
@@ -1028,19 +1253,27 @@ cdef extern from * nogil:
     vector[SaveFunc] saveprobe_test_ccv
 
 
-# XXX doc save_invoke ...
+# XXX doc save_invoke pers_save=1 ...
 # XXX place
 cdef extern from *:
     r"""
     #define CC_SAVE_DEFCALL1_builtin(ccname, callconv)
+    #define CC_SAVE_DEFCALL1_builtin_psave0(ccname, callconv)
     #define CC_SAVE_DEFCALL1_custom(ccname, _)  \
         extern "C" int CALLCONV(fastcall)       \
         save_invoke_as_##ccname(void* save, void* self, PyObject* obj, int pers_save);
     #define CC_SAVE_DEFCALL1(ccname, callconv, cckind)  CC_SAVE_DEFCALL1_##cckind(ccname, callconv)
     FOR_EACH_CALLCONV(CC_SAVE_DEFCALL1)
 
-    static int save_invoke(void* save, Callconv cconv, void* self, PyObject* obj, int pers_save) {
+    static int save_invoke(void* save, Callconv cconv, void* self, PyObject* obj) {
         using namespace golang;
+
+        // passing pers_save is unreliable and we anyway always deactivate
+        // original save->pers_save codepath and handle persistent references
+        // ourselves. But try to deactivate it here once more just in case.
+        //
+        // See __Pickler_xsave and note in __detect_save_callconv for details.
+        int pers_save = 1;
 
         switch(cconv) {
     #define CC_SAVE_CALL1_builtin(ccname, callconv)     \
@@ -1050,6 +1283,10 @@ cdef extern from *:
     #define CC_SAVE_CALL1_custom(ccname, _)             \
         case CALLCONV_ ## ccname:                                   \
             return save_invoke_as_##ccname(save, self, obj, pers_save);
+    #define CC_SAVE_CALL1_builtin_psave0(ccname, callconv)  \
+        case CALLCONV_ ## ccname:                                   \
+            return ((int (callconv *)(void*, PyObject*))save)       \
+                    (self, obj);
     #define CC_SAVE_CALL1(ccname, callconv, cckind) CC_SAVE_CALL1_##cckind(ccname, callconv)
     FOR_EACH_CALLCONV(CC_SAVE_CALL1)
         default:
@@ -1057,7 +1294,7 @@ cdef extern from *:
         }
     }
     """
-    int save_invoke(void* save, Callconv cconv, void* self, PyObject* obj, int pers_save) except -1
+    int save_invoke(void* save, Callconv cconv, void* self, PyObject* obj) except -1
 
 
 # - cfunc_direct_callees returns addresses of functions that cfunc calls directly.

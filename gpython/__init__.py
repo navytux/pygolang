@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -247,11 +247,12 @@ def pymain(argv, init=None):
         pyimpl = platform.python_implementation()
 
         v = _version_info_str
+        pyver  = platform.python_version()  # ~ v(sys.version_info) but might also have e.g. '+' at tail
         if pyimpl == 'CPython':
-            ver.append('CPython %s' % v(sys.version_info))
+            ver.append('CPython %s' % pyver)
         elif pyimpl == 'PyPy':
             ver.append('PyPy %s'   % v(sys.pypy_version_info))
-            ver.append('Python %s' % v(sys.version_info))
+            ver.append('Python %s' % pyver)
         else:
             ver = [] # unknown
 
@@ -474,6 +475,7 @@ def main():
         from six.moves import builtins
         for k in golang.__all__:
             setattr(builtins, k, getattr(golang, k))
+#       setattr(builtins, 'CCC', CCC)   # XXX kill
 
         # sys.version
         sys.version += (' [GPython %s] [runtime %s] [strings %s]' % (golang.__version__, gpy_runtime_ver, gpy_strings))
@@ -594,8 +596,8 @@ class _IGetOpt:
     next = __next__ # for py2
 
 
-# for tests XXX continue by first writing test  XXX
-#1/0
+# for tests: subclass of str that is created before everything else is imported
+# and before golang patches builtin str/unicode types.
 class _tEarlyStrSubclass(str):
     pass
 
