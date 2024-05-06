@@ -1886,6 +1886,7 @@ def test_strings_methods():
     _("МиР").swapcase(                              ok="мИр")
     _("МиР").title(                                 ok="Мир")
     _("мир").translate({ord(u'м'):ord(u'и'), ord(u'и'):'я', ord(u'р'):None},        ok="ия")
+    _(u"\u0000\u0001\u0002.").translate([u'м', ord(u'и'), None],                    ok="ми.")
     _("МиР").upper(                                 ok="МИР")
     _("мир").zfill(10,                              ok="0000000мир")
     _("123").zfill(10,                              ok="0000000123")
