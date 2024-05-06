@@ -188,7 +188,7 @@ class develop(XInstallGPython, _develop):
 
 # requirements of packages under "golang." namespace
 R = {
-    'cmd.pybench':      {'pytest', 'py'},
+    'cmd.pybench':      {'pytest', 'py ; python_version >= "3"'},
     'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.8'},
     'x.perf.benchlib':  {'numpy'},
 }
@@ -467,8 +467,11 @@ setup(
                             'golang/os/signal.h',
                             'golang/strings.h',
                             'golang/sync.h',
-                            'golang/time.h'],
-                        include_dirs    = ['3rdparty/include'],
+                            'golang/time.h',
+                            '3rdparty/ratas/src/timer-wheel.h'],
+                        include_dirs    = [
+                            '3rdparty/include',
+                            '3rdparty/ratas/src'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
                         soversion       = '0.1'),
 
@@ -604,9 +607,6 @@ setup(
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3
-        Programming Language :: Python :: 3.5
-        Programming Language :: Python :: 3.6
-        Programming Language :: Python :: 3.7
         Programming Language :: Python :: 3.8
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.10

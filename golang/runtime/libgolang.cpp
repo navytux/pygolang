@@ -131,6 +131,7 @@ using internal::_runtime;
 
 namespace internal { namespace atomic { extern void _init(); } }
 namespace os { namespace signal { extern void _init(); } }
+namespace time { extern void _init(); }
 void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
     if (_runtime != nil) // XXX better check atomically
         panic("libgolang: double init");
@@ -138,6 +139,7 @@ void _libgolang_init(const _libgolang_runtime_ops *runtime_ops) {
 
     internal::atomic::_init();
     os::signal::_init();
+    time::_init();
 }
 
 void _taskgo(void (*f)(void *), void *arg) {
@@ -166,7 +168,15 @@ void _semafree(_sema *sema) {
 }
 
 void _semaacquire(_sema *sema) {
-    _runtime->sema_acquire((_libgolang_sema *)sema);
+    bool ok;
+    ok = _runtime->sema_acquire((_libgolang_sema *)sema, UINT64_MAX);
+    if (!ok)
+        panic("semaacquire: failed");
+}
+
+// NOTE not currently exposed in public API
+bool _semaacquire_timed(_sema *sema, uint64_t timeout_ns) {
+    return _runtime->sema_acquire((_libgolang_sema *)sema, timeout_ns);
 }
 
 void _semarelease(_sema *sema) {

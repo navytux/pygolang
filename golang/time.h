@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_TIME_H
 #define	_NXD_LIBGOLANG_TIME_H
 
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
+// Copyright (C) 2019-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -118,6 +118,7 @@ private:
     double      _dt;
     sync::Mutex _mu;
     bool        _stop;
+    Timer       _timer;
 
     // don't new - create only via new_ticker()
 private:
@@ -147,18 +148,12 @@ LIBGOLANG_API Timer new_timer(double dt);
 struct _Timer : object {
     chan<double> c;
 
-private:
-    func<void()> _f;
-
-    sync::Mutex  _mu;
-    double       _dt;  // +inf - stopped, otherwise - armed
-    int          _ver; // current timer was armed by n'th reset
-
     // don't new - create only via new_timer() & co
 private:
     _Timer();
     ~_Timer();
     friend Timer _new_timer(double dt, func<void()> f);
+    friend class _TimerImpl;
 public:
     LIBGOLANG_API void decref();
 
@@ -182,9 +177,6 @@ public:
     //
     // the timer must be either already stopped or expired.
     LIBGOLANG_API void reset(double dt);
-
-private:
-    void _fire(double dt, int ver);
 };
 
 

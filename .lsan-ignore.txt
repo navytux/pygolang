@@ -1,0 +1,124 @@
+# .lsan-ignore.txt lists memory leak events that LeakSanitizer should not
+# report when running pygolang tests.
+#
+# Many python allocations, whose lifetime coincides with python interpreter
+# lifetime, and which are not explicitly freed on python shutdown, are
+# reported as leaks by default. Disable leak reporting for those to avoid
+# non-pygolang related printouts.
+
+
+# >>> Everything created when initializing python, e.g. sys.stderr
+#   #0 0x7f21e74f3bd7 in malloc .../asan_malloc_linux.cpp:69
+#   #1 0x555f361ff9a4 in PyThread_allocate_lock Python/thread_pthread.h:385
+#   #2 0x555f3623f72a in _buffered_init Modules/_io/bufferedio.c:725
+#   #3 0x555f3623ff7e in _io_BufferedWriter___init___impl Modules/_io/bufferedio.c:1803
+#   #4 0x555f3623ff7e in _io_BufferedWriter___init__ Modules/_io/clinic/bufferedio.c.h:489
+#   #5 0x555f3610c086 in type_call Objects/typeobject.c:1103
+#   #6 0x555f3609cdcc in _PyObject_MakeTpCall Objects/call.c:214
+#   #7 0x555f3609d6a8 in _PyObject_VectorcallTstate Include/internal/pycore_call.h:90
+#   #8 0x555f3609d6a8 in _PyObject_VectorcallTstate Include/internal/pycore_call.h:77
+#   #9 0x555f3609d6a8 in _PyObject_CallFunctionVa Objects/call.c:536
+#   #10 0x555f3609e89c in _PyObject_CallFunction_SizeT Objects/call.c:590
+#   #11 0x555f3623a0df in _io_open_impl Modules/_io/_iomodule.c:407
+#   #12 0x555f3623a0df in _io_open Modules/_io/clinic/_iomodule.c.h:264
+#   #13 0x555f360f17da in cfunction_vectorcall_FASTCALL_KEYWORDS Objects/methodobject.c:443
+#   #14 0x555f3609d54c in _PyObject_VectorcallTstate Include/internal/pycore_call.h:92
+#   #15 0x555f3609d54c in _PyObject_CallFunctionVa Objects/call.c:536
+#   #16 0x555f3609ec34 in callmethod Objects/call.c:608
+#   #17 0x555f3609ec34 in _PyObject_CallMethod Objects/call.c:677
+#   #18 0x555f361e60cf in create_stdio Python/pylifecycle.c:2244
+#   #19 0x555f361e6523 in init_sys_streams Python/pylifecycle.c:2431
+#   #20 0x555f361e6523 in init_interp_main Python/pylifecycle.c:1154
+#   #21 0x555f361e7204 in pyinit_main Python/pylifecycle.c:1230
+#   #22 0x555f361e85ba in Py_InitializeFromConfig Python/pylifecycle.c:1261
+#   #23 0x555f3621010a in pymain_init Modules/main.c:67
+#   #24 0x555f362113de in pymain_main Modules/main.c:701
+#   #25 0x555f362113de in Py_BytesMain Modules/main.c:734
+leak:^pymain_init$
+
+# >>> Everything created when importing py modules, e.g.
+#   #0 0x7f18c86f3bd7 in malloc .../asan_malloc_linux.cpp:69
+#   #1 0x55b971430acf in PyMem_RawMalloc Objects/obmalloc.c:586
+#   #2 0x55b971430acf in _PyObject_Malloc Objects/obmalloc.c:2003
+#   #3 0x55b971430acf in _PyObject_Malloc Objects/obmalloc.c:1996
+#   #4 0x55b971415696 in new_keys_object Objects/dictobject.c:632
+#   #5 0x55b971415716 in dictresize Objects/dictobject.c:1429
+#   #6 0x55b97141961a in insertion_resize Objects/dictobject.c:1183
+#   #7 0x55b97141961a in insertdict Objects/dictobject.c:1248
+#   #8 0x55b97143eb7b in add_subclass Objects/typeobject.c:6547
+#   #9 0x55b97144ca52 in type_ready_add_subclasses Objects/typeobject.c:6345
+#   #10 0x55b97144ca52 in type_ready Objects/typeobject.c:6476
+#   #11 0x55b971451a1f in PyType_Ready Objects/typeobject.c:6508
+#   #12 0x55b971451a1f in type_new_impl Objects/typeobject.c:3189
+#   #13 0x55b971451a1f in type_new Objects/typeobject.c:3323
+#   #14 0x55b971443014 in type_call Objects/typeobject.c:1091
+#   #15 0x55b9713d3dcc in _PyObject_MakeTpCall Objects/call.c:214
+#   #16 0x55b9713d47bd in _PyObject_FastCallDictTstate Objects/call.c:141
+#   #17 0x55b9713d47bd in PyObject_VectorcallDict Objects/call.c:165
+#   #18 0x55b9714d14c2 in builtin___build_class__ Python/bltinmodule.c:209
+#   #19 0x55b9714287da in cfunction_vectorcall_FASTCALL_KEYWORDS Objects/methodobject.c:443
+#   #20 0x55b9713d4a7b in _PyObject_VectorcallTstate Include/internal/pycore_call.h:92
+#   #21 0x55b9713d4a7b in PyObject_Vectorcall Objects/call.c:299
+#   #22 0x55b97137666e in _PyEval_EvalFrameDefault Python/ceval.c:4769
+#   #23 0x55b9714d7e6b in _PyEval_EvalFrame Include/internal/pycore_ceval.h:73
+#   #24 0x55b9714d7e6b in _PyEval_Vector Python/ceval.c:6434
+#   #25 0x55b9714d7e6b in PyEval_EvalCode Python/ceval.c:1148
+#   #26 0x55b9714d2e1f in builtin_exec_impl Python/bltinmodule.c:1077
+#   #27 0x55b9714d2e1f in builtin_exec Python/clinic/bltinmodule.c.h:465
+#   #28 0x55b9714287da in cfunction_vectorcall_FASTCALL_KEYWORDS Objects/methodobject.c:443
+#   #29 0x55b971376dcb in do_call_core Python/ceval.c:7349
+#   #30 0x55b971376dcb in _PyEval_EvalFrameDefault Python/ceval.c:5376
+#   #31 0x55b9714d7faf in _PyEval_EvalFrame Include/internal/pycore_ceval.h:73
+#   #32 0x55b9714d7faf in _PyEval_Vector Python/ceval.c:6434
+#   #33 0x55b9713d436e in _PyObject_VectorcallTstate Include/internal/pycore_call.h:92
+#   #34 0x55b9713d436e in object_vacall Objects/call.c:819
+#   #35 0x55b9713d63cf in PyObject_CallMethodObjArgs Objects/call.c:879
+#   #36 0x55b9715080e1 in import_find_and_load Python/import.c:1748
+#   #37 0x55b9715080e1 in PyImport_ImportModuleLevelObject Python/import.c:1847
+#   #38 0x55b97137de9c in import_name Python/ceval.c:7422
+#   #39 0x55b97137de9c in _PyEval_EvalFrameDefault Python/ceval.c:3946
+#   #40 0x55b9714d7e6b in _PyEval_EvalFrame Include/internal/pycore_ceval.h:73
+#   #41 0x55b9714d7e6b in _PyEval_Vector Python/ceval.c:6434
+#   #42 0x55b9714d7e6b in PyEval_EvalCode Python/ceval.c:1148
+#   #43 0x55b9714d2e1f in builtin_exec_impl Python/bltinmodule.c:1077
+#   #44 0x55b9714d2e1f in builtin_exec Python/clinic/bltinmodule.c.h:465
+#   #45 0x55b9714287da in cfunction_vectorcall_FASTCALL_KEYWORDS Objects/methodobject.c:443
+#   #46 0x55b971376dcb in do_call_core Python/ceval.c:7349
+#   #47 0x55b971376dcb in _PyEval_EvalFrameDefault Python/ceval.c:5376
+leak:^PyImport_Import
+#  importlib.import_module leads to
+#   #0 0x7f1951ef3bd7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+#   #1 0x55f399e8cacf in PyMem_RawMalloc Objects/obmalloc.c:586
+#   #2 0x55f399e8cacf in _PyObject_Malloc Objects/obmalloc.c:2003
+#   #3 0x55f399e8cacf in _PyObject_Malloc Objects/obmalloc.c:1996
+#   #4 0x55f399e86344 in PyModule_ExecDef Objects/moduleobject.c:400
+#   #5 0x55f399f6178a in exec_builtin_or_dynamic Python/import.c:2345
+#   #6 0x55f399f6178a in _imp_exec_dynamic_impl Python/import.c:2419
+#   #7 0x55f399f6178a in _imp_exec_dynamic Python/clinic/import.c.h:474
+#   #8 0x55f399e8438a in cfunction_vectorcall_O Objects/methodobject.c:514
+leak:^_imp_exec_dynamic
+
+
+# >>> Everything allocated at DSO initialization, e.g.
+#   #0 0x7f35d2af46c8 in operator new(unsigned long) .../asan_new_delete.cpp:95
+#   #1 0x7f35ce897e9f in __static_initialization_and_destruction_0 golang/context.cpp:61
+#   #2 0x7f35ce8982ef in _GLOBAL__sub_I_context.cpp golang/context.cpp:380
+#   #3 0x7f35d32838bd in call_init elf/dl-init.c:90
+#   #4 0x7f35d32838bd in call_init elf/dl-init.c:27
+#   #5 0x7f35d32839a3 in _dl_init elf/dl-init.c:137
+#   #6 0x7f35d256e023 in __GI__dl_catch_exception elf/dl-error-skeleton.c:182
+#   #7 0x7f35d328a09d in dl_open_worker elf/dl-open.c:808
+#   #8 0x7f35d256dfc9 in __GI__dl_catch_exception elf/dl-error-skeleton.c:208
+#   #9 0x7f35d328a437 in _dl_open elf/dl-open.c:884
+#   #10 0x7f35d24a4437 in dlopen_doit dlfcn/dlopen.c:56
+#   #11 0x7f35d256dfc9 in __GI__dl_catch_exception elf/dl-error-skeleton.c:208
+#   #12 0x7f35d256e07e in __GI__dl_catch_error elf/dl-error-skeleton.c:227
+#   #13 0x7f35d24a3f26 in _dlerror_run dlfcn/dlerror.c:138
+#   #14 0x7f35d24a44e8 in dlopen_implementation dlfcn/dlopen.c:71
+#   #15 0x7f35d24a44e8 in ___dlopen dlfcn/dlopen.c:81
+#   #16 0x7f35d2a77ff9 in dlopen .../sanitizer_common_interceptors.inc:6341
+leak:^_GLOBAL_
+
+
+# global<> does not deallocate its reference on purpose
+leak:^_test_global()$

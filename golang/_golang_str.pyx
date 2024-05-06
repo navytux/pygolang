@@ -580,6 +580,7 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
     def title(self):                        return pyb(pyu(self).title())
     def translate(self, table, delete=None):
         # bytes mode  (compatibility with str/py2)
+        # XXX isinstance(zbytes) -> isinstance(bytes) ?
         if table is None  or isinstance(table, zbytes)  or  delete is not None:
             if delete is None:  delete = b''
             return pyb(zbytes.translate(self, table, delete))
@@ -905,12 +906,7 @@ cdef class _pyustr(unicode):
 
     def translate(self, table):
         # unicode.translate does not accept bstr values
-        t = {}
-        for k,v in table.items():
-            if not isinstance(v, int):  # either unicode ordinal,
-                v = _xpyu_coerce(v)     # character or None
-            t[k] = v
-        return pyu(zunicode.translate(self, t))
+        return pyu(zunicode.translate(self, _pyustrTranslateTab(table)))
 
     def upper(self):                        return pyu(zunicode.upper(self))
     def zfill(self, width):                 return pyu(zunicode.zfill(self, width))
@@ -982,6 +978,18 @@ cdef class _pyustrIter:
     def __next__(self):
         x = next(self.uiter)
         return pyu(x)
+
+# _pyustrTranslateTab wraps table for .translate to return bstr as unicode
+# because unicode.translate does not accept bstr values.
+cdef class _pyustrTranslateTab:
+    cdef object tab
+    def __init__(self, tab):
+        self.tab = tab
+    def __getitem__(self, k):
+        v = self.tab[k]
+        if not isinstance(v, int):  # either unicode ordinal,
+            v = _xpyu_coerce(v)     # character or None
+        return v
 
 
 # _bdata/_udata retrieve raw data from bytes/unicode.

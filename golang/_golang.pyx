@@ -173,11 +173,18 @@ cdef void __goviac(void *arg) nogil:
 
 # ---- channels ----
 
+# _frompyx indicates that a constructor is called from pyx code
+cdef object _frompyx = object()
+
 @final
 cdef class pychan:
     def __cinit__(pychan pych, size=0, dtype=object):
-        pych.dtype = parse_dtype(dtype)
-        pych._ch = _makechan_pyexc(dtypeRegistry[<int>pych.dtype].size, size)
+        if dtype is _frompyx:
+            pych.dtype = DTYPE_STRUCTZ  # anything
+            pych._ch   = NULL
+        else:
+            pych.dtype = parse_dtype(dtype)
+            pych._ch = _makechan_pyexc(dtypeRegistry[<int>pych.dtype].size, size)
 
     # pychan.nil(X) creates new nil pychan with specified dtype.
     # TODO try to avoid exposing .nil on pychan instances, and expose only pychan.nil
@@ -370,7 +377,7 @@ cdef void pychan_asserttype(pychan pych, DType dtype) nogil:
         panic("pychan: channel type mismatch")
 
 cdef pychan pychan_from_raw(_chan *_ch, DType dtype):
-    cdef pychan pych = pychan.__new__(pychan)
+    cdef pychan pych = pychan.__new__(pychan, dtype=_frompyx)
     pych.dtype = dtype
     pych._ch   = _ch; _chanxincref(_ch)
     return pych
@@ -626,9 +633,7 @@ cdef object c_to_py(DType dtype, const chanElemBuf *cfrom):
 
 # mkpynil creates pychan instance that represents nil[dtype].
 cdef PyObject *mkpynil(DType dtype):
-    cdef pychan pynil = pychan.__new__(pychan)
-    pynil.dtype = dtype
-    pynil._ch   = NULL   # should be already NULL
+    cdef pychan pynil = pychan_from_raw(NULL, dtype)
     Py_INCREF(pynil)
     return <PyObject *>pynil
 
@@ -817,9 +822,6 @@ from golang cimport errors
 from libcpp.typeinfo cimport type_info
 from cython.operator cimport typeid
 from libc.string cimport strcmp
-
-# _frompyx indicates that a constructor is called from pyx code
-cdef object _frompyx = object()
 
 cdef class pyerror(Exception):
     # pyerror <- error
