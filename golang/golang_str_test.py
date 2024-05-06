@@ -1667,7 +1667,10 @@ def test_strings_methods():
     # checkop verifies that `s.meth(*argv, **kw)` gives the same result for s,
     # argv and kw being various combinations of unicode,bstr,ustr, bytes/bytearray.
     def checkop(s, meth, *argv, **kw):
-        assert type(s) is str
+        if six.PY3:
+            assert type(s) is str
+        else:
+            assert type(s) in (str, unicode)    # some tests use unicode because \u does not work in str literals
         ok = kw.pop('ok')
         if six.PY2:
             ok = deepReplaceStr(ok, xunicode)
@@ -1834,7 +1837,7 @@ def test_strings_methods():
     _("123").isnumeric(                             ok=True)
     _("0x123").isnumeric(                           ok=False)
     _("мир").isprintable(                           ok=True,    optional=True)  # py3.0
-    _("\u2009").isspace(                            ok=x32(True,False))         # thin space
+    _(u"\u2009").isspace(                           ok=True)                    # thin space
     _("  ").isspace(                                ok=True)
     _("мир").isspace(                               ok=False)
     _("мир").istitle(                               ok=False)
@@ -1844,8 +1847,8 @@ def test_strings_methods():
     _("мир").ljust(10,                              ok="мир       ")
     _("мир").ljust(10, 'ж',                         ok="миржжжжжжж")
     _("МиР").lower(                                 ok="мир")
-    _("\u2009 мир").lstrip(                         ok=x32("мир", "\u2009 мир"))
-    _("\u2009 мир\u2009 ").lstrip(                  ok=x32("мир\u2009 ", "\u2009 мир\u2009 "))
+    _(u"\u2009 мир").lstrip(                        ok="мир")
+    _(u"\u2009 мир\u2009 ").lstrip(                 ok=u"мир\u2009 ")
     _("мммир").lstrip('ми',                         ok="р")
     _("миру мир").partition('ру',                   ok=("ми", "ру", " мир"))
     _("миру мир").partition('ж',                    ok=("миру мир", "", ""))
@@ -1860,15 +1863,15 @@ def test_strings_methods():
     _("миру мир").rpartition('ж',                   ok=("", "", "миру мир"))
     _("мир").rsplit(                                ok=["мир"])
     _("привет мир").rsplit(                         ok=["привет", "мир"])
-    _("привет\u2009мир").rsplit(                    ok=x32(["привет", "мир"], ["привет\u2009мир"]))
+    _(u"привет\u2009мир").rsplit(                   ok=["привет", "мир"])
     _("привет мир").rsplit("и",                     ok=["пр", "вет м", "р"])
     _("привет мир").rsplit("и", 1,                  ok=["привет м", "р"])
-    _("мир \u2009").rstrip(                         ok=x32("мир", "мир \u2009"))
-    _(" мир \u2009").rstrip(                        ok=x32(" мир", " мир \u2009"))
+    _(u"мир \u2009").rstrip(                        ok="мир")
+    _(u" мир \u2009").rstrip(                       ok=" мир")
     _("мируу").rstrip('ру',                         ok="ми")
     _("мир").split(                                 ok=["мир"])
     _("привет мир").split(                          ok=["привет", "мир"])
-    _("привет\u2009мир").split(                     ok=x32(['привет', 'мир'], ["привет\u2009мир"]))
+    _(u"привет\u2009мир").split(                    ok=['привет', 'мир'])
     _("привет мир").split("и",                      ok=["пр", "вет м", "р"])
     _("привет мир").split("и", 1,                   ok=["пр", "вет мир"])
     _("мир").splitlines(                            ok=["мир"])
@@ -1878,7 +1881,7 @@ def test_strings_methods():
     _("мир\nтруд\nмай\n").splitlines(               ok=["мир", "труд", "май"])
     _("мир\nтруд\nмай\n").splitlines(True,          ok=["мир\n", "труд\n", "май\n"])
     # startswith            - tested in test_strings_index
-    _("\u2009 мир \u2009").strip(                   ok=x32("мир", "\u2009 мир \u2009"))
+    _(u"\u2009 мир \u2009").strip(                  ok="мир")
     _("миру мир").strip('мир',                      ok="у ")
     _("МиР").swapcase(                              ok="мИр")
     _("МиР").title(                                 ok="Мир")
