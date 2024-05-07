@@ -106,6 +106,7 @@ from cython cimport no_gc
 from libc.stdio cimport FILE
 
 from golang cimport strconv
+import codecs as pycodecs
 import string as pystring
 import types as pytypes
 import functools as pyfunctools
@@ -343,9 +344,12 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
     # _pybstr.__new__ is hand-made in _pybstr_tp_new which invokes ↑ _pybstr__new__() .
 
 
-    def __bytes__(self):    return pyb(self)  # see __str__
-    def __unicode__(self):  return pyu(self)
+    # __bytes__ converts string to bytes leaving string domain.
+    # NOTE __bytes__ and encode are the only operations that leave string domain.
+    # NOTE __bytes__ is used only by py3 and only for `bytes(obj)` and `b'%s/%b' % obj`.
+    def __bytes__(self):    return _bdata(self)  # -> bytes
 
+    def __unicode__(self):  return pyu(self)
     def __str__(self):
         if PY_MAJOR_VERSION >= 3:
             return pyu(self)
@@ -482,13 +486,32 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
 
 
     # encode/decode
-    def decode(self, encoding=None, errors=None):
-        if encoding is None and errors is None:
-            encoding = 'utf-8'             # NOTE always UTF-8, not sys.getdefaultencoding
-            errors   = 'surrogateescape'
-        else:
-            if encoding is None:  encoding = 'utf-8'
-            if errors   is None:  errors   = 'strict'
+    #
+    # Encoding strings - both bstr and ustr - convert type to bytes leaving string domain.
+    #
+    # Encode treats bstr and ustr as string, encoding unicode representation of
+    # the string to bytes. For bstr it means that the string representation is
+    # first converted to unicode and encoded to bytes from there. For ustr
+    # unicode representation of the string is directly encoded.
+    #
+    # Decoding strings is not provided. However for bstr the decode is provided
+    # treating input data as raw bytes and producing ustr as the result.
+    #
+    # NOTE __bytes__ and encode are the only operations that leave string domain.
+    def encode(self, encoding=None, errors=None): # -> bytes
+        encoding, errors = _encoding_with_defaults(encoding, errors)
+
+        # on py2 e.g. bytes.encode('string-escape') works on bytes directly
+        if PY_MAJOR_VERSION < 3:
+            codec = pycodecs.lookup(encoding)
+            if not codec._is_text_encoding or \
+               encoding in ('string-escape',):  # string-escape also works on bytes
+                return codec.encode(self, errors)[0]
+
+        return pyu(self).encode(encoding, errors)
+
+    def decode(self, encoding=None, errors=None): # -> ustr | bstr on py2 for encodings like string-escape
+        encoding, errors = _encoding_with_defaults(encoding, errors)
 
         if encoding == 'utf-8'  and  errors == 'surrogateescape':
             x = _utf8_decode_surrogateescape(self)
@@ -498,11 +521,6 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if PY_MAJOR_VERSION < 3  and  isinstance(x, bytes):
             return pyb(x)
         return pyu(x)
-
-    if PY_MAJOR_VERSION < 3:
-        # whiteout encode inherited from bytes
-        # TODO ideally whiteout it in such a way that bstr.encode also raises AttributeError
-        encode = property(doc='bstr has no encode')
 
 
     # all other string methods
@@ -667,9 +685,11 @@ cdef class _pyustr(unicode):
     # _pyustr.__new__ is hand-made in _pyustr_tp_new which invokes ↑ _pyustr__new__() .
 
 
-    def __bytes__(self):    return pyb(self)
-    def __unicode__(self):  return pyu(self)  # see __str__
+    # __bytes__ converts string to bytes leaving string domain.
+    # see bstr.__bytes__ for more details.
+    def __bytes__(self):    return _bdata(pyb(self))  # -> bytes
 
+    def __unicode__(self):  return pyu(self)  # see __str__
     def __str__(self):
         if PY_MAJOR_VERSION >= 3:
             return pyu(self)  # = self  or  pyustr if it was subclass
@@ -793,20 +813,15 @@ cdef class _pyustr(unicode):
         return pyu(zunicode.__format__(self, format_spec))
 
 
-    # encode/decode
-    def encode(self, encoding=None, errors=None):
-        if encoding is None and errors is None:
-            encoding = 'utf-8'             # NOTE always UTF-8, not sys.getdefaultencoding
-            errors   = 'surrogateescape'
-        else:
-            if encoding is None:  encoding = 'utf-8'
-            if errors   is None:  errors   = 'strict'
+    # encode/decode (see bstr for details)
+    def encode(self, encoding=None, errors=None): # -> bytes
+        encoding, errors = _encoding_with_defaults(encoding, errors)
 
         if encoding == 'utf-8'  and  errors == 'surrogateescape':
             x = _utf8_encode_surrogateescape(self)
         else:
             x = zunicode.encode(self, encoding, errors)
-        return pyb(x)
+        return x
 
     if PY_MAJOR_VERSION < 3:
         # whiteout decode inherited from unicode
@@ -1987,6 +2002,18 @@ cdef extern from "Python.h":
 
 # ---- UTF-8 encode/decode ----
 
+# _encoding_with_defaults returns encoding and errors substituted with defaults
+# as needed for functions like ustr.encode and bstr.decode .
+cdef _encoding_with_defaults(encoding, errors): # -> (encoding, errors)
+    if encoding is None and errors is None:
+        encoding = 'utf-8'             # NOTE always UTF-8, not sys.getdefaultencoding
+        errors   = 'surrogateescape'
+    else:
+        if encoding is None:  encoding = 'utf-8'
+        if errors   is None:  errors   = 'strict'
+    return (encoding, errors)
+
+
 # TODO(kirr) adjust UTF-8 encode/decode surrogateescape(*) a bit so that not
 # only bytes -> unicode -> bytes is always identity for any bytes (this is
 # already true), but also that unicode -> bytes -> unicode is also always true
@@ -2238,7 +2265,6 @@ cdef _patch_str():
     # XXX explain
     bpreserve_slots = upreserve_slots = ("maketrans",)
     if PY_MAJOR_VERSION < 3:
-        bpreserve_slots += ("encode",) # @property'ies
         upreserve_slots += ("decode",)
 
     # patch unicode to be pyustr. This patches
