@@ -241,12 +241,16 @@ The conversion, in both encoding and decoding, never fails and never looses
 information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
 even if bytes data is not valid UTF-8.
 
+Both `bstr` and `ustr` represent stings. They are two different *representations* of the same entity.
+
 Semantically `bstr` is array of bytes, while `ustr` is array of
-unicode-characters. Accessing their elements by `[index]` yields byte and
-unicode character correspondingly [*]_. Iterating them, however, yields unicode
-characters for both `bstr` and `ustr`. In practice `bstr` is enough 99% of the
-time, and `ustr` only needs to be used for random access to string characters.
-See `Strings, bytes, runes and characters in Go`__ for overview of this approach.
+unicode-characters. Accessing their elements by `[index]` and iterating them yield byte and
+unicode character correspondingly [*]_. However it is possible to yield unicode
+character when iterating `bstr` via `uiter`, and to yield byte character when
+iterating `ustr` via `biter`. In practice `bstr` + `uiter` is enough 99% of
+the time, and `ustr` only needs to be used for random access to string
+characters.  See `Strings, bytes, runes and characters in Go`__ for overview of
+this approach.
 
 __ https://blog.golang.org/strings
 
@@ -267,7 +271,7 @@ Usage example::
 
    s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
    s += ' мир'          # s is b('привет мир')
-   for c in s:          # c will iterate through
+   for c in uiter(s):   # c will iterate through
         ...             #     [u(_) for _ in ('п','р','и','в','е','т',' ','м','и','р')]
 
    # the following gives b('привет мир труд май')

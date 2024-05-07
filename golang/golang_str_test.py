@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 import golang
-from golang import b, u, bstr, ustr, bbyte, uchr, func, defer, panic
+from golang import b, u, bstr, ustr, biter, uiter, bbyte, uchr, func, defer, panic
 from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
@@ -617,35 +617,38 @@ def test_strings_index2():
 
 # verify strings iteration.
 def test_strings_iter():
+    # iter(u/unicode) + uiter(*) -> iterate unicode characters
+    # iter(b/bytes)   + biter(*) -> iterate byte    characters
     us = u("миру мир"); u_ = u"миру мир"
-    bs = b("миру мир")
+    bs = b("миру мир"); b_ = xbytes("миру мир"); a_ = xbytearray(b_)
 
-    # iter( b/u/unicode ) -> iterate unicode characters
-    # NOTE that iter(b) too yields unicode characters - not integers or bytes
-    #bi  = iter(bs)         # XXX temp disabled
-    bi  = iter(us)
-    ui  = iter(us)
-    ui_ = iter(u_)
+    # XIter verifies that going through all given iterators produces the same type and results.
+    missing=object()
     class XIter:
+        def __init__(self, typok, *viter):
+            self.typok = typok
+            self.viter = viter
         def __iter__(self):
             return self
-        def __next__(self, missing=object):
-            x = next(bi, missing)
-            y = next(ui, missing)
-            z = next(ui_, missing)
-            assert type(x) is type(y)
-            if x is not missing:
-                assert type(x) is ustr
-            if z is not missing:
-                assert type(z) is unicode
-            assert x == y
-            assert y == z
-            if x is missing:
+        def __next__(self):
+            vnext = []
+            for it in self.viter:
+                obj = next(it, missing)
+                vnext.append(obj)
+            if missing in vnext:
+                assert vnext == [missing]*len(self.viter)
                 raise StopIteration
-            return x
+            for obj in vnext:
+                assert type(obj) is self.typok
+                assert obj == vnext[0]
+            return vnext[0]
         next = __next__ # py2
 
-    assert list(XIter()) == ['м','и','р','у',' ','м','и','р']
+    assert list(XIter(ustr, iter(us), uiter(us), uiter(u_), uiter(bs), uiter(b_), uiter(a_))) == \
+                ['м','и','р','у',' ','м','и','р']
+    assert list(XIter(bstr, iter(bs), biter(us), biter(u_), biter(bs), biter(b_), biter(a_))) == \
+                [b'\xd0',b'\xbc',b'\xd0',b'\xb8',b'\xd1',b'\x80',b'\xd1',b'\x83',b' ',
+                 b'\xd0',b'\xbc',b'\xd0',b'\xb8',b'\xd1',b'\x80']
 
 
 # verify .encode/.decode .

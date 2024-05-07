@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -24,7 +24,7 @@
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `error` and package `errors` provide error chaining.
-- `b`, `u` and `bstr`/`ustr` provide uniform UTF8-based approach to strings.
+- `b`, `u`, `bstr`/`ustr` and `biter`/`uiter` provide uniform UTF8-based approach to strings.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 See README for thorough overview.
@@ -36,7 +36,8 @@ from __future__ import print_function, absolute_import
 __version__ = "0.1"
 
 __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
-           'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'bbyte', 'uchr', 'gimport']
+           'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'biter', 'uiter', 'bbyte', 'uchr',
+           'gimport']
 
 import setuptools_dso
 setuptools_dso.dylink_prepare_dso('golang.runtime.libgolang')
@@ -323,4 +324,6 @@ from ._golang import    \
     pybbyte     as bbyte,   \
     pyu         as u,       \
     pyustr      as ustr,    \
-    pyuchr      as uchr
+    pyuchr      as uchr,    \
+    pybiter     as biter,   \
+    pyuiter     as uiter

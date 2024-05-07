@@ -141,7 +141,7 @@ cpdef pyb(s): # -> bstr
 
           b(u(bytes_input))  is bstr with the same data as bytes_input.
 
-       See also: u, bstr/ustr.
+       See also: u, bstr/ustr, biter/uiter.
     """
     bs = _pyb(pybstr, s)
     if bs is None:
@@ -164,7 +164,7 @@ cpdef pyu(s): # -> ustr
 
           u(b(unicode_input))  is ustr with the same data as unicode_input.
 
-       See also: b, bstr/ustr.
+       See also: b, bstr/ustr, biter/uiter.
     """
     us = _pyu(pyustr, s)
     if us is None:
@@ -280,8 +280,6 @@ cdef __pystr(object obj): # -> ~str
         return pyb(obj)
 
 
-# XXX -> bchr ?  (not good as "character" means "unicode character")
-#     -> bstr.chr ?
 def pybbyte(int i): # -> 1-byte bstr
     """bbyte(i) returns 1-byte bstr with ordinal i."""
     return pyb(bytearray([i]))
@@ -318,11 +316,11 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
 
     is always identity even if bytes data is not valid UTF-8.
 
-    Semantically bstr is array of bytes. Accessing its elements by [index]
-    yields byte character. Iterating through bstr, however, yields unicode
-    characters. In practice bstr is enough 99% of the time, and ustr only
-    needs to be used for random access to string characters. See
-    https://blog.golang.org/strings for overview of this approach.
+    Semantically bstr is array of bytes. Accessing its elements by [index] and
+    iterating it yield byte character. However it is possible to yield unicode
+    character when iterating bstr via uiter. In practice bstr + uiter is enough
+    99% of the time, and ustr only needs to be used for random access to string
+    characters. See https://blog.golang.org/strings for overview of this approach.
 
     Operations in between bstr and ustr/unicode / bytes/bytearray coerce to bstr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -337,7 +335,7 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
       to bstr. See b for details.
     - otherwise bstr will have string representation of the object.
 
-    See also: b, ustr/u.
+    See also: b, ustr/u, biter/uiter.
     """
 
     # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
@@ -414,10 +412,13 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
             else:
                 return pyb(x)
 
-    # __iter__  - yields unicode characters
+    # __iter__
     def __iter__(self):
-        # TODO iterate without converting self to u
-        return pyu(self).__iter__()
+        if PY_MAJOR_VERSION >= 3:
+            return _pybstrIter(zbytes.__iter__(self))
+        else:
+            # on python 2 str does not have .__iter__
+            return PySeqIter_New(self)
 
 
     # __contains__
@@ -668,8 +669,8 @@ cdef class _pyustr(unicode):
     elements by [index] yields unicode characters.
 
     ustr complements bstr and is meant to be used only in situations when
-    random access to string characters is needed. Otherwise bstr is more
-    preferable and should be enough 99% of the time.
+    random access to string characters is needed. Otherwise bstr + uiter is
+    more preferable and should be enough 99% of the time.
 
     Operations in between ustr and bstr/bytes/bytearray / unicode coerce to ustr.
     When the coercion happens, bytes and bytearray, similarly to bstr, are also
@@ -678,7 +679,7 @@ cdef class _pyustr(unicode):
     ustr constructor, similarly to the one in bstr, accepts arbitrary objects
     and stringify them. Please refer to bstr and u documentation for details.
 
-    See also: u, bstr/b.
+    See also: u, bstr/b, biter/uiter.
     """
 
     # XXX due to "cannot `cdef class` with __new__" (https://github.com/cython/cython/issues/799)
@@ -983,16 +984,42 @@ cdef PyObject* _pyustr_tp_new(PyTypeObject* _cls, PyObject* _argv, PyObject* _kw
 assert sizeof(_pyustr) == sizeof(PyUnicodeObject)
 
 
-# _pyustrIter wraps unicode iterator to return pyustr for each yielded character.
-cdef class _pyustrIter:
-    cdef object uiter
-    def __init__(self, uiter):
-        self.uiter = uiter
+# _pybstrIter wraps bytes   iterator to return pybstr for each yielded byte.
+cdef class _pybstrIter:
+    cdef object zbiter
+    def __init__(self, zbiter):
+        self.zbiter = zbiter
     def __iter__(self):
         return self
     def __next__(self):
-        x = next(self.uiter)
+        x = next(self.zbiter)
+        if PY_MAJOR_VERSION >= 3:
+            return pybbyte(x)
+        else:
+            return pyb(x)
+
+# _pyustrIter wraps zunicode iterator to return pyustr for each yielded character.
+cdef class _pyustrIter:
+    cdef object zuiter
+    def __init__(self, zuiter):
+        self.zuiter = zuiter
+    def __iter__(self):
+        return self
+    def __next__(self):
+        x = next(self.zuiter)
         return pyu(x)
+
+
+def pybiter(obj):
+    """biter(obj) is like iter(b(obj)) but  TODO: iterates object incrementally
+    without doing full convertion to bstr."""
+    return iter(pyb(obj))   # TODO iterate obj directly
+
+def pyuiter(obj):
+    """uiter(obj) is like iter(u(obj)) but  TODO: iterates object incrementally
+    without doing full convertion to ustr."""
+    return iter(pyu(obj))   # TODO iterate obj directly
+
 
 # _pyustrTranslateTab wraps table for .translate to return bstr as unicode
 # because unicode.translate does not accept bstr values.

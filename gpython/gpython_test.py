@@ -87,6 +87,8 @@ def test_golang_builtins():
     assert u      is golang.u
     assert bstr   is golang.bstr
     assert ustr   is golang.ustr
+    assert biter  is golang.biter
+    assert uiter  is golang.uiter
     assert bbyte  is golang.bbyte
     assert uchr   is golang.uchr
 
