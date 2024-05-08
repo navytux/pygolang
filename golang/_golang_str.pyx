@@ -355,19 +355,48 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
             return zbytes.__hash__(self)
 
     # == != < > <= >=
-    # NOTE == and != are special: they must succeed against any type so that
-    # bstr could be used as dict key.
+    # NOTE all operations must succeed against any type so that bstr could be
+    # used as dict key and arbitrary three-way comparisons, done by python,
+    # work correctly. This means that on py2 e.g. `bstr > int` will behave
+    # exactly as builtin str and won't raise TypeError. On py3 TypeError is
+    # raised for such operations by python itself when it receives
+    # NotImplemented from all tried methods.
     def __eq__(a, b):
         try:
             b = _pyb_coerce(b)
         except TypeError:
-            return False
+            return NotImplemented
         return zbytes.__eq__(a, b)
-    def __ne__(a, b):   return not a.__eq__(b)
-    def __lt__(a, b):   return zbytes.__lt__(a, _pyb_coerce(b))
-    def __gt__(a, b):   return zbytes.__gt__(a, _pyb_coerce(b))
-    def __le__(a, b):   return zbytes.__le__(a, _pyb_coerce(b))
-    def __ge__(a, b):   return zbytes.__ge__(a, _pyb_coerce(b))
+    def __ne__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zbytes.__ne__(a, b)
+    def __lt__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zbytes.__lt__(a, _pyb_coerce(b))
+    def __gt__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zbytes.__gt__(a, _pyb_coerce(b))
+    def __le__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zbytes.__le__(a, _pyb_coerce(b))
+    def __ge__(a, b):
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zbytes.__ge__(a, _pyb_coerce(b))
 
     # len - no need to override
 
@@ -706,19 +735,44 @@ cdef class _pyustr(unicode):
             return hash(pyb(self))
 
     # == != < > <= >=
-    # NOTE == and != are special: they must succeed against any type so that
-    # ustr could be used as dict key.
+    # NOTE all operations must succeed against any type.
+    # See bstr for details.
     def __eq__(a, b):
         try:
             b = _pyu_coerce(b)
         except TypeError:
-            return False
+            return NotImplemented
         return zunicode.__eq__(a, b)
-    def __ne__(a, b):   return not a.__eq__(b)
-    def __lt__(a, b):   return zunicode.__lt__(a, _pyu_coerce(b))
-    def __gt__(a, b):   return zunicode.__gt__(a, _pyu_coerce(b))
-    def __le__(a, b):   return zunicode.__le__(a, _pyu_coerce(b))
-    def __ge__(a, b):   return zunicode.__ge__(a, _pyu_coerce(b))
+    def __ne__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zunicode.__ne__(a, b)
+    def __lt__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zunicode.__lt__(a, _pyu_coerce(b))
+    def __gt__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zunicode.__gt__(a, _pyu_coerce(b))
+    def __le__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zunicode.__le__(a, _pyu_coerce(b))
+    def __ge__(a, b):
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            return NotImplemented
+        return zunicode.__ge__(a, _pyu_coerce(b))
 
     # len - no need to override
 

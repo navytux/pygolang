@@ -951,10 +951,18 @@ def test_strings_ops2_bufreject(tx, ty):
 
     assert  (x == y) is False           # see test_strings_ops2_eq_any
     assert  (x != y) is True
-    with raises(TypeError):     x >= y
-    with raises(TypeError):     x <= y
-    with raises(TypeError):     x >  y
-    with raises(TypeError):     x <  y
+    if six.PY3:
+        with raises(TypeError): "abc" >= y  # x.__op__(y) and y.__op'__(x) both return
+        with raises(TypeError):     x >= y  # NotImplemented which leads py3 to raise TypeError
+        with raises(TypeError):     x <= y
+        with raises(TypeError):     x >  y
+        with raises(TypeError):     x <  y
+    else:
+        "abc" >= y  # does not raise but undefined
+        x >= y      # ----//----
+        x <= y
+        x >  y
+        x <  y
 
     # reverse operations, e.g. memoryview + bstr
     with raises(TypeError):     y + x
@@ -968,10 +976,18 @@ def test_strings_ops2_bufreject(tx, ty):
     y == x  # not raises TypeError  -  see test_strings_ops2_eq_any
     y != x  #
     if tx is not bstr:
-        with raises(TypeError):     y >= x
-        with raises(TypeError):     y <= x
-        with raises(TypeError):     y >  x
-        with raises(TypeError):     y <  x
+        if six.PY3:
+            with raises(TypeError):     y >= "abc"  # see ^^^
+            with raises(TypeError):     y >= x
+            with raises(TypeError):     y <= x
+            with raises(TypeError):     y >  x
+            with raises(TypeError):     y <  x
+        else:
+            y >= "abc"
+            y >= x
+            y <= x
+            y >  x
+            y <  x
 
 
 # verify string operations like `x == *` for x being bstr/ustr.
@@ -991,10 +1007,19 @@ def test_strings_ops2_eq_any(tx):
     def assertNE(y):
         assert (x == y) is False
         assert (x != y) is True
-        with raises(TypeError): x >= y
-        with raises(TypeError): x <= y
-        with raises(TypeError): x >  y
-        with raises(TypeError): x <  y
+        if six.PY3:
+            with raises(TypeError): "abc" >= y  # py3: NotImplemented -> raise
+            with raises(TypeError): x >= y
+            with raises(TypeError): x <= y
+            with raises(TypeError): x >  y
+            with raises(TypeError): x <  y
+        else:
+            "abc" >= y  # py2: no raise on NotImplemented; result is undefined
+            x >= y
+            x <= y
+            x >  y
+            x <  y
+
     _ = assertNE
 
     _(None)
@@ -1017,6 +1042,21 @@ def test_strings_ops2_eq_any(tx):
     l = [1]
     with raises(TypeError): hash(l)
     _(l)
+
+    # also verify that internally x.__op__(y of non-string-type) returns
+    # NotImplemented - exactly the same way as builtin str type does. Even
+    # though `x op y` gives proper answer internally python counts on x.__op__(y)
+    # to return NotImplemented so that arbitrary three-way comparison works properly.
+    s = xstr(u'мир', str)
+    for op in ('eq', 'ne', 'lt', 'gt', 'le', 'ge'):
+        sop = getattr(s, '__%s__' % op)
+        xop = getattr(x, '__%s__' % op)
+        assert sop(None) is NotImplemented
+        assert xop(None) is NotImplemented
+        assert sop(0)    is NotImplemented
+        assert xop(0)    is NotImplemented
+        assert sop(hx)   is NotImplemented
+        assert xop(hx)   is NotImplemented
 
 
 # verify logic in `bstr % ...` and `bstr.format(...)` .
@@ -2525,6 +2565,44 @@ def test_strings_patched_transparently():
     assert _(b'a')      == b'a'
     assert _(b'b')      == b'ab'
     assert _(b'cde')    == b'abcde'
+
+
+# ---- issues hit by users ----
+# fixes for below issues have their corresponding tests in the main part above, but
+# we also add tests with original code where problems were hit.
+
+# three-way comparison wrt class with __cmp__ was working incorrectly because
+# bstr.__op__ were not returning NotImplemented wrt non-string types.
+# https://lab.nexedi.com/nexedi/slapos/-/merge_requests/1575#note_206080
+@mark.parametrize('tx', (str, bstr if str is bytes  else ustr)) # LooseVersion does not handle unicode on py2
+def test_strings_cmp_wrt_distutils_LooseVersion(tx):
+    from distutils.version import LooseVersion
+
+    l = LooseVersion('1.16.2')
+
+    x = xstr('1.12', tx)
+    assert not (x == l)
+    assert not (l == x)
+    assert      x != l
+    assert      l != x
+    assert not (x >= l)
+    assert      l >= x
+    assert      x <= l
+    assert not (l <= x)
+    assert      x < l
+    assert not (l < x)
+
+    x = xstr('1.16.2', tx)
+    assert      x == l
+    assert      l == x
+    assert not (x != l)
+    assert not (l != x)
+    assert      x >= l
+    assert      l >= x
+    assert      x <= l
+    assert      l <= x
+    assert not (x < l)
+    assert not (l < x)
 
 
 # ---- benchmarks ----
