@@ -435,3 +435,8 @@ cdef void _bench_select_nogil__func1(chan[int] ch1, chan[int] ch2, chan[structZ]
             if not ok:
                 done.close()
                 return
+
+
+# ---- strings -----
+
+include "_golang_str_test.pyx"

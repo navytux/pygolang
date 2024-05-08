@@ -26,6 +26,7 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
+from golang import _golang_test
 from gpython import _tEarlyStrSubclass
 from pytest import raises, mark, skip
 import sys
@@ -2631,7 +2632,7 @@ def test_strings_patched_transparently():
 #
 # XXX note !gpystr_only ...
 # XXX also test bytes?
-def tests_strings_early_str_subclass():
+def test_strings_early_str_subclass():
     xstr = _tEarlyStrSubclass
 
     # .tp_new should be adjusted to point to current str
@@ -2662,6 +2663,62 @@ def tests_strings_early_str_subclass():
 
 
     # XXX more...
+
+
+# verify that all string types are accepted by getattr/setattr/delattr/hasattr & co.
+@mark.parametrize('tx', (str, bstr, ustr))
+def test_strings_wrt_xxxattr(tx):
+    x = xstr(u'мир', tx)
+    assert type(x) is tx
+
+    class C: pass
+    obj = C()
+
+    t = _golang_test
+    vgetattr = [getattr, t.CPyObject_GetAttr] + [t.CPyObject_LookupAttr] if six.PY3  else []
+    vsetattr = [setattr, t.CPyObject_SetAttr]
+    vdelattr = [delattr, t.CPyObject_DelAttr]
+    vhasattr = [hasattr, t.CPyObject_HasAttr]
+
+    value = object()
+
+    # run runs f on each element of v.
+    def run(f, v):
+        for e in v:
+            f(e)
+
+    # attr is initially missing
+    def _(ga):
+        with raises(AttributeError): ga(obj, x)
+    run(_, vgetattr)
+
+    def _(ha):
+        assert ha(obj, x) is False
+    run(_, vhasattr)
+
+    def _(da):
+        with raises(AttributeError): da(obj, x)
+    run(_, vdelattr)
+
+    # set attr -> make sure it is there -> del
+    for sa in vsetattr:
+        for da in vdelattr:
+            def _(ha):
+                assert ha(obj, x) is False
+            run(_, vhasattr)
+            sa(obj, x, value)
+            def _(ha):
+                assert ha(obj, x) is True
+            run(_, vhasattr)
+            def _(ga):
+                assert ga(obj, x) is value
+            da(obj, x)
+            def _(ha):
+                assert ha(obj, x) is False
+            run(_, vhasattr)
+            def _(ga):
+                with raises(AttributeError): ga(obj, x)
+            run(_, vgetattr)
 
 
 # ---- issues hit by users ----

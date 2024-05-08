@@ -36,7 +36,8 @@ from cpython cimport PyObject_CheckBuffer
 from cpython cimport Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, PyType_Ready
 from cpython cimport Py_TPFLAGS_VALID_VERSION_TAG
 from cpython cimport PyBytes_Format, PyUnicode_Format, PyObject_Str
-from cpython cimport PyObject_GetAttr, PyObject_SetAttr
+from cpython cimport PyObject_GetAttr, PyObject_SetAttr, PyObject_HasAttr
+from cpython cimport PyBytes_Check
 
 cdef extern from "Python.h":
     PyTypeObject PyBytes_Type
@@ -1997,34 +1998,64 @@ cdef  _patch_capi_object_str():
 
 # XXX place, comments, test
 # on py3 PyObject_GetAttr & co insist on name to be unicode
-# XXX _PyObject_LookupAttr
 # XXX _PyObject_GenericGetAttrWithDict
 # XXX _PyObject_GenericSetAttrWithDict
 # XXX type_getattro
 IF PY3:
+    cdef extern from "Python.h":
+        int _PyObject_LookupAttr(object obj, object attr, PyObject** pres) except -1
+
     ctypedef object obj_getattr_func(object, object)
     ctypedef int    obj_setattr_func(object, object, object) except -1
+    #               delattr is implemented via setattr(v=NULL)
+    ctypedef bint   obj_hasattr_func(object, object) # no except
+    ctypedef int    obj_lookupattr_func(object, object, PyObject**) except -1
 
-    cdef obj_getattr_func* _pobject_GetAttr = PyObject_GetAttr
-    cdef obj_setattr_func* _pobject_SetAttr = PyObject_SetAttr
+    cdef obj_getattr_func*      _pobject_GetAttr    = PyObject_GetAttr
+    cdef obj_setattr_func*      _pobject_SetAttr    = PyObject_SetAttr
+    cdef obj_hasattr_func*      _pobject_HasAttr    = PyObject_HasAttr
+    cdef obj_lookupattr_func*   _pobject_LookupAttr = _PyObject_LookupAttr
+
+    # isbstr returns whether obj is bstr instance or not.
+    # it avoids going to isinstance unless really needed because isinstance,
+    # internally, uses _PyObject_LookupAttr and we need to patch that function
+    # with using isbstr in the hook.
+    cdef bint isbstr(obj) except -1:
+        if not PyBytes_Check(obj):
+            return False
+        if Py_TYPE(obj) == <PyTypeObject*>pybstr:
+            return True
+        # it might be also a pybstr subclass
+        return isinstance(obj, pybstr)
 
     cdef object _object_xGetAttr(object obj, object name):
-#       fprintf(stderr, "xgetattr...\n")
-        if isinstance(name, pybstr):
+        if isbstr(name):
             name = pyustr(name)
         return _pobject_GetAttr(obj, name)
 
-    cdef int    _object_xSetAttr(object obj, object name, object v) except -1:
-#       fprintf(stderr, "xsetattr...\n")
-        if isinstance(name, pybstr):
+    cdef int    _object_xSetAttr(object obj, object name, object v) except -1:  # XXX v=NULL on del
+        if isbstr(name):
             name = pyustr(name)
         return _pobject_SetAttr(obj, name, v)
+
+    cdef bint   _object_xHasAttr(object obj, object name): # no except
+        if isbstr(name):
+            name = pyustr(name)
+        return _pobject_HasAttr(obj, name)
+
+
+    cdef int    _object_xLookupAttr(object obj, object name, PyObject** pres) except -1:
+        if isbstr(name):
+            name = pyustr(name)
+        return _pobject_LookupAttr(obj, name, pres)
 
 
 cdef _patch_capi_object_attr_bstr():
     IF PY3:
-        cpatch(<void**>&_pobject_GetAttr, <void*>_object_xGetAttr)
-        cpatch(<void**>&_pobject_SetAttr, <void*>_object_xSetAttr)
+        cpatch(<void**>&_pobject_GetAttr,       <void*>_object_xGetAttr)
+        cpatch(<void**>&_pobject_SetAttr,       <void*>_object_xSetAttr)
+        cpatch(<void**>&_pobject_HasAttr,       <void*>_object_xHasAttr)
+        cpatch(<void**>&_pobject_LookupAttr,    <void*>_object_xLookupAttr)
 
 
 # ---- misc ----
@@ -2397,7 +2428,7 @@ cdef _patch_str():
 
     _patch_capi_str_format()
     _patch_capi_object_str()
-    _patch_capi_object_attr_bstr()
+    _patch_capi_object_attr_bstr()  # XXX activate under plain py as well
     _patch_capi_unicode_decode_as_bstr()
     _patch_str_pickle()
     # ...

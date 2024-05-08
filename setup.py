@@ -510,7 +510,9 @@ setup(
                     Ext('golang._golang_test',
                         ['golang/_golang_test.pyx',
                          'golang/runtime/libgolang_test_c.c',
-                         'golang/runtime/libgolang_test.cpp']),
+                         'golang/runtime/libgolang_test.cpp'],
+                        depends = [
+                         'golang/_golang_str_test.pyx']),
 
                     Ext('golang.pyx._runtime_test',
                         ['golang/pyx/_runtime_test.pyx'],
