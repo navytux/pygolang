@@ -2057,6 +2057,36 @@ cdef _patch_capi_object_attr_bstr():
         cpatch(<void**>&_pobject_HasAttr,       <void*>_object_xHasAttr)
         cpatch(<void**>&_pobject_LookupAttr,    <void*>_object_xLookupAttr)
 
+        # py3 < 3.11 also verifies name to be unicode
+        # XXX move out of _patch_capi* ?
+        import builtins
+        cdef object builtins_getattr = builtins.getattr
+        cdef object builtins_setattr = builtins.setattr
+        cdef object builtins_delattr = builtins.delattr
+        cdef object builtins_hasattr = builtins.hasattr
+
+        def xgetattr(obj, name, *argv):
+            if isbstr(name):
+                name = pyustr(name)
+            return builtins_getattr(obj, name, *argv)
+        def xsetattr(obj, name, value):
+            if isbstr(name):
+                name = pyustr(name)
+            return builtins_setattr(obj, name, value)
+        def xdelattr(obj, name):
+            if isbstr(name):
+                name = pyustr(name)
+            return builtins_delattr(obj, name)
+        def xhasattr(obj, name):
+            if isbstr(name):
+                name = pyustr(name)
+            return builtins_hasattr(obj, name)
+
+        builtins.getattr = xgetattr
+        builtins.setattr = xsetattr
+        builtins.delattr = xdelattr
+        builtins.hasattr = xhasattr
+
 
 # ---- misc ----
 
