@@ -653,58 +653,61 @@ def test_strings_encodedecode():
     us = u('мир')
     bs = b('май')
 
-    _ = us.encode();         assert type(_) is bytes; assert _ == xbytes('мир')
-    _ = us.encode('utf-8');  assert type(_) is bytes; assert _ == xbytes('мир')
-    _ = bs.encode();         assert type(_) is bytes; assert _ == xbytes('май')
-    _ = bs.encode('utf-8');  assert type(_) is bytes; assert _ == xbytes('май')
+    # encode does obj.encode and makes sure result type is bytes
+    def encode(obj, *argv):
+        _ = obj.encode(*argv)
+        assert type(_) is bytes
+        return _
 
-    # TODO also raise AttributeError on .encode/.decode lookup on classes
-    assert not hasattr(us, 'decode')  #;   assert not hasattr(ustr, 'decode')
-    _ = bs.decode();         assert type(_) is ustr;  assert _udata(_) == u'май'
-    _ = bs.decode('utf-8');  assert type(_) is ustr;  assert _udata(_) == u'май'
+    # decode does obj.decode and makes sure result type is ustr
+    def decode(obj, *argv):
+        _ = obj.decode(*argv)
+        assert type(_) is ustr
+        return _
+
+    _ = encode(us);           assert _ == xbytes('мир')
+    _ = encode(us, 'utf-8');  assert _ == xbytes('мир')
+    _ = encode(bs);           assert _ == xbytes('май')
+    _ = encode(bs, 'utf-8');  assert _ == xbytes('май')
+
+    _ = decode(us);           assert _udata(_) == u'мир'
+    _ = decode(us, 'utf-8');  assert _udata(_) == u'мир'
+    _ = decode(bs);           assert _udata(_) == u'май'
+    _ = decode(bs, 'utf-8');  assert _udata(_) == u'май'
 
     # !utf-8
-    k8mir = u'мир'.encode('koi8-r')
-    b_k8mir = b(k8mir)
-    assert type(b_k8mir) is bstr
-    assert _bdata(b_k8mir) == k8mir
-    assert _bdata(b_k8mir) == b'\xcd\xc9\xd2'
+    k8mir = u'мир'.encode('koi8-r');  assert k8mir == b'\xcd\xc9\xd2'
+    b_k8mir = b(k8mir);  assert type(b_k8mir) is bstr;  assert _bdata(b_k8mir) == b'\xcd\xc9\xd2'
+    u_k8mir = u(k8mir);  assert type(u_k8mir) is ustr;  assert _udata(u_k8mir) == u'\udccd\udcc9\udcd2'
 
-    _ = b_k8mir.decode('koi8-r')
-    assert type(_) is ustr
-    assert _udata(_) == u'мир'
+    _ = decode(b_k8mir, 'koi8-r');  assert _udata(_) == u'мир'
+    _ = decode(u_k8mir, 'koi8-r');  assert _udata(_) == u'мир'
 
-    cpmir = us.encode('cp1251')
-    assert type(cpmir) is bytes
-    assert cpmir == u'мир'.encode('cp1251')
-    assert cpmir == b'\xec\xe8\xf0'
+    _ = encode(us, 'cp1251');  assert _ == u'мир'.encode('cp1251');  assert _ == b'\xec\xe8\xf0'
+    _ = encode(bs, 'cp1251');  assert _ == u'май'.encode('cp1251');  assert _ == b'\xec\xe0\xe9'
 
     # decode/encode errors
-    u_k8mir = b_k8mir.decode()                          # no decode error with
-    assert type(u_k8mir) is ustr                        # default parameters
-    assert _udata(u_k8mir) == u'\udccd\udcc9\udcd2'
-    _ = b_k8mir.decode('utf-8', 'surrogateescape')      # no decode error with
-    assert type(_) is ustr                              # explicit utf-8/surrogateescape
-    assert _udata(_) == _udata(u_k8mir)
+    _ = decode(b_k8mir);  assert _ == u_k8mir           # no decode error with default parameters
+    _ = decode(b_k8mir, 'utf-8', 'surrogateescape')     # or with explicit utf-8/surrogateescape
+    assert _ == u_k8mir
+    _ = decode(u_k8mir);  assert _ == u_k8mir
+    _ = decode(u_k8mir, 'utf-8', 'surrogateescape');  assert _ == u_k8mir
 
-    with raises(UnicodeDecodeError):  # decode error if encoding is explicitly specified
-        b_k8mir.decode('utf-8')
-    with raises(UnicodeDecodeError):
-        b_k8mir.decode('utf-8', 'strict')
-    with raises(UnicodeDecodeError):
-        b_k8mir.decode('ascii')
+    with raises(UnicodeDecodeError):  b_k8mir.decode('utf-8')   # decode error on unmatching explicit encoding
+    with raises(UnicodeDecodeError):  u_k8mir.decode('utf-8')
+    with raises(UnicodeDecodeError):  b_k8mir.decode('utf-8', 'strict')
+    with raises(UnicodeDecodeError):  u_k8mir.decode('utf-8', 'strict')
+    with raises(UnicodeDecodeError):  b_k8mir.decode('ascii')
+    with raises(UnicodeDecodeError):  u_k8mir.decode('ascii')
 
-    with raises(UnicodeEncodeError):
-        us.encode('ascii')
+    with raises(UnicodeEncodeError):  us.encode('ascii')    # encode error if target encoding cannot represent string
+    with raises(UnicodeEncodeError):  bs.encode('ascii')
 
-    _ = u_k8mir.encode()                                # no encode error with
-    assert type(_) is bytes                             # default parameters
+    _ = encode(u_k8mir);  assert _ == k8mir             # no encode error with default parameters
+    _ = encode(u_k8mir, 'utf-8', 'surrogateescape')     # or with explicit utf-8/surrogateescape
     assert _ == k8mir
-    _ = u_k8mir.encode('utf-8', 'surrogateescape')      # no encode error with
-    assert type(_) is bytes                             # explicit utf-8/surrogateescape
-    assert _ == k8mir
-    _ = b_k8mir.encode()                                # bstr.encode = bstr -> ustr -> encode
-    assert type(_) is bytes
+    _ = encode(b_k8mir);  assert _ == k8mir             # bstr.encode = bstr -> ustr -> encode
+    _ = encode(b_k8mir, 'utf-8', 'surrogateescape')
     assert _ == k8mir
 
     # on py2 unicode.encode accepts surrogate pairs and does not complain
@@ -722,19 +725,28 @@ def test_strings_encodedecode():
     # verify that this exact semantic is preserved
     if six.PY3:
         with raises(LookupError):  bs.decode('hex')
+        with raises(LookupError):  us.decode('hex')
         with raises(LookupError):  bs.decode('string-escape')
+        with raises(LookupError):  us.decode('string-escape')
     else:
         _ = bs.decode('string-escape');          assert type(_) is bstr;  assert _ == bs
+        _ = us.decode('string-escape');          assert type(_) is bstr;  assert _ == us
         _ = b(r'x\'y').decode('string-escape');  assert type(_) is bstr;  assert _bdata(_) == b"x'y"
+        _ = u(r'x\'y').decode('string-escape');  assert type(_) is bstr;  assert _bdata(_) == b"x'y"
         _ = b('616263').decode('hex');           assert type(_) is bstr;  assert _bdata(_) == b"abc"
+        _ = u('616263').decode('hex');           assert type(_) is bstr;  assert _bdata(_) == b"abc"
 
     # similarly for bytes.encode
     if six.PY3:
         with raises(LookupError):  bs.encode('hex')
+        with raises(LookupError):  us.encode('hex')
         with raises(LookupError):  bs.encode('string-escape')
+        with raises(LookupError):  us.encode('string-escape')
     else:
-        _ = bs.encode('hex');            assert type(_) is bytes;  assert _ == b'd0bcd0b0d0b9'
-        _ = bs.encode('string-escape');  assert type(_) is bytes;  assert _ == br'\xd0\xbc\xd0\xb0\xd0\xb9'
+        _ = encode(bs, 'hex');            assert _ == b'd0bcd0b0d0b9'
+        _ = encode(us, 'hex');            assert _ == b'd0bcd0b8d180'
+        _ = encode(bs, 'string-escape');  assert _ == br'\xd0\xbc\xd0\xb0\xd0\xb9'
+        _ = encode(us, 'string-escape');  assert _ == br'\xd0\xbc\xd0\xb8\xd1\x80'
 
 
 # verify string operations like `x * 3` for all cases from bytes, bytearray, unicode, bstr and ustr.

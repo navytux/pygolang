@@ -460,25 +460,31 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
 
     # encode/decode
     #
-    # Encoding strings - both bstr and ustr - convert type to bytes leaving string domain.
+    # Encode encodes unicode representation of the string into bytes, leaving string domain.
+    # Decode decodes bytes   representation of the string into ustr, staying inside string domain.
     #
-    # Encode treats bstr and ustr as string, encoding unicode representation of
-    # the string to bytes. For bstr it means that the string representation is
-    # first converted to unicode and encoded to bytes from there. For ustr
-    # unicode representation of the string is directly encoded.
+    # Both bstr and ustr are accepted by encode and decode treating them as two
+    # different representations of the same entity.
     #
-    # Decoding strings is not provided. However for bstr the decode is provided
-    # treating input data as raw bytes and producing ustr as the result.
+    # On encoding, for bstr, the string representation is first converted to
+    # unicode and encoded to bytes from there. For ustr unicode representation
+    # of the string is directly encoded.
+    #
+    # On decoding, for ustr, the string representation is first converted to
+    # bytes and decoded to unicode from there. For bstr bytes representation of
+    # the string is directly decoded.
     #
     # NOTE __bytes__ and encode are the only operations that leave string domain.
     def encode(self, encoding=None, errors=None): # -> bytes
         encoding, errors = _encoding_with_defaults(encoding, errors)
 
+        if encoding == 'utf-8'  and  errors == 'surrogateescape':
+            return _bdata(self)
+
         # on py2 e.g. bytes.encode('string-escape') works on bytes directly
         if PY_MAJOR_VERSION < 3:
-            codec = pycodecs.lookup(encoding)
-            if not codec._is_text_encoding or \
-               encoding in ('string-escape',):  # string-escape also works on bytes
+            codec = _pycodecs_lookup_binary(encoding)
+            if codec is not None:
                 return codec.encode(self, errors)[0]
 
         return pyu(self).encode(encoding, errors)
@@ -795,15 +801,23 @@ cdef class _pyustr(unicode):
         encoding, errors = _encoding_with_defaults(encoding, errors)
 
         if encoding == 'utf-8'  and  errors == 'surrogateescape':
-            x = _utf8_encode_surrogateescape(self)
-        else:
-            x = zunicode.encode(self, encoding, errors)
-        return x
+            return _utf8_encode_surrogateescape(self)
 
-    if PY_MAJOR_VERSION < 3:
-        # whiteout decode inherited from unicode
-        # TODO ideally whiteout it in such a way that ustr.decode also raises AttributeError
-        decode = property(doc='ustr has no decode')
+        # on py2 e.g. 'string-escape' works on bytes
+        if PY_MAJOR_VERSION < 3:
+            codec = _pycodecs_lookup_binary(encoding)
+            if codec is not None:
+                return codec.encode(pyb(self), errors)[0]
+
+        return zunicode.encode(self, encoding, errors)
+
+    def decode(self, encoding=None, errors=None): # -> ustr | bstr for  encodings like string-escape
+        encoding, errors = _encoding_with_defaults(encoding, errors)
+
+        if encoding == 'utf-8'  and  errors == 'surrogateescape':
+            return pyu(self)
+
+        return pyb(self).decode(encoding, errors)
 
 
     # all other string methods
@@ -1890,6 +1904,15 @@ cdef extern from "Python.h":
     }
     """
     bint _XPyMapping_Check(object o)
+
+# _pycodecs_lookup_binary returns codec corresponding to encoding if the codec works on binary input.
+# example of such codecs are string-escape and hex encodings.
+cdef _pycodecs_lookup_binary(encoding): # -> codec | None (text) | LookupError (no such encoding)
+    codec = pycodecs.lookup(encoding)
+    if not codec._is_text_encoding or \
+       encoding in ('string-escape',):  # string-escape also works on bytes
+        return codec
+    return None
 
 
 # ---- UTF-8 encode/decode ----
