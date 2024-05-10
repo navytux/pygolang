@@ -437,7 +437,13 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if type(a) is not pybstr:
             assert type(b) is pybstr
             return b.__radd__(a)
-        return pyb(zbytes.__add__(a, _pyb_coerce(b)))
+        try:
+            b = _pyb_coerce(b)
+        except TypeError:
+            if not hasattr(b, '__radd__'):
+                raise  # don't let python to handle e.g. bstr + memoryview automatically
+            return NotImplemented
+        return pyb(zbytes.__add__(a, b))
 
     def __radd__(b, a):
         # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
@@ -455,7 +461,11 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
         if type(a) is not pybstr:
             assert type(b) is pybstr
             return b.__rmul__(a)
-        return pyb(zbytes.__mul__(a, b))
+        try:
+            _ = zbytes.__mul__(a, b)
+        except TypeError: # TypeError: `b` cannot be interpreted as an integer
+            return NotImplemented
+        return pyb(_)
     def __rmul__(b, a):
         return b.__mul__(a)
 
@@ -802,7 +812,13 @@ cdef class _pyustr(unicode):
         if type(a) is not pyustr:
             assert type(b) is pyustr
             return b.__radd__(a)
-        return pyu(zunicode.__add__(a, _pyu_coerce(b)))
+        try:
+            b = _pyu_coerce(b)
+        except TypeError:
+            if not hasattr(b, '__radd__'):
+                raise  # don't let py2 to handle e.g. unicode + buffer automatically
+            return NotImplemented
+        return pyu(zunicode.__add__(a, b))
 
     def __radd__(b, a):
         # a.__add__(b) returned NotImplementedError, e.g. for unicode.__add__(bstr)
@@ -822,7 +838,11 @@ cdef class _pyustr(unicode):
         if type(a) is not pyustr:
             assert type(b) is pyustr
             return b.__rmul__(a)
-        return pyu(zunicode.__mul__(a, b))
+        try:
+            _ = zunicode.__mul__(a, b)
+        except TypeError: # TypeError: `b` cannot be interpreted as an integer
+            return NotImplemented
+        return pyu(_)
     def __rmul__(b, a):
         return b.__mul__(a)
 

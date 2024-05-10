@@ -990,6 +990,57 @@ def test_strings_ops2_bufreject(tx, ty):
             y <  x
 
 
+# verify string operations like `x + y` for x being str/bstr/ustr and y being
+# arbitrary type that defines __rop__.
+@mark.parametrize('tx', (str, bstr, ustr))
+def test_strings_ops2_rop_any(tx):
+    # ROp(rop, x, y) represents call to y.__rop__(x)
+    class ROp:
+        def __init__(r, rop, x, y):
+            r.rop, r.x, r.y = rop, x, y
+        def __repr__(r):
+            return 'ROp(%r, %r, %r)' % (r.rop, r.x, r.y)
+        def __eq__(a, b):
+            return isinstance(b, ROp)  and  a.rop == b.rop  and  a.x is b.x  and  a.y is b.y
+        def __ne__(a, b):
+            return not (a == b)
+
+    class C:
+        def __radd__(b, a):         return ROp('radd', a, b)
+        def __rsub__(b, a):         return ROp('rsub', a, b)
+        def __rmul__(b, a):         return ROp('rmul', a, b)
+        def __rdiv__(b, a):         return ROp('rdiv', a, b)
+        def __rtruediv__(b, a):     return ROp('rtruediv', a, b)
+        def __rfloordiv__(b, a):    return ROp('rfloordiv', a, b)
+        def __rmod__(b, a):         return ROp('rmod', a, b)
+        def __rdivmod__(b, a):      return ROp('rdivmod', a, b)
+        def __rpow__(b, a):         return ROp('rpow', a, b)
+        def __rlshift__(b, a):      return ROp('rlshift', a, b)
+        def __rrshift__(b, a):      return ROp('rrshift', a, b)
+        def __rand__(b, a):         return ROp('rand', a, b)
+        def __rxor__(b, a):         return ROp('rxor', a, b)
+        def __ror__(b, a):          return ROp('ror', a, b)
+
+
+    x = xstr(u'мир', tx)
+    y = C()
+    R = lambda rop: ROp(rop, x, y)
+
+    assert x + y        == R('radd')
+    assert x - y        == R('rsub')
+    assert x * y        == R('rmul')
+    assert x / y        == R(x32('rtruediv', 'rdiv'))
+    assert x // y       == R('rfloordiv')
+    # x % y is always handled by str and verified in test_strings_mod_and_format
+    assert divmod(x,y)  == R('rdivmod')
+    assert x ** y       == R('rpow')
+    assert x << y       == R('rlshift')
+    assert x >> y       == R('rrshift')
+    assert x & y        == R('rand')
+    assert x ^ y        == R('rxor')
+    assert x | y        == R('ror')
+
+
 # verify string operations like `x == *` for x being bstr/ustr.
 # Those operations must succeed for any hashable type or else bstr/ustr could
 # not be used as dict keys.
