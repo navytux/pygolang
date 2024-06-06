@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pygolang | pythonic package setup
 # Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
@@ -320,7 +321,10 @@ setup(
 
     install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"',
                         # only runtime part: for dylink_prepare_dso
+                        # also need to pin setuptools ≥ 60.2 because else wheel configures logging
+                        # to go to stdout and so dylink_prepare_dso garbles program output
                         'setuptools_dso >= 2.8',
+                        'setuptools >= 60.2 ; python_version>="3"',
                         # pyx.build -> setuptools_dso uses multiprocessing
                         # setuptools_dso uses multiprocessing only on Python3, and only on systems where
                         # mp.get_start_method()!='fork', while geventmp does not work on windows.
