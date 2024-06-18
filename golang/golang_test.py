@@ -1004,12 +1004,20 @@ def test_func():
     assert mcls is mcls_orig
     assert mcls == 'mcls'
 
-    # FIXME undefined var after `@func(cls) def var` should be not set
+    # undefined var after `@func(cls) def var` should be not set
+    assert 'var' not in locals()
+    @func(MyClass)
+    def var(self, v):
+        assert v == 8
+        return v + 1
+    gc.collect()    # pypy needs this to trigger _DelAttrAfterMeth GC
+    assert 'var' not in locals()
 
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
+    assert obj.var(8)       == 8 + 1
 
     # this tests that @func (used by @func(cls)) preserves decorated function signature
     assert fmtargspec(MyClass.zzz) == '(self, v, x=2, **kkkkwww)'
@@ -1023,6 +1031,8 @@ def test_func():
     assert MyClass.mcls.__module__      == __name__
     assert MyClass.mcls.__name__        == 'mcls'
 
+    assert MyClass.var.__module__       == __name__
+    assert MyClass.var.__name__         == 'var'
 
 # @func overhead at def time.
 def bench_def(b):

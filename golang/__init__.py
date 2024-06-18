@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -85,10 +85,28 @@ def _meth(cls, fcall):
         if already is not missing:
             return already
 
-        # FIXME try to arrange so that python does not set anything on caller's
-        # namespace[func_name]  (currently it sets that to implicitly returned None)
+        # arrange so that python eventually does not set anything on caller's
+        # namespace[func_name]  (it unconditionally sets what decorator returns, even implicit None)
+        #
+        # _DelAttrAfterMeth.__del__ is invoked:
+        # * on cpython: right after  namespace[func_name] = returned _meth_leftover
+        # * on pypy:    eventually on next GC
+        fcall.f_locals[func_name] = _DelAttrAfterMeth(fcall.f_locals, func_name)
+        return _meth_leftover
 
     return deco
+
+# _DelAttrAfterMeth serves _meth by unsetting f_locals[meth] that python
+# unconditionally sets after `@func(cls) def meth()`.
+_meth_leftover = object()
+class _DelAttrAfterMeth(object):
+    def __init__(self, f_locals, name):
+        self.f_locals = f_locals
+        self.name     = name
+    def __del__(self):
+        obj = self.f_locals.get(self.name)
+        if obj is _meth_leftover:
+            del self.f_locals[self.name]
 
 # _func serves @func.
 def _func(f):
