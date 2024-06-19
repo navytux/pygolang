@@ -217,26 +217,27 @@ def test_pymain():
     # -W <opt>
     _ = pyout(['-Werror', '-Whello', '-W', 'ignore::DeprecationWarning',
                'testprog/print_warnings_setup.py'], cwd=here)
-    if PY2:
-        # py2 threading, which is imported after gpython startup, adds ignore
-        # for sys.exc_clear
-        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
-    assert _.startswith(
-        b"sys.warnoptions: ['error', 'hello', 'ignore::DeprecationWarning']\n\n" + \
-        b"warnings.filters:\n" + \
-        b"- ignore::DeprecationWarning::*\n" + \
-        b"- error::Warning::*\n"), _
+    assert re.match(
+        br"sys\.warnoptions: \['error', 'hello', 'ignore::DeprecationWarning'\]\n\n"
+        br"warnings\.filters:\n"
+        br"(- [^\n]+\n)*" # Additional filters added by automatically imported modules
+        br"- ignore::DeprecationWarning::\*\n"
+        br"- error::Warning::\*\n"
+        br"(- [^\n]+\n)*", # Remaining filters
+        _,
+    )
     # $PYTHONWARNINGS
     _ = pyout(['testprog/print_warnings_setup.py'], cwd=here,
               envadj={'PYTHONWARNINGS': 'ignore,world,error::SyntaxWarning'})
-    if PY2:
-        # see ^^^
-        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
-    assert _.startswith(
-        b"sys.warnoptions: ['ignore', 'world', 'error::SyntaxWarning']\n\n" + \
-        b"warnings.filters:\n" + \
-        b"- error::SyntaxWarning::*\n" + \
-        b"- ignore::Warning::*\n"), _
+    assert re.match(
+        br"sys\.warnoptions: \['ignore', 'world', 'error::SyntaxWarning'\]\n\n"
+        br"warnings\.filters:\n"
+        br"(- [^\n]+\n)*" # Additional filters added by automatically imported modules
+        br"- error::SyntaxWarning::\*\n"
+        br"- ignore::Warning::\*\n"
+        br"(- [^\n]+\n)*", # Remaining filters
+        _,
+    )
 
 
 def test_pymain_print_function_future():
