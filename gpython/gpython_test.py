@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -389,20 +389,6 @@ def _xopt_assert_in_subprocess(xopt, xval, tfunc):
 
 
 # ---- misc ----
-
-# grepv filters out lines matching pattern from text.
-def grepv(pattern, text): # -> text
-    if isinstance(text, bytes):
-        t = b''
-    else:
-        t = ''
-    p = re.compile(pattern)
-    v = []
-    for l in text.splitlines(True):
-        m = p.search(l)
-        if not m:
-            v.append(l)
-    return t.join(v)
 
 # check_gpy_vs_py verifies that gpython output matches underlying python output.
 def check_gpy_vs_py(argv, postprocessf=None, **kw):
