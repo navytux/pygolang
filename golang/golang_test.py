@@ -1697,7 +1697,7 @@ def test_defer_excchain_dump_pytest():
     # similarly to ipython we do not need to test it becase we activate
     # pytest-related patch only on py2 for which latest pytest version is 4.6.11 .
     import pytest
-    if six.PY3 and pytest.version_tuple >= (7,4):
+    if six.PY3 and getattr(pytest, 'version_tuple', (0,)) >= (7,4):
         skip("pytest is patched only on py2; pytest7.4 changed traceback format")
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
     retcode, stdout, stderr = _pyrun([
