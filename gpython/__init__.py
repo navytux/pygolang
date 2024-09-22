@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -41,7 +41,7 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:im:OVW:X:"
+_pyopt = "c:Eim:OVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -113,6 +113,7 @@ def pymain(argv, init=None):
     for (opt, arg) in igetopt:
         # options that require reexecuting through underlying python with that -<opt>
         if opt in (
+                '-E',   # ignore $PYTHON*
                 '-O',   # optimize
             ):
             reexec_with.append(opt)

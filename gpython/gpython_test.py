@@ -315,6 +315,28 @@ def test_pymain_opt():
         check(["-O", "-O"])
         check(["-O", "-O", "-O"])
 
+# verify that pymain handles -E in exactly the same way as underlying python does.
+@gpython_only
+def test_pymain_E():
+    envadj = {'PYTHONOPTIMIZE': '1'}
+    def sys_flags_optimize(level):
+        return 'sys.flags.optimize:   %s' % level
+
+    # without -E $PYTHONOPTIMIZE should be taken into account
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0) not in stdpyoutv
+        assert sys_flags_optimize(0) not in gpyoutv
+        assert sys_flags_optimize(1)     in stdpyoutv
+        assert sys_flags_optimize(1)     in gpyoutv
+    check_gpy_vs_py(['testprog/print_opt.py'], _, envadj=envadj, cwd=here)
+
+    # with -E not
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0)     in stdpyoutv
+        assert sys_flags_optimize(0)     in gpyoutv
+        assert sys_flags_optimize(1) not in stdpyoutv
+        assert sys_flags_optimize(1) not in gpyoutv
+    check_gpy_vs_py(['-E', 'testprog/print_opt.py'], _, envadj=envadj, cwd=here)
 
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
