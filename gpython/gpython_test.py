@@ -347,6 +347,29 @@ def test_pymain_X():
     check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
 
 
+# pymain -v
+@gpython_only
+def test_pymain_v():
+    def nimport(argv, **kw):
+        argv = argv + ['testdata/hello.py']
+        kw.setdefault('cwd', here)
+        ret, out, err = _pyrun(argv, stdout=PIPE, stderr=PIPE, **kw)
+        assert ret == 0,    (out, err)
+        n = 0
+        for _ in u(err).splitlines():
+            if _.startswith("import "):
+                n += 1
+        return n
+
+    # without -v there must be no "import ..." messages
+    assert nimport([])                                              == 0
+    assert nimport([], pyexe=sys._gpy_underlying_executable)        == 0
+
+    # with    -v there must be many "import ..." messages
+    assert nimport(['-v'])                                          >  10
+    assert nimport(['-v'], pyexe=sys._gpy_underlying_executable)    >  10
+
+
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
 @gpython_only

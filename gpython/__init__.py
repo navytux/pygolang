@@ -41,7 +41,7 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:Eim:OVW:X:"
+_pyopt = "c:Eim:OvVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -115,6 +115,7 @@ def pymain(argv, init=None):
         if opt in (
                 '-E',   # ignore $PYTHON*
                 '-O',   # optimize
+                '-v',   # trace import statements
                 '-X',   # set implementation-specific option
             ):
 
