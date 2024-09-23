@@ -115,10 +115,21 @@ def pymain(argv, init=None):
         if opt in (
                 '-E',   # ignore $PYTHON*
                 '-O',   # optimize
+                '-X',   # set implementation-specific option
             ):
-            reexec_with.append(opt)
-            if arg is not None:
-                reexec_with.append(arg)
+
+            # but keep `-X gpython.*` in user part of argv in case of reexec
+            # leaving it for main to handle. If it is only pymain to run, then
+            # we will be ignoring `-X gpython.*` which goes in line with builtin
+            # py3 behaviour to ignore any unknown -X option.
+            if opt == '-X' and arg is not None and arg.startswith('gpython.'):
+                reexec_argv.append(opt)
+                reexec_argv.append(arg)
+
+            else:
+                reexec_with.append(opt)
+                if arg is not None:
+                    reexec_with.append(arg)
             continue
 
         reexec_argv.append(opt)
@@ -382,33 +393,30 @@ def main():
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
 
-    # extract and process `-X gpython.*`
+    # process `-X gpython.*`
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
     sys._xoptions = getattr(sys, '_xoptions', {})
-    argv_ = []
     gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
     igetopt = _IGetOpt(sys.argv[1:], _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
         if opt == '-X':
-            if arg.startswith('gpython.'):
-                if arg.startswith('gpython.runtime='):
-                    gpy_runtime = arg[len('gpython.runtime='):]
-                    sys._xoptions['gpython.runtime'] = gpy_runtime
-
-                else:
-                    raise RuntimeError('gpython: unknown -X option %s' % arg)
-
+            # any non gpython -X option is handled by pymain; ignore them here
+            if not arg.startswith('gpython.'):
                 continue
 
-        argv_.append(opt)
-        if arg is not None:
-            argv_.append(arg)
+            if arg.startswith('gpython.runtime='):
+                gpy_runtime = arg[len('gpython.runtime='):]
+                sys._xoptions['gpython.runtime'] = gpy_runtime
+
+            else:
+                raise RuntimeError('gpython: unknown -X option %s' % arg)
+
+            continue
 
         # options after -c / -m are not for python itself
         if opt in ('-c', '-m'):
             break
 
-    argv = [sys.argv[0]] + argv_ + igetopt.argv
 
     # propagate those settings as defaults to subinterpreters, so that e.g.
     # sys.executable spawned from under `gpython -X gpython.runtime=threads`
@@ -454,7 +462,7 @@ def main():
         sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
 
     # tail to pymain
-    pymain(argv, init)
+    pymain(sys.argv, init)
 
 
 # _is_buildout_script returns whether file @path is generated as python buildout script.

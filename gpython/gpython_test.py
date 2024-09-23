@@ -338,6 +338,15 @@ def test_pymain_E():
         assert sys_flags_optimize(1) not in gpyoutv
     check_gpy_vs_py(['-E', 'testprog/print_opt.py'], _, envadj=envadj, cwd=here)
 
+
+# verify that pymain handles -X non-gpython-option in exactly the same way as underlying python does.
+@pytest.mark.skipif(PY2, reason="-X does not work at all on plain cpython2")
+@gpython_only
+def test_pymain_X():
+    check_gpy_vs_py(['testprog/print_faulthandler.py'], cwd=here)
+    check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
+
+
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
 @gpython_only
