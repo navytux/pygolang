@@ -117,14 +117,9 @@ def _func(f):
         fclass = type(f)
         f = f.__func__
 
-    def _(f, *argv, **kw):
-        # run f under separate frame, where defer will register calls.
-        __goframe__ = _GoFrame()
-        with __goframe__:
-            return f(*argv, **kw)
-
-    # keep all f attributes, like __name__, __doc__, etc on _
-    _ = decorator.decorate(f, _)
+    # prepare function that runs f under separate frame, where defer will register calls
+    # keep all f attributes, like __name__, __doc__, etc on the wrapper
+    _ = decorator.decorate(f, _goframe)
 
     # repack _ into e.g. @staticmethod if that was used on f.
     if fclass is not None:
@@ -132,7 +127,13 @@ def _func(f):
 
     return _
 
-# _GoFrame serves __goframe__ that is setup by @func.
+# _goframe is used by @func to run f under separate frame.
+def _goframe(f, *argv, **kw):
+    __goframe__ = _GoFrame()
+    with __goframe__:
+        return f(*argv, **kw)
+
+# _GoFrame serves __goframe__ that is setup by _goframe.
 class _GoFrame:
     def __init__(self):
         self.deferv    = []     # defer registers funcs here

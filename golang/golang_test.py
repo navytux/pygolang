@@ -1568,7 +1568,7 @@ RuntimeError: gamma
 
     assertDoc("""\
 Traceback (most recent call last):
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
            ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
@@ -1590,7 +1590,7 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
@@ -1609,7 +1609,7 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
@@ -1625,7 +1625,7 @@ RuntimeError: aaa
     e.__cause__ = e.__context__
     assertDoc("""\
 Traceback (most recent call last):
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
            ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
@@ -1647,7 +1647,7 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__

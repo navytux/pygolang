@@ -1,5 +1,5 @@
 Traceback (most recent call last):
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
            ^^^^^^^^^^^^^^                                       +PY311
   File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 42, in main
@@ -31,7 +31,7 @@ Traceback (most recent call last):
   ... "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 45, in <module>
     main()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
