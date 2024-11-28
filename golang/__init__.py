@@ -73,10 +73,25 @@ def _meth(cls, fcall):
         # wrap f with @_func, so that e.g. defer works automatically.
         f = _func(f)
 
-        if isinstance(f, (staticmethod, classmethod)):
-            func_name = f.__func__.__name__
+        # property is special - it has up to 3 functions inside
+        # but the only practical case is when it starts with
+        #
+        #   @func(Class)
+        #   @property
+        #   def ...
+        #
+        # which means that .fget should be set and so we use get name as the
+        # name of the method.
+        f_ = f
+        if isinstance(f, property):
+            f_ = f.fget
+            if f_ is None:
+                raise ValueError("func(cls) used on property without getter")
+
+        if isinstance(f_, (staticmethod, classmethod)):
+            func_name = f_.__func__.__name__
         else:
-            func_name = f.__name__
+            func_name = f_.__name__
         setattr(cls, func_name, f)
 
         # if `@func(cls) def name` caller already has `name` set, don't override it
@@ -110,7 +125,19 @@ class _DelAttrAfterMeth(object):
 
 # _func serves @func.
 def _func(f):
-    # @staticmethod & friends require special care:
+    # @property is special: there are 3 functions inside and we need to wrap
+    # them all with repacking back into property.
+    if isinstance(f, property):
+        fget = fset = fdel = None
+        if f.fget is not None:
+            fget = _func(f.fget)
+        if f.fset is not None:
+            fset = _func(f.fset)
+        if f.fdel is not None:
+            fdel = _func(f.fdel)
+        return type(f)(fget, fset, fdel, f.__doc__)
+
+    # @staticmethod & friends also require special care:
     # unpack f first to original func and then repack back after wrapping.
     fclass = None
     if isinstance(f, (staticmethod, classmethod)):

@@ -973,7 +973,7 @@ def test_func():
     # test how @func(cls) works
     # this also implicitly tests just @func, since @func(cls) uses that.
 
-    class MyClass:
+    class MyClass(object):
         def __init__(self, v):
             self.v = v
 
@@ -1013,11 +1013,48 @@ def test_func():
     gc.collect()    # pypy needs this to trigger _DelAttrAfterMeth GC
     assert 'var' not in locals()
 
+
+    vproperty = mproperty_orig = 'vproperty'
+    @func(MyClass)
+    @property
+    def vproperty(self):
+        """documentation for vproperty"""
+        assert isinstance(self, MyClass)
+        return 'v%s' % self.v
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
+    @func(MyClass)
+    @MyClass.vproperty.setter
+    def _(self, v):
+        assert isinstance(self, MyClass)
+        self.v = v
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
+    @func(MyClass)
+    @MyClass.vproperty.deleter
+    def _(self):
+        assert isinstance(self, MyClass)
+        self.v = 'deleted'
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
+
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
     assert obj.var(8)       == 8 + 1
+    assert obj.v            == 4        # set by .zzz
+    assert obj.vproperty    == 'v4'
+    obj.vproperty = 5
+    assert obj.v            == 5
+    assert obj.vproperty    == 'v5'
+    del obj.vproperty
+    assert obj.v            == 'deleted'
+    assert obj.vproperty    == 'vdeleted'
+    assert MyClass.vproperty.__doc__ == "documentation for vproperty"""
 
     # this tests that @func (used by @func(cls)) preserves decorated function signature
     assert fmtargspec(MyClass.zzz) == '(self, v, x=2, **kkkkwww)'
@@ -1034,7 +1071,14 @@ def test_func():
     assert MyClass.var.__module__       == __name__
     assert MyClass.var.__name__         == 'var'
 
-    # test that func·func = func  (double _func calls will be done internally for
+    assert MyClass.vproperty.fget.__module__    == __name__
+    assert MyClass.vproperty.fset.__module__    == __name__
+    assert MyClass.vproperty.fdel.__module__    == __name__
+    assert MyClass.vproperty.fget.__name__      == 'vproperty'
+    assert MyClass.vproperty.fset.__name__      == '_'
+    assert MyClass.vproperty.fdel.__name__      == '_'
+
+    # test that func·func = func  (double _func calls are done internally for
     # getter when handling @func(@MyClass.vproperty.setter)
     def f(): pass
     g = func(f)
@@ -1263,6 +1307,45 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
+
+
+    # defer in std @property
+    v = []
+
+    class MyClass(object):
+        @func
+        @property
+        def vproperty(self):
+            """vproperty doc"""
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(3))
+            defer(lambda: v.append(4))
+            return 'v'
+
+        @func
+        @vproperty.setter
+        def vproperty(self, val):
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(4))
+            defer(lambda: v.append(val))
+
+        @func
+        @vproperty.deleter
+        def vproperty(self):
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(5))
+            defer(lambda: v.append('del'))
+
+    obj = MyClass()
+    assert MyClass.vproperty.__doc__    == "vproperty doc"
+    assert obj.vproperty == 'v'
+    assert v == [4, 3, 1]
+    v = []
+    obj.vproperty = 'q'
+    assert v == ['q', 4, 1]
+    v = []
+    del obj.vproperty
+    assert v == ['del', 5, 1]
 
 
 # verify that defer correctly establishes exception chain (even on py2).
