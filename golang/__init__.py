@@ -119,7 +119,11 @@ def _func(f):
 
     # prepare function that runs f under separate frame, where defer will register calls
     # keep all f attributes, like __name__, __doc__, etc on the wrapper
-    _ = decorator.decorate(f, _goframe)
+    # if f was already wrapped with _func - no need to wrap it again
+    _ = f
+    if getattr(f, '__go_wrapper__', None) is not _goframe:
+        _ = decorator.decorate(f, _goframe)
+        _.__go_wrapper__ = _goframe
 
     # repack _ into e.g. @staticmethod if that was used on f.
     if fclass is not None:

@@ -1034,6 +1034,14 @@ def test_func():
     assert MyClass.var.__module__       == __name__
     assert MyClass.var.__name__         == 'var'
 
+    # test that func·func = func  (double _func calls will be done internally for
+    # getter when handling @func(@MyClass.vproperty.setter)
+    def f(): pass
+    g = func(f)
+    h = func(g)
+    assert h is g
+
+
 # @func overhead at def time.
 def bench_def(b):
     for i  in xrange(b.N):
