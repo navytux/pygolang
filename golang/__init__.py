@@ -74,10 +74,25 @@ def _meth(cls, fcall):
         # wrap f with @_func, so that e.g. defer works automatically.
         f = _func(f)
 
-        if isinstance(f, (staticmethod, classmethod)):
-            func_name = f.__func__.__name__
+        # property is special - it has up to 3 functions inside
+        # but the only practical case is when it starts with
+        #
+        #   @func(Class)
+        #   @property
+        #   def ...
+        #
+        # which means that .fget should be set and so we use get name as the
+        # name of the method.
+        f_ = f
+        if isinstance(f, property):
+            f_ = f.fget
+            if f_ is None:
+                raise ValueError("func(cls) used on property without getter")
+
+        if isinstance(f_, (staticmethod, classmethod)):
+            func_name = f_.__func__.__name__
         else:
-            func_name = f.__name__
+            func_name = f_.__name__
         setattr(cls, func_name, f)
 
         # if `@func(cls) def name` caller already has `name` set, don't override it
@@ -111,21 +126,32 @@ class _DelAttrAfterMeth(object):
 
 # _func serves @func.
 def _func(f):
-    # @staticmethod & friends require special care:
+    # @property is special: there are 3 functions inside and we need to wrap
+    # them all with repacking back into property.
+    if isinstance(f, property):
+        fget = fset = fdel = None
+        if f.fget is not None:
+            fget = _func(f.fget)
+        if f.fset is not None:
+            fset = _func(f.fset)
+        if f.fdel is not None:
+            fdel = _func(f.fdel)
+        return type(f)(fget, fset, fdel, f.__doc__)
+
+    # @staticmethod & friends also require special care:
     # unpack f first to original func and then repack back after wrapping.
     fclass = None
     if isinstance(f, (staticmethod, classmethod)):
         fclass = type(f)
         f = f.__func__
 
-    def _(f, *argv, **kw):
-        # run f under separate frame, where defer will register calls.
-        __goframe__ = _GoFrame()
-        with __goframe__:
-            return f(*argv, **kw)
-
-    # keep all f attributes, like __name__, __doc__, etc on _
-    _ = decorator.decorate(f, _)
+    # prepare function that runs f under separate frame, where defer will register calls
+    # keep all f attributes, like __name__, __doc__, etc on the wrapper
+    # if f was already wrapped with _func - no need to wrap it again
+    _ = f
+    if getattr(f, '__go_wrapper__', None) is not _goframe:
+        _ = decorator.decorate(f, _goframe)
+        _.__go_wrapper__ = _goframe
 
     # repack _ into e.g. @staticmethod if that was used on f.
     if fclass is not None:
@@ -133,7 +159,13 @@ def _func(f):
 
     return _
 
-# _GoFrame serves __goframe__ that is setup by @func.
+# _goframe is used by @func to run f under separate frame.
+def _goframe(f, *argv, **kw):
+    __goframe__ = _GoFrame()
+    with __goframe__:
+        return f(*argv, **kw)
+
+# _GoFrame serves __goframe__ that is setup by _goframe.
 class _GoFrame:
     def __init__(self):
         self.deferv    = []     # defer registers funcs here

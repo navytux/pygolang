@@ -358,6 +358,60 @@ def test_pymain_opt():
         check(["-O", "-O"])
         check(["-O", "-O", "-O"])
 
+# verify that pymain handles -E in exactly the same way as underlying python does.
+@gpython_only
+def test_pymain_E():
+    envadj = {'PYTHONOPTIMIZE': '1'}
+    def sys_flags_optimize(level):
+        return 'sys.flags.optimize:   %s' % level
+
+    # without -E $PYTHONOPTIMIZE should be taken into account
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0) not in stdpyoutv
+        assert sys_flags_optimize(0) not in gpyoutv
+        assert sys_flags_optimize(1)     in stdpyoutv
+        assert sys_flags_optimize(1)     in gpyoutv
+    check_gpy_vs_py(['testprog/print_opt.py'], _, envadj=envadj, cwd=here)
+
+    # with -E not
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0)     in stdpyoutv
+        assert sys_flags_optimize(0)     in gpyoutv
+        assert sys_flags_optimize(1) not in stdpyoutv
+        assert sys_flags_optimize(1) not in gpyoutv
+    check_gpy_vs_py(['-E', 'testprog/print_opt.py'], _, envadj=envadj, cwd=here)
+
+
+# verify that pymain handles -X non-gpython-option in exactly the same way as underlying python does.
+@pytest.mark.skipif(PY2, reason="-X does not work at all on plain cpython2")
+@gpython_only
+def test_pymain_X():
+    check_gpy_vs_py(['testprog/print_faulthandler.py'], cwd=here)
+    check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
+
+
+# pymain -v
+@gpython_only
+def test_pymain_v():
+    def nimport(argv, **kw):
+        argv = argv + ['testdata/hello.py']
+        kw.setdefault('cwd', here)
+        ret, out, err = _pyrun(argv, stdout=PIPE, stderr=PIPE, **kw)
+        assert ret == 0,    (out, err)
+        n = 0
+        for _ in u(err).splitlines():
+            if _.startswith("import "):
+                n += 1
+        return n
+
+    # without -v there must be no "import ..." messages
+    assert nimport([])                                              == 0
+    assert nimport([], pyexe=sys._gpy_underlying_executable)        == 0
+
+    # with    -v there must be many "import ..." messages
+    assert nimport(['-v'])                                          >  10
+    assert nimport(['-v'], pyexe=sys._gpy_underlying_executable)    >  10
+
 
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
