@@ -1,5 +1,8 @@
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
-//                         Kirill Smelkov <kirr@nexedi.com>
+#ifndef _NXD_LIBGOLANG_COMPAT_WIN_STRINGS_H
+#define _NXD_LIBGOLANG_COMPAT_WIN_STRINGS_H
+//
+// Copyright (C) 2023  Nexedi SA and Contributors.
+//                     Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -17,17 +20,11 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// Small library that uses a bit of libgolang features, mainly to verify
-// that external project can build against libgolang.
+#include <string.h>
 
-#include "dso.h"
-using namespace golang;
-
-#include <stdio.h>
-
-void dsotest() {
-    chan<int> ch = makechan<int>();
-    ch.close();
-
-    printf("dso.cpp: OK\n");
+static inline void bzero(void *p, size_t n) {
+    memset(p, '\0', n);
 }
+
+#endif  // _NXD_LIBGOLANG_COMPAT_WIN_STRINGS_H
+

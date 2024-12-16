@@ -1,0 +1,3 @@
+[submodule "3rdparty/ratas"]
+	path = 3rdparty/ratas
+	url = https://github.com/jsnell/ratas.git

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -23,14 +23,14 @@ from __future__ import print_function, absolute_import
 from golang import go, chan, select, default, nilchan, _PanicError, func, panic, \
         defer, recover, u
 from golang import sync
-from pytest import raises, mark, fail
+from pytest import raises, mark, fail, skip
 from _pytest._code import Traceback
 from os.path import dirname
 import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
 from six.moves import range as xrange
-import gc, weakref, warnings
+import gc, weakref
 import re
 
 from golang import _golang_test
@@ -74,7 +74,8 @@ import_pyx_tests("golang._golang_test")
 # leaked goroutine behaviour check: done in separate process because we need
 # to test process termination exit there.
 def test_go_leaked():
-    pyrun([dir_testprog + "/golang_test_goleaked.py"])
+    pyrun([dir_testprog + "/golang_test_goleaked.py"],
+          lsan=False)   # there are on-purpose leaks in this test
 
 # benchmark go+join a thread/coroutine.
 # pyx/nogil mirror is in _golang_test.pyx
@@ -972,7 +973,7 @@ def test_func():
     # test how @func(cls) works
     # this also implicitly tests just @func, since @func(cls) uses that.
 
-    class MyClass:
+    class MyClass(object):
         def __init__(self, v):
             self.v = v
 
@@ -1003,12 +1004,57 @@ def test_func():
     assert mcls is mcls_orig
     assert mcls == 'mcls'
 
-    # FIXME undefined var after `@func(cls) def var` should be not set
+    # undefined var after `@func(cls) def var` should be not set
+    assert 'var' not in locals()
+    @func(MyClass)
+    def var(self, v):
+        assert v == 8
+        return v + 1
+    gc.collect()    # pypy needs this to trigger _DelAttrAfterMeth GC
+    assert 'var' not in locals()
+
+
+    vproperty = mproperty_orig = 'vproperty'
+    @func(MyClass)
+    @property
+    def vproperty(self):
+        """documentation for vproperty"""
+        assert isinstance(self, MyClass)
+        return 'v%s' % self.v
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
+    @func(MyClass)
+    @MyClass.vproperty.setter
+    def _(self, v):
+        assert isinstance(self, MyClass)
+        self.v = v
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
+    @func(MyClass)
+    @MyClass.vproperty.deleter
+    def _(self):
+        assert isinstance(self, MyClass)
+        self.v = 'deleted'
+    assert vproperty is mproperty_orig
+    assert vproperty == 'vproperty'
+
 
     obj = MyClass(4)
     assert obj.zzz(4)       == 4 + 1
     assert obj.mstatic(5)   == 5 + 1
     assert obj.mcls(7)      == 7 + 1
+    assert obj.var(8)       == 8 + 1
+    assert obj.v            == 4        # set by .zzz
+    assert obj.vproperty    == 'v4'
+    obj.vproperty = 5
+    assert obj.v            == 5
+    assert obj.vproperty    == 'v5'
+    del obj.vproperty
+    assert obj.v            == 'deleted'
+    assert obj.vproperty    == 'vdeleted'
+    assert MyClass.vproperty.__doc__ == "documentation for vproperty"""
 
     # this tests that @func (used by @func(cls)) preserves decorated function signature
     assert fmtargspec(MyClass.zzz) == '(self, v, x=2, **kkkkwww)'
@@ -1021,6 +1067,23 @@ def test_func():
 
     assert MyClass.mcls.__module__      == __name__
     assert MyClass.mcls.__name__        == 'mcls'
+
+    assert MyClass.var.__module__       == __name__
+    assert MyClass.var.__name__         == 'var'
+
+    assert MyClass.vproperty.fget.__module__    == __name__
+    assert MyClass.vproperty.fset.__module__    == __name__
+    assert MyClass.vproperty.fdel.__module__    == __name__
+    assert MyClass.vproperty.fget.__name__      == 'vproperty'
+    assert MyClass.vproperty.fset.__name__      == '_'
+    assert MyClass.vproperty.fdel.__name__      == '_'
+
+    # test that func·func = func  (double _func calls are done internally for
+    # getter when handling @func(@MyClass.vproperty.setter)
+    def f(): pass
+    g = func(f)
+    h = func(g)
+    assert h is g
 
 
 # @func overhead at def time.
@@ -1244,6 +1307,45 @@ def test_deferrecover():
 
     MyClass.mcls()
     assert v == [7, 2, 1]
+
+
+    # defer in std @property
+    v = []
+
+    class MyClass(object):
+        @func
+        @property
+        def vproperty(self):
+            """vproperty doc"""
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(3))
+            defer(lambda: v.append(4))
+            return 'v'
+
+        @func
+        @vproperty.setter
+        def vproperty(self, val):
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(4))
+            defer(lambda: v.append(val))
+
+        @func
+        @vproperty.deleter
+        def vproperty(self):
+            defer(lambda: v.append(1))
+            defer(lambda: v.append(5))
+            defer(lambda: v.append('del'))
+
+    obj = MyClass()
+    assert MyClass.vproperty.__doc__    == "vproperty doc"
+    assert obj.vproperty == 'v'
+    assert v == [4, 3, 1]
+    v = []
+    obj.vproperty = 'q'
+    assert v == ['q', 4, 1]
+    v = []
+    del obj.vproperty
+    assert v == ['del', 5, 1]
 
 
 # verify that defer correctly establishes exception chain (even on py2).
@@ -1557,8 +1659,9 @@ RuntimeError: gamma
 
     assertDoc("""\
 Traceback (most recent call last):
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
+           ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1578,10 +1681,12 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1595,10 +1700,12 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1609,8 +1716,9 @@ RuntimeError: aaa
     e.__cause__ = e.__context__
     assertDoc("""\
 Traceback (most recent call last):
-  File "PYGOLANG/golang/__init__.py", line ..., in _
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
+           ^^^^^^^^^^^^^^                                       +PY311
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1630,10 +1738,12 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
   ...
-  File "PYGOLANG/golang/__init__.py", line ..., in _
-    return f(*argv, **kw)
+  File "PYGOLANG/golang/__init__.py", line ..., in _goframe
+    return f(*argv, **kw)                                       -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
-    d()
+    d()                                                         -PY310
+    with __goframe__:                                           +PY310
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1654,6 +1764,13 @@ def test_defer_excchain_dump():
 
 # ----//---- (ipython)
 def test_defer_excchain_dump_ipython():
+    # ipython 8 changed traceback output significantly
+    # we do not need to test it because we acticate ipython-related patch only
+    # on py2 for which latest ipython version is 5.
+    import IPython
+    if six.PY3 and IPython.version_info >= (8,0):
+        skip("ipython is patched only on py2; ipython8 changed traceback format")
+
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-ipython")
     retcode, stdout, stderr = _pyrun(["-m", "IPython", "--quick", "--colors=NoColor",
                                 "-m", "golang_test_defer_excchain"],
@@ -1667,6 +1784,12 @@ def test_defer_excchain_dump_ipython():
 
 # ----//---- (pytest)
 def test_defer_excchain_dump_pytest():
+    # pytest 7.4 also changed traceback output format
+    # similarly to ipython we do not need to test it becase we activate
+    # pytest-related patch only on py2 for which latest pytest version is 4.6.11 .
+    import pytest
+    if six.PY3 and getattr(pytest, 'version_tuple', (0,)) >= (7,4):
+        skip("pytest is patched only on py2; pytest7.4 changed traceback format")
     tbok = readfile(dir_testprog + "/golang_test_defer_excchain.txt-pytest")
     retcode, stdout, stderr = _pyrun([
                                 # don't let pytest emit internal deprecation warnings to stderr
@@ -1724,8 +1847,33 @@ def _pyrun(argv, stdin=None, stdout=None, stderr=None, **kw):   # -> retcode, st
         pathv.extend(envpath.split(os.pathsep))
     env['PYTHONPATH'] = os.pathsep.join(pathv)
 
+    # set $PYTHONIOENCODING to encoding of stdin/stdout/stderr
+    # we need to do it because on Windows `python x.py | ...` runs with stdio
+    # encoding set to cp125X even if just `python x.py` runs with stdio
+    # encoding=UTF-8.
+    if 'PYTHONIOENCODING' not in env:
+        enc = set([_.encoding for _ in (sys.stdin, sys.stdout, sys.stderr)])
+        if None in enc:         # without -s pytest uses _pytest.capture.DontReadFromInput
+            enc.remove(None)    # with None .encoding
+        assert len(enc) == 1
+        env['PYTHONIOENCODING'] = enc.pop()
+
+    # disable LeakSanitizer if requested, e.g. when test is known to leak something on purpose
+    lsan = kw.pop('lsan', True)
+    if not lsan:
+        env['ASAN_OPTIONS'] = env.get('ASAN_OPTIONS', '') + ',detect_leaks=0'
+
     p = Popen(argv, stdin=(PIPE if stdin else None), stdout=stdout, stderr=stderr, env=env, **kw)
     stdout, stderr = p.communicate(stdin)
+
+    # on windows print emits \r\n instead of just \n
+    # normalize that to \n in *out
+    if os.name == 'nt':
+        if stdout is not None:
+            stdout = stdout.replace(b'\r\n', b'\n')
+        if stderr is not None:
+            stderr = stderr.replace(b'\r\n', b'\n')
+
     return p.returncode, stdout, stderr
 
 # pyrun runs `sys.executable argv... <stdin`.
@@ -1792,10 +1940,33 @@ def assertDoc(want, got):
     got = got.replace(dir_pygolang,  "PYGOLANG") # /home/x/.../pygolang -> PYGOLANG
     got = got.replace(udir_pygolang, "PYGOLANG") # ~/.../pygolang       -> PYGOLANG
 
+    # got: normalize PYGOLANG\a\b\c -> PYGOLANG/a/b/c
+    #                a\b\c\d.py  -> a/b/c/d.py
+    def _(m):
+        return m.group(0).replace(os.path.sep, '/')
+    got = re.sub(r"(?<=PYGOLANG)[^\s]+(?=\s)",  _, got)
+    got = re.sub(r"([\w\\\.]+)(?=\.py)",        _, got)
+
     # want: process conditionals
-    # PY39(...) -> ... if py39 else ø
-    py39 = sys.version_info >= (3, 9)
-    want = re.sub(r"PY39\((.*)\)", r"\1" if py39 else "", want)
+    # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
+    # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
+    # `... -PY39` -> ... if py < 3.9 else ø  (whole line)
+    have = {}  # 'PYxy' -> y/n
+    for minor in (9,10,11):
+        have['PY3%d' % minor] = (sys.version_info >= (3, minor))
+    for x, havex in have.items():
+        want = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", want)
+        r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
+        v = []
+        for l in want.splitlines():
+            m = r.match(l)
+            if m is not None:
+                l = m.group('main')
+                y = {'+':True, '-':False}[m.group('y')]
+                if (y and not havex) or (havex and not y):
+                    continue
+            v.append(l)
+        want = '\n'.join(v)+'\n'
 
     # want: ^$ -> <BLANKLINE>
     while "\n\n" in want:
@@ -1818,8 +1989,11 @@ def assertDoc(want, got):
 #       ...
 #   fmtargspec(f) -> '(x, y=3)'
 def fmtargspec(f): # -> str
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', DeprecationWarning)
+    # inspect.formatargspec is deprecated since py3.5 and was removed in py3.11
+    # -> use inspect.signature instead.
+    if six.PY3:
+        return str(inspect.signature(f))
+    else:
         return inspect.formatargspec(*inspect.getargspec(f))
 
 def test_fmtargspec():
@@ -1828,8 +2002,10 @@ def test_fmtargspec():
 
 
 # readfile returns content of file @path.
-def readfile(path):
-    with open(path, "r") as f:
+def readfile(path): # -> bytes
+    # on windows in text mode files are opened with encoding=locale.getdefaultlocale()
+    # which is CP125X instead of UTF-8. -> manually decode as 'UTF-8'
+    with open(path, "rb") as f:
         return f.read()
 
 # abbrev_home returns path with user home prefix abbreviated with ~.

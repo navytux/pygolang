@@ -1,7 +1,7 @@
 # cython: language_level=2
 #
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -21,10 +21,7 @@
 
 # Small test driver that calls dso.so .
 
-cdef extern from * nogil:
-    """
-    void dsotest();
-    """
+cdef extern from "dso.h" nogil:
     void dsotest()
 
 def main():

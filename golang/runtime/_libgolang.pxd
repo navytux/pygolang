@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -36,7 +36,7 @@ cdef extern from "golang/libgolang.h" namespace "golang" nogil:
 
         _libgolang_sema* (*sema_alloc)  ()
         void             (*sema_free)   (_libgolang_sema*)
-        void             (*sema_acquire)(_libgolang_sema*)
+        bint             (*sema_acquire)(_libgolang_sema*, uint64_t timeout_ns)
         void             (*sema_release)(_libgolang_sema*)
 
         void        (*nanosleep)(uint64_t)

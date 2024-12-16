@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -40,7 +40,10 @@ ELSE:
 
 from gevent import sleep as pygsleep
 
-from libc.stdint cimport uint8_t, uint64_t
+from libc.stdint cimport uint8_t, uint64_t, UINT64_MAX
+cdef extern from *:
+    ctypedef bint cbool "bool"
+
 from cpython cimport PyObject, Py_INCREF, Py_DECREF
 from cython cimport final
 
@@ -57,7 +60,7 @@ from posix.fcntl cimport mode_t, F_GETFL, F_SETFL, O_NONBLOCK, O_ACCMODE, O_RDON
 from posix.stat cimport struct_stat, S_ISREG, S_ISDIR, S_ISBLK
 from posix.strings cimport bzero
 
-from gevent.fileobject import FileObjectThread, FileObjectPosix
+from gevent import fileobject as gfileobj
 
 
 # _goviapy & _togo serve go
@@ -95,9 +98,12 @@ cdef:
         Py_DECREF(pygsema)
         return True
 
-    bint _sema_acquire(_libgolang_sema *gsema):
+    bint _sema_acquire(_libgolang_sema *gsema, uint64_t timeout_ns, cbool* pacq):
         pygsema = <PYGSema>gsema
-        pygsema.acquire()
+        timeout = None
+        if timeout_ns != UINT64_MAX:
+            timeout = float(timeout_ns) * 1e-9
+        pacq[0] = pygsema.acquire(timeout=timeout)
         return True
 
     bint _sema_release(_libgolang_sema *gsema):
@@ -142,14 +148,16 @@ cdef nogil:
         if not ok:
             panic("pyxgo: gevent: sema: free: failed")
 
-    void sema_acquire(_libgolang_sema *gsema):
+    cbool sema_acquire(_libgolang_sema *gsema, uint64_t timeout_ns):
         cdef PyExc exc
+        cdef cbool acq
         with gil:
             pyexc_fetch(&exc)
-            ok = _sema_acquire(gsema)
+            ok = _sema_acquire(gsema, timeout_ns, &acq)
             pyexc_restore(exc)
         if not ok:
             panic("pyxgo: gevent: sema: acquire: failed")
+        return acq
 
     void sema_release(_libgolang_sema *gsema):
         cdef PyExc exc
@@ -194,31 +202,39 @@ cdef nogil:
         return ioh
 
     _libgolang_ioh* _io_fdopen(int *out_syserr, int sysfd):
-        # check if we should enable O_NONBLOCK on this file-descriptor
-        # even though we could enable O_NONBLOCK for regular files, it does not
-        # work as expected as most unix'es report regular files as always read
-        # and write ready.
-        cdef struct_stat st
-        cdef int syserr = syscall.Fstat(sysfd, &st)
-        if syserr < 0:
-            out_syserr[0] = syserr
-            return NULL
-        m = st.st_mode
-        blocking = (S_ISREG(m) or S_ISDIR(m) or S_ISBLK(m)) # fd cannot refer to symlink
-
-        # retrieve current sysfd flags and access mode
-        flags = syscall.Fcntl(sysfd, F_GETFL, 0)
-        if flags < 0:
-            out_syserr[0] = flags
-            return NULL
-        acc = (flags & O_ACCMODE)
-
-        # enable O_NONBLOCK if needed
-        if not blocking:
-            syserr = syscall.Fcntl(sysfd, F_SETFL, flags | O_NONBLOCK)
+        IF POSIX:
+            # check if we should enable O_NONBLOCK on this file-descriptor
+            # even though we could enable O_NONBLOCK for regular files, it does not
+            # work as expected as most unix'es report regular files as always read
+            # and write ready.
+            cdef struct_stat st
+            cdef int syserr = syscall.Fstat(sysfd, &st)
             if syserr < 0:
                 out_syserr[0] = syserr
                 return NULL
+            m = st.st_mode
+            blocking = (S_ISREG(m) or S_ISDIR(m) or S_ISBLK(m)) # fd cannot refer to symlink
+
+            # retrieve current sysfd flags and access mode
+            flags = syscall.Fcntl(sysfd, F_GETFL, 0)
+            if flags < 0:
+                out_syserr[0] = flags
+                return NULL
+            acc = (flags & O_ACCMODE)
+
+            # enable O_NONBLOCK if needed
+            if not blocking:
+                syserr = syscall.Fcntl(sysfd, F_SETFL, flags | O_NONBLOCK)
+                if syserr < 0:
+                    out_syserr[0] = syserr
+                    return NULL
+
+        ELSE: # !POSIX (windows)
+            cdef bint blocking = True
+            # FIXME acc: use GetFileInformationByHandleEx to determine whether
+            # HANDLE(sysfd) was opened for reading or writing.
+            # https://stackoverflow.com/q/9442436/9456786
+            cdef int acc = O_RDWR
 
         # create IOH backed by FileObjectThread or FileObjectPosix
         ioh = <IOH*>calloc(1, sizeof(IOH))
@@ -253,9 +269,9 @@ cdef:
         pygfobj = None
         try:
             if blocking:
-                pygfobj = FileObjectThread(sysfd, mode=mode, buffering=0)
+                pygfobj = gfileobj.FileObjectThread(sysfd, mode=mode, buffering=0)
             else:
-                pygfobj = FileObjectPosix(sysfd, mode=mode, buffering=0)
+                pygfobj = gfileobj.FileObjectPosix(sysfd, mode=mode, buffering=0)
         except OSError as e:
             out_syserr[0] = -e.errno
         else:
@@ -338,7 +354,19 @@ cdef:
         cdef uint8_t[::1] mem = <uint8_t[:count]>buf
         xmem = memoryview(mem) # to avoid https://github.com/cython/cython/issues/3900 on mem[:0]=b''
         try:
-            n = pygfobj.readinto(xmem)
+            # NOTE buf might be on stack, so it must not be accessed, e.g. from
+            # FileObjectThread, while our greenlet is parked (see STACK_DEAD_WHILE_PARKED
+            # for details). -> Use intermediate on-heap buffer to protect from that.
+            #
+            # Also: we cannot use pygfobj.readinto due to
+            # https://github.com/gevent/gevent/pull/1948
+            #
+            # TODO use .readinto() when buf is not on stack and gevent is
+            # recent enough or pygfobj is not FileObjectThread.
+            #n = pygfobj.readinto(xmem)
+            buf2 = pygfobj.read(count)
+            n = len(buf2)
+            xmem[:n] = buf2
         except OSError as e:
             n = -e.errno
         out_n[0] = n
@@ -361,8 +389,14 @@ cdef:
     bint _io_write(IOH* ioh, int* out_n, const void *buf, size_t count):
         pygfobj = <object>ioh.pygfobj
         cdef const uint8_t[::1] mem = <const uint8_t[:count]>buf
+
+        # NOTE buf might be on stack, so it must not be accessed, e.g. from
+        # FileObjectThread, while our greenlet is parked (see STACK_DEAD_WHILE_PARKED
+        # for details). -> Use intermediate on-heap buffer to protect from that.
+        buf2 = bytearray(mem)
+
         try:
-            n = pygfobj.write(mem)
+            n = pygfobj.write(buf2)
         except OSError as e:
             n = -e.errno
         out_n[0] = n

@@ -1,5 +1,5 @@
 # cython: language_level=2
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -35,7 +35,12 @@ from __future__ import print_function, absolute_import
 #
 # NOTE Cython declares PyThread_acquire_lock/PyThread_release_lock as nogil
 from cpython.pythread cimport PyThread_acquire_lock, PyThread_release_lock, \
-        PyThread_type_lock, WAIT_LOCK
+        PyThread_type_lock, WAIT_LOCK, NOWAIT_LOCK, PyLockStatus, PY_LOCK_ACQUIRED, PY_LOCK_FAILURE
+
+cdef extern from * nogil:
+    ctypedef int PY_TIMEOUT_T   # long long there
+    PyLockStatus PyThread_acquire_lock_timed(PyThread_type_lock, PY_TIMEOUT_T timeout_us, int intr_flag)
+
 
 # NOTE On Darwin, even though this is considered as POSIX, Python uses
 # mutex+condition variable to implement its lock, and, as of 20190828, Py2.7
@@ -98,6 +103,9 @@ from libc.errno  cimport errno, EINTR, EBADF
 from posix.fcntl cimport mode_t
 from posix.stat cimport struct_stat
 from posix.strings cimport bzero
+cdef extern from *:
+    ctypedef bint cbool "bool"
+
 IF POSIX:
     from posix.time cimport clock_gettime, nanosleep as posix_nanosleep, timespec, CLOCK_REALTIME
 ELSE:
@@ -138,11 +146,46 @@ cdef nogil:
         pysema = <PyThread_type_lock>gsema
         PyThread_free_lock(pysema)
 
-    void sema_acquire(_libgolang_sema *gsema):
+    cbool sema_acquire(_libgolang_sema *gsema, uint64_t timeout_ns):
         pysema = <PyThread_type_lock>gsema
-        ok = PyThread_acquire_lock(pysema, WAIT_LOCK)
-        if ok == 0:
-            panic("pyxgo: thread: sema_acquire: PyThread_acquire_lock failed")
+        IF PY3:
+            cdef PY_TIMEOUT_T timeout_us
+        ELSE:
+            cdef uint64_t tprev, t, tsleep
+        if timeout_ns == UINT64_MAX:
+            ok = PyThread_acquire_lock(pysema, WAIT_LOCK)
+            if ok == 0:
+                panic("pyxgo: thread: sema_acquire: PyThread_acquire_lock failed")
+            return 1
+        else:
+            IF PY3:
+                timeout_us = timeout_ns // 1000
+                lkok = PyThread_acquire_lock_timed(pysema, timeout_us, 0)
+                if lkok == PY_LOCK_FAILURE:
+                    return 0
+                elif lkok == PY_LOCK_ACQUIRED:
+                    return 1
+                else:
+                    panic("pyxgo: thread: sema_acquire: PyThread_acquire_lock_timed failed")
+            ELSE:
+                # py2 misses PyThread_acquire_lock_timed - provide fallback ourselves
+                tprev = nanotime()
+                while 1:
+                     ok = PyThread_acquire_lock(pysema, NOWAIT_LOCK)
+                     if ok:
+                         return 1
+                     tsleep = min(timeout_ns, 50*1000)    # poll every 50 μs = 20 Hz
+                     if tsleep == 0:
+                         break
+                     nanosleep(tsleep)
+                     t = nanotime()
+                     if t < tprev:
+                         break  # clock skew
+                     if t - tprev >= timeout_ns:
+                         break
+                     timeout_ns -= t - tprev
+                     tprev = t
+                return 0
 
     void sema_release(_libgolang_sema *gsema):
         pysema = <PyThread_type_lock>gsema

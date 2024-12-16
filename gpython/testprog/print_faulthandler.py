@@ -1,5 +1,6 @@
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
-#                          Kirill Smelkov <kirr@nexedi.com>
+# -*- coding: utf-8 -*-
+# Copyright (C) 2024  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -16,22 +17,21 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""cmdclass_custom.py helps tests to verify that e.g. custom build_ext can be used"""
+"""Program print_faulthandler prints information about faulthandler settings."""
 
 from __future__ import print_function, absolute_import
 
-from golang.pyx.build import setup, build_ext
+import sys
 
-class mybuild_ext(build_ext):
-    def run(self):
-        print('pyx.build:RUN_BUILD_EXT')
-        # just print - _not_ recursing into build_ext.run
+def main():
+    if 'faulthandler' not in sys.modules:
+        print('faulthandler is not imported')
+        return
 
-setup(
-    cmdclass    = {'build_ext': mybuild_ext},
+    fh = sys.modules['faulthandler']
+    print('faulthandler imported')
+    print('faulthandler %s' % ('enabled' if fh.is_enabled() else 'disabled'))
 
-    # avoid setuptools thinking nearby golang_pyx_user/ golang_dso_user/ also
-    # relate to hereby setup and rejecting the build.
-    # https://stackoverflow.com/questions/72294299/multiple-top-level-packages-discovered-in-a-flat-layout
-    py_modules  = [],
-)
+
+if __name__ == '__main__':
+    main()

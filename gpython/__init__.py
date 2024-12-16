@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2021  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -41,7 +41,7 @@ $GPYTHON_RUNTIME=threads.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:im:OVW:X:"
+_pyopt = "c:Eim:OvVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -50,19 +50,27 @@ _pyopt_long = ('version',)
 # init, if provided, is called after options are parsed, but before interpreter start.
 def pymain(argv, init=None):
     import sys
-    from os.path import dirname, realpath
+    import os
+    from os.path import dirname, realpath, splitext
 
     # sys.executable
     # on windows there are
-    #   gpython-script.py
     #   gpython.exe
+    #   gpython-script.py
     #   gpython.manifest
-    # and argv[0] is gpython-script.py
+    # with gpython-script.py sometimes embedded into gpython.exe (pip/distlib)
+    # and argv[0] is 'gpython-script.py' (setuptools)  or  'gpython' (pip/distlib; note no .exe)
     exe  = realpath(argv[0])
     argv = argv[1:]
-    if exe.endswith('-script.py'):
-        exe = exe[:-len('-script.py')]
-        exe = exe + '.exe'
+    if os.name == 'nt':
+        if exe.endswith('-script.py'):
+            exe = exe[:-len('-script.py')]  # gpython-script.py  ->  gpython.exe
+            exe = exe + '.exe'
+        else:
+            _, ext = splitext(exe)          # gpython            ->  gpython.exe
+            if not ext:
+                exe += '.exe'
+
     sys._gpy_underlying_executable = sys.executable
     sys.executable  = exe
 
@@ -70,20 +78,26 @@ def pymain(argv, init=None):
     # `gpython file` will add path-to-file to sys.path[0] by itself, and
     # /path/to/gpython is unnecessary and would create difference in behaviour
     # in between gpython and python.
+    #
+    # on windows when gpython.exe comes with embedded __main__.py, it is
+    # gpython.exe that is installed into sys.path[0] .
     exedir = dirname(exe)
-    if sys.path[0] == exedir:
+    if sys.path[0] in (exedir, exe):
         del sys.path[0]
     else:
         # buildout injects `sys.path[0:0] = eggs` into python scripts.
         # detect that and remove sys.path entry corresponding to exedir.
         if not _is_buildout_script(exe):
-            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe):'
+            raise RuntimeError('pymain: internal error: sys.path[0] was not set by underlying python to dirname(exe) or exe:'
                     '\n\n\texe:\t%s\n\tsys.path[0]:\t%s' % (exe, sys.path[0]))
         else:
-            if exedir in sys.path:
-                sys.path.remove(exedir)
-            else:
-                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe):'
+            ok = False
+            for _ in (exedir, exe):
+                if _ in sys.path:
+                    sys.path.remove(_)
+                    ok = True
+            if not ok:
+                raise RuntimeError('pymain: internal error: sys.path does not contain dirname(exe) or exe:'
                     '\n\n\texe:\t%s\n\tsys.path:\t%s' % (exe, sys.path))
 
 
@@ -99,11 +113,24 @@ def pymain(argv, init=None):
     for (opt, arg) in igetopt:
         # options that require reexecuting through underlying python with that -<opt>
         if opt in (
+                '-E',   # ignore $PYTHON*
                 '-O',   # optimize
+                '-v',   # trace import statements
+                '-X',   # set implementation-specific option
             ):
-            reexec_with.append(opt)
-            if arg is not None:
-                reexec_with.append(arg)
+
+            # but keep `-X gpython.*` in user part of argv in case of reexec
+            # leaving it for main to handle. If it is only pymain to run, then
+            # we will be ignoring `-X gpython.*` which goes in line with builtin
+            # py3 behaviour to ignore any unknown -X option.
+            if opt == '-X' and arg is not None and arg.startswith('gpython.'):
+                reexec_argv.append(opt)
+                reexec_argv.append(arg)
+
+            else:
+                reexec_with.append(opt)
+                if arg is not None:
+                    reexec_with.append(arg)
             continue
 
         reexec_argv.append(opt)
@@ -202,7 +229,6 @@ def pymain(argv, init=None):
     #
     #   python -O gpython file.py
     if len(reexec_with) > 0:
-        import os
         argv = [sys._gpy_underlying_executable] + reexec_with + [sys.executable] + reexec_argv
         os.execv(argv[0], argv)
 
@@ -226,11 +252,12 @@ def pymain(argv, init=None):
         pyimpl = platform.python_implementation()
 
         v = _version_info_str
+        pyver  = platform.python_version()  # ~ v(sys.version_info) but might also have e.g. '+' at tail
         if pyimpl == 'CPython':
-            ver.append('CPython %s' % v(sys.version_info))
+            ver.append('CPython %s' % pyver)
         elif pyimpl == 'PyPy':
             ver.append('PyPy %s'   % v(sys.pypy_version_info))
-            ver.append('Python %s' % v(sys.version_info))
+            ver.append('Python %s' % pyver)
         else:
             ver = [] # unknown
 
@@ -367,33 +394,35 @@ def main():
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
 
-    # extract and process `-X gpython.*`
+    # process `-X gpython.*`
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
     sys._xoptions = getattr(sys, '_xoptions', {})
-    argv_ = []
     gpy_runtime = os.getenv('GPYTHON_RUNTIME', 'gevent')
     igetopt = _IGetOpt(sys.argv[1:], _pyopt, _pyopt_long)
     for (opt, arg) in igetopt:
         if opt == '-X':
-            if arg.startswith('gpython.'):
-                if arg.startswith('gpython.runtime='):
-                    gpy_runtime = arg[len('gpython.runtime='):]
-                    sys._xoptions['gpython.runtime'] = gpy_runtime
-
-                else:
-                    raise RuntimeError('gpython: unknown -X option %s' % opt)
-
+            # any non gpython -X option is handled by pymain; ignore them here
+            if not arg.startswith('gpython.'):
                 continue
 
-        argv_.append(opt)
-        if arg is not None:
-            argv_.append(arg)
+            if arg.startswith('gpython.runtime='):
+                gpy_runtime = arg[len('gpython.runtime='):]
+                sys._xoptions['gpython.runtime'] = gpy_runtime
+
+            else:
+                raise RuntimeError('gpython: unknown -X option %s' % arg)
+
+            continue
 
         # options after -c / -m are not for python itself
         if opt in ('-c', '-m'):
             break
 
-    argv = [sys.argv[0]] + argv_ + igetopt.argv
+
+    # propagate those settings as defaults to subinterpreters, so that e.g.
+    # sys.executable spawned from under `gpython -X gpython.runtime=threads`
+    # also uses "threads" runtime by default.
+    os.environ['GPYTHON_RUNTIME'] = gpy_runtime
 
     # init initializes according to selected runtime
     # it is called after options are parsed and sys.path is setup correspondingly.
@@ -434,18 +463,18 @@ def main():
         sys.version += (' [GPython %s] [%s]' % (golang.__version__, gpy_verextra))
 
     # tail to pymain
-    pymain(argv, init)
+    pymain(sys.argv, init)
 
 
 # _is_buildout_script returns whether file @path is generated as python buildout script.
 def _is_buildout_script(path):
-    with open(path, 'r') as f:
+    with open(path, 'rb') as f:
         src = f.read()
     # buildout injects the following prologues into python scripts:
     #   sys.path[0:0] = [
     #     ...
     #   ]
-    return ('\nsys.path[0:0] = [\n' in src)
+    return (b'\nsys.path[0:0] = [\n' in src)
 
 
 # _IGetOpt provides getopt-style incremental options parsing.

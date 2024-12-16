@@ -1,4 +1,4 @@
-// Copyright (C) 2021-2022  Nexedi SA and Contributors.
+// Copyright (C) 2021-2023  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -57,15 +57,18 @@ string _Errno::Error() {
     _Errno& e = *this;
 
     char ebuf[128];
+    bool ok;
 #if __APPLE__
-    int x = ::strerror_r(-e.syserr, ebuf, sizeof(ebuf));
-    if (x == 0)
-        return string(ebuf);
-    return "unknown error " + std::to_string(-e.syserr);
+    ok = (::strerror_r(-e.syserr, ebuf, sizeof(ebuf)) == 0);
+#elif defined(_WIN32)
+    ok = (::strerror_s(ebuf, sizeof(ebuf), -e.syserr) == 0);
 #else
     char *estr = ::strerror_r(-e.syserr, ebuf, sizeof(ebuf));
     return string(estr);
 #endif
+    if (ok)
+        return string(ebuf);
+    return "unknown error " + std::to_string(-e.syserr);
 }
 
 
@@ -99,6 +102,7 @@ __Errno Close(int fd) {
     return err;
 }
 
+#ifndef _WIN32
 __Errno Fcntl(int fd, int cmd, int arg) {
     int save_errno = errno;
     int err = ::fcntl(fd, cmd, arg);
@@ -107,6 +111,7 @@ __Errno Fcntl(int fd, int cmd, int arg) {
     errno = save_errno;
     return err;
 }
+#endif
 
 __Errno Fstat(int fd, struct ::stat *out_st) {
     int save_errno = errno;
@@ -119,6 +124,10 @@ __Errno Fstat(int fd, struct ::stat *out_st) {
 
 int Open(const char *path, int flags, mode_t mode) {
     int save_errno = errno;
+#ifdef _WIN32  // default to open files in binary mode
+    if ((flags & (_O_TEXT | _O_BINARY)) == 0)
+        flags |= _O_BINARY;
+#endif
     int fd = ::open(path, flags, mode);
     if (fd < 0)
         fd = -errno;
@@ -126,15 +135,39 @@ int Open(const char *path, int flags, mode_t mode) {
     return fd;
 }
 
-__Errno Pipe(int vfd[2]) {
+__Errno Pipe(int vfd[2], int flags) {
+    // supported flags: O_CLOEXEC
+    if (flags & ~(O_CLOEXEC))
+        return -EINVAL;
     int save_errno = errno;
-    int err = ::pipe(vfd);
+    int err;
+#ifdef __linux__
+    err = ::pipe2(vfd, flags);
+#elif defined(_WIN32)
+    err = ::_pipe(vfd, 4096, flags | _O_BINARY);
+#else
+    err = ::pipe(vfd);
+    if (err)
+        goto out;
+    if (flags & O_CLOEXEC) {
+        for (int i=0; i<2; i++) {
+            err = Fcntl(vfd[i], F_SETFD, FD_CLOEXEC);
+            if (err) {
+                Close(vfd[0]);
+                Close(vfd[1]);
+                goto out;
+            }
+        }
+    }
+out:
+#endif
     if (err == -1)
         err = -errno;
     errno = save_errno;
     return err;
 }
 
+#ifndef _WIN32
 __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *oldact) {
     int save_errno = errno;
     int err = ::sigaction(signo, act, oldact);
@@ -142,6 +175,17 @@ __Errno Sigaction(int signo, const struct ::sigaction *act, struct ::sigaction *
         err = -errno;
     errno = save_errno;
     return err;
+}
+#endif
+
+sighandler_t Signal(int signo, sighandler_t handler, int *out_psyserr) {
+    int save_errno = errno;
+    sighandler_t oldh = ::signal(signo, handler);
+    *out_psyserr = (oldh == SIG_ERR
+        ? (errno ? -errno : -EINVAL) // windows returns SIG_ERR/errno=0 for invalid signo
+        : 0);
+    errno = save_errno;
+    return oldh;
 }
 
 

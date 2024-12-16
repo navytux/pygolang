@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -19,28 +20,27 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 
 from setuptools import find_packages
-# setuptools has Library but this days it is not well supported and test for it
-# has been killed https://github.com/pypa/setuptools/commit/654c26f78a30
-# -> use setuptools_dso instead.
-from setuptools_dso import DSO
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
 from distutils import sysconfig
 from os.path import dirname, join
-import sys, re
+import sys, os, re
 
 # read file content
-def readfile(path):
-    with open(path, 'r') as f:
-        return f.read()
+def readfile(path): # -> str
+    with open(path, 'rb') as f:
+        data = f.read()
+        if not isinstance(data, str):   # py3
+            data = data.decode('utf-8')
+        return data
 
-# reuse golang.pyx.build to build pygolang extensions.
+# reuse golang.pyx.build to build pygolang dso and extensions.
 # we have to be careful and inject synthetic golang package in order to be
 # able to import golang.pyx.build without built/working golang.
 trun = {}
 exec(readfile('trun'), trun)
 trun['ximport_empty_golangmod']()
-from golang.pyx.build import setup, Extension as Ext
+from golang.pyx.build import setup, DSO, Extension as Ext
 
 
 # grep searches text for pattern.
@@ -155,8 +155,8 @@ class develop(XInstallGPython, _develop):
 
 # requirements of packages under "golang." namespace
 R = {
-    'cmd.pybench':      {'pytest'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython', 'setuptools_dso >= 1.7'},
+    'cmd.pybench':      {'pytest', 'py ; python_version >= "3"'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.8'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -173,6 +173,14 @@ extras_require = {}
 for k in sorted(R.keys()):
     extras_require[k] = list(sorted(R[k]))
 
+
+# get_python_libdir() returns path where libpython is located
+def get_python_libdir():
+    # mimic what distutils.command.build_ext does
+    if os.name == 'nt':
+        return join(sysconfig.get_config_var('installed_platbase'), 'libs')
+    else:
+        return sysconfig.get_config_var('LIBDIR')
 
 setup(
     name        = 'pygolang',
@@ -222,20 +230,21 @@ setup(
                             'golang/os/signal.h',
                             'golang/strings.h',
                             'golang/sync.h',
-                            'golang/time.h'],
-                        include_dirs    = ['.', '3rdparty/include'],
+                            'golang/time.h',
+                            '3rdparty/ratas/src/timer-wheel.h'],
+                        include_dirs    = [
+                            '3rdparty/include',
+                            '3rdparty/ratas/src'],
                         define_macros   = [('BUILDING_LIBGOLANG', None)],
-                        extra_compile_args = ['-std=gnu++11'], # not c++11 as linux/list.h uses typeof
                         soversion       = '0.1'),
 
                     DSO('golang.runtime.libpyxruntime',
                         ['golang/runtime/libpyxruntime.cpp'],
                         depends = ['golang/pyx/runtime.h'],
-                        include_dirs    = ['.', sysconfig.get_python_inc()],
+                        include_dirs    = [sysconfig.get_python_inc()],
+                        library_dirs    = [get_python_libdir()],
                         define_macros   = [('BUILDING_LIBPYXRUNTIME', None)],
-                        extra_compile_args = ['-std=c++11'],
-                        soversion       = '0.1',
-                        dsos = ['golang.runtime.libgolang'])],
+                        soversion       = '0.1')],
 
     ext_modules = [
                     Ext('golang._golang',
@@ -311,11 +320,15 @@ setup(
     include_package_data = True,
 
     install_requires = ['gevent', 'six', 'decorator', 'Importing;python_version<="2.7"',
+                        # only runtime part: for dylink_prepare_dso
+                        # also need to pin setuptools ≥ 60.2 because else wheel configures logging
+                        # to go to stdout and so dylink_prepare_dso garbles program output
+                        'setuptools_dso >= 2.8',
+                        'setuptools >= 60.2 ; python_version>="3"',
                         # pyx.build -> setuptools_dso uses multiprocessing
-                        # FIXME geventmp fails on python2, but setuptools_dso
-                        # uses multiprocessing only on Python3, so for now we
-                        # are ok. https://github.com/karellen/geventmp/pull/2
-                        'geventmp;python_version>="3"',
+                        # setuptools_dso uses multiprocessing only on Python3, and only on systems where
+                        # mp.get_start_method()!='fork', while geventmp does not work on windows.
+                        'geventmp ; python_version>="3" and platform_system != "Windows" ',
                        ],
     extras_require   = extras_require,
 
@@ -340,13 +353,18 @@ setup(
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3
-        Programming Language :: Python :: 3.5
-        Programming Language :: Python :: 3.6
-        Programming Language :: Python :: 3.7
         Programming Language :: Python :: 3.8
         Programming Language :: Python :: 3.9
+        Programming Language :: Python :: 3.10
+        Programming Language :: Python :: 3.11
+        Programming Language :: Python :: 3.12
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
+        Operating System :: POSIX
+        Operating System :: POSIX :: Linux
+        Operating System :: Unix
+        Operating System :: MacOS
+        Operating System :: Microsoft :: Windows
         Topic :: Software Development :: Interpreters
         Topic :: Software Development :: Libraries :: Python Modules\
     """.splitlines()]

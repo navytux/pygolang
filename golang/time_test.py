@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -20,9 +20,10 @@
 
 from __future__ import print_function, absolute_import
 
-from golang import select
-from golang import time
+from golang import select, func, defer
+from golang import time, sync
 from golang.golang_test import panics
+from six.moves import range as xrange
 
 # all timer tests operate in dt units
 dt = 10*time.millisecond
@@ -65,6 +66,7 @@ def test_ticker_time():
 
 
 # test_timer verifies that Timer/Ticker fire as expected.
+@func
 def test_timer():
     # start timers at x5, x7 and x11 intervals an verify that the timers fire
     # in expected sequence. The times when the timers fire do not overlap in
@@ -73,15 +75,15 @@ def test_timer():
     tv = [] # timer events
     Tstart = time.now()
 
-    t23 = time.Timer(23*dt)
-    t5  = time.Timer( 5*dt)
+    t23 = time.Timer(23*dt);        defer(t23.stop)
+    t5  = time.Timer( 5*dt);        defer(t5 .stop)
 
     def _():
         tv.append(7)
         t7f.reset(7*dt)
-    t7f = time.Timer( 7*dt, f=_)
+    t7f = time.Timer( 7*dt, f=_);   defer(t7f.stop)
 
-    tx11 = time.Ticker(11*dt)
+    tx11 = time.Ticker(11*dt);      defer(tx11.stop)
 
     while 1:
         _, _rx = select(
@@ -108,19 +110,20 @@ def test_timer():
 
 
 # test_timer_misc, similarly to test_timer, verifies misc timer convenience functions.
+@func
 def test_timer_misc():
     tv = []
     Tstart = time.now()
 
-    c23 = time.after(23*dt)
-    c5  = time.after( 5*dt)
+    c23 = time.after(23*dt)         # cannot stop
+    c5  = time.after( 5*dt)         # cannot stop
 
     def _():
         tv.append(7)
         t7f.reset(7*dt)
-    t7f = time.after_func(7*dt, _)
+    t7f = time.after_func(7*dt, _); defer(t7f.stop)
 
-    cx11 = time.tick(11*dt)
+    cx11 = time.tick(11*dt)         # cannot stop
 
     while 1:
         _, _rx = select(
@@ -148,13 +151,14 @@ def test_timer_misc():
 
 
 # test_timer_stop verifies that .stop() cancels Timer or Ticker.
+@func
 def test_timer_stop():
     tv = []
 
-    t10 = time.Timer (10*dt)
-    t2  = time.Timer ( 2*dt)    # will fire and cancel t3, tx5
-    t3  = time.Timer ( 3*dt)    # will be canceled
-    tx5 = time.Ticker( 5*dt)    # will be canceled
+    t10 = time.Timer (10*dt);   defer(t10.stop)
+    t2  = time.Timer ( 2*dt);   defer(t2 .stop) # will fire and cancel t3, tx5
+    t3  = time.Timer ( 3*dt);   defer(t3 .stop) # will be canceled
+    tx5 = time.Ticker( 5*dt);   defer(tx5.stop) # will be canceled
 
     while 1:
         _, _rx = select(
@@ -180,9 +184,10 @@ def test_timer_stop():
 
 
 # test_timer_stop_drain verifies that Timer/Ticker .stop() drains timer channel.
+@func
 def test_timer_stop_drain():
-    t  = time.Timer (1*dt)
-    tx = time.Ticker(1*dt)
+    t  = time.Timer (1*dt);     defer(t.stop)
+    tx = time.Ticker(1*dt);     defer(tx.stop)
 
     time.sleep(2*dt)
     assert len(t.c)  == 1
@@ -195,9 +200,45 @@ def test_timer_stop_drain():
     assert len(tx.c) == 0
 
 
+# test_timer_stop_vs_func verifies that Timer .stop() works correctly with func-timer.
+@func
+def test_timer_stop_vs_func():
+    tv = []
+    def _1(): tv.append(1)
+    def _2(): tv.append(2)
+
+    t1 = time.after_func(1e6*dt, _1);   defer(t1.stop)
+    t2 = time.after_func(  1*dt, _2);   defer(t2.stop)
+
+    time.sleep(2*dt)
+    assert t1.stop() == True
+    assert t2.stop() == False
+    assert tv == [2]
+
+
 # test_timer_reset_armed verifies that .reset() panics if called on armed timer.
+@func
 def test_timer_reset_armed():
     # reset while armed
-    t = time.Timer(10*dt)
+    t = time.Timer(10*dt);  defer(t.stop)
     with panics("Timer.reset: the timer is armed; must be stopped or expired"):
         t.reset(5*dt)
+
+
+# bench_timer_arm_cancel benchmarks arming timers that do not fire.
+# it shows how cheap or expensive it is to use timers to implement timeouts.
+def bench_timer_arm_cancel(b):
+    for i in xrange(b.N):
+        t = time.Timer(10*time.second)
+        _ = t.stop()
+        assert _ is True
+
+
+# bench_timer_arm_fire benchmarks arming timers that do fire.
+# it shows what it costs to go through all steps related to timer loop and firing timers.
+def bench_timer_arm_fire(b):
+    wg = sync.WaitGroup()
+    wg.add(b.N)
+    for i in xrange(b.N):
+        t = time.after_func(1*time.millisecond, wg.done)
+    wg.wait()

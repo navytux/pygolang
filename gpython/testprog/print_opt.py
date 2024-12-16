@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2020  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2020-2023  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -61,9 +61,10 @@ def modpy_imports_from():
     else:
         raise AssertionError("module 'mod' is already there")
 
-    tmpd = tempfile.mkdtemp('', 'modpy_imports_from')
+    tmpd  = tempfile.mkdtemp('', 'modpy_imports_from')
+    tmpd_ = tmpd + os.path.sep
     try:
-        pymod = "%s/mod.py" % tmpd
+        pymod = tmpd_ + "mod.py"
         with open(pymod, "w") as f:
             f.write("# hello up there\n")
 
@@ -73,9 +74,9 @@ def modpy_imports_from():
         files = set()
         for dirpath, dirnames, filenames in os.walk(tmpd):
             for _ in filenames:
-                f = '%s/%s' % (dirpath, _)
-                if f.startswith(tmpd+'/'):
-                    f = f[len(tmpd+'/'):]
+                f = os.path.join(dirpath, _)
+                if f.startswith(tmpd_):
+                    f = f[len(tmpd_):]
                 files.add(f)
 
 

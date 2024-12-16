@@ -1,4 +1,5 @@
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# pygolang | pytest config
+# Copyright (C) 2021-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -16,22 +17,12 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""cmdclass_custom.py helps tests to verify that e.g. custom build_ext can be used"""
 
 from __future__ import print_function, absolute_import
 
-from golang.pyx.build import setup, build_ext
+import gc
 
-class mybuild_ext(build_ext):
-    def run(self):
-        print('pyx.build:RUN_BUILD_EXT')
-        # just print - _not_ recursing into build_ext.run
 
-setup(
-    cmdclass    = {'build_ext': mybuild_ext},
-
-    # avoid setuptools thinking nearby golang_pyx_user/ golang_dso_user/ also
-    # relate to hereby setup and rejecting the build.
-    # https://stackoverflow.com/questions/72294299/multiple-top-level-packages-discovered-in-a-flat-layout
-    py_modules  = [],
-)
+# Do full GC before pytest exits, to avoid false positives in the leak detector.
+def pytest_unconfigure():
+    gc.collect()

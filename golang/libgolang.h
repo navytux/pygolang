@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2022  Nexedi SA and Contributors.
+// Copyright (C) 2018-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -176,6 +176,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <fcntl.h>
+#ifdef _MSC_VER // no mode_t on msvc
+typedef int mode_t;
+#endif
+
+
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
 #if defined _WIN32 || defined __CYGWIN__
   #define LIBGOLANG_DSO_EXPORT __declspec(dllexport)
@@ -340,8 +346,13 @@ typedef struct _libgolang_runtime_ops {
     // previously successfully allocated via sema_alloc.
     void             (*sema_free)   (_libgolang_sema*);
 
-    // sema_acquire/sema_release should acquire/release live semaphore allocated via sema_alloc.
-    void             (*sema_acquire)(_libgolang_sema*);
+    // sema_acquire should try to acquire live semaphore allocated via sema_alloc during given time.
+    // it returns whether acquisition succeeded or timed out.
+    // the timeout is specified in nanoseconds.
+    // UINT64_MAX means no timeout.
+    bool             (*sema_acquire)(_libgolang_sema*, uint64_t timeout_ns);
+
+    // sema_release should release live semaphore allocated via sema_alloc.
     void             (*sema_release)(_libgolang_sema*);
 
     // nanosleep should pause current goroutine for at least dt nanoseconds.
@@ -577,7 +588,7 @@ int select(const _selcase (&casev)[N]) {
 
 static inline                       // select(vector<casev>)
 int select(const std::vector<_selcase> &casev) {
-    return _chanselect(&casev[0], casev.size());
+    return _chanselect(casev.data(), casev.size());
 }
 
 // defer(f) mimics `defer f()` from golang.
@@ -829,7 +840,7 @@ struct _interface {
 
 protected:
     // don't use destructor -> use decref
-    ~_interface();
+    LIBGOLANG_API ~_interface();
 };
 typedef refptr<_interface> interface;
 

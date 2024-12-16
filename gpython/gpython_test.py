@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2022  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -184,7 +184,7 @@ def test_pymain():
     _ = pyout(['-m', 'hello', 'abc', 'def'], cwd=testdata)
     # realpath rewrites e.g. `local/lib -> lib` if local/lib is symlink
     hellopy = realpath(join(testdata, 'hello.py'))
-    assert _ == b"hello\nworld\n['%s', 'abc', 'def']\n" % b(hellopy)
+    assert _ == b"hello\nworld\n[%s, 'abc', 'def']\n" % b(repr(hellopy))
     # -m<module>
     __ = pyout(['-mhello', 'abc', 'def'], cwd=testdata)
     assert __ == _
@@ -195,8 +195,8 @@ def test_pymain():
 
     # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
     d = {
-        b'hellopy': b(hellopy),
-        b'ps1':     b'' # cpython emits prompt to stderr
+        b'repr(hellopy)': b(repr(hellopy)),
+        b'ps1':           b'' # cpython emits prompt to stderr
     }
     if is_pypy and not is_gpython:
         d[b'ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
@@ -212,7 +212,7 @@ def test_pymain():
     assert _ == b"hello\nworld\n['-c']\n%(ps1)s'~~HELLO~~'\n%(ps1)s"    % d
     # -i after -m
     _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', cwd=testdata)
-    assert _ == b"hello\nworld\n['%(hellopy)s']\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
+    assert _ == b"hello\nworld\n[%(repr(hellopy))s]\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
     # -i after file
     _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d
@@ -221,26 +221,27 @@ def test_pymain():
     # -W <opt>
     _ = pyout(['-Werror', '-Whello', '-W', 'ignore::DeprecationWarning',
                'testprog/print_warnings_setup.py'], cwd=here)
-    if PY2:
-        # py2 threading, which is imported after gpython startup, adds ignore
-        # for sys.exc_clear
-        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
-    assert _.startswith(
-        b"sys.warnoptions: ['error', 'hello', 'ignore::DeprecationWarning']\n\n" + \
-        b"warnings.filters:\n" + \
-        b"- ignore::DeprecationWarning::*\n" + \
-        b"- error::Warning::*\n"), _
+    assert re.match(
+        br"sys\.warnoptions: \['error', 'hello', 'ignore::DeprecationWarning'\]\n\n"
+        br"warnings\.filters:\n"
+        br"(- [^\n]+\n)*" # Additional filters added by automatically imported modules
+        br"- ignore::DeprecationWarning::\*\n"
+        br"- error::Warning::\*\n"
+        br"(- [^\n]+\n)*", # Remaining filters
+        _,
+    )
     # $PYTHONWARNINGS
     _ = pyout(['testprog/print_warnings_setup.py'], cwd=here,
               envadj={'PYTHONWARNINGS': 'ignore,world,error::SyntaxWarning'})
-    if PY2:
-        # see ^^^
-        _ = grepv(r'ignore:sys.exc_clear:DeprecationWarning:threading:*', _)
-    assert _.startswith(
-        b"sys.warnoptions: ['ignore', 'world', 'error::SyntaxWarning']\n\n" + \
-        b"warnings.filters:\n" + \
-        b"- error::SyntaxWarning::*\n" + \
-        b"- ignore::Warning::*\n"), _
+    assert re.match(
+        br"sys\.warnoptions: \['ignore', 'world', 'error::SyntaxWarning'\]\n\n"
+        br"warnings\.filters:\n"
+        br"(- [^\n]+\n)*" # Additional filters added by automatically imported modules
+        br"- error::SyntaxWarning::\*\n"
+        br"- ignore::Warning::\*\n"
+        br"(- [^\n]+\n)*", # Remaining filters
+        _,
+    )
 
 
 def test_pymain_print_function_future():
@@ -318,6 +319,60 @@ def test_pymain_opt():
         check(["-O", "-O"])
         check(["-O", "-O", "-O"])
 
+# verify that pymain handles -E in exactly the same way as underlying python does.
+@gpython_only
+def test_pymain_E():
+    envadj = {'PYTHONOPTIMIZE': '1'}
+    def sys_flags_optimize(level):
+        return 'sys.flags.optimize:   %s' % level
+
+    # without -E $PYTHONOPTIMIZE should be taken into account
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0) not in stdpyoutv
+        assert sys_flags_optimize(0) not in gpyoutv
+        assert sys_flags_optimize(1)     in stdpyoutv
+        assert sys_flags_optimize(1)     in gpyoutv
+    check_gpy_vs_py(['testprog/print_opt.py'], _, envadj=envadj, cwd=here)
+
+    # with -E not
+    def _(gpyoutv, stdpyoutv):
+        assert sys_flags_optimize(0)     in stdpyoutv
+        assert sys_flags_optimize(0)     in gpyoutv
+        assert sys_flags_optimize(1) not in stdpyoutv
+        assert sys_flags_optimize(1) not in gpyoutv
+    check_gpy_vs_py(['-E', 'testprog/print_opt.py'], _, envadj=envadj, cwd=here)
+
+
+# verify that pymain handles -X non-gpython-option in exactly the same way as underlying python does.
+@pytest.mark.skipif(PY2, reason="-X does not work at all on plain cpython2")
+@gpython_only
+def test_pymain_X():
+    check_gpy_vs_py(['testprog/print_faulthandler.py'], cwd=here)
+    check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
+
+
+# pymain -v
+@gpython_only
+def test_pymain_v():
+    def nimport(argv, **kw):
+        argv = argv + ['testdata/hello.py']
+        kw.setdefault('cwd', here)
+        ret, out, err = _pyrun(argv, stdout=PIPE, stderr=PIPE, **kw)
+        assert ret == 0,    (out, err)
+        n = 0
+        for _ in u(err).splitlines():
+            if _.startswith("import "):
+                n += 1
+        return n
+
+    # without -v there must be no "import ..." messages
+    assert nimport([])                                              == 0
+    assert nimport([], pyexe=sys._gpy_underlying_executable)        == 0
+
+    # with    -v there must be many "import ..." messages
+    assert nimport(['-v'])                                          >  10
+    assert nimport(['-v'], pyexe=sys._gpy_underlying_executable)    >  10
+
 
 # pymain -V/--version
 # gpython_only because output differs from !gpython.
@@ -359,20 +414,31 @@ def test_pymain_run_via_relpath():
     out2 = pyout(['./__init__.py'] + argv, pyexe=sys._gpy_underlying_executable, cwd=here)
     assert out1 == out2
 
+
 # verify -X gpython.runtime=...
 @gpython_only
 def test_Xruntime(runtime):
+    _xopt_assert_in_subprocess('gpython.runtime', runtime,
+                                assert_gevent_activated  if runtime != 'threads'  else \
+                                assert_gevent_not_activated)
+
+# _xopt_assert_in_subprocess runs tfunc in subprocess interpreter spawned with
+# `-X xopt=xval` and checks that there is no error.
+#
+# It is also verified that tfunc runs ok in sub-subprocess interpreter spawned
+# _without_ `-X ...`, i.e. once given -X setting is inherited by spawned interpreters.
+def _xopt_assert_in_subprocess(xopt, xval, tfunc):
+    XOPT = xopt.upper().replace('.','_')    # gpython.runtime -> GPYTHON_RUNTIME
     env = os.environ.copy()
-    env.pop('GPYTHON_RUNTIME', None) # del
+    env.pop(XOPT, None) # del
 
     argv = []
-    if runtime != '':
-        argv += ['-X', 'gpython.runtime='+runtime]
-    prog = 'from gpython import gpython_test as t; '
-    if runtime != 'threads':
-        prog += 't.assert_gevent_activated(); '
-    else:
-        prog += 't.assert_gevent_not_activated(); '
+    if xval != '':
+        argv += ['-X', xopt+'='+xval]
+    prog = import_t = 'from gpython import gpython_test as t; '
+    prog += 't.%s(); ' % tfunc.__name__
+    prog += import_t  # + same in subprocess
+    prog += "t.pyrun(['-c', '%s t.%s(); ']); " % (import_t, tfunc.__name__)
     prog += 'print("ok")'
     argv += ['-c', prog]
 
@@ -381,20 +447,6 @@ def test_Xruntime(runtime):
 
 
 # ---- misc ----
-
-# grepv filters out lines matching pattern from text.
-def grepv(pattern, text): # -> text
-    if isinstance(text, bytes):
-        t = b''
-    else:
-        t = ''
-    p = re.compile(pattern)
-    v = []
-    for l in text.splitlines(True):
-        m = p.search(l)
-        if not m:
-            v.append(l)
-    return t.join(v)
 
 # check_gpy_vs_py verifies that gpython output matches underlying python output.
 def check_gpy_vs_py(argv, postprocessf=None, **kw):

@@ -1,6 +1,6 @@
 ...
-_____________________________________ main _____________________________________
-../__init__.py:...: in _
+...________________ main ________________...
+../__init__.py:...: in _goframe
     return f(*argv, **kw)
 golang_test_defer_excchain.py:42: in main
     raise RuntimeError("err")

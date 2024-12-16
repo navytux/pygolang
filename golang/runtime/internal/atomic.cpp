@@ -1,5 +1,5 @@
-// Copyright (C) 2022  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2022-2023  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -20,7 +20,9 @@
 #include "golang/runtime/internal/atomic.h"
 #include "golang/libgolang.h"
 
+#ifndef _WIN32
 #include <pthread.h>
+#endif
 
 // golang::internal::atomic::
 namespace golang {
@@ -41,9 +43,12 @@ static void _forkNewEpoch() {
 }
 
 void _init() {
+// there is no fork on windows
+#ifndef _WIN32
     int e = pthread_atfork(/*prepare*/nil, /*inparent*/nil, /*inchild*/_forkNewEpoch);
     if (e != 0)
         panic("pthread_atfork failed");
+#endif
 }
 
 
