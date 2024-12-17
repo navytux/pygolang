@@ -1636,7 +1636,7 @@ cdef object _atidx_re = pyre.compile('.* at index ([0-9]+)$')
 cdef _bprintf(const byte[::1] fmt, xarg): # -> pybstr
     cdef bytearray out = bytearray()
 
-    cdef tuple  argv = None  # if xarg is tuple
+    cdef object argv = None  # if xarg is tuple or subclass
     cdef object argm = None  # if xarg is mapping
 
     # https://github.com/python/cpython/blob/2.7-0-g8d21aa21f2c/Objects/stringobject.c#L4298-L4300

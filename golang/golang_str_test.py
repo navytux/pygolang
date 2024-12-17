@@ -1457,7 +1457,10 @@ def test_strings_mod_and_format():
     # namedtuple
     cc = collections; xcc = six.moves
     Point = cc.namedtuple('Point', ['x', 'y'])
-    _('α %s π', (Point('β','γ'),)             , "α Point(x='β', y='γ') π")
+    verify_fmt_all_types(lambda fmt, args: fmt % args,
+      'α %s π',   Point('β','γ')              , TypeError("not all arguments converted during string formatting"), excok=True)
+    _('α %s %s π',Point('β','γ')              , "α β γ π")
+    _('α %s π',  (Point('β','γ'),)            , "α Point(x='β', y='γ') π")
     # deque
     _('α %s π', cc.deque(['β','γ'])           , "α deque(['β', 'γ']) π")
     _('α %s π', (cc.deque(['β','γ']),)        , "α deque(['β', 'γ']) π")
