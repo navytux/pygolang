@@ -1219,64 +1219,65 @@ def test_strings_mod_and_format():
 
     # _bprintf parses %-format ourselves. Verify that parsing first
     # NOTE here all strings are plain ASCII.
-    def _(fmt, args):
+    def _(fmt, args, ok):
         fmt = '*str '+fmt
-        for l in range(len(fmt), -1, -1):
-            # [:len(fmt)] verifies original case
-            # [:l<len]    should verify "incomplete format" parsing
-            verify_fmt_all_types(lambda fmt, args: fmt % args,
-                                 fmt[:l], args, excok=True)
+        if isinstance(ok, Exception):
+            excok = True
+        else:
+            ok  = '*str '+ok
+            excok = False
+        verify_fmt_all_types(lambda fmt, args: fmt % args, fmt, args, ok, excok=excok)
+        # also automatically verify "incomplete format" parsing via fmt[:l<len]
+        # this works effectively only when run under std python though.
+        for l in range(len(fmt)-1, -1, -1):
+            verify_fmt_all_types(lambda fmt, args: fmt % args, fmt[:l], args, excok=True)
 
-    _('%(name)s',   {'name': 123})
-    _('%x',         123)        # flags
-    _('%#x',        123)
-    _('%05d',       123)
-    _('%-5d',       123)
-    _('% d',        123)
-    _('% d',       -123)
-    _('%+d',       -123)
-    _('%5d',        123)        # width
-    _('%*d',        (5,123))
-    _('%f',         1.234)      # .prec
-    _('%.f',        1.234)
-    _('%.1f',       1.234)
-    _('%.2f',       1.234)
-    _('%*f',        (2,1.234))
-    _('%hi',        123)        # len
-    _('%li',        123)
-    _('%Li',        123)
-    _('%%',         ())         # %%
-    _('%10.4f',     1.234)      # multiple features
-    _('%(x)10.4f',  {'y':0, 'x':1.234})
-    _('%*.*f',      (10,4,1.234))
+    _('%(name)s',   {'name': 123}   ,   '123')
+    _('%x',         123             ,   '7b')           # flags
+    _('%#x',        123             ,   '0x7b')
+    _('%05d',       123             ,   '00123')
+    _('%-5d',       123             ,   '123  ')
+    _('% d',        123             ,   ' 123')
+    _('% d',       -123             ,   '-123')
+    _('%+d',        123             ,   '+123')
+    _('%+d',       -123             ,   '-123')
+    _('%5d',        123             ,   '  123')        # width
+    _('%*d',        (5,123)         ,   '  123')
+    _('%f',         1.234           ,   '1.234000')     # .prec
+    _('%.f',        1.234           ,   '1')
+    _('%.1f',       1.234           ,   '1.2')
+    _('%.2f',       1.234           ,   '1.23')
+    _('%*f',        (2,1.234)       ,   '1.234000')
+    _('%.*f',       (2,1.234)       ,   '1.23')
+    _('%hi',        123             ,   '123')          # len
+    _('%li',        123             ,   '123')
+    _('%Li',        123             ,   '123')
+    _('%%',         ()              ,   '%')            # %%
+    _('%10.4f',     1.234           ,   '    1.2340')   # multiple features
+    _('%(x)10.4f',  {'y':0, 'x':1.234}, '    1.2340')
+    _('%*.*f',      (10,4,1.234)    ,   '    1.2340')
 
-    _('',           {})         # not all arguments converted
-    _('',           [])
-    _('',           123)
-    _('',           '123')
-    _('%s',         ())         # not enough arguments to format
-    _('%s %s',      123)
-    _('%s %s',      (123,))
+    _('',           {}      ,   '')                     # errors
+    _('',           []      ,   '')
+    _('',           123     ,   TypeError('not all arguments converted during string formatting'))
+    _('',           '123'   ,   TypeError('not all arguments converted during string formatting'))
+    _('%s',         ()      ,   TypeError('not enough arguments for format string'))
+    _('%s %s',      123     ,   TypeError('not enough arguments for format string'))
+    _('%s %s',      (123,)  ,   TypeError('not enough arguments for format string'))
 
-    _('%(x)s',      123)        # format requires a mapping
-    _('%(x)s',      (123,))
-    _('%s %(x)s',   (123,4))
-    _('%(x)s %s',   (123,4))
+    _('%(x)s',      123     ,   TypeError('format requires a mapping'))
+    _('%(x)s',      (123,)  ,   TypeError('format requires a mapping'))
+    _('%s %(x)s',   (123,4) ,   TypeError('format requires a mapping'))
+    _('%(x)s %s',   (123,4) ,   TypeError('format requires a mapping'))
 
-    _('%(x)s %s',   {'x':1})    # mixing tuple/dict
-    _('%s %(x)s',   {'x':1})
-
-    _('abc %z',     1)          # unsupported format character
-    _('abc %44z',   1)
+    _('%(x)s %s',   {'x':1} ,   TypeError('not enough arguments for format string'))    # mixing tuple/dict
+    _('%s %(x)s',   {'x':1} ,   "{'x': 1} 1")
 
     # for `'%4%' % ()` py2 gives '   %', but we stick to more reasonable py3 semantic
-    def _(fmt, args, ok):
-        return verify_fmt_all_types(lambda fmt, args: fmt % args,
-                                    fmt, args, ok, excok=True)
-    _('*str %4%',   (),      TypeError("not enough arguments for format string"))
-    _('*str %4%',   1,       ValueError("unsupported format character '%' (0x25) at index 7"))
-    _('*str %4%',   (1,),    ValueError("unsupported format character '%' (0x25) at index 7"))
-    _('*str %(x)%', {'x':1}, ValueError("unsupported format character '%' (0x25) at index 9"))
+    _('%4%',        ()      ,   TypeError("not enough arguments for format string"))
+    _('%4%',        1       ,   ValueError("unsupported format character '%' (0x25) at index 7"))
+    _('%4%',        (1,)    ,   ValueError("unsupported format character '%' (0x25) at index 7"))
+    _('%(x)%',      {'x':1} ,   ValueError("unsupported format character '%' (0x25) at index 9"))
 
 
     # parse checking complete. now verify actual %- and format- formatting
@@ -1330,40 +1331,42 @@ def test_strings_mod_and_format():
             fmt_ = fmt
         verify_fmt_all_types(xformat, fmt_, args, *okv)
 
-    _("*str a %s z",  123)      # NOTE *str to force str -> bstr/ustr even for ASCII string
-    _("*str a %s z",  '*str \'"\x7f')
-    _("*str a %s z",  'β')
-    _("*str a %s z",  ('β',))
+    # NOTE *str to force str -> bstr/ustr even for ASCII string
+    _("*str a %s z",  123                         , "*str a 123 z")
+    _("*str a %s z",  '*str \'"\x7f'              , "*str a *str '\"\x7f z")
+    _("*str a %s z",  'β'                         , "*str a β z")
+    _("*str a %s z",  ('β',)                      , "*str a β z")
     _("*str a %s z",  ['β']                       , "*str a ['β'] z")
 
-    _("a %s π",  123)
-    _("a %s π",  '*str \'"\x7f')
-    _("a %s π",  'β')
-    _("a %s π",  ('β',))
+    _("a %s π",  123                              , "a 123 π")
+    _("a %s π",  '*str \'"\x7f'                   , "a *str '\"\x7f π")
+    _("a %s π",  'β'                              , "a β π")
+    _("a %s π",  ('β',)                           , "a β π")
     _("a %s π",  ['β']                            , "a ['β'] π")
 
-    _("α %s z",  123)
-    _("α %s z",  '*str \'"\x7f')
-    _("α %s z",  'β')
-    _("α %s z",  ('β',))
+    _("α %s z",  123                              , "α 123 z")
+    _("α %s z",  '*str \'"\x7f'                   , "α *str '\"\x7f z")
+    _("α %s z",  'β'                              , "α β z")
+    _("α %s z",  ('β',)                           , "α β z")
     _("α %s z",  ['β']                            , "α ['β'] z")
 
-    _("α %s π",  123)
-    _("α %s π",  '*str \'"\x7f')
-    _("α %s π",  'β')
-    _("α %s π",  ('β',))
-    _("α %s π",  ('β',))
-    _("α %s %s π",  ('β', 'γ'))
-    _("α %s %s %s π",  ('β', 'γ', 'δ'))
-    _("α %s %s %s %s %s %s %s π",  (1, 'β', 2, 'γ', 3, 'δ', 4))
-    _("α %s π",  [])
-    _("α %s π",  ([],))
-    _("α %s π",  ((),))
-    _("α %s π",  set())
-    _("α %s π",  (set(),))
-    _("α %s π",  frozenset())
-    _("α %s π",  (frozenset(),))
-    _("α %s π",  ({},))
+    _("α %s π",  123                              , "α 123 π")
+    _("α %s π",  '*str \'"\x7f'                   , "α *str '\"\x7f π")
+    _("α %s π",  'β'                              , "α β π")
+    _("α %s π",  ('β',)                           , "α β π")
+    _("α %s π",  ('β',)                           , "α β π")
+    _("α %s %s π",  ('β', 'γ')                    , "α β γ π")
+    _("α %s %s %s π",  ('β', 'γ', 'δ')            , "α β γ δ π")
+    _("α %s %s %s %s %s %s %s π",  (1, 'β', 2, 'γ', 3, 'δ', 4),
+                                                    "α 1 β 2 γ 3 δ 4 π")
+    _("α %s π",  []                               , "α [] π")
+    _("α %s π",  ([],)                            , "α [] π")
+    _("α %s π",  ((),)                            , "α () π")
+    _("α %s π",  set()                            , x32("α set() π", "α set([]) π"))
+    _("α %s π",  (set(),)                         , x32("α set() π", "α set([]) π"))
+    _("α %s π",  frozenset()                      , x32("α frozenset() π", "α frozenset([]) π"))
+    _("α %s π",  (frozenset(),)                   , x32("α frozenset() π", "α frozenset([]) π"))
+    _("α %s π",  ({},)                            , "α {} π")
     _("α %s π",  ['β']                            , "α ['β'] π")
     _("α %s π",  (['β'],)                         , "α ['β'] π")
     _("α %s π",  (('β',),)                        , "α ('β',) π")
@@ -1398,7 +1401,8 @@ def test_strings_mod_and_format():
     # recursive frozenset
     l = hlist()
     f = frozenset({1, l}); l.append(f)
-    _('α %s π', (f,))
+    _('α %s π', (f,)                              , *x32(("α frozenset({1, [frozenset(...)]}) π", "α frozenset({[frozenset(...)], 1}) π"),
+                                                         ("α frozenset([1, [frozenset(...)]]) π", "α frozenset([[frozenset(...)], 1]) π")))
 
     # recursive dict (via value)
     d = {1:'мир'}; d.update({2:d})
@@ -1415,15 +1419,15 @@ def test_strings_mod_and_format():
     class Cold:
         def __repr__(self): return "Cold()"
         def __str__(self):  return u"Класс (old)"
-    _('α %s π', Cold())
-    _('α %s π', (Cold(),))
+    _('α %s π', Cold()                            , "α Класс (old) π")
+    _('α %s π', (Cold(),)                         , "α Класс (old) π")
 
     # new-style class with __str__
     class Cnew(object):
         def __repr__(self): return "Cnew()"
         def __str__(self):  return u"Класс (new)"
-    _('α %s π', Cnew())
-    _('α %s π', (Cnew(),))
+    _('α %s π', Cnew()                            , "α Класс (new) π")
+    _('α %s π', (Cnew(),)                         , "α Класс (new) π")
 
 
     # custom classes inheriting from set/list/tuple/dict/frozenset
