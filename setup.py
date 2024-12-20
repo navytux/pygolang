@@ -227,6 +227,7 @@ setup(
                         ['golang/runtime/libgolang.cpp',
                          'golang/runtime/internal/atomic.cpp',
                          'golang/runtime/internal/syscall.cpp',
+                         'golang/runtime.cpp',
                          'golang/context.cpp',
                          'golang/errors.cpp',
                          'golang/fmt.cpp',
@@ -238,6 +239,7 @@ setup(
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/runtime.h',
                             'golang/runtime/internal.h',
                             'golang/runtime/internal/atomic.h',
                             'golang/runtime/internal/syscall.h',

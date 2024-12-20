@@ -3,6 +3,8 @@ include golang/libgolang.h
 include golang/runtime/libgolang.cpp
 include golang/runtime/libpyxruntime.cpp
 include golang/runtime/platform.h
+include golang/runtime.h
+include golang/runtime.cpp
 include golang/pyx/runtime.h
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.h
 include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
