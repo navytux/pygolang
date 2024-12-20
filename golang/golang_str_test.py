@@ -2719,9 +2719,29 @@ def bench_bencode(b):
 
 # xbytes/xunicode/xbytearray convert provided bytes/unicode object to bytes,
 # unicode or bytearray correspondingly to function name.
-def xbytes(x):     return x.encode('utf-8') if type(x) is unicode else x
-def xunicode(x):   return x.decode('utf-8') if type(x) is bytes   else x
-def xbytearray(x): return bytearray(xbytes(x))
+def xbytes(x):
+    assert isinstance(x, (bytes,unicode))
+    if isinstance(x, unicode):
+        x = x.encode('utf-8')
+    assert isinstance(x, bytes)
+    x = _bdata(x)
+    assert type(x) is bytes
+    return x
+
+def xunicode(x):
+    assert isinstance(x, (bytes,unicode))
+    if isinstance(x, bytes):
+        x = x.decode('utf-8')
+    assert isinstance(x, unicode)
+    x = _udata(x)
+    assert type(x) is unicode
+    return x
+
+def xbytearray(x):
+    assert isinstance(x, (bytes,unicode))
+    x = bytearray(xbytes(x))
+    assert type(x) is bytearray
+    return x
 
 # deepReplaceStr2Bytearray replaces str to bytearray, or hashable-version of
 # bytearray, if str objects are detected to be present inside set or dict keys.
