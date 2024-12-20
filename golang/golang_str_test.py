@@ -288,20 +288,26 @@ def test_strings_basic():
 
 # verify that bstr/ustr are created with correct refcount.
 def test_strings_refcount():
+    # buffer with string data - not bytes nor unicode so that when builtin
+    # string types are patched there is no case where bytes is created from the
+    # same bytes, or unicode is created from the same unicode - only increasing
+    # refcount of original object.
+    data = bytearray([ord('a'), ord('b'), ord('c'), ord('4')])
+
     # first verify our logic on std type
-    obj = xbytes(u'abc');   assert type(obj) is bytes
+    obj = bytes(data);      assert type(obj) is bytes
     gc.collect();   assert sys.getrefcount(obj) == 1+1   # +1 due to obj passed to getrefcount call
 
     # bstr
-    obj = b('abc');         assert type(obj) is bstr
+    obj = b(data);          assert type(obj) is bstr
     gc.collect();           assert sys.getrefcount(obj) == 1+1
-    obj = bstr('abc');      assert type(obj) is bstr
+    obj = bstr(data);       assert type(obj) is bstr
     gc.collect();           assert sys.getrefcount(obj) == 1+1
 
     # ustr
-    obj = u('abc');         assert type(obj) is ustr
+    obj = u(data);          assert type(obj) is ustr
     gc.collect();           assert sys.getrefcount(obj) == 1+1
-    obj = ustr('abc');      assert type(obj) is ustr
+    obj = ustr(data);       assert type(obj) is ustr
     gc.collect();           assert sys.getrefcount(obj) == 1+1
 
 
