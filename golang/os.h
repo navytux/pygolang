@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_OS_H
 #define _NXD_LIBGOLANG_OS_H
 //
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
+// Copyright (C) 2019-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -96,7 +96,7 @@ private:
 // Open opens file @path.
 LIBGOLANG_API std::tuple<File, error> Open(const string &path, int flags = O_RDONLY,
         mode_t mode =
-#if !defined(_MSC_VER)
+#if !defined(LIBGOLANG_CC_msc)
                       S_IRUSR | S_IWUSR | S_IXUSR |
                       S_IRGRP | S_IWGRP | S_IXGRP |
                       S_IROTH | S_IWOTH | S_IXOTH

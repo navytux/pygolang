@@ -52,7 +52,7 @@
 #include <linux/list.h>
 // MSVC does not support statement expressions and typeof
 // -> redo list_entry via C++ lambda.
-#ifdef _MSC_VER
+#ifdef LIBGOLANG_CC_msc
 # undef list_entry
 # define list_entry(ptr, type, member) [&]() {                      \
         const decltype( ((type *)0)->member ) *__mptr = (ptr);      \

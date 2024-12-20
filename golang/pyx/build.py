@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -215,6 +215,7 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
         'runtime/internal.h',
         'runtime/internal/atomic.h',
         'runtime/internal/syscall.h',
+        'runtime/platform.h',
         'context.h',
         'cxx.h',
         'errors.h',

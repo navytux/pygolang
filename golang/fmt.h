@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_FMT_H
 #define _NXD_LIBGOLANG_FMT_H
 
-// Copyright (C) 2019-2023  Nexedi SA and Contributors.
+// Copyright (C) 2019-2024  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -111,7 +111,7 @@ inline error errorf(const string& format, Argv... argv) {
 // `const char *` overloads just to catch format mistakes as
 // __attribute__(format) does not work with std::string.
 LIBGOLANG_API string sprintf(const char *format, ...)
-#ifndef _MSC_VER
+#ifndef LIBGOLANG_CC_msc
                                 __attribute__ ((format (printf, 1, 2)))
 #endif
 	;

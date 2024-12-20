@@ -241,6 +241,7 @@ setup(
                             'golang/runtime/internal.h',
                             'golang/runtime/internal/atomic.h',
                             'golang/runtime/internal/syscall.h',
+                            'golang/runtime/platform.h',
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
