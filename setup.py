@@ -185,7 +185,8 @@ for pkg in R:
 R['all'] = Rall
 
 # ipython/pytest are required to test py2 integration patches
-R['all_test'] = Rall.union(['ipython', 'pytest']) # pip does not like "+" in all+test
+# zodbpickle is used to test pickle support for bstr/ustr
+R['all_test'] = Rall.union(['ipython', 'pytest', 'zodbpickle']) # pip does not like "+" in all+test
 
 # extras_require <- R
 extras_require = {}

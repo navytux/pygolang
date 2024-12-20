@@ -21,16 +21,54 @@
 from __future__ import print_function, absolute_import
 
 from golang import b, u, bstr, ustr
-import pickle
+from pytest import fixture
+import six
+
+# run all tests on all py/c pickle modules we aim to support
+import pickle as stdPickle
+if six.PY2:
+    import cPickle
+else:
+    import _pickle as cPickle
+from zodbpickle import slowpickle as zslowPickle
+from zodbpickle import fastpickle as zfastPickle
+from zodbpickle import pickle  as zpickle
+from zodbpickle import _pickle as _zpickle
+import pickletools as stdpickletools
+if six.PY2:
+    from zodbpickle import pickletools_2 as zpickletools
+else:
+    from zodbpickle import pickletools_3 as zpickletools
+
+
+# pickle is pytest fixture that yields all variants of pickle module.
+@fixture(scope="function", params=[stdPickle, cPickle,
+                                   zslowPickle, zfastPickle, zpickle, _zpickle])
+def pickle(request):
+    yield request.param
+
+# pickletools is pytest fixture that yields all variants of pickletools module.
+@fixture(scope="function", params=[stdpickletools, zpickletools])
+def pickletools(request):
+    yield request.param
+
+# pickle2tools returns pickletools module that corresponds to module pickle.
+def pickle2tools(pickle):
+    if pickle in (stdPickle, cPickle):
+        return stdpickletools
+    else:
+        return zpickletools
 
 
 # verify that bstr/ustr can be pickled/unpickled correctly.
-def test_strings_pickle():
+def test_strings_pickle(pickle):
     bs = b("мир")
     us = u("май")
 
-    #from pickletools import dis
-    for proto in range(0, pickle.HIGHEST_PROTOCOL+1):
+    def diss(p): return xdiss(pickle2tools(pickle), p)
+    def dis(p): print(diss(p))
+
+    for proto in range(0, HIGHEST_PROTOCOL(pickle)+1):
         p_bs = pickle.dumps(bs, proto)
         #dis(p_bs)
         bs_ = pickle.loads(p_bs)
@@ -42,3 +80,26 @@ def test_strings_pickle():
         us_ = pickle.loads(p_us)
         assert type(us_) is ustr
         assert us_ == us
+
+
+# ---- disassembly ----
+
+# xdiss returns disassembly of a pickle as string.
+def xdiss(pickletools, p): # -> str
+    out = six.StringIO()
+    pickletools.dis(p, out)
+    return out.getvalue()
+
+
+# ---- misc ----
+
+# HIGHEST_PROTOCOL returns highest protocol supported by pickle.
+def HIGHEST_PROTOCOL(pickle):
+    if   six.PY3  and  pickle is cPickle:
+        pmax = stdPickle.HIGHEST_PROTOCOL  # py3: _pickle has no .HIGHEST_PROTOCOL
+    elif six.PY3  and  pickle is _zpickle:
+        pmax = zpickle.HIGHEST_PROTOCOL    # ----//---- for _zpickle
+    else:
+        pmax = pickle.HIGHEST_PROTOCOL
+    assert pmax >= 2
+    return pmax
