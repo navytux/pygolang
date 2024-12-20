@@ -22,7 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import b, u, bstr, ustr
 from golang.golang_str_test import xbytes
-from pytest import fixture
+from pytest import raises, fixture
 import io, struct
 import six
 
@@ -70,18 +70,60 @@ def test_strings_pickle(pickle):
     def diss(p): return xdiss(pickle2tools(pickle), p)
     def dis(p): print(diss(p))
 
-    for proto in range(0, HIGHEST_PROTOCOL(pickle)+1):
-        p_bs = xdumps(pickle, bs, proto)
-        #dis(p_bs)
-        bs_ = xloads(pickle, p_bs)
-        assert type(bs_) is bstr
-        assert bs_ == bs
+    # assert_pickle verifies that pickling obj results in dumps_ok
+    # and that unpickling results back in obj.
+    assert HIGHEST_PROTOCOL(pickle) <= 5
+    def assert_pickle(obj, proto, dumps_ok):
+        if proto > HIGHEST_PROTOCOL(pickle):
+            with raises(ValueError):
+                xdumps(pickle, obj, proto)
+            return
+        p = xdumps(pickle, obj, proto)
+        assert p == dumps_ok, diss(p)
+        #dis(p)
+        obj2 = xloads(pickle, p)
+        assert type(obj2) is type(obj)
+        assert obj2 == obj
 
-        p_us = xdumps(pickle, us, proto)
-        #dis(p_us)
-        us_ = xloads(pickle, p_us)
-        assert type(us_) is ustr
-        assert us_ == us
+    _ = assert_pickle
+
+    _(bs, 0,
+             b"cgolang\nbstr\n(V\\u043c\\u0438\\u0440\\udcff\ntR.")         # bstr(UNICODE)
+
+    _(us, 0,
+             b'cgolang\nustr\n(V\\u043c\\u0430\\u0439\\udcff\ntR.')         # ustr(UNICODE)
+
+    _(bs, 1,
+             b'cgolang\nbstr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbftR.')
+
+    # NOTE BINUNICODE ...edb3bf not ...ff
+    _(us, 1,
+             b'cgolang\nustr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbftR.')
+
+    _(bs, 2,
+             b'cgolang\nbstr\nX\x09\x00\x00\x00'                            # bstr(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf\x85\x81.')
+
+    _(us, 2,
+             b'cgolang\nustr\nX\x09\x00\x00\x00'                            # ustr(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbf\x85\x81.')
+
+    _(bs, 3,
+             b'cgolang\nbstr\nC\x07\xd0\xbc\xd0\xb8\xd1\x80\xff\x85\x81.')  # bstr(SHORT_BINBYTES)
+
+    _(us, 3,
+             b'cgolang\nustr\nX\x09\x00\x00\x00'                            # ustr(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbf\x85\x81.')
+
+    for p in (4,5):
+        _(bs, p,
+             b'\x8c\x06golang\x8c\x04bstr\x93C\x07'                         # bstr(SHORT_BINBYTES)
+                        b'\xd0\xbc\xd0\xb8\xd1\x80\xff\x85\x81.')
+        _(us, p,
+             b'\x8c\x06golang\x8c\x04ustr\x93\x8c\x09'                      # ustr(SHORT_BINUNICODE)
+                        b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbf\x85\x81.')
 
 
 # ---- disassembly ----
@@ -93,7 +135,7 @@ def xdiss(pickletools, p): # -> str
     return out.getvalue()
 
 
-# ---- loads and dumps ----
+# ---- loads and normalized dumps ----
 
 # xloads loads pickle p via pickle.loads
 # it also verifies that .load and Unpickler.load give the same result.
@@ -119,7 +161,10 @@ def xdumps(pickle, obj, proto, **kw):
     assert type(p3) is bytes
     assert p1 == p2 == p3
 
-    return p1
+    # remove not interesting parts: PROTO / FRAME header and unused PUTs
+    if proto >= 2:
+        assert p1.startswith(PROTO(proto))
+    return pickle_normalize(pickle2tools(pickle), p1)
 
 def _xpickle_attr(pickle, name):
     # on py3 pickle.py tries to import from C _pickle to optimize by default

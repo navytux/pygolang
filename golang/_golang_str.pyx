@@ -1141,6 +1141,15 @@ if PY2:
 
 # ---- adjust bstr/ustr classes after what cython generated ----
 
+
+# change names of bstr/ustr to be e.g. "golang.bstr" instead of "golang._golang._bstr"
+# this makes sure that unpickling saved bstr does not load via unpatched origin
+# class, and is also generally good for saving pickle size and for reducing _golang exposure.
+(<PyTypeObject*>pybstr).tp_name = "golang.bstr"
+(<PyTypeObject*>pyustr).tp_name = "golang.ustr"
+assert pybstr.__module__ == "golang";  assert pybstr.__name__ == "bstr"
+assert pyustr.__module__ == "golang";  assert pyustr.__name__ == "ustr"
+
 # for pybstr/pyustr cython generates .tp_dealloc that refer to bytes/unicode types directly.
 # override that to refer to zbytes/zunicode to avoid infinite recursion on free
 # when builtin bytes and unicode are replaced with bstr/ustr.
