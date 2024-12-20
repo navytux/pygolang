@@ -21,7 +21,7 @@
 from __future__ import print_function, absolute_import
 
 from golang import b, u, bstr, ustr
-from golang.golang_str_test import xbytes
+from golang.golang_str_test import xbytes, unicode
 from pytest import raises, fixture
 import io, struct
 import six
@@ -62,8 +62,48 @@ def pickle2tools(pickle):
         return zpickletools
 
 
+# verify that loading *UNICODE opcodes loads them as unicode/ustr.
+# this is standard behaviour but we verify it since we will patch pickle's strings processing.
+# also verify save lightly for symmetry.
+def test_strings_pickle_loadsave_UNICODE(pickle):
+    # NOTE builtin pickle behaviour is to save unicode via 'surrogatepass' error handler
+    #      this means that b'мир\xff' -> ustr/unicode -> save will emit *UNICODE with
+    #      b'мир\xed\xb3\xbf' instead of b'мир\xff' as data.
+    p_uni   = b'V\\u043c\\u0438\\u0440\\udcff\n.'                       # UNICODE 'мир\uDCFF'
+    p_binu  = b'X\x09\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf.' # BINUNICODE  NOTE ...edb3bf not ...ff
+    p_sbinu = b'\x8c\x09\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf.'          # SHORT_BINUNICODE
+    p_binu8 = b'\x8d\x09\x00\x00\x00\x00\x00\x00\x00\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf.' # BINUNICODE8
+
+    u_obj = u'мир\uDCFF'; assert type(u_obj) is unicode
+
+    # load: check invokes f on all test pickles that pickle should support
+    def check(f):
+        f(p_uni)
+        f(p_binu)
+        if HIGHEST_PROTOCOL(pickle) >= 4:
+            f(p_sbinu)
+            f(p_binu8)
+
+    def _(p):
+        obj = xloads(pickle, p)
+        assert type(obj) is unicode
+        assert obj == u_obj
+    check(_)
+
+    # save
+    def dumps(proto):
+        return xdumps(pickle, u_obj, proto)
+    assert dumps(0) == p_uni
+    assert dumps(1) == p_binu
+    assert dumps(2) == p_binu
+    if HIGHEST_PROTOCOL(pickle) >= 3:
+        assert dumps(3) == p_binu
+    if HIGHEST_PROTOCOL(pickle) >= 4:
+        assert dumps(4) == p_sbinu
+
+
 # verify that bstr/ustr can be pickled/unpickled correctly.
-def test_strings_pickle(pickle):
+def test_strings_pickle_bstr_ustr(pickle):
     bs = b(xbytes('мир')+b'\xff')
     us = u(xbytes('май')+b'\xff')
 
@@ -97,7 +137,7 @@ def test_strings_pickle(pickle):
              b'cgolang\nbstr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
                         b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbftR.')
 
-    # NOTE BINUNICODE ...edb3bf not ...ff
+    # NOTE BINUNICODE ...edb3bf not ...ff  (see test_strings_pickle_loadsave_UNICODE for details)
     _(us, 1,
              b'cgolang\nustr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
                         b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbftR.')
