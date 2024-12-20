@@ -22,6 +22,7 @@ from __future__ import print_function, absolute_import
 
 from golang import b, u, bstr, ustr
 from pytest import fixture
+import io
 import six
 
 # run all tests on all py/c pickle modules we aim to support
@@ -69,15 +70,15 @@ def test_strings_pickle(pickle):
     def dis(p): print(diss(p))
 
     for proto in range(0, HIGHEST_PROTOCOL(pickle)+1):
-        p_bs = pickle.dumps(bs, proto)
+        p_bs = xdumps(pickle, bs, proto)
         #dis(p_bs)
-        bs_ = pickle.loads(p_bs)
+        bs_ = xloads(pickle, p_bs)
         assert type(bs_) is bstr
         assert bs_ == bs
 
-        p_us = pickle.dumps(us, proto)
+        p_us = xdumps(pickle, us, proto)
         #dis(p_us)
-        us_ = pickle.loads(p_us)
+        us_ = xloads(pickle, p_us)
         assert type(us_) is ustr
         assert us_ == us
 
@@ -89,6 +90,43 @@ def xdiss(pickletools, p): # -> str
     out = six.StringIO()
     pickletools.dis(p, out)
     return out.getvalue()
+
+
+# ---- loads and dumps ----
+
+# xloads loads pickle p via pickle.loads
+# it also verifies that .load and Unpickler.load give the same result.
+def xloads(pickle, p, **kw):
+    obj1 = _xpickle_attr(pickle, 'loads')(p, **kw)
+    obj2 = _xpickle_attr(pickle, 'load') (io.BytesIO(p), **kw)
+    obj3 = _xpickle_attr(pickle, 'Unpickler')(io.BytesIO(p), **kw).load()
+    assert type(obj2) is type(obj1)
+    assert type(obj3) is type(obj1)
+    assert obj1 == obj2 == obj3
+    return obj1
+
+# xdumps dumps obj via pickle.dumps
+# it also verifies that .dump and Pickler.dump give the same.
+def xdumps(pickle, obj, proto, **kw):
+    p1 = _xpickle_attr(pickle, 'dumps')(obj, proto, **kw)
+    f2 = io.BytesIO();  _xpickle_attr(pickle, 'dump')(obj, f2, proto, **kw)
+    p2 = f2.getvalue()
+    f3 = io.BytesIO();  _xpickle_attr(pickle, 'Pickler')(f3, proto, **kw).dump(obj)
+    p3 = f3.getvalue()
+    assert type(p1) is bytes
+    assert type(p2) is bytes
+    assert type(p3) is bytes
+    assert p1 == p2 == p3
+
+    return p1
+
+def _xpickle_attr(pickle, name):
+    # on py3 pickle.py tries to import from C _pickle to optimize by default
+    # -> verify py version if we are asked to test pickle.py
+    if six.PY3 and (pickle is stdPickle):
+        assert getattr(pickle, name) is getattr(cPickle, name)
+        name = '_'+name
+    return getattr(pickle, name)
 
 
 # ---- misc ----
