@@ -1165,6 +1165,12 @@ if PY2:
 
 # ---- adjust bstr/ustr classes after what cython generated ----
 
+# for pybstr/pyustr cython generates .tp_dealloc that refer to bytes/unicode types directly.
+# override that to refer to zbytes/zunicode to avoid infinite recursion on free
+# when builtin bytes and unicode are replaced with bstr/ustr.
+(<PyTypeObject*>pybstr).tp_dealloc = (<PyTypeObject*>zbytes)   .tp_dealloc
+(<PyTypeObject*>pyustr).tp_dealloc = (<PyTypeObject*>zunicode) .tp_dealloc
+
 # remove unsupported bstr/ustr methods. do it outside of `cdef class` to
 # workaround https://github.com/cython/cython/issues/4556 (`if ...` during
 # `cdef class` is silently handled wrongly)
