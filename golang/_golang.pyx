@@ -3,7 +3,7 @@
 # cython: binding=False
 # cython: c_string_type=str, c_string_encoding=utf8
 # distutils: language = c++
-# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx
+# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
 #
 # Copyright (C) 2018-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>

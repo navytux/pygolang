@@ -78,10 +78,6 @@ import string as pystring
 import types as pytypes
 import functools as pyfunctools
 import re as pyre
-if PY_MAJOR_VERSION >= 3:
-    import copyreg as pycopyreg
-else:
-    import copy_reg as pycopyreg
 
 
 # zbytes/zunicode point to original std bytes/unicode types even if they will be patched.
@@ -331,18 +327,8 @@ cdef class _pybstr(bytes):   # https://github.com/cython/cython/issues/711
             # [b('β')] goes as ['β'] when under _bstringify for %s
             return qself
 
-
-    # override reduce for protocols < 2. Builtin handler for that goes through
-    # copyreg._reduce_ex which eventually calls bytes(bstr-instance) to
-    # retrieve state, which gives bstr, not bytes. Fix state to be bytes ourselves.
     def __reduce_ex__(self, protocol):
-        if protocol >= 2:
-            return zbytes.__reduce_ex__(self, protocol)
-        return (
-            pycopyreg._reconstructor,
-            (self.__class__, self.__class__, _bdata(self))
-        )
-
+        return _bstr__reduce_ex__(self, protocol)
 
     def __hash__(self):
         # hash of the same unicode and UTF-8 encoded bytes is generally different
@@ -724,18 +710,8 @@ cdef class _pyustr(unicode):
             # [u('β')] goes as ['β'] when under _bstringify for %s
             return qself
 
-
-    # override reduce for protocols < 2. Builtin handler for that goes through
-    # copyreg._reduce_ex which eventually calls unicode(ustr-instance) to
-    # retrieve state, which gives ustr, not unicode. Fix state to be unicode ourselves.
     def __reduce_ex__(self, protocol):
-        if protocol >= 2:
-            return zunicode.__reduce_ex__(self, protocol)
-        return (
-            pycopyreg._reconstructor,
-            (self.__class__, self.__class__, _udata(self))
-        )
-
+        return _ustr__reduce_ex__(self, protocol)
 
     def __hash__(self):
         # see _pybstr.__hash__ for why we stick to hash of current str
@@ -2197,3 +2173,8 @@ cdef unicode _xunichr(rune i):
         uh = i - 0x10000
         return unichr(0xd800 + (uh >> 10)) + \
                unichr(0xdc00 + (uh & 0x3ff))
+
+
+# ---- pickle ----
+
+include '_golang_str_pickle.pyx'
