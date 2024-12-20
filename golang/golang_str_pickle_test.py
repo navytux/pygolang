@@ -23,7 +23,7 @@ from __future__ import print_function, absolute_import
 from golang import b, u, bstr, ustr
 from golang.golang_str_test import xbytes
 from pytest import fixture
-import io
+import io, struct
 import six
 
 # run all tests on all py/c pickle modules we aim to support
@@ -128,6 +128,102 @@ def _xpickle_attr(pickle, name):
         assert getattr(pickle, name) is getattr(cPickle, name)
         name = '_'+name
     return getattr(pickle, name)
+
+# pickle_normalize returns normalized version of pickle p.
+#
+# - PROTO and FRAME opcodes are removed from header,
+# - unused PUT, BINPUT and MEMOIZE opcodes - those without corresponding GET are removed,
+# - *PUT indices start from 0 (this unifies cPickle with pickle).
+def pickle_normalize(pickletools, p):
+    def iter_pickle(p): # -> i(op, arg, pdata)
+        op_prev  = None
+        arg_prev = None
+        pos_prev = None
+        for op, arg, pos in pickletools.genops(p):
+            if op_prev is not None:
+                pdata_prev = p[pos_prev:pos]
+                yield (op_prev, arg_prev, pdata_prev)
+            op_prev  = op
+            arg_prev = arg
+            pos_prev = pos
+        if op_prev is not None:
+            yield (op_prev, arg_prev, p[pos_prev:])
+
+    memo_oldnew = {} # idx used in original pop/get -> new index | None if not get
+    idx = 0
+    for op, arg, pdata in iter_pickle(p):
+        if 'PUT' in op.name:
+            memo_oldnew.setdefault(arg, None)
+        elif 'MEMOIZE' in op.name:
+            memo_oldnew.setdefault(len(memo_oldnew), None)
+        elif 'GET' in op.name:
+            if memo_oldnew.get(arg) is None:
+                memo_oldnew[arg] = idx
+                idx += 1
+
+    pout = b''
+    memo_old = set() # idx used in original pop
+    for op, arg, pdata in iter_pickle(p):
+        if op.name in ('PROTO', 'FRAME'):
+            continue
+        if 'PUT' in op.name:
+            memo_old.add(arg)
+            newidx = memo_oldnew.get(arg)
+            if newidx is None:
+                continue
+            pdata = globals()[op.name](newidx)
+        if 'MEMOIZE' in op.name:
+            idx = len(memo_old)
+            memo_old.add(idx)
+            newidx = memo_oldnew.get(idx)
+            if newidx is None:
+                continue
+        if 'GET' in op.name:
+            newidx = memo_oldnew[arg]
+            assert newidx is not None
+            pdata = globals()[op.name](newidx)
+        pout += pdata
+    return pout
+
+P = struct.pack
+def PROTO(version):     return b'\x80'  + P('<B', version)
+def FRAME(size):        return b'\x95'  + P('<Q', size)
+def GET(idx):           return b'g%d\n' % (idx,)
+def PUT(idx):           return b'p%d\n' % (idx,)
+def BINPUT(idx):        return b'q'     + P('<B', idx)
+def BINGET(idx):        return b'h'     + P('<B', idx)
+def LONG_BINPUT(idx):   return b'r'     + P('<I', idx)
+def LONG_BINGET(idx):   return b'j'     + P('<I', idx)
+MEMOIZE =                      b'\x94'
+
+def test_pickle_normalize(pickletools):
+    def diss(p):
+        return xdiss(pickletools, p)
+
+    proto = 0
+    for op in pickletools.opcodes:
+        proto = max(proto, op.proto)
+    assert proto >= 2
+
+    def _(p, p_normok):
+        p_norm = pickle_normalize(pickletools, p)
+        assert p_norm == p_normok, diss(p_norm)
+
+    _(b'.', b'.')
+    _(b'I1\n.', b'I1\n.')
+    _(PROTO(2)+b'I1\n.', b'I1\n.')
+
+    putgetv = [(PUT,GET), (BINPUT, BINGET)]
+    if proto >= 4:
+        putgetv.append((LONG_BINPUT, LONG_BINGET))
+    for (put,get) in putgetv:
+        _(b'(I1\n'+put(1) + b'I2\n'+put(2) +b't'+put(3)+b'0'+get(3)+put(4)+b'.',
+          b'(I1\nI2\nt'+put(0)+b'0'+get(0)+b'.')
+
+    if proto >= 4:
+        _(FRAME(4)+b'I1\n.', b'I1\n.')
+        _(b'I1\n'+MEMOIZE+b'I2\n'+MEMOIZE+GET(0)+b'.',
+          b'I1\n'+MEMOIZE+b'I2\n'+GET(0)+b'.')
 
 
 # ---- misc ----
