@@ -1713,7 +1713,11 @@ def test_strings_methods():
         ur = xcall(us, meth, *argv, **kw)
 
         def assertDeepEQ(a, b, bstrtype):
-            assert not isinstance(a, (bstr, ustr))
+            # `assert not isinstance(a, (bstr, ustr))` done carefully not to
+            # break when bytes/unicode are patched with bstr/ustr
+            if isinstance(a, bytes):    assert type(a) is bytes
+            if isinstance(a, unicode):  assert type(a) is unicode
+
             if type(a) is unicode:
                 assert type(b) is bstrtype
                 assert a == b
