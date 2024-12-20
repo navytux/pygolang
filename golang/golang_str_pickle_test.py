@@ -21,6 +21,7 @@
 from __future__ import print_function, absolute_import
 
 from golang import b, u, bstr, ustr
+from golang.golang_str_test import xbytes
 from pytest import fixture
 import io
 import six
@@ -63,8 +64,8 @@ def pickle2tools(pickle):
 
 # verify that bstr/ustr can be pickled/unpickled correctly.
 def test_strings_pickle(pickle):
-    bs = b("мир")
-    us = u("май")
+    bs = b(xbytes('мир')+b'\xff')
+    us = u(xbytes('май')+b'\xff')
 
     def diss(p): return xdiss(pickle2tools(pickle), p)
     def dis(p): print(diss(p))
