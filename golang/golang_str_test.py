@@ -34,6 +34,7 @@ from six import text_type as unicode, unichr
 from six.moves import range as xrange
 import gc, re, pickle, copy, types
 import array, collections
+import base64
 
 
 # buftypes lists types with buffer interface that we will test against.
@@ -313,26 +314,43 @@ def test_strings_refcount():
 
 
 # verify memoryview(bstr|ustr).
-def test_strings_memoryview():
-    bs = b('мир')
-    us = u('май')
-
-    with raises(TypeError):
-        memoryview(us)
-
-    m = memoryview(bs)
-    assert len(m) == 6
+_ = (memoryview,)
+if six.PY2:
+    # also verify buffer() on py2
+    def mbuffer(x):
+        return memoryview(buffer(x))
+    _ += (mbuffer,)
+@mark.parametrize('tx', (bytes, bstr, ustr))
+@mark.parametrize('mview', _)
+def test_strings_memoryview(tx, mview):
+    # NOTE memoryview/buffer work for both bstr and ustr. In particular
+    # memoryview(ustr) does not raise TypeError and instead returns memoryview
+    # for bytes-representation of ustr.
+    x = xstr(xbytes('мир')+b'\xff', tx)     # note: invalid utf-8
+    m = mview(x)
+    assert m.format         == 'B'
+    assert m.itemsize       == 1
+    assert m.ndim           == 1
+    assert m.strides        == (1,)
+    assert m.readonly
+    assert m.shape == (7,)
+    assert len(m) == 7
     def _(i): # returns m[i] as int
-        x = m[i]
+        mi = m[i]
         if six.PY2: # on py2 memoryview[i] returns bytechar
-            x = ord(x)
-        return x
+            mi = ord(mi)
+        return mi
     assert _(0) == 0xd0
     assert _(1) == 0xbc
     assert _(2) == 0xd0
     assert _(3) == 0xb8
     assert _(4) == 0xd1
     assert _(5) == 0x80
+    assert _(6) == 0xff
+
+    # memoryview/buffer must be read-only
+    with raises(TypeError, match="cannot modify read-only memory"):
+        m[0] = m[0]
 
 
 # verify that ord on bstr/ustr works as expected.
@@ -2062,7 +2080,7 @@ if six.PY3:
 @mark.parametrize('fmt', _)
 def test_strings_capi_getargs_to_cstr(tx, fmt):
     if six.PY2:
-        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 't_hash'):
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash'):
             # UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
             xfail("TODO: py2: PyArg_Parse(%s) vs ustr" % fmt)
 
@@ -2077,9 +2095,8 @@ def test_strings_capi_getargs_to_cstr(tx, fmt):
             # TODO we will try to handle this later
             xfail("TODO: py3: PyArg_Parse(%s) vs bstr" % fmt)
 
-        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 'y', 'y_star', 'y_hash'):
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash'):
             # UnicodeEncodeError: 'utf-8' codec can't encode character '\udcff' in position 3: surrogates not allowed
-            # TypeError: a bytes-like object is required, not 'golang.ustr'
             xfail("TODO: py3: PyArg_Parse(%s) vs ustr" % fmt)
 
     bmirf = xbytes('мир') + b'\xff'                         # invalid UTF-8 to make sure conversion
@@ -2737,6 +2754,21 @@ def test_strings_cmp_wrt_distutils_LooseVersion(tx):
     assert      l <= x
     assert not (x < l)
     assert not (l < x)
+
+
+# base.b64encode(ustr) used to raise TypeError.
+# https://lab.nexedi.com/nexedi/pygolang/merge_requests/21#note_172595
+@mark.parametrize('tx', (bytes, bstr, ustr))
+def test_strings_base64(tx):
+    if six.PY2 and tx is ustr:
+        # PyArg_Parse('s*', u) -> _PyUnicode_AsDefaultEncodedString(u)
+        #   -> UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
+        #
+        # even if default encoding is utf-8 (gpython) the result is 0LzQuNGA7bO
+        xfail("TODO: py2: ustr -> default encoded bstr")
+    x = xstr(u'мир', tx) + b'\xff'  ; assert type(x) is tx
+    assert base64.b64encode(x) == b'0LzQuNGA/w=='
+
 
 
 # ---- benchmarks ----
