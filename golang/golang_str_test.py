@@ -26,7 +26,8 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
-from pytest import raises, mark, skip
+from pytest import raises, mark, skip, xfail
+import _testcapi as testcapi
 import sys
 import six
 from six import text_type as unicode, unichr
@@ -2029,6 +2030,66 @@ def test_qq():
 
     # what qq returns - bstr - can be mixed with both unicode, bytes and bytearray
     # it is tested e.g. in test_strings_ops2 and test_strings_mod_and_format
+
+
+# ---- bstr/ustr interoperability at CAPI level ----
+
+# verify that PyArg_Parse* handle bstr|ustr correctly.
+_ = (
+    's',        # s     py2(str|unicode)            py3(str)
+    's_star',   # s*    py2(s|buffer)               py3(s|bytes-like)
+    's_hash',   # s#    py2(s|r-buffer)             py3(s|r-bytes-like)
+    'z',        # z     py2(s|None)                 py3(s|None)
+    'z_star',   # z*    py2(z|buffer)               py3(z|bytes-like)
+    'z_hash'    # z#    py2(z|r-buffer)             py3(z|r-bytes-like)
+)
+if six.PY2:
+    _ += (
+    't_hash',   # t#    py2(r-buffer)
+    )
+if six.PY3:
+    _ += (
+    'y',        # y                                 py3(r-bytes-like)
+    'y_star',   # y*                                py3(bytes-like)
+    'y_hash',   # y#                                py3(r-bytes-like)
+    )
+# TODO:
+#   S   bytes(PyBytesObject)
+#   U   unicode(py2:PyUnicodeObject,py3:PyObject)
+#   c   (char)
+#   C   (py3:unichar)
+@mark.parametrize('tx',  (bstr, ustr))
+@mark.parametrize('fmt', _)
+def test_strings_capi_getargs_to_cstr(tx, fmt):
+    if six.PY2:
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 't_hash'):
+            # UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
+            xfail("TODO: py2: PyArg_Parse(%s) vs ustr" % fmt)
+
+
+    if six.PY3:
+        if tx is bstr  and  fmt in ('s', 'z'):
+            # PyArg_Parse(s, bstr) currently rejects it with
+            #
+            #   TypeError: argument 1 must be str, not golang.bstr
+            #
+            # because internally it insists on the type being PyUnicode_Object and only that.
+            # TODO we will try to handle this later
+            xfail("TODO: py3: PyArg_Parse(%s) vs bstr" % fmt)
+
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 'y', 'y_star', 'y_hash'):
+            # UnicodeEncodeError: 'utf-8' codec can't encode character '\udcff' in position 3: surrogates not allowed
+            # TypeError: a bytes-like object is required, not 'golang.ustr'
+            xfail("TODO: py3: PyArg_Parse(%s) vs ustr" % fmt)
+
+    bmirf = xbytes('мир') + b'\xff'                         # invalid UTF-8 to make sure conversion
+    assert bmirf == b'\xd0\xbc\xd0\xb8\xd1\x80\xff'         # takes our codepath instead of builtin
+    with raises(UnicodeDecodeError): bmirf.decode('UTF-8')  # UTF-8 decoder/encoder.
+
+    x = xstr(bmirf, tx)
+    _ = getattr(testcapi, 'getargs_'+fmt)
+    assert _(x) == bmirf
+
 
 
 # ---- deep replace ----
