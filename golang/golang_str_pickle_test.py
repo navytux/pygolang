@@ -139,7 +139,7 @@ def test_strings_pickle_bstr_ustr(pickle):
 
     # NOTE BINUNICODE ...edb3bf not ...ff  (see test_strings_pickle_loadsave_UNICODE for details)
     _(us, 1,
-             b'cgolang\nustr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
+             b'cgolang\nustr\n(X\x09\x00\x00\x00'                           # ustr(BINUNICODE)
                         b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbftR.')
 
     _(bs, 2,
