@@ -2017,6 +2017,11 @@ cdef _encoding_with_defaults(encoding, errors): # -> (encoding, errors)
 #   UnicodeEncodeError: 'utf-8' codec can't encode character '\udc00' in position 0: surrogates not allowed
 #
 # (*) aka UTF-8b (see http://hyperreal.org/~est/utf-8b/releases/utf-8b-20060413043934/kuhn-utf-8b.html)
+#
+# Call resulting encoding as UTF-8bk.
+#
+# TODO(kirr) adjust bstr pickling for protocol < 3 after switching bstr/ustr
+# to decode/encode via UTF-8bk instead of UTF-8b.
 
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -376,4 +376,5 @@ from ._golang import    \
     pyustr      as ustr,    \
     pyuchr      as uchr,    \
     pybiter     as biter,   \
-    pyuiter     as uiter
+    pyuiter     as uiter,   \
+    _butf8b

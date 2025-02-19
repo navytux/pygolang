@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2022-2024  Nexedi SA and Contributors.
+# Copyright (C) 2022-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -128,13 +128,13 @@ def test_strings_pickle_bstr_ustr(pickle):
     _ = assert_pickle
 
     _(bs, 0,
-             b"cgolang\nbstr\n(V\\u043c\\u0438\\u0440\\udcff\ntR.")         # bstr(UNICODE)
+             b"cgolang\n_butf8b\n(V\\u043c\\u0438\\u0440\\udcff\ntR.")      # _butf8b(UNICODE)
 
     _(us, 0,
              b'cgolang\nustr\n(V\\u043c\\u0430\\u0439\\udcff\ntR.')         # ustr(UNICODE)
 
     _(bs, 1,
-             b'cgolang\nbstr\n(X\x09\x00\x00\x00'                           # bstr(BINUNICODE)
+             b'cgolang\n_butf8b\n(X\x09\x00\x00\x00'                        # _butf8b(BINUNICODE)
                         b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbftR.')
 
     # NOTE BINUNICODE ...edb3bf not ...ff  (see test_strings_pickle_loadsave_UNICODE for details)
@@ -143,8 +143,8 @@ def test_strings_pickle_bstr_ustr(pickle):
                         b'\xd0\xbc\xd0\xb0\xd0\xb9\xed\xb3\xbftR.')
 
     _(bs, 2,
-             b'cgolang\nbstr\nX\x09\x00\x00\x00'                            # bstr(BINUNICODE)
-                        b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf\x85\x81.')
+             b'cgolang\n_butf8b\nX\x09\x00\x00\x00'                         # _butf8b(BINUNICODE)
+                        b'\xd0\xbc\xd0\xb8\xd1\x80\xed\xb3\xbf\x85R.')
 
     _(us, 2,
              b'cgolang\nustr\nX\x09\x00\x00\x00'                            # ustr(BINUNICODE)
