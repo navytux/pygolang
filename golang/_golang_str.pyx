@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -30,17 +30,17 @@ from cpython cimport PyTypeObject, Py_TYPE, reprfunc, richcmpfunc, binaryfunc
 from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
-from cpython cimport PyObject_CheckBuffer, PyBuffer_FillInfo, Py_SIZE
+from cpython cimport PyObject_CheckBuffer
 
 cdef extern from "Python.h":
     PyTypeObject PyBytes_Type
     ctypedef struct PyBytesObject:
-        char *ob_sval
+        pass
 
 cdef extern from "Python.h":
     PyTypeObject PyUnicode_Type
     ctypedef struct PyUnicodeObject:
-        PyObject   *defenc  # NOTE py2 only; ~ .utf8 on py3
+        pass
 
 cdef extern from "Python.h":
     """
@@ -1004,63 +1004,6 @@ cdef class _pyustr(unicode):
                     k = ord(pyu(k))
                 t[k] = pyu(v)
         return t
-
-
-    # buffer interface so that ustr can be automatically converted to bytes for
-    # e.g. PyArg_Parse("s#") and memoryview.
-    def __getbuffer__(self, Py_buffer *buf, int flags):
-        # TODO py2: use .defenc directly if present   (via _pyustr_getbuf)
-        # TODO py3: use .utf8   directly if present
-        bself = pyb(self)
-        bbself = <PyBytesObject*>bself
-
-        PyBuffer_FillInfo(buf, bself, bbself.ob_sval, Py_SIZE(bself), 1, flags)
-
-    # keep .bf_releasebuffer = NULL
-    # e.g. for t# py2 rejects conversion if it is !NULL with
-    #   "argument ... must be string or pinned buffer"
-    # https://github.com/python/cpython/blob/v2.7.18-0-g8d21aa21f2c/Python/getargs.c#L1356-L1391
-    #def __releasebuffer__(self, Py_buffer *buf):
-    #    pass
-
-    # old-style buffer - used by py2
-    IF PY2:
-        def __getreadbuffer__(self, Py_ssize_t idx, void **pptr):
-            return _pyustr_getbuf(self, idx, pptr)
-
-        def __getcharbuffer__(self, Py_ssize_t idx, char **pptr):
-            return _pyustr_getbuf(self, idx, <void**>pptr)
-
-        def __getsegcount__(self, Py_ssize_t *lenp):
-            cdef void *_
-            if lenp != NULL:
-                lenp[0] = _pyustr_getbuf(self, 0, &_)
-            return 1
-
-IF PY2:
-    # _pyustr_getbuf returns pointer to bytes data that correspond to ustr content.
-    #
-    # its definition is kept outside pyustr class becase
-    # vtab is still created even with `@staticmethod cdef ...`
-    # https://github.com/cython/cython/issues/5337
-    # so we work it around via out-of-class definition
-    cdef Py_ssize_t _pyustr_getbuf(self, Py_ssize_t idx, void **pptr) except -1:
-        if idx != 0:
-            raise SystemError("accessing non-existent string segment")
-
-        uself  = <PyUnicodeObject*>self
-        cdef PyObject* xbcopy = uself.defenc
-        if xbcopy == NULL:
-            bcopy = pyb(self)
-            Py_INCREF(bcopy)
-            xbcopy = <PyObject*>bcopy
-            uself.defenc = xbcopy
-        else:
-            bcopy = <object>xbcopy
-        assert isinstance(bcopy, bytes)
-
-        pptr[0] = (<PyBytesObject*>xbcopy).ob_sval
-        return Py_SIZE(bcopy)
 
 
 # hand-made _pyustr.__new__  (workaround for https://github.com/cython/cython/issues/799)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -314,20 +314,40 @@ def test_strings_refcount():
 
 
 # verify memoryview(bstr|ustr).
-_ = (memoryview,)
-if six.PY2:
-    # also verify buffer() on py2
-    def mbuffer(x):
-        return memoryview(buffer(x))
-    _ += (mbuffer,)
 @mark.parametrize('tx', (bytes, bstr, ustr))
-@mark.parametrize('mview', _)
-def test_strings_memoryview(tx, mview):
-    # NOTE memoryview/buffer work for both bstr and ustr. In particular
-    # memoryview(ustr) does not raise TypeError and instead returns memoryview
-    # for bytes-representation of ustr.
+def test_strings_memoryview(tx):
+    # NOTE memoryview works for both bytes and bstr but not for ustr.
+    #
+    # Even though it is technically possible(*) we cannot make memoryview(ustr)
+    # to work as it will result in breakage on gpython/py3 because many places
+    # in stdlib assume that if buffer interface is provided then the object is
+    # not a string. One example of such a place is os.listdir, which after
+    # doing PyObject_CheckBuffer decides to return bytes instead of unicode in
+    # the result:
+    #
+    #     https://github.com/python/cpython/blob/v3.11.9-9-g1b0e63c81b5/Modules/posixmodule.c#L4194-L4195
+    #
+    # which makes e.g. pytest to fail to work with
+    #
+    #     $ gpython -m pytest -vsx
+    #     ...
+    #       File ".../lib/python3.11/pathlib.py", line 370, in _select_from
+    #         if self.match(name):
+    #            ^^^^^^^^^^^^^^^^
+    #     TypeError: cannot use a string pattern on a bytes-like object
+    #
+    # In general adding buffer interface to ustr is believed to break too much
+    # compatibility with standard unicode on py3 that we decided against it.
+    #
+    # (*) memoryview(ustr) could return memoryview for bytes-representation of ustr.
     x = xstr(xbytes('мир')+b'\xff', tx)     # note: invalid utf-8
-    m = mview(x)
+
+    if (tx is ustr):
+        with raises(TypeError):
+            memoryview(x)
+        return
+
+    m = memoryview(x)
     assert m.format         == 'B'
     assert m.itemsize       == 1
     assert m.ndim           == 1
@@ -2080,7 +2100,7 @@ if six.PY3:
 @mark.parametrize('fmt', _)
 def test_strings_capi_getargs_to_cstr(tx, fmt):
     if six.PY2:
-        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash'):
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 't_hash'):
             # UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
             xfail("TODO: py2: PyArg_Parse(%s) vs ustr" % fmt)
 
@@ -2095,8 +2115,9 @@ def test_strings_capi_getargs_to_cstr(tx, fmt):
             # TODO we will try to handle this later
             xfail("TODO: py3: PyArg_Parse(%s) vs bstr" % fmt)
 
-        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash'):
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 'y', 'y_star', 'y_hash'):
             # UnicodeEncodeError: 'utf-8' codec can't encode character '\udcff' in position 3: surrogates not allowed
+            # TypeError: a bytes-like object is required, not 'golang.ustr'
             xfail("TODO: py3: PyArg_Parse(%s) vs ustr" % fmt)
 
     bmirf = xbytes('мир') + b'\xff'                         # invalid UTF-8 to make sure conversion
@@ -2766,6 +2787,10 @@ def test_strings_base64(tx):
         #
         # even if default encoding is utf-8 (gpython) the result is 0LzQuNGA7bO
         xfail("TODO: py2: ustr -> default encoded bstr")
+    if six.PY3 and tx is ustr:
+        # PyObject_GetBuffer(u)
+        #   -> TypeError: a bytes-like object is required, not 'golang.ustr'
+        xfail("TODO: py3: accept ustr in binascii.b2a_base64")
     x = xstr(u'мир', tx) + b'\xff'  ; assert type(x) is tx
     assert base64.b64encode(x) == b'0LzQuNGA/w=='
 
