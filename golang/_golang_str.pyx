@@ -2065,7 +2065,7 @@ cdef (rune, int) _utf8_decode_rune(const byte[::1] s):
 
 
 # _utf8_decode_surrogateescape mimics s.decode('utf-8', 'surrogateescape') from py3.
-def _utf8_decode_surrogateescape(const byte[::1] s): # -> unicode
+cdef _utf8_decode_surrogateescape(const byte[::1] s): # -> unicode
     if PY_MAJOR_VERSION >= 3:
         if len(s) == 0:
             return u''  # avoid out-of-bounds slice access on &s[0]
@@ -2105,7 +2105,7 @@ def _utf8_decode_surrogateescape(const byte[::1] s): # -> unicode
 
 
 # _utf8_encode_surrogateescape mimics s.encode('utf-8', 'surrogateescape') from py3.
-def _utf8_encode_surrogateescape(s): # -> bytes
+cdef _utf8_encode_surrogateescape(s): # -> bytes
     assert isinstance(s, unicode)
     if PY_MAJOR_VERSION >= 3:
         return zunicode.encode(s, 'UTF-8', 'surrogateescape')
