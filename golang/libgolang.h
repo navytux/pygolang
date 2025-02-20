@@ -169,6 +169,8 @@
 // [1] Libtask: a Coroutine Library for C and Unix. https://swtch.com/libtask.
 // [2] http://9p.io/magic/man2html/2/thread.
 
+#include "golang/runtime/platform.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -177,21 +179,18 @@
 #include <sys/stat.h>
 
 #include <fcntl.h>
-#ifdef _MSC_VER // no mode_t on msvc
+#ifdef LIBGOLANG_CC_msc // no mode_t on msvc
 typedef int mode_t;
 #endif
 
 
 // DSO symbols visibility (based on https://gcc.gnu.org/wiki/Visibility)
-#if defined _WIN32 || defined __CYGWIN__
+#ifdef LIBGOLANG_OS_windows
   #define LIBGOLANG_DSO_EXPORT __declspec(dllexport)
   #define LIBGOLANG_DSO_IMPORT __declspec(dllimport)
-#elif __GNUC__ >= 4
+#else
   #define LIBGOLANG_DSO_EXPORT __attribute__ ((visibility ("default")))
   #define LIBGOLANG_DSO_IMPORT __attribute__ ((visibility ("default")))
-#else
-  #define LIBGOLANG_DSO_EXPORT
-  #define LIBGOLANG_DSO_IMPORT
 #endif
 
 #if BUILDING_LIBGOLANG
@@ -437,6 +436,10 @@ constexpr Nil nil = nullptr;
 
 // string is alias for std::string.
 using string = std::string;
+
+// byte/rune types related to string.
+using byte = uint8_t;
+using rune = int32_t;
 
 // func is alias for std::function.
 template<typename F>

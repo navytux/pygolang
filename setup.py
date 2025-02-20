@@ -19,6 +19,25 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 
+# patch cython to allow `cdef class X(bytes)` while building pygolang to
+# workaround https://github.com/cython/cython/issues/711
+# see `cdef class pybstr` in golang/_golang_str.pyx for details.
+# (should become unneeded with cython 3 once https://github.com/cython/cython/pull/5212 is finished)
+import inspect
+from Cython.Compiler.PyrexTypes import BuiltinObjectType
+def pygo_cy_builtin_type_name_set(self, v):
+    self._pygo_name = v
+def pygo_cy_builtin_type_name_get(self):
+    name = self._pygo_name
+    if name == 'bytes':
+        caller = inspect.currentframe().f_back.f_code.co_name
+        if caller == 'analyse_declarations':
+            # need anything different from 'bytes' to deactivate check in
+            # https://github.com/cython/cython/blob/c21b39d4/Cython/Compiler/Nodes.py#L4759-L4762
+            name = 'xxx'
+    return name
+BuiltinObjectType.name = property(pygo_cy_builtin_type_name_get, pygo_cy_builtin_type_name_set)
+
 from setuptools import find_packages
 from setuptools.command.install_scripts import install_scripts as _install_scripts
 from setuptools.command.develop import develop as _develop
@@ -166,7 +185,8 @@ for pkg in R:
 R['all'] = Rall
 
 # ipython/pytest are required to test py2 integration patches
-R['all_test'] = Rall.union(['ipython', 'pytest']) # pip does not like "+" in all+test
+# zodbpickle is used to test pickle support for bstr/ustr
+R['all_test'] = Rall.union(['ipython', 'pytest', 'zodbpickle']) # pip does not like "+" in all+test
 
 # extras_require <- R
 extras_require = {}
@@ -207,6 +227,7 @@ setup(
                         ['golang/runtime/libgolang.cpp',
                          'golang/runtime/internal/atomic.cpp',
                          'golang/runtime/internal/syscall.cpp',
+                         'golang/runtime.cpp',
                          'golang/context.cpp',
                          'golang/errors.cpp',
                          'golang/fmt.cpp',
@@ -218,9 +239,11 @@ setup(
                          'golang/time.cpp'],
                         depends = [
                             'golang/libgolang.h',
+                            'golang/runtime.h',
                             'golang/runtime/internal.h',
                             'golang/runtime/internal/atomic.h',
                             'golang/runtime/internal/syscall.h',
+                            'golang/runtime/platform.h',
                             'golang/context.h',
                             'golang/cxx.h',
                             'golang/errors.h',
@@ -249,7 +272,9 @@ setup(
     ext_modules = [
                     Ext('golang._golang',
                         ['golang/_golang.pyx'],
-                        depends = ['golang/_golang_str.pyx']),
+                        depends = [
+                            'golang/_golang_str.pyx',
+                            'golang/_golang_str_pickle.pyx']),
 
                     Ext('golang.runtime._runtime_thread',
                         ['golang/runtime/_runtime_thread.pyx']),
@@ -300,6 +325,9 @@ setup(
 
                     Ext('golang.os._signal',
                         ['golang/os/_signal.pyx']),
+
+                    Ext('golang._strconv',
+                        ['golang/_strconv.pyx']),
 
                     Ext('golang._strings_test',
                         ['golang/_strings_test.pyx',

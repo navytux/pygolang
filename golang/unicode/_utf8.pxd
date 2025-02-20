@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2018-2023  Nexedi SA and Contributors.
-#                          Kirill Smelkov <kirr@nexedi.com>
+# cython: language_level=2
+# Copyright (C) 2023  Nexedi SA and Contributors.
+#                     Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -17,11 +17,12 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package strconv provides Go-compatible string conversions."""
+"""Package utf8 mirrors Go package utf8.
 
-from __future__ import print_function, absolute_import
+See https://golang.org/pkg/unicode/utf8 for Go utf8 package documentation.
+"""
 
-from golang._strconv import \
-    pyquote             as quote,       \
-    pyunquote           as unquote,     \
-    pyunquote_next      as unquote_next
+from golang cimport rune
+
+cdef extern from "golang/unicode/utf8.h" namespace "golang::unicode::utf8" nogil:
+    rune RuneError

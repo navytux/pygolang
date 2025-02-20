@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# cython: language_level=2
 # Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
@@ -17,11 +17,10 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""Package strconv provides Go-compatible string conversions."""
+"""Package strconv provides Go-compatible string conversions.
 
-from __future__ import print_function, absolute_import
+See _strconv.pxd for package documentation.
+"""
 
-from golang._strconv import \
-    pyquote             as quote,       \
-    pyunquote           as unquote,     \
-    pyunquote_next      as unquote_next
+# redirect cimport: golang.strconv -> golang._strconv (see __init__.pxd for rationale)
+from golang._strconv cimport *

@@ -10,7 +10,7 @@ Package `golang` provides Go-like features for Python:
 - `func` allows to define methods separate from class.
 - `defer` allows to schedule a cleanup from the main control flow.
 - `error` and package `errors` provide error chaining.
-- `b` and `u` provide way to make sure an object is either bytes or unicode.
+- `b`, `u` and `bstr`/`ustr` provide uniform UTF8-based approach to strings.
 - `gimport` allows to import python modules by full path in a Go workspace.
 
 Package `golang.pyx` provides__ similar features for Cython/nogil.
@@ -229,19 +229,64 @@ __ https://www.python.org/dev/peps/pep-3134/
 Strings
 -------
 
-`b` and `u` provide way to make sure an object is either bytes or unicode.
-`b(obj)` converts str/unicode/bytes obj to UTF-8 encoded bytestring, while
-`u(obj)` converts str/unicode/bytes obj to unicode string. For example::
+Pygolang, similarly to Go, provides uniform UTF8-based approach to strings with
+the idea to make working with byte- and unicode- strings easy and transparently
+interoperable:
 
-   b("привет мир")   # -> gives bytes corresponding to UTF-8 encoding of "привет мир".
+- `bstr` is byte-string: it is based on `bytes` and can automatically convert to/from `unicode` [*]_.
+- `ustr` is unicode-string: it is based on `unicode` and can automatically convert to/from `bytes`.
+
+The conversion, in both encoding and decoding, never fails and never looses
+information: `bstr→ustr→bstr` and `ustr→bstr→ustr` are always identity
+even if bytes data is not valid UTF-8.
+
+Both `bstr` and `ustr` represent stings. They are two different *representations* of the same entity.
+
+Semantically `bstr` is array of bytes, while `ustr` is array of
+unicode-characters. Accessing their elements by `[index]` and iterating them yield byte and
+unicode character correspondingly [*]_. However it is possible to yield unicode
+character when iterating `bstr` via `uiter`, and to yield byte character when
+iterating `ustr` via `biter`. In practice `bstr` + `uiter` is enough 99% of
+the time, and `ustr` only needs to be used for random access to string
+characters.  See `Strings, bytes, runes and characters in Go`__ for overview of
+this approach.
+
+__ https://blog.golang.org/strings
+
+Operations in between `bstr` and `ustr`/`unicode` / `bytes`/`bytearray` coerce to `bstr`, while
+operations in between `ustr` and `bstr`/`bytes`/`bytearray` / `unicode` coerce
+to `ustr`.  When the coercion happens, `bytes` and `bytearray`, similarly to
+`bstr`, are also treated as UTF8-encoded strings.
+
+`bstr` and `ustr` are meant to be drop-in replacements for standard
+`str`/`unicode` classes. They support all methods of `str`/`unicode` and in
+particular their constructors accept arbitrary objects and either convert or stringify them. For
+cases when no stringification is desired, and one only wants to convert
+`bstr`/`ustr` / `unicode`/`bytes`/`bytearray`, or an object with `buffer`
+interface [*]_, to Pygolang string, `b` and `u` provide way to make sure an
+object is either `bstr` or `ustr` correspondingly.
+
+Usage example::
+
+   s  = b('привет')     # s is bstr corresponding to UTF-8 encoding of 'привет'.
+   s += ' мир'          # s is b('привет мир')
+   for c in uiter(s):   # c will iterate through
+        ...             #     [u(_) for _ in ('п','р','и','в','е','т',' ','м','и','р')]
+
+   # the following gives b('привет мир труд май')
+   b('привет %s %s %s') % (u'мир',                  # raw unicode
+                           u'труд'.encode('utf-8'), # raw bytes
+                           u('май'))                # ustr
 
    def f(s):
-      s = u(s)       # make sure s is unicode, decoding as UTF-8(*) if it was bytes.
-      ...            # (*) but see below about lack of decode errors.
+      s = u(s)          # make sure s is ustr, decoding as UTF-8(*) if it was bstr, bytes, bytearray or buffer.
+      ...               # (*) the decoding never fails nor looses information.
 
-The conversion in both encoding and decoding never fails and never looses
-information: `b(u(·))` and `u(b(·))` are always identity for bytes and unicode
-correspondingly, even if bytes input is not valid UTF-8.
+.. [*] `unicode` on Python2, `str` on Python3.
+.. [*] | ordinal of such byte and unicode character can be obtained via regular `ord`.
+       | For completeness `bbyte` and `uchr` are also provided for constructing 1-byte `bstr` and 1-character `ustr` from ordinal.
+.. [*] | data in buffer, similarly to `bytes` and `bytearray`, is treated as UTF8-encoded string.
+       | Notice that only explicit conversion through `b` and `u` accept objects with buffer interface. Automatic coercion does not.
 
 
 Import

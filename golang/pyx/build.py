@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2023  Nexedi SA and Contributors.
+# Copyright (C) 2019-2024  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -212,9 +212,11 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
     dependv = kw.get('depends', [])[:]
     dependv.extend(['%s/golang/%s' % (pygo, _) for _ in [
         'libgolang.h',
+        'runtime.h',
         'runtime/internal.h',
         'runtime/internal/atomic.h',
         'runtime/internal/syscall.h',
+        'runtime/platform.h',
         'context.h',
         'cxx.h',
         'errors.h',
@@ -226,6 +228,7 @@ def _with_build_defaults(name, kw):   # -> (pygo, kw')
         'os.h',
         'os/signal.h',
         'pyx/runtime.h',
+        'unicode/utf8.h',
         '_testing.h',
         '_compat/windows/strings.h',
         '_compat/windows/unistd.h',
@@ -264,6 +267,8 @@ def Extension(name, sources, **kw):
         '_fmt.pxd',
         'io.pxd',
         '_io.pxd',
+        'strconv.pxd',
+        '_strconv.pxd',
         'strings.pxd',
         'sync.pxd',
         '_sync.pxd',
@@ -274,6 +279,8 @@ def Extension(name, sources, **kw):
         'os/signal.pxd',
         'os/_signal.pxd',
         'pyx/runtime.pxd',
+        'unicode/utf8.pxd',
+        'unicode/_utf8.pxd',
     ]])
     kw['depends'] = dependv
 

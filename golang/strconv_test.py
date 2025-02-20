@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2022  Nexedi SA and Contributors.
+# Copyright (C) 2018-2023  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -20,12 +20,16 @@
 
 from __future__ import print_function, absolute_import
 
+from golang import bstr
 from golang.strconv import quote, unquote, unquote_next
 from golang.gcompat import qq
 
-from six import int2byte as bchr, PY3
+from six import int2byte as bchr
 from six.moves import range as xrange
-from pytest import raises
+from pytest import raises, mark
+
+import codecs
+
 
 def byterange(start, stop):
     b = b""
@@ -34,16 +38,9 @@ def byterange(start, stop):
 
     return b
 
-# asstr converts unicode|bytes to str type of current python.
-def asstr(s):
-    if PY3:
-        if isinstance(s, bytes):
-            s = s.decode('utf-8')
-    # PY2
-    else:
-        if isinstance(s, unicode):
-            s = s.encode('utf-8')
-    return s
+def assert_bstreq(x, y):
+    assert type(x) is bstr
+    assert x == y
 
 def test_quote():
     testv = (
@@ -72,6 +69,9 @@ def test_quote():
         (u'\ufffd',         u'�'),
     )
 
+    # quote/unquote* always give bstr
+    BEQ = assert_bstreq
+
     for tin, tquoted in testv:
         # quote(in) == quoted
         # in = unquote(quoted)
@@ -79,14 +79,13 @@ def test_quote():
         tail = b'123' if isinstance(tquoted, bytes) else '123'
         tquoted = q + tquoted + q   # add lead/trail "
 
-        assert quote(tin) == tquoted
-        assert unquote(tquoted) == tin
-        assert unquote_next(tquoted) == (tin, type(tin)())
-        assert unquote_next(tquoted + tail) == (tin, tail)
+        BEQ(quote(tin), tquoted)
+        BEQ(unquote(tquoted), tin)
+        _, __ = unquote_next(tquoted);          BEQ(_, tin);  BEQ(__, "")
+        _, __ = unquote_next(tquoted + tail);   BEQ(_, tin);  BEQ(__, tail)
         with raises(ValueError): unquote(tquoted + tail)
 
-        # qq always gives str
-        assert qq(tin) == asstr(tquoted)
+        BEQ(qq(tin), tquoted)
 
         # also check how it works on complementary unicode/bytes input type
         if isinstance(tin, bytes):
@@ -103,14 +102,13 @@ def test_quote():
             tquoted = tquoted.encode('utf-8')
             tail = tail.encode('utf-8')
 
-        assert quote(tin) == tquoted
-        assert unquote(tquoted) == tin
-        assert unquote_next(tquoted) == (tin, type(tin)())
-        assert unquote_next(tquoted + tail) == (tin, tail)
+        BEQ(quote(tin), tquoted)
+        BEQ(unquote(tquoted), tin)
+        _, __ = unquote_next(tquoted);          BEQ(_, tin);  BEQ(__, "")
+        _, __ = unquote_next(tquoted + tail);   BEQ(_, tin);  BEQ(__, tail)
         with raises(ValueError): unquote(tquoted + tail)
 
-        # qq always gives str
-        assert qq(tin) == asstr(tquoted)
+        BEQ(qq(tin), tquoted)
 
 
 # verify that non-canonical quotation can be unquoted too.
@@ -143,3 +141,52 @@ def test_unquote_bad():
         with raises(ValueError) as exc:
             unquote(tin)
         assert exc.value.args == (err,)
+
+
+# ---- benchmarks ----
+
+# quoting + unquoting
+uchar_testv = ['a',               # ascii
+               u'α',              # 2-bytes utf8
+               u'\u65e5',         # 3-bytes utf8
+               u'\U0001f64f']     # 4-bytes utf8
+
+@mark.parametrize('ch', uchar_testv)
+def bench_quote(b, ch):
+    s = bstr_ch1000(ch)
+    q = quote
+    for i in xrange(b.N):
+        q(s)
+
+def bench_stdquote(b):
+    s = b'a'*1000
+    q = repr
+    for i in xrange(b.N):
+        q(s)
+
+
+@mark.parametrize('ch', uchar_testv)
+def bench_unquote(b, ch):
+    s = bstr_ch1000(ch)
+    s = quote(s)
+    unq = unquote
+    for i in xrange(b.N):
+        unq(s)
+
+def bench_stdunquote(b):
+    s = b'"' + b'a'*1000 + b'"'
+    escape_decode = codecs.escape_decode
+    def unq(s): return escape_decode(s[1:-1])[0]
+    for i in xrange(b.N):
+        unq(s)
+
+
+# bstr_ch1000 returns bstr with many repetitions of character ch occupying ~ 1000 bytes.
+def bstr_ch1000(ch): # -> bstr
+    assert len(ch) == 1
+    s = bstr(ch)
+    s = s * (1000 // len(s))
+    if len(s) % 3 == 0:
+        s += 'x'
+    assert len(s) == 1000
+    return s

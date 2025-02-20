@@ -18,30 +18,37 @@
 #
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
-"""This program helps to verify b, u and underlying bstr and ustr.
+"""This program helps to verify [:] handling for bstr and ustr.
 
-It complements golang_str_test.test_strings_print.
+It complements golang_str_test.test_strings_index2.
+
+It needs to verify [:] only lightly because thorough verification is done in
+test_string_index, and here we need to verify only that __getslice__, inherited
+from builtin str/unicode, does not get into our way.
 """
 
 from __future__ import print_function, absolute_import
 
-from golang import b, u
+from golang import b, u, bstr, ustr
 from golang.gcompat import qq
 
-def main():
-    sb = b("привет αβγ b")
-    su = u("привет αβγ u")
-    print("print(b):", sb)
-    print("print(u):", su)
-    print("print(qq(b)):", qq(sb))
-    print("print(qq(u)):", qq(su))
-    print("print(repr(b)):", repr(sb))
-    print("print(repr(u)):", repr(su))
 
-    # py2: print(dict) calls PyObject_Print(flags=0) for both keys and values,
-    #      not with flags=Py_PRINT_RAW used by default almost everywhere else.
-    #      this way we can verify whether bstr.tp_print handles flags correctly.
-    print("print({b: u}):", {sb: su})
+def main():
+    us = u("миру мир")
+    bs = b("миру мир")
+
+    def emit(what, uobj, bobj):
+        assert type(uobj) is ustr
+        assert type(bobj) is bstr
+        print("u"+what, qq(uobj))
+        print("b"+what, qq(bobj))
+
+    emit("s",       us,        bs)
+    emit("s[:]",    us[:],     bs[:])
+    emit("s[0:1]",  us[0:1],   bs[0:1])
+    emit("s[0:2]",  us[0:2],   bs[0:2])
+    emit("s[1:2]",  us[1:2],   bs[1:2])
+    emit("s[0:-1]", us[0:-1],  bs[0:-1])
 
 
 if __name__ == '__main__':
