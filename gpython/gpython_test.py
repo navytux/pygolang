@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+# Copyright (C) 2019-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -403,6 +403,23 @@ def test_pymain_ver(runtime):
 
     ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=gpyenv(runtime))
     assert (ret, out, b(err)) == (0, b'', b(vok))
+
+# pymain --unknown/-Z option
+# gpython_only because output differs from !gpython
+@gpython_only
+def test_pymain_unknown():
+    from golang import b
+    def check(argv, errok):
+        ret, out, err = _pyrun(argv, stdout=PIPE, stderr=PIPE)
+        assert b(errok) in b(err)
+        assert ret != 0
+
+    check(['-Z'],                   "unexpected option -Z")
+    check(['-Z=xyz'],               "unexpected option -Z")
+    check(['-Z=xyz=pqr'],           "unexpected option -Z")
+    check(['--unknown'],            "unexpected option --unknown")
+    check(['--unknown=xyz'],        "unexpected option --unknown")
+    check(['--unknown=xyz=pqr'],    "unexpected option --unknown")
 
 # verify that ./bin/gpython runs ok.
 @gpython_only

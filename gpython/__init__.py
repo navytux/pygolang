@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -559,7 +559,7 @@ class _IGetOpt:
         # long option
         arg = None
         if '=' in opt:
-            opt, arg = opt.split('=')
+            opt, arg = opt.split('=', 1)
         if opt not in self._opts:
             raise RuntimeError('unexpected option %s' % opt)
         arg_required = self._opts[opt]
