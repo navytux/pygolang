@@ -353,6 +353,13 @@ def test_pymain_X():
     check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
 
 
+# pymain -u
+@gpython_only
+def test_pymain_u():
+    _check_gpy_vs_py([      'testprog/print_stdio_bufmode.py'], cwd=here)
+    _check_gpy_vs_py(['-u', 'testprog/print_stdio_bufmode.py'], cwd=here)
+
+
 # pymain -v
 @gpython_only
 def test_pymain_v():
@@ -478,3 +485,15 @@ def check_gpy_vs_py(argv, postprocessf=None, **kw):
             postprocessf(gpyoutv, stdpyoutv)
 
         assert gpyoutv == stdpyoutv
+
+# _check_gpy_vs_py verifies that gpython stdout/stderr match underlying python stdout/stderr.
+def _check_gpy_vs_py(argv, **kw):
+    kw = kw.copy()
+    kw['stdout'] = PIPE
+    kw['stderr'] = PIPE
+    gpyret, gpyout, gpyerr = _pyrun(argv, **kw)
+    stdret, stdout, stderr = _pyrun(argv, pyexe=sys._gpy_underlying_executable, **kw)
+
+    assert gpyout == stdout
+    assert gpyerr == stderr
+    assert (gpyret, stdret) == (0, 0)
