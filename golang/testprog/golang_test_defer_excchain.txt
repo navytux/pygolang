@@ -34,6 +34,7 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     ...
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__

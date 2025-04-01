@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -1684,9 +1684,11 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1703,9 +1705,11 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1741,9 +1745,11 @@ Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
@@ -1952,7 +1958,7 @@ def assertDoc(want, got):
     # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
     # `... -PY39` -> ... if py < 3.9 else ø  (whole line)
     have = {}  # 'PYxy' -> y/n
-    for minor in (9,10,11):
+    for minor in (9,10,11,12):
         have['PY3%d' % minor] = (sys.version_info >= (3, minor))
     for x, havex in have.items():
         want = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", want)
