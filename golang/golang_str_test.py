@@ -2386,7 +2386,7 @@ def deepReplaceBytes(obj):
 def test_deepreplace_bytes():
     def f(): pass
     g = lambda: None # non-picklable func
-    with raises((pickle.PicklingError, AttributeError), match="Can't pickle "):
+    with raises((pickle.PicklingError, AttributeError), match=xpy312("Can't get ", "Can't pickle ")):
         pickle.dumps(g, pickle.HIGHEST_PROTOCOL)
 
     class L(list):      pass
