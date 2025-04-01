@@ -55,6 +55,24 @@ cdef extern from "Python.h":
     Py_ssize_t PY_SSIZE_T_MAX
     void PyType_Modified(PyTypeObject *)
 
+# XPyType_GetDict returns new reference to type's tp_dict.
+#
+# py < 3.12 always keeps type's dictionary in .tp_dict, but py3.12 moved
+# type.tp_dict to PyInterpreterState for static types to support
+# subinterpreters. XPyType_GetDict handles the difference.
+cdef extern from *:
+    """
+    static PyObject* XPyType_GetDict(PyTypeObject* typ) {
+    #if PY_VERSION_HEX >= 0x030C0000    // 3.12
+        return PyType_GetDict(typ);
+    #else
+        Py_XINCREF(typ->tp_dict);
+        return typ->tp_dict;
+    #endif
+    }
+    """
+    object XPyType_GetDict(PyTypeObject *)
+
 cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
@@ -1557,9 +1575,34 @@ cdef _InBStringify _inbstringify_get():
 # otherwise it is wrapped with "unbound method" descriptor.
 #
 # if func_or_descr is DEL the slot is removed from typ's __dict__.
+#
+# XXX for now we support only one py-interpreter as with general case of many
+#     subinterpreters we would need to go through all of them and adjust typ's
+#     dict everywhere. Not having practical use-case for that feature yet this
+#     is left as TODO.
+cdef extern from *:
+    """
+    static int _py_n_interpreters() {
+    #if PY_VERSION_HEX < 0x030C0000     // py3.12
+        return 1;
+    #else
+        int n = 0;
+        PyInterpreterState *interp;
+        for (interp = PyInterpreterState_Head(); interp != NULL; interp = PyInterpreterState_Next(interp))
+            n++;
+        return n;
+    #endif
+    }
+    """
+    int _py_n_interpreters()
+def _():
+    n = _py_n_interpreters()
+    if n != 1:
+        raise ImportError("TODO: support for multiple subinterpreters not yet implemented. N(interpreters): %d" % n)
+_()
 cdef DEL = object()
 cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr):
-    typdict = <dict>(typ.tp_dict)
+    typdict = XPyType_GetDict(typ)
     #print("\npatching %s.%s  with  %r" % (typ.tp_name, name, func_or_descr))
     #print("old:  %r" % typdict.get(name))
 
