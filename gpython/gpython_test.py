@@ -294,6 +294,16 @@ def test_pymain_syspath():
             if path0realpath2cwd:
                 assert stdpyoutv[0] == realcwd
                 stdpyoutv[0] = ''
+            # gpython imports golang, which imports setuptools_dso, which imports setuptools
+            # which, starting from setuptools 71, appends .../setuptools/_vendor to sys.path
+            #
+            #    https://github.com/pypa/setuptools/commit/d4352b5d
+            #
+            # filter that out.
+            #
+            # TODO consider improving setuptools_dso.runtime not to import setuptools at all instead
+            if gpyoutv[-1].endswith('/setuptools/_vendor'):
+                del gpyoutv[-1]
 
         check_gpy_vs_py(argv, postprocessf=_, **kw)
 
