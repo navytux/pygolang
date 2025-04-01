@@ -1493,7 +1493,8 @@ def test_strings_mod_and_format():
     _('α %s π', (cc.Counter({'β':1}),)        , "α Counter({'β': 1}) π")
     # OrderedDict
     _('α %s π', (cc.OrderedDict([(1,'мир'), ('β','труд')]),)
-                                              , "α OrderedDict([(1, 'мир'), ('β', 'труд')]) π")
+                                              , xpy312("α OrderedDict({1: 'мир', 'β': 'труд'}) π",
+                                                       "α OrderedDict([(1, 'мир'), ('β', 'труд')]) π"))
     # defaultdict
     _('α %s π', (cc.defaultdict(int, {'β':1}),)
                                               , x32("α defaultdict(<class 'int'>, {'β': 1}) π",
@@ -2942,3 +2943,7 @@ class hlist(list):
 # x32(a,b) returns a on py3, or b on py2
 def x32(a, b):
     return a if six.PY3 else b
+
+# xpy312(a,b) returns a on py ≥ 3.12 and b on < 3.12
+def xpy312(a, b):
+    return a if sys.version_info >= (3, 12) else b
