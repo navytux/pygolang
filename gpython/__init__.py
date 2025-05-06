@@ -102,7 +102,7 @@ def pymain(argv, init=None):
 
 
 
-    run = None          # function to run according to -c/-m/file/stdin/interactive
+    run = None          # function to run according to -c/-m/file/dir/stdin/interactive
     version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
     reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
@@ -187,19 +187,54 @@ def pymain(argv, init=None):
     argv = igetopt.argv
     reexec_argv += argv
     if run is None:
-        # file
+        # file / dir / dir.zip
         if len(argv) > 0 and argv[0] != '-':
             sys.argv = argv
-            filepath = argv[0]
-            # starting from cpython 3.9 __file__ is always absolute
-            # https://bugs.python.org/issue20443
-            if sys.version_info >= (3, 9):
-                filepath = realpath(filepath)
+            path = argv[0]
 
-            sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
             def run(mmain):
-                mmain.__file__ = filepath
-                _execfile(filepath, mmain.__dict__)
+                # ideally we would use runpy.run_path here, but that installs its own
+                # temporary module instead of running with __main__ already prepared by us.
+                # -> handle it ourselves, similarly to how runpy.run_path does it.
+                import runpy
+                if sys.version_info >= (3,):
+                    import pkgutil
+                    _ = pkgutil.get_importer(path)
+                    isfile = (_ is None)
+                else:
+                    import imp
+                    _ = runpy._get_importer(path)
+                    isfile = isinstance(_, imp.NullImporter)
+                # file
+                if isfile:
+                    filepath = path
+                    # starting from cpython 3.9 __file__ is always absolute
+                    # https://bugs.python.org/issue20443
+                    if sys.version_info >= (3, 9):
+                        filepath = realpath(filepath)
+                    sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
+                    mmain.__file__ = filepath
+                    _execfile(filepath, mmain.__dict__)
+                # dir / dir.zip
+                else:
+                    sys.path.insert(0, realpath(path))
+                    kw = {}
+                    if sys.version_info >= (3,):
+                        name, spec, code = runpy._get_main_module_details()
+                        kw['mod_name'] = name
+                        kw['mod_spec'] = spec
+                    else:
+                        # NOTE on py3 runpy._get_main_module_details stashes current __main__ while doing
+                        # its work, but it does not do so on py2.
+                        sysmain = sys.modules.pop('__main__')
+                        try:
+                            name, loader, code, filename = runpy._get_main_module_details()
+                        finally:
+                            sys.modules['__main__'] = sysmain
+                        kw['mod_name']   = name
+                        kw['mod_loader'] = loader
+                        kw['mod_fname']  = filename
+                    runpy._run_code(code, run_globals=mmain.__dict__, **kw)
 
         # interactive console / program on non-tty stdin
         else:

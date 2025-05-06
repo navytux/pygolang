@@ -217,6 +217,14 @@ def test_pymain():
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
 
+    # dir with __main__.py
+    _ = pyout(['testdata/dir', 'abc', 'def'], cwd=here)
+    assert _ == b"dir/__main__\ndir/mod\n['testdata/dir', 'abc', 'def']\n"
+
+    # dir.zip with __main__.py
+    _ = pyout(['testdata/dir.zip', 'abc', 'def'], cwd=here)
+    assert _ == b"zdir/__main__\nzdir/mod\n['testdata/dir.zip', 'abc', 'def']\n"
+
     # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
     d = {
         b'repr(hellopy)':       b(repr(hellopy)),
@@ -261,6 +269,12 @@ def test_pymain():
     # -i after file
     _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d
+    # -i after dir with __main__.py
+    _ = pyout(['-i', 'testdata/dir'], stdin=b'mod.tag', cwd=here)
+    assert _ == b"dir/__main__\ndir/mod\n['testdata/dir']\n%(ps1)s'~~DIR/MOD~~'\n%(ps1)s" % d
+    # -i after dir.zip with __main__.py
+    _ = pyout(['-i', 'testdata/dir.zip'], stdin=b'mod.tag', cwd=here)
+    assert _ == b"zdir/__main__\nzdir/mod\n['testdata/dir.zip']\n%(ps1)s'~~ZDIR/MOD~~'\n%(ps1)s" % d
 
 
     # -W <opt>
