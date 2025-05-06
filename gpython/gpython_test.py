@@ -190,6 +190,28 @@ def test_pymain():
     # -m<module>
     __ = pyout(['-mhello', 'abc', 'def'], cwd=testdata)
     assert __ == _
+    # -m <package> with __main__.py
+    _ = pyout(['-m', 'pkg', 'abc', 'def'], cwd=testdata)
+    pkgmainpy = realpath(join(testdata, 'pkg', '__main__.py'))
+    assert _ == b"pkg/__main__\npkg/mod\n[%s, 'abc', 'def']\n" % b(repr(pkgmainpy))
+    # -m <package>.<module>
+    _ = pyout(['-m', 'pkg.mod'], cwd=testdata)
+    assert _ == b"pkg/mod\n"
+
+    # -m <module> inside zip
+    zbundle = join(testdata, 'bundle.zip')
+    with_zbundle  = {'envadj': {'PYTHONPATH': zbundle}}
+    _ = pyout(['-m', 'hello', 'abc', 'def'], **with_zbundle)
+    zhellopy = join(zbundle, 'hello.py')
+    assert _ == b"zhello\nzworld\n[%s, 'abc', 'def']\n" % b(repr(zhellopy))
+    # -m <package> with __main__.py inside zip
+    _ = pyout(['-m', 'pkg', 'abc', 'def'], **with_zbundle)
+    zpkgmainpy = join(zbundle, 'pkg', '__main__.py')
+    assert _ == b"zpkg/__main__\nzpkg/mod\n[%s, 'abc', 'def']\n" % b(repr(zpkgmainpy))
+    # -m <package>.<module> inside zip
+    _ = pyout(['-m', 'pkg.mod'], **with_zbundle)
+    assert _ == b"zpkg/mod\n"
+
 
     # file
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
@@ -197,8 +219,11 @@ def test_pymain():
 
     # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
     d = {
-        b'repr(hellopy)': b(repr(hellopy)),
-        b'ps1':           b'' # cpython emits prompt to stderr
+        b'repr(hellopy)':       b(repr(hellopy)),
+        b'repr(pkgmainpy)':     b(repr(pkgmainpy)),
+        b'repr(zhellopy)':      b(repr(zhellopy)),
+        b'repr(zpkgmainpy)':    b(repr(zpkgmainpy)),
+        b'ps1':                 b'' # cpython emits prompt to stderr
     }
     if is_pypy and not is_gpython:
         d[b'ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
@@ -212,9 +237,27 @@ def test_pymain():
     # -i after -c
     _ = pyout(['-i', '-c', 'import hello'], stdin=b'hello.tag', cwd=testdata)
     assert _ == b"hello\nworld\n['-c']\n%(ps1)s'~~HELLO~~'\n%(ps1)s"    % d
-    # -i after -m
+
+    # -i after -m <module>
     _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', cwd=testdata)
     assert _ == b"hello\nworld\n[%(repr(hellopy))s]\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
+    # -i after -m <package> with __main__.py
+    _ = pyout(['-i', '-m', 'pkg'], stdin=b'mod.tag', cwd=testdata)
+    assert _ == b"pkg/__main__\npkg/mod\n[%(repr(pkgmainpy))s]\n%(ps1)s'~~PKG/MOD~~'\n%(ps1)s" % d
+    # -i after -m <package>.<module>
+    _ = pyout(['-i', '-m', 'pkg.mod'], stdin=b'tag', cwd=testdata)
+    assert _ == b"pkg/mod\n%(ps1)s'~~PKG/MOD~~'\n%(ps1)s" % d
+
+    # -i after -m <module> inside zip
+    _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', **with_zbundle)
+    assert _ == b"zhello\nzworld\n[%(repr(zhellopy))s]\n%(ps1)s'~~ZWORLD~~'\n%(ps1)s"  % d
+    # -i after -m <package> with __main__.py inside zip
+    _ = pyout(['-i', '-m', 'pkg'], stdin=b'mod.tag', **with_zbundle)
+    assert _ == b"zpkg/__main__\nzpkg/mod\n[%(repr(zpkgmainpy))s]\n%(ps1)s'~~ZPKG/MOD~~'\n%(ps1)s" % d
+    # -i after -m <package>.<module> inside zip
+    _ = pyout(['-i', '-m', 'pkg.mod'], stdin=b'tag', **with_zbundle)
+    assert _ == b"zpkg/mod\n%(ps1)s'~~ZPKG/MOD~~'\n%(ps1)s" % d
+
     # -i after file
     _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d
