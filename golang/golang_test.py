@@ -1771,7 +1771,7 @@ def test_defer_excchain_dump():
 # ----//---- (ipython)
 def test_defer_excchain_dump_ipython():
     # ipython 8 changed traceback output significantly
-    # we do not need to test it because we acticate ipython-related patch only
+    # we do not need to test it because we activate ipython-related patch only
     # on py2 for which latest ipython version is 5.
     import IPython
     if six.PY3 and IPython.version_info >= (8,0):

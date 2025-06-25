@@ -84,7 +84,7 @@ def test_golang_builtins():
 
 @gpython_only
 def test_gevent_activated():
-    # gpython, by default, acticates gevent.
+    # gpython, by default, activates gevent.
     # handling of various runtime modes is explicitly tested in test_Xruntime.
     assert_gevent_activated()
 
@@ -315,7 +315,7 @@ def test_pymain_print_function_future():
     assert _ == b"print is a function with print_function future\n"
 
 
-# verify thay pymain runs programs with __main__ module correctly setup.
+# verify that pymain runs programs with __main__ module correctly setup.
 def test_pymain__main__():
     from golang import b
     check_main_py = readfile('%s/check_main.py' % testprog)
@@ -372,7 +372,7 @@ def test_pymain_syspath():
     check(['testprog/print_syspath.py'], cwd=here)          # file
 
 
-# verify that pymain handles -O in exactly the same was as underlying python does.
+# verify that pymain handles -O in exactly the same way as underlying python does.
 @gpython_only
 def test_pymain_opt():
     def check(argv):

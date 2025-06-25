@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2020-2023  Nexedi SA and Contributors.
+# Copyright (C) 2020-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -51,7 +51,7 @@ def is_docstrings_enabled():
         return True
     raise AssertionError(_.__doc__)
 
-# modpy returns name for compiled version of python module mod.py
+# modpy_imports_from returns name for compiled version of python module mod.py
 def modpy_imports_from():
     try:
         import mod
