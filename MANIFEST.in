@@ -1,49 +1,49 @@
+exclude .gitmodules
 include COPYING README.rst CHANGELOG.rst tox.ini pyproject.toml trun .lsan-ignore.txt .nxdtest conftest.py
+include golang/_compat/windows/strings.h
+include golang/_compat/windows/unistd.h
+include golang/context.cpp
+include golang/context.h
+include golang/cxx.h
+include golang/errors.cpp
+include golang/errors.h
+include golang/errors_test.cpp
+include golang/fmt.cpp
+include golang/fmt.h
+include golang/fmt_test.cpp
+include golang/io.cpp
+include golang/io.h
 include golang/libgolang.h
+include golang/os.cpp
+include golang/os.h
+include golang/os/signal.cpp
+include golang/os/signal.h
+include golang/pyx/runtime.h
+include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
+include golang/pyx/testprog/golang_dso_user/dsouser/dso.h
+include golang/runtime.cpp
+include golang/runtime.h
+include golang/runtime/internal/atomic.cpp
+include golang/runtime/internal/atomic.h
+include golang/runtime/internal.h
+include golang/runtime/internal/syscall.cpp
+include golang/runtime/internal/syscall.h
 include golang/runtime/libgolang.cpp
 include golang/runtime/libpyxruntime.cpp
 include golang/runtime/platform.h
-include golang/runtime.h
-include golang/runtime.cpp
-include golang/pyx/runtime.h
-include golang/pyx/testprog/golang_dso_user/dsouser/dso.h
-include golang/pyx/testprog/golang_dso_user/dsouser/dso.cpp
-include golang/runtime/internal.h
-include golang/runtime/internal/atomic.h
-include golang/runtime/internal/atomic.cpp
-include golang/runtime/internal/syscall.h
-include golang/runtime/internal/syscall.cpp
-include golang/context.h
-include golang/context.cpp
-include golang/cxx.h
-include golang/errors.h
-include golang/errors.cpp
-include golang/errors_test.cpp
-include golang/fmt.h
-include golang/fmt.cpp
-include golang/fmt_test.cpp
-include golang/io.h
-include golang/io.cpp
-include golang/os.h
-include golang/os.cpp
-include golang/os/signal.h
-include golang/os/signal.cpp
-include golang/strings.h
 include golang/strings.cpp
+include golang/strings.h
 include golang/strings_test.cpp
-include golang/sync.h
 include golang/sync.cpp
+include golang/sync.h
 include golang/sync_test.cpp
-include golang/time.h
-include golang/time.cpp
-include golang/unicode/utf8.h
 include golang/_testing.h
-include golang/_compat/windows/strings.h
-include golang/_compat/windows/unistd.h
+include golang/time.cpp
+include golang/time.h
+include golang/unicode/utf8.h
+recursive-exclude 3rdparty/ratas *
+recursive-include 3rdparty  *.h
 recursive-include golang    *.py *.pxd *.pyx *.toml *.txt*
 recursive-include gpython   *.py
 recursive-include gpython/testdata *.zip
-recursive-exclude 3rdparty/ratas *
-recursive-include 3rdparty  *.h
 recursive-exclude golang    *_dsoinfo.py
-exclude .gitmodules
