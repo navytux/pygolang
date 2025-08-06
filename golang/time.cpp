@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2024  Nexedi SA and Contributors.
+// Copyright (C) 2019-2025  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -87,7 +87,9 @@ Ticker new_ticker(double dt) {
     tx->c     = makechan<double>(1); // 1-buffer -- same as in Go
     tx->_dt   = dt;
     tx->_stop = false;
+    tx->_mu.lock();
     tx->_timer = after_func(dt, [tx]() { tx ->_tick(); });
+    tx->_mu.unlock();
     return tx;
 }
 
