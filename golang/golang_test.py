@@ -1546,8 +1546,10 @@ def test_defer_excchain_traceback():
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     alpha()
+    ~~~~~^^                                                     +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in alpha
     beta()
+    ~~~~^^                                                      +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in beta
     raise RuntimeError("gamma")
 RuntimeError: gamma
@@ -1575,7 +1577,7 @@ RuntimeError: gamma
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
-           ^^^^^^^^^^^^^^                                       +PY311
+           ^^^^^^^^^^^^^^                                       +PY311 -PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1585,6 +1587,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q2
     raise RuntimeError("bbb")
 RuntimeError: bbb
@@ -1594,6 +1597,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
@@ -1605,6 +1609,7 @@ Traceback (most recent call last):
          ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1615,6 +1620,7 @@ RuntimeError: aaa
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
@@ -1626,6 +1632,7 @@ Traceback (most recent call last):
          ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1636,7 +1643,7 @@ RuntimeError: aaa
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
-           ^^^^^^^^^^^^^^                                       +PY311
+           ^^^^^^^^^^^^^^                                       +PY311 -PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1646,6 +1653,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q2
     raise RuntimeError("bbb")
 RuntimeError: bbb
@@ -1655,6 +1663,7 @@ The above exception was the direct cause of the following exception:
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
@@ -1666,6 +1675,7 @@ Traceback (most recent call last):
          ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1868,25 +1878,32 @@ def assertDoc(want, got):
     got = re.sub(r"([\w\\\.]+)(?=\.py)",        _, got)
 
     # want: process conditionals
-    # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
-    # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
-    # `... -PY39` -> ... if py < 3.9 else ø  (whole line)
+    # PY39(...) -> ...          if py ≥ 3.9 else ø          (inline)
+    # `... +PY39` -> ...        if py ≥ 3.9 else ø          (whole line)
+    # `... -PY39` -> ...        if py < 3.9 else ø          (whole line)
+    # `... +PY39 -PY311` -> ... if 3.9 ≤ py < 3.11  else ø  (whole line)
     have = {}  # 'PYxy' -> y/n
-    for minor in (9,10,11,12):
+    for minor in (9,10,11,12,13):
         have['PY3%d' % minor] = (sys.version_info >= (3, minor))
-    for x, havex in have.items():
-        want = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", want)
-        r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
-        v = []
-        for l in want.splitlines():
-            m = r.match(l)
-            if m is not None:
-                l = m.group('main')
-                y = {'+':True, '-':False}[m.group('y')]
-                if (y and not havex) or (havex and not y):
-                    continue
+    v = []
+    for l in want.splitlines():
+        lomit = False
+        while 1:
+            l_ = l
+            for x, havex in have.items():
+                l = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", l)
+                r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
+                m = r.match(l)
+                if m is not None:
+                    l = m.group('main')
+                    y = {'+':True, '-':False}[m.group('y')]
+                    if (y and not havex) or (havex and not y):
+                        lomit = True
+            if l == l_:
+                break
+        if not lomit:
             v.append(l)
-        want = '\n'.join(v)+'\n'
+    want = '\n'.join(v)+'\n'
 
     # want: ^$ -> <BLANKLINE>
     while "\n\n" in want:

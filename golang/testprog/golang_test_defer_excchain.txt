@@ -1,7 +1,7 @@
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
-           ^^^^^^^^^^^^^^                                       +PY311
+           ^^^^^^^^^^^^^^                                       +PY311 -PY313
   File "PY39(PYGOLANG/golang/testprog/)golang_test_defer_excchain.py", line 42, in main
     raise RuntimeError("err")
 RuntimeError: err
