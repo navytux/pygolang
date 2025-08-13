@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+# Copyright (C) 2019-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -35,9 +35,86 @@ from __future__ import print_function, absolute_import
 # pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
-import sys, pkgutil, platform, sysconfig
+import sys, pkgutil, platform, sysconfig, types
 from os.path import dirname, join, exists
 from distutils.errors import DistutilsError
+
+# patch cython to allow `cdef ... except +topyexc` that pygolang and its users need
+# https://github.com/cython/cython/issues/5981#issuecomment-2143821302
+# https://github.com/cython/cython/issues/5981#issuecomment-3148459989
+# https://github.com/cython/cython/issues/5981#issuecomment-3151826667
+#
+# Staring from cython 3 it is forbidden to do `cdef ... except +topyexc` for
+# any non-extern function. The reason upstream stopped supporting this is that
+# generated code is not correct in the presence of any variables in the
+# function that need refcounting. As explained by the comments in the linked
+# issue pygolang really needs this functionality and we reenable it here. To
+# stay correct we reenable it only for functions that do not have refcounted
+# variables inside, which is exactly what pygolang and wendelin.core codes do.
+#
+# The patch works by hooking into Cython's error() to filter-out particular
+# "Only extern functions can throw C++ exceptions" complain and further check
+# functions, on which the error was triggered, for being free from refcounted
+# variables. We need to patch error() inplace because at the time when the
+# patch is applied, the error() is already imported from many places in Cython
+# codebase.
+#
+# NOTE this patch is really activated only during golang.pyx.build.build_ext
+# run, so codes that do not use our build_ext should not be affected.
+from Cython.Compiler.Nodes import CFuncDefNode
+import Cython.Compiler.Errors
+
+_pygo_cy_error_orig = None
+def _cy_with_cdef_topyexc_allowed(f):
+    CY3 = Cython.__version__.startswith("3.")
+    if not CY3:
+        return f()  # cython < 3 allows `cdef ... +topyexc` out of the box
+    global _pygo_cy_error_orig
+    cy_error = Cython.Compiler.Errors.error
+    cy_error_code = cy_error.__code__
+    _pygo_cy_error_orig = types.FunctionType(cy_error_code, cy_error.__globals__)
+    cy_error.__globals__['_pygo_cy_error_orig'] = _pygo_cy_error_orig
+
+    a = cy_error.__code__
+    b = _pygo_cy_error.__code__
+    c = _pygo_cy_error_orig.__code__
+    assert a.co_argcount == b.co_argcount
+    assert a.co_argcount == c.co_argcount
+    assert a.co_varnames[:a.co_argcount] == b.co_varnames[:b.co_argcount]
+    assert a.co_varnames[:a.co_argcount] == c.co_varnames[:c.co_argcount]
+
+    # we can override only cy_error.__code__, but not .__globals__.
+    # that's why we injected _pygo_cy_error_orig into original
+    # cy_error.__globals__ for that function to be visible when injected
+    # _pygo_cy_error.__code__ runs.
+    cy_error.__code__ = _pygo_cy_error.__code__
+    try:
+        return f()
+    finally:
+        cy_error.__code__ = cy_error_code
+
+def _pygo_cy_error(position, message):
+    if message == 'Only extern functions can throw C++ exceptions.':
+        import inspect
+        fcaller = inspect.currentframe().f_back
+        if fcaller.f_code.co_name == 'analyse_declarations':
+            fcaller.f_locals['self']._cxx_except = True
+            return
+    return _pygo_cy_error_orig(position, message)
+
+CFuncDefNode._cxx_except = False
+_cy_CFuncDefNode_analyse_expressions = CFuncDefNode.analyse_expressions
+def _pygo_CFuncDefNode__analyse_expressions(self, env):
+    if self._cxx_except:
+        for entry in self.local_scope.var_entries:
+            if entry.type.needs_refcounting:
+                _pygo_cy_error_orig(self.pos,
+                    "cdef function %s cannot throw C++ exception because it has refcounted variable %s" %
+                    (self.declarator.declared_name(), entry.name))
+    return _cy_CFuncDefNode_analyse_expressions(self, env)
+CFuncDefNode.analyse_expressions = _pygo_CFuncDefNode__analyse_expressions
+
+
 
 # Error represents a build error.
 class Error(DistutilsError):
@@ -66,11 +143,17 @@ def _findpkg(pkgname):  # -> _PyPkg
     return pypkg
 
 
-# build_ext amends setuptools_dso.build_ext to allow combining C and C++
-# sources in one extension without hitting `error: invalid argument
-# '-std=c++11' not allowed with 'C'`.
+# build_ext amends setuptools_dso.build_ext to
+#
+# - allow `cdef ... +topyexc`.
+# - allow combining C and C++ sources in one extension without hitting `error:
+#   invalid argument '-std=c++11' not allowed with 'C'`.
 _dso_build_ext = setuptools_dso.build_ext
 class build_ext(_dso_build_ext):
+    def run(self):
+        # run the build with `cdef ... +topyexc` allowed
+        return _cy_with_cdef_topyexc_allowed(lambda: _dso_build_ext.run(self))
+
     def build_extension(self, ext):
         # wrap _compiler <src> -> <obj> with our code
 
