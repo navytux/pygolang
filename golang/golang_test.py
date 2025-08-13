@@ -1014,14 +1014,14 @@ def test_func():
     assert 'var' not in locals()
 
 
-    vproperty = mproperty_orig = 'vproperty'
+    vproperty = vproperty_orig = 'vproperty'
     @func(MyClass)
     @property
     def vproperty(self):
         """documentation for vproperty"""
         assert isinstance(self, MyClass)
         return 'v%s' % self.v
-    assert vproperty is mproperty_orig
+    assert vproperty is vproperty_orig
     assert vproperty == 'vproperty'
 
     @func(MyClass)
@@ -1029,7 +1029,7 @@ def test_func():
     def _(self, v):
         assert isinstance(self, MyClass)
         self.v = v
-    assert vproperty is mproperty_orig
+    assert vproperty is vproperty_orig
     assert vproperty == 'vproperty'
 
     @func(MyClass)
@@ -1037,7 +1037,7 @@ def test_func():
     def _(self):
         assert isinstance(self, MyClass)
         self.v = 'deleted'
-    assert vproperty is mproperty_orig
+    assert vproperty is vproperty_orig
     assert vproperty == 'vproperty'
 
 
