@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# cython: legacy_implicit_noexcept=True
 # distutils: language=c++
 #
-# Copyright (C) 2019-2020  Nexedi SA and Contributors.
+# Copyright (C) 2019-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute

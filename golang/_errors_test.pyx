@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
 # cython: c_string_type=str, c_string_encoding=utf8
+# cython: legacy_implicit_noexcept=True
 # distutils: language=c++
 #
-# Copyright (C) 2020  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2020-2025  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# cython: legacy_implicit_noexcept=True
 # distutils: language=c++
 #
 # Copyright (C) 2018-2026  Nexedi SA and Contributors.

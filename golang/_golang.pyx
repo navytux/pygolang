@@ -2,6 +2,7 @@
 # cython: language_level=2
 # cython: binding=False
 # cython: c_string_type=str, c_string_encoding=utf8
+# cython: legacy_implicit_noexcept=True
 # distutils: language = c++
 # distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
 #
