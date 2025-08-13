@@ -943,6 +943,10 @@ cdef extern from * nogil:
 from cpython cimport PyFrameObject
 cdef extern from "frameobject.h":
     """
+    #if PY_VERSION_HEX < 0x030D0000     // 3.13
+    static int PyFrameLocalsProxy_Check(PyObject* obj) { return 0; }
+    #endif
+
     #if PY_VERSION_HEX < 0x03090000     // 3.9
     static inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame)
     {
@@ -1072,10 +1076,20 @@ cdef extern from "frameobject.h":
     }
     """
     void XPyFrame_WhiteoutFastLocal(PyFrameObject* frame, object name) except *
+    bint PyFrameLocalsProxy_Check(PyObject* obj)
 def _pyframe_dellocal(frame, name):
     assert isinstance(frame, pytypes.FrameType)
-    l = frame.f_locals # module / fast-locals snapshot
-    del l[name]
+    l = frame.f_locals
+    if isinstance(l, dict): # module / fast-locals snapshot
+        del l[name]
+    if PyFrameLocalsProxy_Check(<PyObject*>l):  # fast locals view proxy
+        if name not in l:
+            raise KeyError(name)
+        # NOTE just `del l[name]` would fail with
+        #     ValueError: cannot remove local variables from FrameLocalsProxy
+        # -> work it around by setting .f_localsplus[] entry to NULL ourelves
+        l[name] = None # to trigger _Py_Executors_InvalidateDependency
+
     XPyFrame_WhiteoutFastLocal(<PyFrameObject*>frame, name)
 
     # .f_locals, not l again, to make sure we were not modifying a snapshot
