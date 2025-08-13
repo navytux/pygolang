@@ -31,7 +31,10 @@ import gc
 
 
 if 1:       #def tmain():               +funcfunc
+            #    cellvar = 123          +funcfunc
+            #    del cellvar            +funcfunc
     if 1:   #    def _tmain():          +funcfunc
+            #        nonlocal cellvar   +funcfunc +py3
         # test how @func(cls) works
         # this also implicitly tests just @func, since @func(cls) uses that.
 
@@ -67,13 +70,20 @@ if 1:       #def tmain():               +funcfunc
         assert mcls == 'mcls'
 
         # undefined var after `@func(cls) def var` should be not set
-        assert 'var' not in locals()
+        # same for cellvar
+        assert 'var'     not in locals()
+        assert 'cellvar' not in locals()
         @func(MyClass)
         def var(self, v):
             assert v == 8
             return v + 1
+        @func(MyClass)
+        def cellvar(self, v):
+            assert v == 9
+            return v + 1
         gc.collect()    # pypy needs this to trigger _DelAttrAfterMeth GC
-        assert 'var' not in locals()
+        assert 'var'     not in locals()
+        assert 'cellvar' not in locals()
 
 
         vproperty = vproperty_orig = 'vproperty'
@@ -108,6 +118,7 @@ if 1:       #def tmain():               +funcfunc
         assert obj.mstatic(5)   == 5 + 1
         assert obj.mcls(7)      == 7 + 1
         assert obj.var(8)       == 8 + 1
+        assert obj.cellvar(9)   == 9 + 1
         assert obj.v            == 4        # set by .zzz
         assert obj.vproperty    == 'v4'
         obj.vproperty = 5
@@ -132,6 +143,9 @@ if 1:       #def tmain():               +funcfunc
 
         assert MyClass.var.__module__       == __name__
         assert MyClass.var.__name__         == 'var'
+
+        assert MyClass.cellvar.__module__   == __name__
+        assert MyClass.cellvar.__name__     == 'cellvar'
 
         assert MyClass.vproperty.fget.__module__    == __name__
         assert MyClass.vproperty.fset.__module__    == __name__

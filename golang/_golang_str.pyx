@@ -93,7 +93,6 @@ from libc.stdio cimport FILE
 from golang cimport strconv
 import codecs as pycodecs
 import string as pystring
-import types as pytypes
 import functools as pyfunctools
 import re as pyre
 

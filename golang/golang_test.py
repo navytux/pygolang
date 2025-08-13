@@ -989,9 +989,11 @@ def test_func():
     # we need to test this because namespace implementations are different when
     # running as top-level module and inside a function.
     def _(l):
-        m = re.match(br'^[^#]*#(.*)\s+\+funcfunc$', l)
+        m = re.match(br'^[^#]*#(.*)\s+\+funcfunc(\s+\+py3)?$', l)
         if m is not None:
             l = m.group(1)
+            if m.group(2) and not six.PY3:
+                l = b''
             l += b'\n'
         return l
     s = b''.join([_(l) for l in s.splitlines(True)])

@@ -46,7 +46,10 @@ from golang._gopath import gimport  # make gimport available from golang
 import inspect, sys
 import decorator, six
 
-from golang._golang import _pysys_exc_clear as _sys_exc_clear
+from golang._golang import \
+    _pysys_exc_clear    as _sys_exc_clear,  \
+    _pyframe_dellocal   as _frame_dellocal
+
 
 # @func is a necessary decorator for functions for selected golang features to work.
 #
@@ -107,22 +110,22 @@ def _meth(cls, fcall):
         # _DelAttrAfterMeth.__del__ is invoked:
         # * on cpython: right after  namespace[func_name] = returned _meth_leftover
         # * on pypy:    eventually on next GC
-        fcall.f_locals[func_name] = _DelAttrAfterMeth(fcall.f_locals, func_name)
+        fcall.f_locals[func_name] = _DelAttrAfterMeth(fcall, func_name)
         return _meth_leftover
 
     return deco
 
-# _DelAttrAfterMeth serves _meth by unsetting f_locals[meth] that python
+# _DelAttrAfterMeth serves _meth by unsetting frame.f_locals[meth] that python
 # unconditionally sets after `@func(cls) def meth()`.
 _meth_leftover = object()
 class _DelAttrAfterMeth(object):
-    def __init__(self, f_locals, name):
-        self.f_locals = f_locals
-        self.name     = name
+    def __init__(self, frame, name):
+        self.frame = frame
+        self.name  = name
     def __del__(self):
-        obj = self.f_locals.get(self.name)
+        obj = self.frame.f_locals.get(self.name)
         if obj is _meth_leftover:
-            del self.f_locals[self.name]
+            _frame_dellocal(self.frame, self.name)
 
 # _func serves @func.
 def _func(f):
