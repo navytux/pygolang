@@ -821,7 +821,6 @@ include "_golang_str.pyx"
 
 from golang cimport errors
 from libcpp.typeinfo cimport type_info
-from cython.operator cimport typeid
 from libc.string cimport strcmp
 
 cdef class pyerror(Exception):
@@ -879,7 +878,7 @@ cdef class pyerror(Exception):
 
         # wrapper around C-level error
         # TODO use std::hash directly
-        cdef const type_info* typ = &typeid(pyerr.err._ptr()[0])
+        cdef const type_info* typ = xtypeid(pyerr.err._ptr()[0])
         return hash(typ.name()) ^ hash(pyerr.err.Error())
     def __ne__(pyerror a, object rhs):
         return not (a == rhs)
@@ -893,8 +892,8 @@ cdef class pyerror(Exception):
 
         # wrapper around C-level error
         cdef pyerror b = rhs
-        cdef const type_info* atype = &typeid(a.err._ptr()[0])
-        cdef const type_info* btype = &typeid(b.err._ptr()[0])
+        cdef const type_info* atype = xtypeid(a.err._ptr()[0])
+        cdef const type_info* btype = xtypeid(b.err._ptr()[0])
         if strcmp(atype.name(), btype.name()) != 0:
             return False
 
@@ -912,7 +911,7 @@ cdef class pyerror(Exception):
             return "%s.%s%r" % (typ.__module__, typ.__name__, pyerr.args)
 
         # wrapper around C-level error
-        cdef const type_info* ctype = &typeid(pyerr.err._ptr()[0])
+        cdef const type_info* ctype = xtypeid(pyerr.err._ptr()[0])
         # TODO demangle type name (e.g. abi::__cxa_demangle)
         return "<%s.%s object ctype=%s error=%s>" % (typ.__module__, typ.__name__, ctype.name(), pyqq(pyerr.Error()))
 
@@ -926,6 +925,17 @@ cdef nogil:
 
     error errors_Unwrap_pyexc(error err)                except +topyexc:
         return errors.Unwrap(err)
+
+
+# workaround for https://github.com/cython/cython/issues/7069
+cdef extern from * nogil:
+    """
+    template<typename T>
+    const std::type_info* xtypeid(const T& obj) {
+        return &typeid(obj);
+    }
+    """
+    const type_info* xtypeid[T](const T& obj)
 
 
 # _pyframe_dellocal deletes local variable with given name in specified frame.
