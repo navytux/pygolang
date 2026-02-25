@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -389,6 +389,7 @@ setup(
         Programming Language :: Python :: 3.11
         Programming Language :: Python :: 3.12
         Programming Language :: Python :: 3.13
+        Programming Language :: Python :: 3.14
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
         Operating System :: POSIX

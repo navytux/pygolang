@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -1883,7 +1883,7 @@ def assertDoc(want, got):
     # `... -PY39` -> ...        if py < 3.9 else ø          (whole line)
     # `... +PY39 -PY311` -> ... if 3.9 ≤ py < 3.11  else ø  (whole line)
     have = {}  # 'PYxy' -> y/n
-    for minor in (9,10,11,12,13):
+    for minor in (9,10,11,12,13,14):
         have['PY3%d' % minor] = (sys.version_info >= (3, minor))
     v = []
     for l in want.splitlines():
