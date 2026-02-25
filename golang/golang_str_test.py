@@ -2390,7 +2390,10 @@ def deepReplaceBytes(obj):
 def test_deepreplace_bytes():
     def f(): pass
     g = lambda: None # non-picklable func
-    with raises((pickle.PicklingError, AttributeError), match=xpy312("Can't get ", "Can't pickle ")):
+    cant_pickle = "Can't pickle "
+    if (3, 12) <= sys.version_info < (3, 14):
+        cant_pickle = "Can't get "  # 3.12 and 3.13 raise "Can't get local object ..." instead
+    with raises((pickle.PicklingError, AttributeError), match=cant_pickle):
         pickle.dumps(g, pickle.HIGHEST_PROTOCOL)
 
     class L(list):      pass
