@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -2205,7 +2205,11 @@ class _DeepReplacer:
         if issubclass(cls, type): # a class, e.g. 'tuple'
             return obj
         # fast path for atomic objects (int, float, bool, bytes, unicode, ... but not e.g. tuple)
-        if copy._deepcopy_dispatch.get(cls) is copy._deepcopy_atomic:
+        if sys.version_info >= (3, 14):
+            atomic = (cls in copy._atomic_types)
+        else:
+            atomic = (copy._deepcopy_dispatch.get(cls) is copy._deepcopy_atomic)
+        if atomic:
             return obj
 
         # obj is non-atomic - it contains references to other objects
