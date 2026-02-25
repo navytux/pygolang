@@ -1,4 +1,4 @@
-# Copyright (C) 2019-2025  Nexedi SA and Contributors.
+# Copyright (C) 2019-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -35,9 +35,16 @@ from __future__ import print_function, absolute_import
 # pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
-import sys, pkgutil, platform, sysconfig, types
+import sys, platform, sysconfig, types
 from os.path import dirname, join, exists
 from distutils.errors import DistutilsError
+import six
+
+if six.PY3:
+    import importlib.util
+else:
+    import pkgutil
+
 
 # patch cython to allow `cdef ... except +topyexc` that pygolang and its users need
 # https://github.com/cython/cython/issues/5981#issuecomment-2143821302
@@ -131,9 +138,21 @@ class _PyPkg:
 #
 # e.g. _findpkg("golang") -> _PyPkg("/path/to/pygolang/golang")
 def _findpkg(pkgname):  # -> _PyPkg
-    pkg = pkgutil.get_loader(pkgname)
+    errcause = None
+    if six.PY3:
+        pkg = None
+        try:
+            spec = importlib.util.find_spec(pkgname)
+        except Exception as e:
+            errcause = e
+        else:
+            if spec is not None:
+                pkg = spec.loader
+    else:
+        pkg = pkgutil.get_loader(pkgname)
     if pkg is None: # package not found
-        raise Error("package %r not found" % (pkgname,))
+        six.raise_from(Error("package %r not found" % (pkgname,)), errcause)
+
     path = pkg.get_filename()
     if path.endswith("__init__.py"):
         path = dirname(path) # .../pygolang/golang/__init__.py -> .../pygolang/golang
