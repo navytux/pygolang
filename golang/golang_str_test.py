@@ -2866,7 +2866,7 @@ def deepReplaceStr2Bytearray(x):
     try:
         return deepReplaceStr(x, xbytearray)
     except TypeError as e:
-        if e.args != ("unhashable type: 'bytearray'",):
+        if not (len(e.args) == 1  and  "unhashable type: 'bytearray'" in e.args[0]):
             raise
         return deepReplaceStr(x, xhbytearray)
 
