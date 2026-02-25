@@ -6,7 +6,7 @@
 # distutils: language = c++
 # distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
 #
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -964,6 +964,9 @@ cdef extern from "frameobject.h":
     # endif
     # include "internal/pycore_frame.h"
     # include "internal/pycore_code.h"
+    # if PY_VERSION_HEX >= 0x030E0000   // 3.14
+    #  include "internal/pycore_interpframe.h"
+    # endif
     #endif
 
     #if PY_VERSION_HEX < 0x030B0000     // 3.11
@@ -1020,11 +1023,16 @@ cdef extern from "frameobject.h":
     static void XPyFrame_WhiteoutFastLocal(PyFrameObject* f, PyObject* name) {
         if (!PyFrame_Check(f))
             panic("XPyFrame_WhiteoutFastLocal: invoked on non-frame object");
-        PyObject** fastlocals =
-    #if PY_VERSION_HEX >= 0x030B0000    // 3.11
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+        _PyStackRef* fastlocals =
                                 f->f_frame->localsplus;
     #else
+        PyObject** fastlocals =
+    # if PY_VERSION_HEX >= 0x030B0000   // 3.11
+                                f->f_frame->localsplus;
+    # else
                                 f->f_localsplus;
+    # endif
     #endif
 
         PyCodeObject* f_code = PyFrame_GetCode(f);
@@ -1053,9 +1061,17 @@ cdef extern from "frameobject.h":
                 continue;
 
             _PyLocals_Kind kind = _XPyCode_FastLocalKind(f_code, i);
-            PyObject* v = fastlocals[i];
+            PyObject* v = NULL;
             PyObject* cell = NULL;
+    #if PY_VERSION_HEX < 0x030E0000     // 3.14
+            v = fastlocals[i];
+    #endif
             if (kind & (CO_FAST_FREE | CO_FAST_CELL)) {
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+                _PyStackRef vstk = fastlocals[i];
+                if (!PyStackRef_IsNull(vstk))
+                    v = PyStackRef_AsPyObjectBorrow(vstk);
+    #endif
                 if (v != NULL && PyCell_Check(v))
                     cell = v;
             }
@@ -1064,7 +1080,12 @@ cdef extern from "frameobject.h":
                 PyCell_SET(cell, NULL);
             }
             else {
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+                PyStackRef_CLEAR(fastlocals[i]);
+                v = NULL;
+    #else
                 fastlocals[i] = NULL;
+    #endif
             }
             Py_XDECREF(v);
 
