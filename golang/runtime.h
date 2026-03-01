@@ -31,7 +31,20 @@ namespace runtime {
 
 // OS indicates operating system, that is running the program.
 //
-// List of supported operating systems: linux, darwin, windows.
+// List of supported operating systems:
+//
+//      android
+//      darwin
+//      dragonfly
+//      freebsd
+//      illumos
+//      ios
+//      linux
+//      netbsd
+//      openbsd
+//      plan9
+//      solaris
+//      windows
 extern LIBGOLANG_API const string OS;
 
 // CC indicates C/C++ compiler, that compiled the program.

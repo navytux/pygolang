@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -28,10 +28,28 @@ namespace golang {
 namespace runtime {
 
 const string OS =
-#ifdef LIBGOLANG_OS_linux
-    "linux"
+#ifdef LIBGOLANG_OS_android
+    "android"
 #elif defined(LIBGOLANG_OS_darwin)
     "darwin"
+#elif defined(LIBGOLANG_OS_dragonfly)
+    "dragonfly"
+#elif defined(LIBGOLANG_OS_freebsd)
+    "freebsd"
+#elif defined(LIBGOLANG_OS_illumos)
+    "illumos"
+#elif defined(LIBGOLANG_OS_ios)
+    "ios"
+#elif defined(LIBGOLANG_OS_linux)
+    "linux"
+#elif defined(LIBGOLANG_OS_netbsd)
+    "netbsd"
+#elif defined(LIBGOLANG_OS_openbsd)
+    "openbsd"
+#elif defined(LIBGOLANG_OS_plan9)
+    "plan9"
+#elif defined(LIBGOLANG_OS_solaris)
+    "solaris"
 #elif defined(LIBGOLANG_OS_windows)
     "windows"
 #else

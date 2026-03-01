@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_RUNTIME_PLATFORM_H
 #define _NXD_LIBGOLANG_RUNTIME_PLATFORM_H
 
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -24,16 +24,61 @@
 
 // LIBGOLANG_OS_<X> is defined on operating system X.
 //
-// List of supported operating systems: linux, darwin, windows.
-#ifdef __linux__
-# define LIBGOLANG_OS_linux     1
+// List of supported operating systems:
+//
+//      android
+//      darwin
+//      dragonfly
+//      freebsd
+//      illumos
+//      ios
+//      linux
+//      netbsd
+//      openbsd
+//      plan9
+//      solaris
+//      windows
+#ifdef __ANDROID__
+# define    LIBGOLANG_OS_android    1
+
 #elif defined(__APPLE__)
-# define LIBGOLANG_OS_darwin    1
+# include <TargetConditionals.h>
+# if TARGET_OS_IPHONE
+#  define   LIBGOLANG_OS_ios        1
+# else
+#  define   LIBGOLANG_OS_darwin     1
+# endif
+
+#elif defined(__DragonFly__)
+# define    LIBGOLANG_OS_dragonfly  1
+
+#elif defined(__FreeBSD__)
+# define    LIBGOLANG_OS_freebsd    1
+
+#elif defined(__linux__)
+# define    LIBGOLANG_OS_linux      1
+
+#elif defined(__NetBSD__)
+# define    LIBGOLANG_OS_netbsd     1
+
+#elif defined(__OpenBSD__)
+# define    LIBGOLANG_OS_openbsd    1
+
+#elif defined(__PLAN9__)
+# define    LIBGOLANG_OS_plan9      1
+
+#elif defined(__illumos__)
+# define    LIBGOLANG_OS_illumos    1
+#elif defined(__sun) && defined(__SVR4)
+# define    LIBGOLANG_OS_solaris    1
+
 #elif defined(_WIN32) || defined(__CYGWIN__)
-# define LIBGOLANG_OS_windows   1
+# define    LIBGOLANG_OS_windows    1
+
 #else
-# error "unsupported operating system"
+# error "unsupported operating system; please file issue upstream with `cpp -dM` output and other details"
 #endif
+
 
 // LIBGOLANG_CC_<X> is defined on C/C++ compiler X.
 //
