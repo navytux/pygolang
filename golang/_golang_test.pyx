@@ -2,7 +2,7 @@
 # cython: language_level=2
 # distutils: language=c++
 #
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -228,6 +228,7 @@ cdef extern from * nogil:
     extern void _test_defer();
     extern void _test_refptr();
     extern void _test_global();
+    extern void _test_typeinfo_dso_pinned();
     """
     void _test_chan_cpp_refcount()              except +topyexc
     void _test_chan_cpp()                       except +topyexc
@@ -240,6 +241,7 @@ cdef extern from * nogil:
     void _test_defer()                          except +topyexc
     void _test_refptr()                         except +topyexc
     void _test_global()                         except +topyexc
+    void _test_typeinfo_dso_pinned()            except +topyexc
 def test_chan_cpp_refcount():
     with nogil:
         _test_chan_cpp_refcount()
@@ -273,6 +275,9 @@ def test_refptr():
 def test_global():
     with nogil:
         _test_global()
+def test_typeinfo_dso_pinned():
+    with nogil:
+        _test_typeinfo_dso_pinned()
 
 
 # helpers for pychan(dtype=X)  py <-> c  tests.

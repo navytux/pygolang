@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2020  Nexedi SA and Contributors.
+// Copyright (C) 2019-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -20,6 +20,7 @@
 // Test that exercises C++-level libgolang.h API and functionality.
 
 #include "golang/libgolang.h"
+#include "golang/runtime.h"
 #include "golang/time.h"
 
 #include <stdio.h>
@@ -674,4 +675,39 @@ void _test_global() {
         // q goes out of scope - obj decref'ed
     }
     ASSERT(obj->refcnt() == 3);
+}
+
+
+// verify that type_info for base interface classes is emitted in the primary libgolang dso.
+//
+// If libgolang.h is not careful enough to properly define so-called "key
+// function" in polymorphic classes, then the compiler might emit several
+// instances of vtab and typeinfo in different DSOs, and then e.g. dynamic_cast
+// does not work in cross-dso manner on Android.
+//
+// We used to have destructors in interface classes, but they were not marked virtual.
+void _test_typeinfo_dso_pinned() {
+    // MSVC: even if the whole class is marked as LIBGOLANG_API as
+    //
+    //      struct LIBGOLANG_API _interface { ...
+    //
+    // it would export vftable from the dll, but will not export type_info.
+    // This way typeid(_interface) returns different pointer in dso2 compared
+    // to what is seen from under libgolang dso.
+    //
+    // -> skip this test on MSVC
+    //
+    // more details on the subject:
+    //
+    //      https://stackoverflow.com/a/22016761/9456786
+    //      https://www.lukaszlipski.dev/post/rtti-msvc/
+    //      https://cpptruths.blogspot.com/2018/11/non-colliding-efficient.html
+    if (runtime::CC == "msc") {
+        printf("skip: msvc: typeid(type) always returns different pointers from different dlls\n");
+        return;
+    }
+
+    ASSERT(_t_typeid<_interface     > ()    == &typeid(_interface));
+    ASSERT(_t_typeid<_error         > ()    == &typeid(_error));
+    ASSERT(_t_typeid<_errorWrapper  > ()    == &typeid(_errorWrapper));
 }

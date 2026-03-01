@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_H
 #define _NXD_LIBGOLANG_H
 
-// Copyright (C) 2018-2024  Nexedi SA and Contributors.
+// Copyright (C) 2018-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -842,8 +842,8 @@ struct _interface {
     virtual void decref() = 0;
 
 protected:
-    // don't use destructor -> use decref
-    LIBGOLANG_API ~_interface();
+    LIBGOLANG_API _interface();          // interfaces are never created directly
+    LIBGOLANG_API virtual ~_interface(); // don't use destructor -> use decref
 };
 typedef refptr<_interface> interface;
 
@@ -851,14 +851,28 @@ typedef refptr<_interface> interface;
 // error is the interface describing errors.
 struct _error : _interface {
     virtual string Error() = 0;
+
+protected:
+    LIBGOLANG_API _error();
+    LIBGOLANG_API ~_error();
 };
 typedef refptr<_error> error;
 
 // an error can additionally provide Unwrap method if it wraps another error.
 struct _errorWrapper : _error {
     virtual error Unwrap() = 0;
+
+protected:
+    LIBGOLANG_API _errorWrapper();
+    LIBGOLANG_API ~_errorWrapper();
 };
 typedef refptr<_errorWrapper> errorWrapper;
+
+// for testing
+template<typename T> const std::type_info* _t_typeid();
+template<> LIBGOLANG_API const std::type_info* _t_typeid<_interface>    ();
+template<> LIBGOLANG_API const std::type_info* _t_typeid<_error>        ();
+template<> LIBGOLANG_API const std::type_info* _t_typeid<_errorWrapper> ();
 
 }   // golang::
 
