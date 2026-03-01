@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_RUNTIME_H
 #define _NXD_LIBGOLANG_RUNTIME_H
 
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -31,12 +31,12 @@ namespace runtime {
 
 // OS indicates operating system, that is running the program.
 //
-// e.g. "linux", "darwin", "windows", ...
+// List of supported operating systems: linux, darwin, windows.
 extern LIBGOLANG_API const string OS;
 
 // CC indicates C/C++ compiler, that compiled the program.
 //
-// e.g. "gcc", "clang", "msc", ...
+// List of supported compilers: gcc, clang, msc.
 extern LIBGOLANG_API const string CC;
 
 
