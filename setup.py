@@ -326,6 +326,9 @@ setup(
                     Ext('golang.os._signal',
                         ['golang/os/_signal.pyx']),
 
+                    Ext('golang._runtime',
+                        ['golang/_runtime.pyx']),
+
                     Ext('golang._strconv',
                         ['golang/_strconv.pyx']),
 

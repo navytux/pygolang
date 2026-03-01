@@ -925,3 +925,12 @@ cdef nogil:
 
     error errors_Unwrap_pyexc(error err)                except +topyexc:
         return errors.Unwrap(err)
+
+
+# ---- init golang/runtime.py ----
+
+def _():
+    from golang import runtime
+    runtime._init()
+_()
+del _

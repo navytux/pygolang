@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# cython: language_level=2
 # Copyright (C) 2026  Nexedi SA and Contributors.
 #                     Kirill Smelkov <kirr@nexedi.com>
 #
@@ -18,14 +18,12 @@
 # See COPYING file for full licensing terms.
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package runtime mirrors Go package runtime.
+
+ - `OS`, `CC` indicate operating system and C compiler.
 """
 
-from __future__ import print_function, absolute_import
+from golang cimport string
 
-# _init is invoked by golang at tail of its importing to avoid cyclic-import issues.
-def _init():
-    global _init, OS, CC
-    from golang._runtime import \
-        PyOS                as OS,      \
-        PyCC                as CC
-    del _init
+cdef extern from "golang/runtime.h" namespace "golang::runtime" nogil:
+    string OS
+    string CC
