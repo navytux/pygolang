@@ -380,6 +380,7 @@ def _interact(mmain, banner=None):
 # _interact_defaults returns default arguments for _interact to be used with InteractiveConsole.
 #
 # it silences InteractiveConsole specific entry and exit so that the output resembles standard python.
+# it also includes OS/architecture in the banner.
 def _interact_defaults(): # -> kw
     import code, sys
     from six.moves import StringIO
@@ -402,7 +403,14 @@ def _interact_defaults(): # -> kw
             break
 
     # construct our banner from scratch but include type_help there
-    banner = "Python %s on %s\n" % (sys.version, sys.platform)
+    # don't import golang if we are not running under gpython
+    if 'golang' in sys.modules:
+        from golang import runtime
+        on = '%s/%s' % (runtime.OS, runtime.ARCH)          # e.g. android/arm64
+    else:
+        import platform
+        on = '%s/%s' % (sys.platform, platform.machine())  # e.g. linux/aarch64
+    banner = "Python %s on %s\n" % (sys.version, on)
     if type_help is not None:
         banner += ("%s\n" % type_help)
     kw = {'banner': banner}

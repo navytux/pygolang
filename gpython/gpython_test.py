@@ -549,6 +549,9 @@ def test_pymain_banner():
         # filter out [GPython ver] [threads|gevent] - this are gpython-only
         sub(r'\s*\[GPython [^\]]+\]',            '', gpyerrv)
         sub(r'\s*\[(threads|gevent [^\]]+)\]',   '', gpyerrv)
+        # replace os/arch -> ... as gpython prints it differently
+        sub(r'(\s+on )[^\s]+$', r'\1 ...', gpyerrv)
+        sub(r'(\s+on )[^\s]+$', r'\1 ...', stderrv)
     _check_gpy_vs_py(['-i'], postprocessf=_, stdin=b'\n')
 
 
