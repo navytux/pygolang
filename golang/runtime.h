@@ -62,7 +62,11 @@ extern LIBGOLANG_API const string OS;
 
 // CC indicates C/C++ compiler, that compiled the program.
 //
-// List of supported compilers: gcc, clang, msc.
+// List of supported compilers:
+//
+//      gcc
+//      clang
+//      msc
 extern LIBGOLANG_API const string CC;
 
 

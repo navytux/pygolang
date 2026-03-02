@@ -161,16 +161,23 @@
 
 // LIBGOLANG_CC_<X> is defined on C/C++ compiler X.
 //
-// List of supported compilers: gcc, clang, msc.
+// List of supported compilers:
+//
+//      gcc
+//      clang
+//      msc
 #ifdef __clang__
-# define LIBGOLANG_CC_clang     1
+# define    LIBGOLANG_CC_clang      1
+
 #elif defined(_MSC_VER)
-# define LIBGOLANG_CC_msc       1
+# define    LIBGOLANG_CC_msc        1
+
 // NOTE gcc comes last because e.g. clang and icc define __GNUC__ as well
 #elif __GNUC__
-# define LIBGOLANG_CC_gcc       1
+# define    LIBGOLANG_CC_gcc        1
+
 #else
-# error "unsupported compiler"
+# error "unsupported compiler; please file issue upstream with `cpp -dM` output and other details"
 #endif
 
 #endif  // _NXD_LIBGOLANG_RUNTIME_PLATFORM_H
