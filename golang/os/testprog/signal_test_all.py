@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2021-2023  Nexedi SA and Contributors.
+# Copyright (C) 2021-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -22,7 +22,7 @@
 from __future__ import print_function, absolute_import
 
 from golang import chan
-from golang import os as gos, syscall, time
+from golang import os as gos, syscall, time, runtime
 from golang.os import signal
 from golang.os.signal_test import killme
 import sys
@@ -47,6 +47,12 @@ def main():
     without('SIGSEGV')
     without('SIGILL')  # SIGILL/SIGABRT cause termination on windows
     without('SIGABRT')
+
+    if runtime.OS == 'android':
+        # bionic preinstalls default crash handler for this signals
+        without('SIGTRAP')
+        without('SIGSTKFLT')
+        without("SIGSYS")
 
     # Notify() -> kill * -> should be notified
     ch = chan(10, dtype=gos.Signal)
