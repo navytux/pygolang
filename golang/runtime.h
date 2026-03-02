@@ -29,6 +29,19 @@
 namespace golang {
 namespace runtime {
 
+// ARCH indicates processor architecture, that is running the program.
+//
+// List of supported architectures:
+//
+//      386, amd64
+//      arm, arm64
+//      mips, mipsle, mips64, mips64le
+//      loong64
+//      ppc, ppcle, ppc64, ppc64le
+//      riscv, riscv64
+//      s390, s390x
+extern LIBGOLANG_API const string ARCH;
+
 // OS indicates operating system, that is running the program.
 //
 // List of supported operating systems:

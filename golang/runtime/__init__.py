@@ -24,8 +24,9 @@ from __future__ import print_function, absolute_import
 
 # _init is invoked by golang at tail of its importing to avoid cyclic-import issues.
 def _init():
-    global _init, OS, CC
+    global _init, ARCH, OS, CC
     from golang._runtime import \
+        PyARCH              as ARCH,    \
         PyOS                as OS,      \
         PyCC                as CC
     del _init

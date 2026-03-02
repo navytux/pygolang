@@ -25,5 +25,6 @@ from __future__ import print_function, absolute_import
 from golang cimport pyb
 
 
+PyARCH  = pyb(ARCH)
 PyOS    = pyb(OS)
 PyCC    = pyb(CC)

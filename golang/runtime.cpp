@@ -27,6 +27,47 @@
 namespace golang {
 namespace runtime {
 
+const string ARCH =
+#ifdef LIBGOLANG_ARCH_386
+    "386"
+#elif defined(LIBGOLANG_ARCH_amd64)
+    "amd64"
+#elif defined(LIBGOLANG_ARCH_arm)
+    "arm"
+#elif defined(LIBGOLANG_ARCH_arm64)
+    "arm64"
+#elif defined(LIBGOLANG_ARCH_mips)
+    "mips"
+#elif defined(LIBGOLANG_ARCH_mipsle)
+    "mipsle"
+#elif defined(LIBGOLANG_ARCH_mips64)
+    "mips64"
+#elif defined(LIBGOLANG_ARCH_mips64le)
+    "mips64le"
+#elif defined(LIBGOLANG_ARCH_ppc)
+    "ppc"
+#elif defined(LIBGOLANG_ARCH_ppcle)
+    "ppcle"
+#elif defined(LIBGOLANG_ARCH_ppc64)
+    "ppc64"
+#elif defined(LIBGOLANG_ARCH_ppc64le)
+    "ppc64le"
+#elif defined(LIBGOLANG_ARCH_loong64)
+    "loong64"
+#elif defined(LIBGOLANG_ARCH_riscv)
+    "riscv"
+#elif defined(LIBGOLANG_ARCH_riscv64)
+    "riscv64"
+#elif defined(LIBGOLANG_ARCH_s390)
+    "s390"
+#elif defined(LIBGOLANG_ARCH_s390x)
+    "s390x"
+#else
+# error
+#endif
+    ;
+
+
 const string OS =
 #ifdef LIBGOLANG_OS_android
     "android"

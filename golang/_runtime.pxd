@@ -19,11 +19,12 @@
 # See https://www.nexedi.com/licensing for rationale and options.
 """Package runtime mirrors Go package runtime.
 
- - `OS`, `CC` indicate operating system and C compiler.
+ - `ARCH`, `OS`, `CC` indicate architecture, operating system and C compiler.
 """
 
 from golang cimport string
 
 cdef extern from "golang/runtime.h" namespace "golang::runtime" nogil:
+    string ARCH
     string OS
     string CC

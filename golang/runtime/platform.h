@@ -22,6 +22,85 @@
 
 // Header platform.h provides preprocessor defines that describe target platform.
 
+// LIBGOLANG_ARCH_<X> is defined on architecture X.
+//
+// List of supported architectures:
+//
+//      386, amd64
+//      arm, arm64
+//      mips, mipsle, mips64, mips64le
+//      loong64
+//      ppc, ppcle, ppc64, ppc64le
+//      riscv, riscv64
+//      s390, s390x
+#if defined(__i386__) || defined(_M_IX86)
+# define    LIBGOLANG_ARCH_386      1
+#elif defined(__x86_64__) || defined(_M_X64)
+# define    LIBGOLANG_ARCH_amd64    1
+
+#elif defined(__arm__) || defined(_M_ARM)
+# define    LIBGOLANG_ARCH_arm      1
+#elif defined(__aarch64__) || defined(_M_ARM64)
+# define    LIBGOLANG_ARCH_arm64    1
+
+#elif defined(__mips__)
+# if defined(__mips64)
+#  if defined(__MIPSEL__)
+#   define  LIBGOLANG_ARCH_mips64le 1
+#  else
+#   define  LIBGOLANG_ARCH_mips64   1
+#  endif
+# else
+#  if defined(__MIPSEL__)
+#   define  LIBGOLANG_ARCH_mipsle   1
+#  else
+#   define  LIBGOLANG_ARCH_mips     1
+#  endif
+# endif
+
+#elif defined(__loongarch__)
+# if defined(__loongarch_lp64)
+#  define   LIBGOLANG_ARCH_loong64  1
+# else
+#  error "unknown LoongArch variant; please file issue upstream with `cpp -dM` output and other details"
+# endif
+
+#elif defined(__powerpc__)
+# if defined(__ppc64__)
+#  if defined(__LITTLE_ENDIAN__)
+#   define  LIBGOLANG_ARCH_ppc64le  1
+#  else
+#   define  LIBGOLANG_ARCH_ppc64    1
+#  endif
+# else
+#  if defined(__LITTLE_ENDIAN__)
+#   define  LIBGOLANG_ARCH_ppcle    1
+#  else
+#   define  LIBGOLANG_ARCH_ppc      1
+#  endif
+# endif
+
+#elif defined(__riscv)
+# if __riscv_xlen == 64
+#  define   LIBGOLANG_ARCH_riscv64  1
+# elif __riscv_xlen == 32
+#  define   LIBGOLANG_ARCH_riscv    1
+# else
+#  error "unknown RISC-V variant; please file issue upstream with `cpp -dM` output and other details"
+# endif
+
+#elif defined(__s390__)
+# if defined(__s390x__)
+#  define   LIBGOLANG_ARCH_s390x    1
+# else
+#  define   LIBGOLANG_ARCH_s390     1
+# endif
+
+#else
+# error "unsupported architecture; please file issue upstream with `cpp -dM` output and other details"
+#endif
+
+
 // LIBGOLANG_OS_<X> is defined on operating system X.
 //
 // List of supported operating systems:
