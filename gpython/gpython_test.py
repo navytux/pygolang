@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2025  Nexedi SA and Contributors.
+# Copyright (C) 2019-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -539,6 +539,19 @@ def _xopt_assert_in_subprocess(xopt, xval, tfunc):
     assert out == b'ok\n'
 
 
+# verify that pymain banner matches std python.
+@gpython_only
+def test_pymain_banner():
+    def _(gpyoutv, gpyerrv, stdoutv, stderrv):
+        def sub(pattern, repl, textv):
+            for i in range(len(textv)):
+                textv[i] = u(re.sub(pattern, repl, textv[i]))
+        # filter out [GPython ver] [threads|gevent] - this are gpython-only
+        sub(r'\s*\[GPython [^\]]+\]',            '', gpyerrv)
+        sub(r'\s*\[(threads|gevent [^\]]+)\]',   '', gpyerrv)
+    _check_gpy_vs_py(['-i'], postprocessf=_, stdin=b'\n')
+
+
 # ---- misc ----
 
 # check_gpy_vs_py verifies that gpython output matches underlying python output.
@@ -554,13 +567,21 @@ def check_gpy_vs_py(argv, postprocessf=None, **kw):
         assert gpyoutv == stdpyoutv
 
 # _check_gpy_vs_py verifies that gpython stdout/stderr match underlying python stdout/stderr.
-def _check_gpy_vs_py(argv, **kw):
+def _check_gpy_vs_py(argv, postprocessf=None, **kw):
     kw = kw.copy()
     kw['stdout'] = PIPE
     kw['stderr'] = PIPE
     gpyret, gpyout, gpyerr = _pyrun(argv, **kw)
     stdret, stdout, stderr = _pyrun(argv, pyexe=sys._gpy_underlying_executable, **kw)
 
-    assert gpyout == stdout
-    assert gpyerr == stderr
+    gpyoutv = u(gpyout).splitlines()
+    gpyerrv = u(gpyerr).splitlines()
+    stdoutv = u(stdout).splitlines()
+    stderrv = u(stderr).splitlines()
+
+    if postprocessf is not None:
+        postprocessf(gpyoutv, gpyerrv, stdoutv, stderrv)
+
+    assert gpyoutv == stdoutv
+    assert gpyerrv == stderrv
     assert (gpyret, stdret) == (0, 0)

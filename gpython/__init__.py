@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -368,7 +368,54 @@ def _interact(mmain, banner=None):
         return raw_input('')
     console.raw_input = _
 
-    console.interact(banner=banner)
+    kw = _interact_defaults()
+    if banner is None:
+        banner = kw['banner']
+    # interact appends banner with trailing \n
+    if banner.endswith('\n'):
+        banner = banner[:-1]
+    kw['banner'] = banner
+    console.interact(**kw)
+
+# _interact_defaults returns default arguments for _interact to be used with InteractiveConsole.
+#
+# it silences InteractiveConsole specific entry and exit so that the output resembles standard python.
+def _interact_defaults(): # -> kw
+    import code, sys
+    from six.moves import StringIO
+
+    # retrieve `Type "help", ...` line from builtin banner
+    s = StringIO()
+    c = code.InteractiveConsole()
+    c.write = s.write
+    def _(*argv): raise EOFError()
+    c.raw_input = _
+    c.interact()
+    banner = s.getvalue()
+    # Python <ver> on ...
+    # ...
+    # Type "help", ...
+    type_help = None
+    for _ in banner.splitlines():
+        if '"help"' in _:
+            type_help = _
+            break
+
+    # construct our banner from scratch but include type_help there
+    banner = "Python %s on %s\n" % (sys.version, sys.platform)
+    if type_help is not None:
+        banner += ("%s\n" % type_help)
+    kw = {'banner': banner}
+
+    # also see if exitmsg should be silenced
+    try:
+        c.interact(exitmsg='')
+    except TypeError:
+        pass
+    else:
+        kw['exitmsg'] = ''
+
+    return kw
 
 
 # execfile was removed in py3
