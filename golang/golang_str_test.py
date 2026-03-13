@@ -296,21 +296,29 @@ def test_strings_refcount():
     # refcount of original object.
     data = bytearray([ord('a'), ord('b'), ord('c'), ord('4')])
 
+    # r1 represents sys.getrefcount() result on object with one reference
+    r1 = 1+1  # +1 due to obj passed to getrefcount call
+    if sys.version_info >= (3, 14):
+        # py3.14 started to use LOAD_FAST_BORROW instead of LOAD_FAST
+        # see https://github.com/python/cpython/pull/130708
+        # and https://github.com/python/cpython/commit/f2379535
+        r1 -= 1
+
     # first verify our logic on std type
     obj = bytes(data);      assert type(obj) is bytes
-    gc.collect();   assert sys.getrefcount(obj) == 1+1   # +1 due to obj passed to getrefcount call
+    gc.collect();   assert sys.getrefcount(obj) == r1
 
     # bstr
     obj = b(data);          assert type(obj) is bstr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
     obj = bstr(data);       assert type(obj) is bstr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
 
     # ustr
     obj = u(data);          assert type(obj) is ustr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
     obj = ustr(data);       assert type(obj) is ustr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
 
 
 # verify memoryview(bstr|ustr).
