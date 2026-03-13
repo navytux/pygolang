@@ -35,7 +35,7 @@ from __future__ import print_function, absolute_import
 _init_libgolang()
 _init_libpyxruntime()
 
-from cpython cimport PyObject, Py_INCREF, Py_DECREF, PY_MAJOR_VERSION
+from cpython cimport PyObject, Py_INCREF, Py_DECREF, PY_MAJOR_VERSION, PY_VERSION_HEX
 ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:

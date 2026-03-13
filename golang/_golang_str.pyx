@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -31,6 +31,7 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
+from cpython cimport Py_TPFLAGS_HEAPTYPE
 
 cdef extern from "Python.h":
     PyTypeObject PyBytes_Type
@@ -72,6 +73,24 @@ cdef extern from *:
     }
     """
     object XPyType_GetDict(PyTypeObject *)
+
+
+# XPyType_Modified is like PyType_Modified but works for both heap and static types.
+# (PyType_Modified raises assertion for static types since py ≥ 3.13)
+cdef void XPyType_Modified(PyTypeObject* typ) except *:
+    if (typ.tp_flags & Py_TPFLAGS_HEAPTYPE) != 0:
+        PyType_Modified(typ)
+        return
+
+    if PY_VERSION_HEX >= 0x030D0000:    # 3.13
+        sys._clear_internal_caches()
+    else:
+        sys._clear_type_cache()
+
+    for pyt in (<object>typ).__subclasses__():
+        assert isinstance(pyt, type)
+        XPyType_Modified(<PyTypeObject*>pyt)
+
 
 cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
@@ -1619,7 +1638,7 @@ cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr):
     else:
         typdict[name] = descr
     #print("new:  %r" % typdict.get(name))
-    PyType_Modified(typ)
+    XPyType_Modified(typ)
 
 
 cdef class _UnboundMethod(object): # they removed unbound methods on py3
