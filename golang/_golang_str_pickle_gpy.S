@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -17,7 +17,7 @@
 // See COPYING file for full licensing terms.
 // See https://www.nexedi.com/licensing for rationale and options.
 
-// _golang_str_pickle.S complements _golang_str_pickle.pyx with assembly routines.
+// _golang_str_pickle_gpy.S complements _golang_str_pickle_gpy.pyx with assembly routines.
 
 #include "golang/runtime/platform.h"
 

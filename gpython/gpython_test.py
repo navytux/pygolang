@@ -590,9 +590,10 @@ def test_pymain_banner():
         def sub(pattern, repl, textv):
             for i in range(len(textv)):
                 textv[i] = u(re.sub(pattern, repl, textv[i]))
-        # filter out [GPython ver] [threads|gevent] - this are gpython-only
-        sub(r'\s*\[GPython [^\]]+\]',            '', gpyerrv)
-        sub(r'\s*\[(threads|gevent [^\]]+)\]',   '', gpyerrv)
+        # filter out [GPython ver] [runtime threads|gevent] [strings pystd|bstr+ustr] - this are gpython-only
+        sub(r'\s*\[GPython [^\]]+\]',                   '', gpyerrv)
+        sub(r'\s*\[runtime (threads|gevent [^\]]+)\]',  '', gpyerrv)
+        sub(r'\s*\[strings (pystd|bstr\+ustr)\]',       '', gpyerrv)
         # replace os/arch -> ... as gpython prints it differently
         sub(r'(\s+on )[^\s]+$', r'\1 ...', gpyerrv)
         sub(r'(\s+on )[^\s]+$', r'\1 ...', stderrv)

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # cython: language_level=2
+# cython: legacy_implicit_noexcept=True
 # distutils: language=c++
 #
-# Copyright (C) 2024  Nexedi SA and Contributors.
-#                     Kirill Smelkov <kirr@nexedi.com>
+# Copyright (C) 2024-2025  Nexedi SA and Contributors.
+#                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
 # it under the terms of the GNU General Public License version 3, or (at your
@@ -32,12 +33,19 @@ def CPyObject_HasAttr(obj, attr):           return PyObject_HasAttr(obj, attr)
 
 
 IF PY3:
+    # XXX dup wrt _golang_str_gpy.pyx
     cdef extern from "Python.h":
-        int _PyObject_LookupAttr(object obj, object attr, PyObject** pres) except -1
+        """
+        // before py3.13 PyObject_GetOptionalAttr was named as _PyObject_LookupAttr
+        #if PY_VERSION_HEX < 0x030D0000 // 3.13
+        # define PyObject_GetOptionalAttr _PyObject_LookupAttr
+        #endif
+        """
+        int PyObject_GetOptionalAttr(object obj, object attr, PyObject** pres) except -1
 
-    def CPyObject_LookupAttr(obj, attr):
+    def CPyObject_GetOptionalAttr(obj, attr):
         cdef PyObject* res
-        _PyObject_LookupAttr(obj, attr, &res)
+        PyObject_GetOptionalAttr(obj, attr, &res)
         if res == NULL:
             raise AttributeError((obj, attr))
         return <object>res

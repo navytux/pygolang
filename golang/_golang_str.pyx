@@ -22,8 +22,6 @@
 It is included from _golang.pyx .
 """
 
-from libc.stdio cimport fprintf, stderr # XXX kill
-
 from golang.unicode cimport utf8
 
 from cpython cimport PyUnicode_AsUnicode, PyUnicode_GetSize, PyUnicode_FromUnicode
@@ -33,11 +31,7 @@ from cpython cimport Py_EQ, Py_NE, Py_LT, Py_GT, Py_LE, Py_GE
 from cpython.iterobject cimport PySeqIter_New
 from cpython cimport PyThreadState_GetDict, PyDict_SetItem
 from cpython cimport PyObject_CheckBuffer
-from cpython cimport Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, PyType_Ready
-from cpython cimport Py_TPFLAGS_VALID_VERSION_TAG
-from cpython cimport PyBytes_Format, PyUnicode_Format, PyObject_Str
-from cpython cimport PyObject_GetAttr, PyObject_SetAttr, PyObject_HasAttr
-from cpython cimport PyBytes_Check
+from cpython cimport Py_TPFLAGS_HEAPTYPE
 
 cdef extern from "Python.h":
     PyTypeObject PyBytes_Type
@@ -98,6 +92,12 @@ cdef void XPyType_Modified(PyTypeObject* typ) except *:
         XPyType_Modified(<PyTypeObject*>pyt)
 
 
+IF PY312:
+    ctypedef void*     TP_Subclasses
+ELSE:
+    ctypedef PyObject* TP_Subclasses
+
+
 cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
@@ -111,7 +111,7 @@ cdef extern from "Python.h":
         PyObject *tp_mro
         PyObject *tp_cache
         PyObject *tp_weaklist
-        PyObject *tp_subclasses
+        TP_Subclasses tp_subclasses
 
         PySequenceMethods *tp_as_sequence
         PyMethodDef       *tp_methods
@@ -122,24 +122,8 @@ cdef extern from "Python.h":
         binaryfunc sq_inplace_concat
         object (*sq_slice) (object, Py_ssize_t, Py_ssize_t)     # present only on py2
 
-cdef extern from "Python.h":
-    ctypedef struct PyVarObject:
-        Py_ssize_t ob_size
-
-
-cdef extern from "funchook.h" nogil:
-    ctypedef struct funchook_t
-    funchook_t* funchook_create()
-    int funchook_prepare(funchook_t* h, void** target_func, void* hook_func)
-    int funchook_install(funchook_t* h, int flags)
-    int funchook_uninstall(funchook_t* h, int flags)
-    int funchook_destroy(funchook_t*)
-    const char* funchook_error_message(const funchook_t*)
-    int funchook_set_debug_file(const char* name)
-
 
 from cython cimport no_gc
-
 
 from libc.stdio cimport FILE
 
@@ -775,7 +759,7 @@ cdef class _pyustr(unicode):
     def __unicode__(self):  return pyu(self)  # see __str__
     def __str__(self):
         if PY_MAJOR_VERSION >= 3:
-            return pyu(self)  # = self  or  pyustr if it was subclass
+            return pyu(self)  # self  or  pyustr if it was subclass
         else:
             return pyb(self)
 
@@ -1228,7 +1212,6 @@ if PY2:
 
 # ---- adjust bstr/ustr classes after what cython generated ----
 
-
 # change names of bstr/ustr to be e.g. "golang.bstr" instead of "golang._golang._bstr"
 # this makes sure that unpickling saved bstr does not load via unpatched origin
 # class, and is also generally good for saving pickle size and for reducing _golang exposure.
@@ -1237,23 +1220,11 @@ if PY2:
 assert pybstr.__module__ == "golang";  assert pybstr.__name__ == "bstr"
 assert pyustr.__module__ == "golang";  assert pyustr.__name__ == "ustr"
 
-# ---- adjust bstr/ustr classes after what cython generated ----
-
 # for pybstr/pyustr cython generates .tp_dealloc that refer to bytes/unicode types directly.
-# override that to refer to zbytes/zunicode to avoid infinite recursion on free.
-cdef void _pybstr_tp_dealloc(PyObject *self):   (<PyTypeObject*>zbytes)   .tp_dealloc(self)
-cdef void _pyustr_tp_dealloc(PyObject *self):   (<PyTypeObject*>zunicode) .tp_dealloc(self)
-(<PyTypeObject*>pybstr).tp_dealloc = &_pybstr_tp_dealloc
-(<PyTypeObject*>pyustr).tp_dealloc = &_pyustr_tp_dealloc
-
-# change names of bstr/ustr to be e.g. "golang.bstr" instead of "golang._golang._bstr"  XXX adjust after .name=str
-# this makes sure that unpickling saved bstr does not load via unpatched origin
-# class, and is also generally good for saving pickle size and for reducing _golang exposure.
-# XXX -> _golang_str_pickle.pyx ?
-(<PyTypeObject*>pybstr).tp_name = "golang.bstr"
-(<PyTypeObject*>pyustr).tp_name = "golang.ustr"
-assert pybstr.__module__ == "golang";  assert pybstr.__name__ == "bstr"
-assert pyustr.__module__ == "golang";  assert pyustr.__name__ == "ustr"
+# override that to refer to zbytes/zunicode to avoid infinite recursion on free
+# when builtin bytes and unicode are replaced with bstr/ustr.
+(<PyTypeObject*>pybstr).tp_dealloc = (<PyTypeObject*>zbytes)   .tp_dealloc
+(<PyTypeObject*>pyustr).tp_dealloc = (<PyTypeObject*>zunicode) .tp_dealloc
 
 # remove unsupported bstr/ustr methods. do it outside of `cdef class` to
 # workaround https://github.com/cython/cython/issues/4556 (`if ...` during
@@ -1651,19 +1622,14 @@ cdef _InBStringify _inbstringify_get():
     return ts_inbstringify
 
 
-# XXX text
-cdef _get_slot(PyTypeObject* typ, str name):
-    typdict = <dict>(typ.tp_dict)
-    return typdict[name]
-
 # _patch_slot installs func_or_descr into typ's __dict__ as name.
 #
 # if func_or_descr is descriptor (has __get__), or asis=True, it is installed as is.
 # otherwise it is wrapped with "unbound method" descriptor.
 #
 # if func_or_descr is DEL the slot is removed from typ's __dict__.
-cdef DEL = object()
-cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr, asis=False):
+#
+# XXX for now we support only one py-interpreter as with general case of many
 #     subinterpreters we would need to go through all of them and adjust typ's
 #     dict everywhere. Not having practical use-case for that feature yet this
 #     is left as TODO.
@@ -1688,6 +1654,7 @@ def _():
         raise ImportError("TODO: support for multiple subinterpreters not yet implemented. N(interpreters): %d" % n)
 _()
 cdef DEL = object()
+cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr, asis=False):
     typdict = XPyType_GetDict(typ)
     #print("\npatching %s.%s  with  %r" % (typ.tp_name, name, func_or_descr))
     #print("old:  %r" % typdict.get(name))
@@ -2057,143 +2024,8 @@ class _BFormatter(pystring.Formatter):
             return super(_BFormatter, self).get_field(field_name, args, kwargs)
 
 
-# XXX place, comments
-# str % ... : ceval on py2 and py3 < 3.11 invokes PyString_Format / PyUnicode_Format
-#   directly upon seeing BINARY_MODULO. This leads to bstr.__mod__ not being called.
-# XXX -> patch PyString_Format / PyUnicode_Format to invoke our .__mod__ ...
-ctypedef unicode uformatfunc(object, object)
-ctypedef bytes   bformatfunc(object, object)
-cdef uformatfunc* _punicode_Format = PyUnicode_Format
-cdef unicode _unicode_xFormat(object s, object args):
-    return pyustr.__mod__(s, args)
-
-IF PY2:
-    cdef bformatfunc* _pbytes_Format = PyBytes_Format
-    cdef _bytes_xFormat(object s, object args):
-        return pybstr.__mod__(s, args)
-
-cdef _patch_capi_str_format():
-    cpatch(<void**>&_punicode_Format, <void*>_unicode_xFormat)
-    IF PY2:
-        cpatch(<void**>&_pbytes_Format, <void*>_bytes_xFormat)
-
-
-# XXX place, comments, test
-# py3.11: specializes instructions. e.g. ustr(obj) will specialize (after
-#    executing 8 times) to directly invoke
-#
-#   PyObject_Str(obj)
-#
-#    which, if obj is e.g. b'123' will return "b'123'" instead of "123".
-#
-#    -> if we patch str=ustr, we need to patch PyObject_Str as well.
-#    -> XXX and check all other specializations.
-#
-# NOTE also good to just do
-cdef _object_xStr(object s):
-    IF PY2:
-        return pybstr(s)
-    ELSE:
-        return pyustr(s)
-ctypedef object objstrfunc(object)
-cdef objstrfunc* _pobject_Str = PyObject_Str
-cdef  _patch_capi_object_str():
-    cpatch(<void**>&_pobject_Str, <void*>_object_xStr)
-
-
-# XXX place, comments, test
-# on py3 PyObject_GetAttr & co insist on name to be unicode
-# XXX _PyObject_GenericGetAttrWithDict
-# XXX _PyObject_GenericSetAttrWithDict
-# XXX type_getattro
-IF PY3:
-    cdef extern from "Python.h":
-        int _PyObject_LookupAttr(object obj, object attr, PyObject** pres) except -1
-
-    ctypedef object obj_getattr_func(object, object)
-    ctypedef int    obj_setattr_func(object, object, object) except -1
-    #               delattr is implemented via setattr(v=NULL)
-    ctypedef bint   obj_hasattr_func(object, object) # no except
-    ctypedef int    obj_lookupattr_func(object, object, PyObject**) except -1
-
-    cdef obj_getattr_func*      _pobject_GetAttr    = PyObject_GetAttr
-    cdef obj_setattr_func*      _pobject_SetAttr    = PyObject_SetAttr
-    cdef obj_hasattr_func*      _pobject_HasAttr    = PyObject_HasAttr
-    cdef obj_lookupattr_func*   _pobject_LookupAttr = _PyObject_LookupAttr
-
-    # isbstr returns whether obj is bstr instance or not.
-    # it avoids going to isinstance unless really needed because isinstance,
-    # internally, uses _PyObject_LookupAttr and we need to patch that function
-    # with using isbstr in the hook.
-    cdef bint isbstr(obj) except -1:
-        if not PyBytes_Check(obj):
-            return False
-        if Py_TYPE(obj) == <PyTypeObject*>pybstr:
-            return True
-        # it might be also a pybstr subclass
-        return isinstance(obj, pybstr)
-
-    cdef object _object_xGetAttr(object obj, object name):
-        if isbstr(name):
-            name = pyustr(name)
-        return _pobject_GetAttr(obj, name)
-
-    cdef int    _object_xSetAttr(object obj, object name, object v) except -1:  # XXX v=NULL on del
-        if isbstr(name):
-            name = pyustr(name)
-        return _pobject_SetAttr(obj, name, v)
-
-    cdef bint   _object_xHasAttr(object obj, object name): # no except
-        if isbstr(name):
-            name = pyustr(name)
-        return _pobject_HasAttr(obj, name)
-
-
-    cdef int    _object_xLookupAttr(object obj, object name, PyObject** pres) except -1:
-        if isbstr(name):
-            name = pyustr(name)
-        return _pobject_LookupAttr(obj, name, pres)
-
-
-cdef _patch_capi_object_attr_bstr():
-    IF PY3:
-        cpatch(<void**>&_pobject_GetAttr,       <void*>_object_xGetAttr)
-        cpatch(<void**>&_pobject_SetAttr,       <void*>_object_xSetAttr)
-        cpatch(<void**>&_pobject_HasAttr,       <void*>_object_xHasAttr)
-        cpatch(<void**>&_pobject_LookupAttr,    <void*>_object_xLookupAttr)
-
-        # py3 < 3.11 also verifies name to be unicode
-        # XXX move out of _patch_capi* ?
-        import builtins
-        cdef object builtins_getattr = builtins.getattr
-        cdef object builtins_setattr = builtins.setattr
-        cdef object builtins_delattr = builtins.delattr
-        cdef object builtins_hasattr = builtins.hasattr
-
-        def xgetattr(obj, name, *argv):
-            if isbstr(name):
-                name = pyustr(name)
-            return builtins_getattr(obj, name, *argv)
-        def xsetattr(obj, name, value):
-            if isbstr(name):
-                name = pyustr(name)
-            return builtins_setattr(obj, name, value)
-        def xdelattr(obj, name):
-            if isbstr(name):
-                name = pyustr(name)
-            return builtins_delattr(obj, name)
-        def xhasattr(obj, name):
-            if isbstr(name):
-                name = pyustr(name)
-            return builtins_hasattr(obj, name)
-
-        builtins.getattr = xgetattr
-        builtins.setattr = xsetattr
-        builtins.delattr = xdelattr
-        builtins.hasattr = xhasattr
-
-
 # ---- misc ----
+
 cdef object _xpyu_coerce(obj):
     return _pyu_coerce(obj) if obj is not None else None
 
@@ -2458,416 +2290,7 @@ cdef unicode _xunichr(rune i):
                unichr(0xdc00 + (uh & 0x3ff))
 
 
-# ---- funchook wrappers -----
-
-cdef funchook_t* xfunchook_create() except NULL:
-    h = funchook_create()
-    if h == NULL:
-        raise MemoryError()
-    return h
-
-cdef xfunchook_destroy(funchook_t* h):
-    err = funchook_destroy(h)
-    if err != 0:
-        raise RuntimeError(funchook_error_message(h))
-
-cdef xfunchook_prepare(funchook_t* h, void** target_func, void* hook_func):
-    err = funchook_prepare(h, target_func, hook_func)
-    if err != 0:
-        raise RuntimeError(funchook_error_message(h))
-
-cdef xfunchook_install(funchook_t* h, int flags):
-    err = funchook_install(h, flags)
-    if err != 0:
-        raise RuntimeError(funchook_error_message(h))
-
-cdef xfunchook_uninstall(funchook_t* h, int flags):
-    err = funchook_uninstall(h, flags)
-    if err != 0:
-        raise RuntimeError(funchook_error_message(h))
-
-# cpatch = xfunchook_prepare on _patch_capi_hook
-cdef cpatch(void** target_func, void* hook_func):
-    assert target_func[0] != NULL
-    xfunchook_prepare(_patch_capi_hook, target_func, hook_func)
-
-
-# ---- patch unicode/str types to be ustr/bstr under gpython ----
-# XXX make sure original _pybstr/_pyustr cannot be used after patching      XXX right ?
-# XXX and make sure golang._golang._pybstr cannot be imported as well  (ex pickle)
-# XXX ._pyustr.__module__ = 'builtins' after patch      - why?
-
-def _():
-    gpy_strings = getattr(sys, '_gpy_strings', None)
-    if gpy_strings == 'bstr+ustr':
-        _patch_str()
-    elif gpy_strings in ('pystd', None):
-        pass
-    else:
-        raise AssertionError("invalid sys._gpy_strings: %r" % (gpy_strings,))
-_()
-
-# _patch_str is invoked when gpython imports golang and instructs to replace
-# builtin str/unicode types with bstr/ustr.
-#
-# After the patch is applied all existing objects that have e.g. unicode type
-# will switch to having ustr type.
-cdef PyTypeObject _unicode_orig
-cdef PyTypeObject _bytes_orig
-cdef funchook_t* _patch_capi_hook
-cdef _patch_str():
-    global zbytes,   _bytes_orig,   pybstr
-    global zunicode, _unicode_orig, pyustr
-    global _patch_capi_hook
-
-    #print('\n\nPATCH\n\n')
-
-    # XXX explain
-    bpreserve_slots = upreserve_slots = ("maketrans",)
-
-    # patch unicode to be pyustr. This patches
-    # - unicode (py2)
-    # - str     (py3)
-    _pytype_clone(<PyTypeObject*>unicode, &_unicode_orig, "unicode(pystd)")
-    Py_INCREF(unicode)  # XXX needed?
-    zunicode = <object>&_unicode_orig
-
-    _pytype_replace_by_child(
-            <PyTypeObject*>unicode, &_unicode_orig,
-            <PyTypeObject*>pyustr, "ustr(origin)",
-            upreserve_slots)
-    pyustr = unicode    # retarget pyustr -> unicode to where it was copied
-    # XXX vvv needed so that patched unicode could be saved by py2:cPickle at all
-    # XXX vvv should be done by pytype_replace... ?  just us original unicode.tp_name ?
-    (<PyTypeObject*>pyustr).tp_name = ("unicode" if PY_MAJOR_VERSION < 3  else "str")
-
-    # py2: patch str to be pybstr
-    if PY_MAJOR_VERSION < 3:
-        _pytype_clone(<PyTypeObject*>bytes, &_bytes_orig, "bytes(pystd)")
-        Py_INCREF(bytes)    # XXX needed?
-        zbytes = <object>&_bytes_orig
-
-        _pytype_replace_by_child(
-                <PyTypeObject*>bytes, &_bytes_orig,
-                <PyTypeObject*>_pybstr, "bstr(origin)",
-                bpreserve_slots)
-        pybstr = bytes  # retarget pybstr -> bytes to where it was copied
-        (<PyTypeObject*>pybstr).tp_name = ("str" if PY_MAJOR_VERSION < 3  else "bytes")
-
-    # need to remove unsupported slots in cloned bstr/ustr again since PyType_Ready might have recreated them
-    _bstrustr_remove_unsupported_slots()
-
-
-    # also patch UserString to have methods that bstr/ustr have
-    # else e.g. IPython's guarded_eval.py fails in `_list_methods(collections.UserString, dir(str))`
-    from six.moves import UserString
-    def userstr__bytes__(s):    return bytes(s.data)
-    def userstr__unicode__(s):  return unicode(s.data)
-    assert not hasattr(UserString, '__bytes__')         # XXX test
-    assert not hasattr(UserString, '__unicode__')
-    UserString.__bytes__   = userstr__bytes__
-    UserString.__unicode__ = userstr__unicode__
-
-    # XXX also patch CAPI functions ... XXX explain
-    #funchook_set_debug_file("/dev/stderr")
-    _patch_capi_hook = xfunchook_create()
-
-    _patch_capi_str_format()
-    _patch_capi_object_str()
-    _patch_capi_object_attr_bstr()  # XXX activate under plain py as well
-    _patch_capi_unicode_decode_as_bstr()
-    _patch_str_pickle()
-    # ...
-
-    xfunchook_install(_patch_capi_hook, 0)
-
-
-# XXX place ok ?
-include '_golang_str_pickle.pyx'
-
-# _pytype_clone clones PyTypeObject src into dst.
-#
-# src must be not heap-allocated type.
-# dst must be statically allocated and not previously initialized.
-#
-# dst will have reference-count = 1 meaning new reference to the clone is returned.
-cdef _pytype_clone(PyTypeObject *src, PyTypeObject *dst, const char* new_name):
-    assert (src.tp_flags & Py_TPFLAGS_READY) != 0
-    assert (src.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0    # src is not allocated on heap
-                                                        # and so GC for it is disabled
-    # copy the struct   XXX + ._ob_next / ._ob_prev (Py_TRACE_REFS) (set to NULL)
-    dst[0] = src[0]
-    (<PyObject*>dst).ob_refcnt = 1
-
-    if new_name != NULL:
-        dst.tp_name = new_name
-
-    # now reinitialize things like .tp_dict etc, where PyType_Ready built slots that point to src.
-    # we want all those slots to be rebuilt and point to dst instead.
-    # XXX test
-    _dst = <_XPyTypeObject*>dst
-    dst .tp_flags &= ~Py_TPFLAGS_READY
-    dst .tp_dict     = NULL
-    _dst.tp_bases    = NULL
-    _dst.tp_mro      = NULL
-    _dst.tp_cache    = NULL
-    _dst.tp_weaklist = NULL
-
-    # dst.__subclasses__ will be empty because existing children inherit from src, not from dst.
-    # XXX but ustr, after copy to unicode, will inherit from unicode(pystd)  -- recheck
-    # XXX test
-    _dst.tp_subclasses = NULL
-
-    # XXX -> common reinherit fixup
-    if _dst.tp_init == (<_XPyTypeObject*>(dst.tp_base)).tp_init:
-        _dst.tp_init = NULL
-
-    PyType_Ready(<object>dst)
-    assert (dst.tp_flags & Py_TPFLAGS_READY) != 0
-    assert (dst.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
-
-# _pytype_replace_by_child replaces typ by its child egg.
-#
-# All existing objects that have type typ will switch to having type egg' .
-# The instance/inheritance diagram for existing objects and types will switch
-# as depicted below:
-#
-#           base                    base
-#            ↑                           ↖
-#           typ        ------>      egg' → typ_clone
-#          ↗ ↑ ↖                   ↗ ↑       ↗
-#   objects  X  egg         objects  X   egg
-#            ↑                       ↑
-#            Y                       Y
-#
-# typ and egg must be static non heap-allocated types.
-#
-# typ_clone must be initialized via _pytype_clone(typ, typ_clone).
-# egg' is egg clone put inplace of typ.
-#
-# XXX preserve_slots - describe
-cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
-                              PyTypeObject *egg, const char* egg_old_name,
-                              preserve_slots):
-    otyp = <PyObject*>typ           ; oegg = <PyObject*>egg
-    vtyp = <PyVarObject*>typ        ; vegg = <PyVarObject*>egg
-    _typ = <_XPyTypeObject*>typ     ; _egg = <_XPyTypeObject*>egg
-
-    assert egg.tp_base == typ
-    assert _egg.tp_subclasses == NULL
-
-    assert (typ.tp_flags & Py_TPFLAGS_READY)  != 0
-    assert (egg.tp_flags & Py_TPFLAGS_READY)  != 0
-
-    assert (typ.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
-    assert (egg.tp_flags & Py_TPFLAGS_HEAPTYPE) == 0
-
-    # (generally not required)
-    assert (typ.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
-    assert (egg.tp_flags & Py_TPFLAGS_HAVE_GC) == 0
-
-    assert vtyp.ob_size               ==  vegg.ob_size
-    assert typ .tp_basicsize          ==  egg .tp_basicsize
-    assert typ .tp_itemsize           ==  egg .tp_itemsize
-    IF PY3:
-        assert _typ.tp_vectorcall_offset  ==  _egg.tp_vectorcall_offset
-    assert _typ.tp_weaklistoffset     ==  _egg.tp_weaklistoffset
-    assert typ .tp_dictoffset         ==  egg .tp_dictoffset
-
-    # since egg will change .tp_base it will also need to reinitialize
-    # .tp_bases, .tp_mro and friends. Retrieve egg slots to preserve before we
-    # clear egg.__dict__ . This covers e.g. @staticmethod and @property.
-    keep_slots = {}  # name -> slot
-    for name in preserve_slots:
-        keep_slots[name] = _get_slot(egg, name)
-
-    # egg: clear what PyType_Ready will recompute
-    Py_CLEAR(egg .tp_dict)
-    Py_CLEAR(_egg.tp_bases)
-    Py_CLEAR(_egg.tp_mro)
-    Py_CLEAR(_egg.tp_cache)
-    # XXX 3.12 +tp_watched
-
-    # typ <- egg  preserving original typ's refcnt, weak references and subclasses\egg.
-    # typ will be now playing the role of egg
-    typ_refcnt     = otyp.ob_refcnt
-    # XXX py3.12 "For the static builtin types this is always NULL, even if weakrefs are added ..."
-    typ_weaklist   = _typ.tp_weaklist
-    # XXX py3.12 "May be an invalid pointer" (for static builtin types it became `size_t index`
-    typ_subclasses = _typ.tp_subclasses
-    typ[0] = egg[0]
-    otyp.ob_refcnt     = typ_refcnt
-    _typ.tp_weaklist   = typ_weaklist
-    _typ.tp_subclasses = typ_subclasses # XXX need to remove egg from here
-
-    # adjust .tp_base
-    typ.tp_base = typ_clone
-    egg.tp_base = typ_clone
-
-    # adjust egg.tp_name
-    if egg_old_name != NULL:
-        egg.tp_name = egg_old_name
-
-    # reinitialize .tp_bases, .tp_mro. .tp_cache, and recompute slots that
-    # live in .tp_dict and point to their type. Do it for both typ (new egg)
-    # and origin egg for generality, even though original egg won't be used
-    # anymore.
-    #
-    # XXX also check which pointers/other things are propagated from base to
-    #     subclasses. It is e.g. tp_new but others might be as well.
-    #
-    # https://docs.python.org/3/c-api/typeobj.html -> inheritance + defaults:
-    #
-    # D(default):
-    #     tp_base     X
-    #     tp_dict     ?
-    #     tp_alloc    ?
-    #     tp_new      ?
-    #     tp_free     ?
-    #
-    #     <tp_bases>  ~
-    #     <tp_mro>    ~
-    #
-    # I(inherited):
-    #     ob_type                       ==  &PyType_Type
-    #   + tp_basicsize                  ==
-    #   + tp_itemsize                   ==
-    #     tp_dealloc
-    #   + tp_vectorcall_offset          ==
-    #     tp_getattr / tp_getattro
-    #     tp_setattr / tp_setattro      NULL
-    #     tp_as_async                   NULL
-    #     tp_repr
-    #     tp_as_number                  for %
-    #     tp_as_sequence                len concat repeat sq_item contains ...
-    #     tp_as_mapping                 len subscript
-    #     tp_hash / tp_richcompare
-    #     tp_call                       NULL
-    #     tp_str
-    #     tp_as_buffer                  NULL(unicode)  !NULL(ustr)
-    #     tp_flags                      XXX recheck how flags are rebuild by PyTypes_Ready
-    #     tp_traverse / tp_clear        NULL    <- Py_TPFLAGS_HAVE_GC
-    #     tp_clear                      NULL
-    #   + tp_weaklistoffset
-    #     tp_iter
-    #     tp_iternext                   NULL
-    #     tp_descr_get                  NULL
-    #     tp_descr_set                  NULL
-    #   + tp_dictoffset                 0
-    #     tp_init                       NULL
-    #     tp_alloc                      == (PyType_GenericAlloc)
-    #     tp_new
-    #     tp_free                       XXX recheck
-    #     tp_is_gc                      NULL
-    #     tp_finalize                   NULL
-    #
-    # XXX also check PyHeapTypeObject
-
-    # don't let PyType_Ready to create __init__ if tp_init is inherited
-    if _typ.tp_init == (<_XPyTypeObject*>(typ.tp_base)).tp_init:
-        _typ.tp_init = NULL
-    if _egg.tp_init == (<_XPyTypeObject*>(egg.tp_base)).tp_init:
-        _egg.tp_init = NULL
-
-    typ.tp_flags &= ~Py_TPFLAGS_READY
-    egg.tp_flags &= ~Py_TPFLAGS_READY
-    PyType_Ready(<object>typ)
-    PyType_Ready(<object>egg)
-    assert (typ.tp_flags & Py_TPFLAGS_READY) != 0
-    assert (egg.tp_flags & Py_TPFLAGS_READY) != 0
-
-    # restore slots we were asked to preserve as is
-    # since those slots are e.g. @staticmethods they go to both egg' and egg.
-    for name, slot in keep_slots.items():
-        _patch_slot(typ, name, slot, asis=True)
-        _patch_slot(egg, name, slot, asis=True)
-
-    # XXX remove egg from typ.tp_subclasses     (also possible via setting .__bases__)
-    # XXX remove typ from base.tp_subclasses
-    #     else e.g. ustr(origin) is reported to be subclass of ustr by help()
-    #     (pyustr.__subclasses__()  give it)
-
-    # rebuild .tp_mro of all other typ's children
-    # initially X.__mro__ = (X, typ, base) and without rebuilding it would
-    # remain (X, egg', base) instead of correct (X, egg' typ_clone, base)
-    # XXX py3 does this automatically?  XXX -> no, it can invalidate .__mro__, but not .tp_mro
-
-    # refresh fields related to X inheriting from its base.
-    # currents state of base is Bnew.
-    # old state of base is represented by Bold.
-    # NOTE for first-level children of typ Bnew=egg' and Bold=typ_clone
-    #      for further levels Bnew=bold
-    def inherit_refresh(X, Bold, Bnew):
-        # depth-first
-        for Y in X.__subclasses__():
-            inherit_refresh(Y, X, X)
-        assert isinstance(Bold, type)
-        assert isinstance(Bnew, type)
-        assert isinstance(X,    type)
-        o  = <PyTypeObject*>Bold    ; _o = <_XPyTypeObject*>Bold
-        b  = <PyTypeObject*>Bnew    ; _b = <_XPyTypeObject*>Bnew
-        x  = <PyTypeObject*>X       ; _x = <_XPyTypeObject*>X
-#       fprintf(stderr, 'refresh  %s\t<- %s', x.tp_name, b.tp_name)
-#       if Bold is not Bnew:
-#           fprintf(stderr, '\t#  was <- %s', o.tp_name)
-#       fprintf(stderr, '\n')
-        assert (x.tp_flags & Py_TPFLAGS_READY) != 0
-        x.tp_flags &= ~Py_TPFLAGS_READY
-
-        xdict = <dict>(x.tp_dict)
-        def clear(slotname):
-            del xdict[slotname]
-#       Py_CLEAR(_x.tp_dict)     # XXX preserve some ?
-#       Py_CLEAR(_x.tp_bases)    # to be rebuilt    XXX not ok to clear wrt multi-inheritance XXX test
-        Py_CLEAR(_x.tp_mro)      # ----//----
-        Py_CLEAR(_x.tp_cache)    # ----//----
-
-        if _x.tp_new  == _o.tp_new:
-            _x.tp_new = NULL    # reinherit from Bnew on reready
-            # del xdict['__new__']  XXX raises KeyError - why?
-        if _x.tp_init == _o.tp_init:    # XXX also check other bases from mro (ex. StrEnum(str,Enum) which has Enum.__init__)
-#           fprintf(stderr, '  tp_init <- NULL\n')
-            _x.tp_init = NULL
-            #clear('__init__')      XXX
-
-    def inherit_reready(X):
-        assert isinstance(X,    type)
-        x = <PyTypeObject*>X
-#       fprintf(stderr, 'ready    %s\n', x.tp_name)
-        assert (x.tp_flags & Py_TPFLAGS_READY) == 0
-        PyType_Ready(X)
-        assert (x.tp_flags & Py_TPFLAGS_READY) != 0
-
-        # top-down
-        for Y in X.__subclasses__():
-            inherit_reready(Y)
-
-        assert (x.tp_flags & Py_TPFLAGS_VALID_VERSION_TAG) != 0
-
-    for X in (<object>typ).__subclasses__():
-        inherit_refresh(X, <object>typ_clone, <object>typ)
-    for X in (<object>typ).__subclasses__():
-        inherit_reready(X)
-
-    PyType_Modified(typ)    # XXX needed ?
-
-    """
-    def refresh(x):
-        assert isinstance(x, type)
-        xtyp  = <PyTypeObject*>x
-        _xtyp = <_XPyTypeObject*>x
-        fprintf(stderr, 'refreshing %s\n', xtyp.tp_name)
-        assert (xtyp.tp_flags & Py_TPFLAGS_READY) != 0
-        xtyp.tp_flags &= ~Py_TPFLAGS_READY
-        Py_CLEAR(_xtyp.tp_mro)
-        PyType_Ready(x)
-        assert (xtyp.tp_flags & Py_TPFLAGS_READY) != 0
-        for _ in x.__subclasses__():
-            refresh(_)
-    for _ in (<object>typ).__subclasses__():    # XXX + sub-sub-classes
-        refresh(_)
-    """
-
-    # XXX also preserve ._ob_next + ._ob_prev  (present in Py_TRACE_REFS builds)
+# ---- pickle + gpy ----
 
 include '_golang_str_pickle.pyx'
+include '_golang_str_gpy.pyx'

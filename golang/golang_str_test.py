@@ -26,8 +26,8 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
-from gpython import _tEarlyStrSubclass
-from pytest import raises, mark, skip
+from golang import _golang_test
+from gpython.gpython_test import is_gpython
 from pytest import raises, mark, skip, xfail
 import _testcapi as testcapi
 import sys
@@ -362,6 +362,19 @@ def test_strings_memoryview(tx):
     #            ^^^^^^^^^^^^^^^^
     #     TypeError: cannot use a string pattern on a bytes-like object
     #
+    # The other example is that enums stop to work properly, e.g.
+    #
+    #    $ gpython -m IPython
+    #    ...
+    #      File ".../lib/python3.11/site-packages/IPython/core/magics/execution.py", line 17, in <module>
+    #        import pstats
+    #      File ".../lib/python3.11/pstats.py", line 36, in <module>
+    #        @_simple_enum(StrEnum)
+    #         ^^^^^^^^^^^^^^^^^^^^^
+    #      File ".../lib/python3.11/enum.py", line 1801, in convert_class
+    #        member.__init__(value)
+    #    RecursionError: maximum recursion depth exceeded while calling a Python object
+    #
     # In general adding buffer interface to ustr is believed to break too much
     # compatibility with standard unicode on py3 that we decided against it.
     #
@@ -397,6 +410,8 @@ def test_strings_memoryview(tx):
     # memoryview/buffer must be read-only
     with raises(TypeError, match="cannot modify read-only memory"):
         m[0] = m[0]
+
+
 # verify that ord on bstr/ustr works as expected.
 def test_strings_ord():
     with raises(TypeError): ord(b(''))
@@ -2807,39 +2822,137 @@ def test_strings_patched_transparently():
 # pathlib -> fnmatch -> re -> enum import. So if we don't preserve those
 # classes to continue to work correctly things are breaking badly.
 #
-# XXX note !gpystr_only ...
+# NOTE !gpystr_only to verify our assumptions match how things run on plain python.
 # XXX also test bytes?
 def test_strings_early_str_subclass():
-    xstr = _tEarlyStrSubclass
+    t = sys.modules['golang._golang_early_test']    # must be preimported
+
+    # assumed facts about builtin classes
+    if six.PY2:
+        base = basestring
+        py2_basestr = (base,)
+    else:
+        base = object
+        py2_basestr = ()
+    if not is_gpython:
+        assert str.__base__  is base
+        assert str.__bases__ == (base,)
+        gpy_str_orig = ()
+    else:
+        str_orig = str.__base__
+        assert str.__bases__ == (str_orig,)
+        assert str_orig.__base__  is base
+        assert str_orig.__bases__ == (base,)
+        gpy_str_orig = (str_orig,)
+    assert str.__mro__ == (str,) + gpy_str_orig + base.__mro__
+    assert str.__new__  is not base.__new__   # str has custom __new__
+    assert str.__init__ is     base.__init__  # str does not have custom __init__
+
+    # >>> class Str(str)
+    Str = t.Str
+
+    assert Str.__base__  is str
+    assert Str.__bases__ == (str,)
+    assert Str.__mro__   == (Str, str) + gpy_str_orig + base.__mro__
 
     # .tp_new should be adjusted to point to current str
-    # (else str.__new__ breaks with "str.__new__(xstr) is not safe ...")
-    obj = str.__new__(xstr, 'abc')
-    assert type(obj) is xstr
+    # (else str.__new__ breaks with "str.__new__(Str) is not safe ...")
+    assert Str.__new__ is str.__new__
+    obj = str.__new__(Str, 'abc')
+    assert type(obj) is Str
     assert obj == 'abc'
-    assert xstr.__new__ is str.__new__
 
+    # .tp_init should be adjusted to point to current str
     # follow-up .__init__ should be noop  (enum uses str.__init__ for real)
+    assert Str.__init__ is str.__init__
     obj.__init__('xyz')
     assert obj == 'abc'
-    assert str.__init__  is object.__init__
-    assert xstr.__init__ is str.__init__
+
+    # new should go to str
+    obj = Str('abc')
+    assert type(obj) is Str
+    assert obj == 'abc'
 
 
-    # XXX place
-    assert xstr.__base__  is str
-    assert xstr.__bases__ == (str,)
+    # >>> class Str_I(str, Init)
+    Str_I = t.Str_Init
+    I     = t.Init
 
-    # XXX __bases__ + __mro__ for MI
+    assert Str_I.__base__  is str
+    assert Str_I.__bases__ == (str, I)
+    assert Str_I.__mro__   == (Str_I, str) + gpy_str_orig + py2_basestr + (I, object)
+
+    # .tp_new should go to str
+    assert Str_I.__new__ is str.__new__
+    obj = str.__new__(Str_I, 'abc')
+    assert type(obj) is Str_I
+    assert obj == 'abc'
+
+    # but .tp_init should go to Init, as str lacks it
+    assert Str_I.__init__ is I.__init__     # XXX breaks on py2 (TODO)
+    obj.__init__('xyz')
+    assert obj == 'abc'
+    assert obj.value == 'xyz'
+
+    # new should go to str
+    obj = Str_I('abc')
+    assert type(obj) is Str_I
+    assert obj == 'abc'
 
 
-    """
-    assert str.__base__  is object
-    assert str.__bases__ == (object,)
-    """
+    # >>> class I_Str(Init, str)
+    I_Str = t.Init_Str
+
+    assert I_Str.__base__  is str   # NOTE not I as .tp_base points to sole C-layout class
+    assert I_Str.__bases__ == (I, str)
+    assert I_Str.__mro__   == (I_Str, I, str) + gpy_str_orig + py2_basestr + (object,)
+
+    # .tp_new should go to str
+    assert I_Str.__new__ is str.__new__
+    obj = str.__new__(I_Str, 'abc')
+    assert type(obj) is I_Str
+    assert obj == 'abc'
+
+    # .tp_init should go to Init
+    assert I_Str.__init__ is I.__init__
+    obj.__init__('xyz')
+    assert obj == 'abc'
+    assert obj.value == 'xyz'
+
+    # new should go to str
+    obj = I_Str('abc')
+    assert type(obj) is I_Str
+    assert obj == 'abc'
 
 
-    # XXX more...
+    # >>> class Str_New(str)  with custom .__new__
+    Str_New = t.Str_New
+
+    assert Str_New.__base__  is str   # NOTE not I as .tp_base points to sole C-layout class
+    assert Str_New.__bases__ == (str,)
+    assert Str_New.__mro__   == (Str_New, str) + gpy_str_orig + base.__mro__
+
+    # even though .tp_new points to str, custom __new__ overrides that
+    obj = str.__new__(Str_New, 'abc')
+    assert type(obj) is Str_New
+    assert obj == 'abc'
+
+    obj = Str_New(123)
+    assert type(obj) is int
+    assert obj == 123
+
+
+    # >>> class Diamond(Str, Str_Init)
+    Diamond = t.Diamond
+
+    assert Diamond.__base__  is Str
+    assert Diamond.__bases__ == (Str, Str_I)
+    assert Diamond.__mro__   == (Diamond, Str, Str_I, str) + gpy_str_orig + py2_basestr + (I, object)
+
+    assert Diamond.__new__  is str.__new__
+    assert Diamond.__init__ is I.__init__
+
+
 
 
 # verify that all string types are accepted by getattr/setattr/delattr/hasattr & co.
@@ -2852,7 +2965,7 @@ def test_strings_wrt_xxxattr(tx):
     obj = C()
 
     t = _golang_test
-    vgetattr = [getattr, t.CPyObject_GetAttr] + [t.CPyObject_LookupAttr] if six.PY3  else []
+    vgetattr = [getattr, t.CPyObject_GetAttr] + [t.CPyObject_GetOptionalAttr] if six.PY3  else []
     vsetattr = [setattr, t.CPyObject_SetAttr]
     vdelattr = [delattr, t.CPyObject_DelAttr]
     vhasattr = [hasattr, t.CPyObject_HasAttr]
@@ -2896,6 +3009,17 @@ def test_strings_wrt_xxxattr(tx):
             def _(ga):
                 with raises(AttributeError): ga(obj, x)
             run(_, vgetattr)
+
+
+# verify that all strings types are accepted by type.__new__.
+@mark.parametrize('tx', (str, bstr, ustr))
+def test_strings_wrt_typenew(tx):
+    x = xstr(u'мир', tx)
+    assert type(x) is tx
+
+    typ = type(x, (), {})
+    assert typ.__name__ == x
+
 
 
 # ---- issues hit by users ----
@@ -2953,87 +3077,6 @@ def test_strings_base64(tx):
     x = xstr(u'мир', tx) + b'\xff'  ; assert type(x) is tx
     assert base64.b64encode(x) == b'0LzQuNGA/w=='
 
-
-
-    vhasattr = [hasattr, t.CPyObject_HasAttr]
-
-    value = object()
-
-    # run runs f on each element of v.
-    def run(f, v):
-        for e in v:
-            f(e)
-
-    # attr is initially missing
-    def _(ga):
-        with raises(AttributeError): ga(obj, x)
-    run(_, vgetattr)
-
-    def _(ha):
-        assert ha(obj, x) is False
-    run(_, vhasattr)
-
-    def _(da):
-        with raises(AttributeError): da(obj, x)
-    run(_, vdelattr)
-
-    # set attr -> make sure it is there -> del
-    for sa in vsetattr:
-        for da in vdelattr:
-            def _(ha):
-                assert ha(obj, x) is False
-            run(_, vhasattr)
-            sa(obj, x, value)
-            def _(ha):
-                assert ha(obj, x) is True
-            run(_, vhasattr)
-            def _(ga):
-                assert ga(obj, x) is value
-            da(obj, x)
-            def _(ha):
-                assert ha(obj, x) is False
-            run(_, vhasattr)
-            def _(ga):
-                with raises(AttributeError): ga(obj, x)
-            run(_, vgetattr)
-
-
-# ---- issues hit by users ----
-# fixes for below issues have their corresponding tests in the main part above, but
-# we also add tests with original code where problems were hit.
-
-# three-way comparison wrt class with __cmp__ was working incorrectly because
-# bstr.__op__ were not returning NotImplemented wrt non-string types.
-# https://lab.nexedi.com/nexedi/slapos/-/merge_requests/1575#note_206080
-@mark.parametrize('tx', (str, bstr if str is bytes  else ustr)) # LooseVersion does not handle unicode on py2
-def test_strings_cmp_wrt_distutils_LooseVersion(tx):
-    from distutils.version import LooseVersion
-
-    l = LooseVersion('1.16.2')
-
-    x = xstr('1.12', tx)
-    assert not (x == l)
-    assert not (l == x)
-    assert      x != l
-    assert      l != x
-    assert not (x >= l)
-    assert      l >= x
-    assert      x <= l
-    assert not (l <= x)
-    assert      x < l
-    assert not (l < x)
-
-    x = xstr('1.16.2', tx)
-    assert      x == l
-    assert      l == x
-    assert not (x != l)
-    assert not (l != x)
-    assert      x >= l
-    assert      l >= x
-    assert      x <= l
-    assert      l <= x
-    assert not (x < l)
-    assert not (l < x)
 
 
 # ---- benchmarks ----
@@ -3186,6 +3229,10 @@ def x32(a, b):
 # xpy312(a,b) returns a on py ≥ 3.12 and b on < 3.12
 def xpy312(a, b):
     return a if sys.version_info >= (3, 12) else b
+
+# xb32(x, y, z) returns x if (bstr is not bytes)    or  x32(y,z)
+# xu32(x, y, z) returns x if (ustr is not unicode)  or  x32(y,z)
+def xb32(x, y, z):
     return x if (bstr is not bytes)   else x32(y,z)
 def xu32(x, y, z):
     return x if (ustr is not unicode) else x32(y,z)

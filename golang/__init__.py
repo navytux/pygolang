@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2025  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -39,6 +39,13 @@ __all__ = ['go', 'chan', 'select', 'default', 'nilchan', 'defer', 'panic',
            'recover', 'func', 'error', 'b', 'u', 'bstr', 'ustr', 'biter', 'uiter', 'bbyte', 'uchr',
            'gimport']
 
+
+# preimport _golang_early_test before any other import from golang
+# tests use e.g. _golang_early_test.Str to verify how bstr/ustr affect string
+# classes that are created early during gpython startup
+__import__('golang._golang_early_test')
+
+
 import setuptools_dso
 setuptools_dso.dylink_prepare_dso('golang.runtime.libgolang')
 
@@ -49,6 +56,7 @@ import decorator, six
 from golang._golang import \
     _pysys_exc_clear    as _sys_exc_clear,  \
     _pyframe_dellocal   as _frame_dellocal
+
 
 # @func is a necessary decorator for functions for selected golang features to work.
 #

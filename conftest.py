@@ -1,5 +1,5 @@
 # pygolang | pytest config
-# Copyright (C) 2021-2024  Nexedi SA and Contributors.
+# Copyright (C) 2021-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -28,13 +28,13 @@ def pytest_unconfigure():
     gc.collect()
 
 
-# ignore tests in distorm - else it breaks as e.g.
+# ignore tests in 3rdparty/ - else it breaks as e.g.
 #
-# 3rdparty/funchook/distorm/python/test_distorm3.py:15: in <module>
-#     import distorm3
-# 3rdparty/funchook/distorm/python/distorm3/__init__.py:57: in <module>
-#     _distorm = _load_distorm()
-# 3rdparty/funchook/distorm/python/distorm3/__init__.py:55: in _load_distorm
-#     raise ImportError("Error loading the diStorm dynamic library (or cannot load library into process).")
-# E   ImportError: Error loading the diStorm dynamic library (or cannot load library into process).
+# 3rdparty/capstone/bindings/python/test_all.py:3: in <module>
+#     import test_basic, test_arm, test_arm64, test_detail, test_lite, test_m68k, test_mips, \
+# 3rdparty/capstone/bindings/python/test_basic.py:5: in <module>
+#     from capstone import *
+# 3rdparty/capstone/bindings/python/capstone/__init__.py:428: in <module>
+#     raise ImportError("ERROR: fail to load the dynamic library.")
+# E   ImportError: ERROR: fail to load the dynamic library.
 collect_ignore = ["3rdparty"]

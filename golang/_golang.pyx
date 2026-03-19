@@ -4,7 +4,7 @@
 # cython: c_string_type=str, c_string_encoding=utf8
 # cython: legacy_implicit_noexcept=True
 # distutils: language = c++
-# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
+# distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx _golang_str_gpy.pyx _golang_str_pickle_gpy.pyx
 #
 # Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>

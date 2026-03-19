@@ -218,18 +218,19 @@ def get_python_libdir():
         return sysconfig.get_config_var('LIBDIR')
 
 # funchook_dso is DSO for libfunchook.so or None if CPU is not supported.
+# XXX retest on win+mac
 def _():
     cpu = platform.machine()
-    if re.match('x86|i.86|x86_64|amd64', cpu, re.I):
-        cpu = 'x86'
-        disasm = 'distorm'
+    if re.match('x86_64|amd64', cpu, re.I):
+        cpu = 'x86_64'
+    elif re.match('x86|i.86', cpu, re.I):
+        cpu = 'i686'
     elif re.match('aarch64|arm64', cpu, re.I):
         cpu = 'arm64'
-        disasm = 'capstone'
     else:
         return None # no funchook support
 
-    # XXX temp test XXX no -> we need capstone for disasm
+    # we unconditionally need capstone because _golang_str_pickle_gpy.pyx uses it
     disasm = 'capstone'
 
     if platform.system() == 'Windows':
@@ -241,39 +242,26 @@ def _():
 
     FH = '3rdparty/funchook/'
     srcv = [FH+'src/funchook.c',
-            FH+'src/funchook_%s.c' % cpu,
-            FH+'src/funchook_%s.c' % os,
-            FH+'src/disasm_%s.c'   % disasm]
+            FH+'src/arch_%s.c'   % ('x86' if cpu in ('i686', 'x86_64')  else cpu),
+            FH+'src/os_%s.c'     % os,
+            FH+'src/disasm_%s.c' % disasm]
+    prehook = FH+'src/prehook-%s' % cpu
+    if cpu == 'x86_64':
+        prehook += ('-ms' if os == 'windows'  else  '-sysv')
+        prehook += '.S'
+    elif cpu == 'i686':
+        prehook += '-gas.S' # XXX not taking -i686-ms.asm hoping that .S will serve everything XXX test
+    elif cpu == 'arm64':
+        prehook += '-gas.S' # XXX not taking -arm64-ms.asm similarly to i686
+    srcv.append(prehook)
+
     depv = [FH+'include/funchook.h',
             FH+'src/disasm.h',
-            FH+'src/funchook_arm64.h',
-            FH+'src/funchook_internal.h',
-            FH+'src/funchook_x86.h']
+            FH+'src/arch_arm64.h',
+            FH+'src/arch_x86.h',
+            FH+'src/funchook_internal.h']
     incv = [FH+'include']
     defv = ['FUNCHOOK_EXPORTS']
-
-    if disasm == 'distorm':
-        D3 = '3rdparty/funchook/distorm/'
-        srcv += [D3+'src/decoder.c',
-                 D3+'src/distorm.c',
-                 D3+'src/instructions.c',
-                 D3+'src/insts.c',
-                 D3+'src/mnemonics.c',
-                 D3+'src/operands.c',
-                 D3+'src/prefix.c',
-                 D3+'src/textdefs.c']
-        depv += [D3+'include/distorm.h',
-                 D3+'include/mnemonics.h',
-                 D3+'src/config.h',
-                 D3+'src/decoder.h',
-                 D3+'src/instructions.h',
-                 D3+'src/insts.h',
-                 D3+'src/operands.h',
-                 D3+'src/prefix.h',
-                 D3+'src/textdefs.h',
-                 D3+'src/wstring.h',
-                 D3+'src/x86defs.h']
-        incv += [D3+'include']
 
     if disasm == 'capstone':
         CS = '3rdparty/capstone/'
@@ -346,7 +334,7 @@ def _():
                      CS+'arch/AArch64/AArch64MappingInsnName.inc',
                      CS+'arch/AArch64/AArch64MappingInsnOp.inc']
 
-        if cpu == 'x86':
+        if cpu in ('x86_64', 'i686'):
             defv += ['CAPSTONE_HAS_X86']
             srcv += [CS+'arch/X86/X86ATTInstPrinter.c',     # !diet
                      CS+'arch/X86/X86Disassembler.c',
@@ -488,12 +476,14 @@ setup(
     ext_modules = [
                     Ext('golang._golang',
                         ['golang/_golang.pyx',
-                         'golang/_golang_str_pickle.S'],
+                         'golang/_golang_str_pickle_gpy.S'],
                         depends = [
                             'golang/_golang_str.pyx',
+                            'golang/_golang_str_gpy.pyx',
                             'golang/_golang_str_pickle.pyx',
-                            'golang/_golang_str_pickle_test.pyx',
-                            'golang/_golang_str_pickle.S'],
+                            'golang/_golang_str_pickle_gpy.pyx',
+                            'golang/_golang_str_pickle_gpy_test.pyx',
+                            'golang/_golang_str_pickle_gpy.S'],
                         dsos = ['golang.runtime.funchook'], # XXX only if available
                         include_dirs = ['3rdparty/funchook/include',
                                         '3rdparty/capstone/include']),
@@ -552,6 +542,9 @@ setup(
 
                     Ext('golang._runtime',
                         ['golang/_runtime.pyx']),
+
+                    Ext('golang._strconv',
+                        ['golang/_strconv.pyx']),
 
                     Ext('golang._strconv',
                         ['golang/_strconv.pyx']),

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2023-2024  Nexedi SA and Contributors.
+# Copyright (C) 2023-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -43,7 +43,7 @@ def _test_inside_counted(): # -> outok
 
     tfunc(12)
 
-    stk_size = 8  # = STK_SIZE from _golang_str_pickle.S
+    stk_size = 8  # = STK_SIZE from _golang_str_pickle_gpy.S
     for i in range(12,0-1,-1):
         outok += '> tfunc(%d)\tinside_counter: %d\n' % (i, min(12-i+1, stk_size))
     for i in range(0,12+1,+1):

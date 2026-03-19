@@ -497,7 +497,7 @@ def main():
     # no harm wrt gevent monkey-patching even if we import os first.
     import os
 
-    # extract and process `-X gpython.*`
+    # process `-X gpython.*`
     # -X gpython.runtime=(gevent|threads)    + $GPYTHON_RUNTIME
     # -X gpython.strings=(bstr+ustr|pystd)   + $GPYTHON_STRINGS
     sys._xoptions = getattr(sys, '_xoptions', {})
@@ -576,7 +576,6 @@ def main():
         from six.moves import builtins
         for k in golang.__all__:
             setattr(builtins, k, getattr(golang, k))
-#       setattr(builtins, 'CCC', CCC)   # XXX kill
 
         # sys.version
         sys.version += (' [GPython %s] [runtime %s] [strings %s]' % (golang.__version__, gpy_runtime_ver, gpy_strings))
@@ -695,12 +694,6 @@ class _IGetOpt:
         return (opt, arg)
 
     next = __next__ # for py2
-
-
-# for tests: subclass of str that is created before everything else is imported
-# and before golang patches builtin str/unicode types.
-class _tEarlyStrSubclass(str):
-    pass
 
 
 if __name__ == '__main__':

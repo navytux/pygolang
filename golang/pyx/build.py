@@ -35,7 +35,7 @@ from __future__ import print_function, absolute_import
 # pygolang uses setuptools_dso.DSO to build libgolang; all extensions link to it.
 import setuptools_dso
 
-import os, sys, pkgutil, platform, sysconfig, types
+import os, sys, platform, sysconfig, types
 from os.path import dirname, join, exists
 from distutils.errors import DistutilsError
 import six
@@ -162,122 +162,160 @@ def _findpkg(pkgname):  # -> _PyPkg
     return pypkg
 
 
+# build_dso amends setuptools_dso.build_dso to
+#
+# - allow combining C and C++ sources in one DSO.
+# - support assembly sources.
+_dso_build_dso = setuptools_dso.build_dso
+class build_dso(_dso_build_dso):
+    def build_dso(self, dso):
+        return _with_compiler_fixup(self.compiler, lambda: _dso_build_dso.build_dso(self, dso))
+
 # build_ext amends setuptools_dso.build_ext to
 #
 # - allow `cdef ... +topyexc`.
-# - allow combining C and C++ sources in one extension without hitting `error:
-#   invalid argument '-std=c++11' not allowed with 'C'`.
+# - allow combining C and C++ sources in one extension.
+# - support assembly sources.
 _dso_build_ext = setuptools_dso.build_ext
 class build_ext(_dso_build_ext):
     def run(self):
         # run the build with `cdef ... +topyexc` allowed
         return _cy_with_cdef_topyexc_allowed(lambda: _dso_build_ext.run(self))
 
-    def build_extension(self, ext):
-        # wrap _compiler <src> -> <obj> with our code
-
-        # ._compile is used on gcc/clang but not with msvc
-        _compile = self.compiler._compile
-        def xcompile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-            # filter_out removes arguments that start with argprefix
-            cc_args         = cc_args[:]
-            extra_postargs  = extra_postargs[:]
-            pp_opts         = pp_opts[:]
-            def filter_out(argprefix):
-                for l in (cc_args, extra_postargs, pp_opts):
-                    _ = []
-                    for arg in l:
-                        if not arg.startswith(argprefix):
-                            _.append(arg)
-                    l[:] = _
-
-            # filter-out C++ only options from non-C++ sources
-            #
-            # reason: while gcc only warns about -std=c++ passed with C source,
-            # clang considers that an error. Given that with distutils /
-            # setuptools the _same_ compiler is used to compile C and C++
-            # sources, and that it is not possible to provide per-source flags,
-            # without filtering, that leads to inability to use both C and C++
-            # sources in one extension.
-            cxx = (self.compiler.language_map[ext] == 'c++')
-            if not cxx:
-                filter_out('-std=c++')
-                filter_out('-std=gnu++')
-
-            _compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
-
-        # msvc handles all sources directly in the loop in .compile and we can
-        # do per-source adjustsment only in .spawn .
-        spawn = self.compiler.spawn
-        def xspawn(argv):
-            argv = argv[:]
-
-            c = False
-            S = False
-            for i,arg in enumerate(argv):
-                if arg.startswith('/Tc'):
-                    if arg.endswith('.S'):
-                        argv[i] = arg[3:]   # /Tcabc.S -> abc.S
-                        S = True
-                    else:
-                        c = True
-
-            # change cl.exe -> clang-cl.exe for assembly files so that assembler dialect is the same everywhere
-            if S:
-                assert argv[0] == self.compiler.cc, (argv, self.compiler.cc)
-                argv[0] = self.compiler.clang_cl
-
-                # clang-cl fails on *.S if also given /EH... -> remove /EH...
-                while 1:
-                    for i in range(len(argv)):
-                        if argv[i].startswith('/EH'):
-                            del argv[i]
-                            break
-                    else:
-                        break
-
-            if c or S:
-                for i in range(len(argv)):
-                    if argv[i] == '/std:c++20':
-                        argv[i] = '/std:c11'
-
-            return spawn(argv)
-
-        self.compiler._compile = xcompile
-        self.compiler.spawn    = xspawn
-        try:
-            _dso_build_ext.build_extension(self, ext) # super doesn't work for _dso_build_ext
-        finally:
-            self.compiler._compile = _compile
-            self.compiler.spawn    = spawn
-
     def build_extensions(self):
-        # adjust .compiler to support assembly sources
-        cc = self.compiler
-        if '.S' not in cc.src_extensions:
-            cc.src_extensions.append('.S')
-            cc.language_map['.S'] = 'asm'
-            cc.language_order.append('asm')
-            # XXX refer to https://blog.mozilla.org/nfroyd/2019/04/25/an-unexpected-benefit-of-standardizing-on-clang-cl/
-            if cc.compiler_type == 'msvc':
-                if not cc.initialized:
-                    cc.initialize()
-                ccmod = sys.modules[cc.__module__]
-                cc.clang_cl = ccmod._find_exe('clang-cl.exe', cc._paths.split(os.pathsep))
-                cc._c_extensions.append('.S')   # MSVCCompiler thinks it is C, but xspawn handles .S specially
-        _dso_build_ext.build_extensions(self)
+        return _with_compiler_fixup(self.compiler, lambda: _dso_build_ext.build_extensions(self))
+
+
+# _with_compiler_fixup runs f with fixups applied to the compiler.
+#
+# The fixups are:
+#
+#   - allow combining C and C++ sources in one dso/extension without hitting `error:
+#     invalid argument '-std=c++11' not allowed with 'C'`.
+#   - .S assembly sources are supported.
+def _with_compiler_fixup(compiler, f):
+    # register .S to extensions/language map
+    cc = compiler
+    if '.S' not in cc.src_extensions:
+        cc.src_extensions.append('.S')
+        cc.language_map['.S'] = 'asm'
+        cc.language_order.append('asm')
+        # XXX refer to https://blog.mozilla.org/nfroyd/2019/04/25/an-unexpected-benefit-of-standardizing-on-clang-cl/
+        if cc.compiler_type == 'msvc':
+            if not cc.initialized:
+                cc.initialize()
+            ccmod = sys.modules[cc.__module__]
+            cc.clang_cl = ccmod._find_exe('clang-cl.exe', cc._paths.split(os.pathsep))
+            cc._c_extensions.append('.S')   # MSVCCompiler thinks it is C, but xspawn handles .S specially
+    del cc
+
+    # adjust ._compile and .spawn to support assembly sources and C/C++ mix
+
+    # ._compile is used on gcc/clang but not with msvc
+    xcompile = _XCompileFunc(compiler)
+
+    # msvc handles all sources directly in the loop in .compile and we can
+    # do per-source adjustment only in .spawn .
+    xspawn = _XSpawnFunc(compiler)
+
+    compiler._compile = xcompile
+    compiler.spawn    = xspawn
+    try:
+        return f()
+    finally:
+        compiler._compile = xcompile._compile_orig
+        compiler.spawn    = xspawn.spawn_orig
+
+# _XCompileFunc serves as replacement for compiler._compile .
+# it is implemented as standalone class so that pickle done by multiprocessing works on it.
+class _XCompileFunc:
+    def __init__(self, compiler):
+        self.compiler = compiler
+        self._compile_orig = compiler._compile
+
+    def __call__(self, obj, src, ext, cc_args, extra_postargs, pp_opts):
+        # filter_out removes arguments that start with argprefix
+        cc_args         = cc_args[:]
+        extra_postargs  = extra_postargs[:]
+        pp_opts         = pp_opts[:]
+        def filter_out(argprefix):
+            for l in (cc_args, extra_postargs, pp_opts):
+                _ = []
+                for arg in l:
+                    if not arg.startswith(argprefix):
+                        _.append(arg)
+                l[:] = _
+
+        # filter-out C++ only options from non-C++ sources
+        #
+        # reason: while gcc only warns about -std=c++ passed with C source,
+        # clang considers that an error. Given that with distutils /
+        # setuptools the _same_ compiler is used to compile C and C++
+        # sources, and that it is not possible to provide per-source flags,
+        # without filtering, that leads to inability to use both C and C++
+        # sources in one extension.
+        cxx = (self.compiler.language_map[ext] == 'c++')
+        if not cxx:
+            filter_out('-std=c++')
+            filter_out('-std=gnu++')
+
+        self._compile_orig(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+# _XSpawnFunc is similar to _XCompileFunc but for compiler.spawn .
+class _XSpawnFunc:
+    def __init__(self, compiler):
+        self.compiler = compiler
+        self.spawn_orig = compiler.spawn
+
+    def __call__(self, argv):
+        argv = argv[:]
+
+        c = False
+        S = False
+        for i,arg in enumerate(argv):
+            if arg.startswith('/Tc'):
+                if arg.endswith('.S'):
+                    argv[i] = arg[3:]   # /Tcabc.S -> abc.S
+                    S = True
+                else:
+                    c = True
+
+        # change cl.exe -> clang-cl.exe for assembly files so that assembler dialect is the same everywhere
+        if S:
+            assert argv[0] == self.compiler.cc, (argv, self.compiler.cc)
+            argv[0] = self.compiler.clang_cl
+
+            # clang-cl fails on *.S if also given /EH... -> remove /EH...
+            while 1:
+                for i in range(len(argv)):
+                    if argv[i].startswith('/EH'):
+                        del argv[i]
+                        break
+                else:
+                    break
+
+        if c or S:
+            for i in range(len(argv)):
+                if argv[i] == '/std:c++20':
+                    argv[i] = '/std:c11'
+
+        return self.spawn_orig(argv)
 
 
 # setup should be used instead of setuptools.setup
 def setup(**kw):
-    # setuptools_dso.setup hardcodes setuptools_dso.build_ext to be used.
+    # setuptools_dso.setup hardcodes setuptools_dso.{build_dso,build_ext} to be used.
     # temporarily inject what user specified in cmdclass, or our code there.
-    _ = setuptools_dso.build_ext
+    _dso = setuptools_dso.build_dso
+    _ext = setuptools_dso.build_ext
+    cmdclass = kw.get('cmdclass', {})
     try:
-        setuptools_dso.build_ext = kw.get('cmdclass', {}).get('build_ext', build_ext)
+        setuptools_dso.build_dso = cmdclass.get('build_dso', build_dso)
+        setuptools_dso.build_ext = cmdclass.get('build_ext', build_ext)
         setuptools_dso.setup(**kw)
     finally:
-        setuptools_dso.build_ext = _
+        setuptools_dso.build_dso = _dso
+        setuptools_dso.build_ext = _ext
 
 # DSO should be used to build DSOs that use libgolang.
 #
@@ -440,6 +478,8 @@ def Extension(name, sources, **kw):
     pyxenv.setdefault('PYPY',   PYPY)
     pyxenv.setdefault('PY2',    PY2)
     pyxenv.setdefault('PY3',    PY3)
+    for i in range(14):
+        pyxenv.setdefault('PY3%d' % i, (sys.version_info >= (3,i)))
     gverhex = _gevent_version_hex()
     if gverhex is not None:
         pyxenv.setdefault('GEVENT_VERSION_HEX', gverhex)
