@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -62,6 +62,42 @@ cdef extern from "Python.h":
     Py_ssize_t PY_SSIZE_T_MAX
     void PyType_Modified(PyTypeObject *)
 
+# XPyType_GetDict returns new reference to type's tp_dict.
+#
+# py < 3.12 always keeps type's dictionary in .tp_dict, but py3.12 moved
+# type.tp_dict to PyInterpreterState for static types to support
+# subinterpreters. XPyType_GetDict handles the difference.
+cdef extern from *:
+    """
+    static PyObject* XPyType_GetDict(PyTypeObject* typ) {
+    #if PY_VERSION_HEX >= 0x030C0000    // 3.12
+        return PyType_GetDict(typ);
+    #else
+        Py_XINCREF(typ->tp_dict);
+        return typ->tp_dict;
+    #endif
+    }
+    """
+    object XPyType_GetDict(PyTypeObject *)
+
+
+# XPyType_Modified is like PyType_Modified but works for both heap and static types.
+# (PyType_Modified raises assertion for static types since py ≥ 3.13)
+cdef void XPyType_Modified(PyTypeObject* typ) except *:
+    if (typ.tp_flags & Py_TPFLAGS_HEAPTYPE) != 0:
+        PyType_Modified(typ)
+        return
+
+    if PY_VERSION_HEX >= 0x030D0000:    # 3.13
+        sys._clear_internal_caches()
+    else:
+        sys._clear_type_cache()
+
+    for pyt in (<object>typ).__subclasses__():
+        assert isinstance(pyt, type)
+        XPyType_Modified(<PyTypeObject*>pyt)
+
+
 cdef extern from "Python.h":
     ctypedef int (*initproc)(object, PyObject *, PyObject *) except -1
     ctypedef struct _XPyTypeObject "PyTypeObject":
@@ -104,12 +140,12 @@ cdef extern from "funchook.h" nogil:
 
 from cython cimport no_gc
 
+
 from libc.stdio cimport FILE
 
 from golang cimport strconv
 import codecs as pycodecs
 import string as pystring
-import types as pytypes
 import functools as pyfunctools
 import re as pyre
 
@@ -1192,6 +1228,17 @@ if PY2:
 
 # ---- adjust bstr/ustr classes after what cython generated ----
 
+
+# change names of bstr/ustr to be e.g. "golang.bstr" instead of "golang._golang._bstr"
+# this makes sure that unpickling saved bstr does not load via unpatched origin
+# class, and is also generally good for saving pickle size and for reducing _golang exposure.
+(<PyTypeObject*>pybstr).tp_name = "golang.bstr"
+(<PyTypeObject*>pyustr).tp_name = "golang.ustr"
+assert pybstr.__module__ == "golang";  assert pybstr.__name__ == "bstr"
+assert pyustr.__module__ == "golang";  assert pyustr.__name__ == "ustr"
+
+# ---- adjust bstr/ustr classes after what cython generated ----
+
 # for pybstr/pyustr cython generates .tp_dealloc that refer to bytes/unicode types directly.
 # override that to refer to zbytes/zunicode to avoid infinite recursion on free.
 cdef void _pybstr_tp_dealloc(PyObject *self):   (<PyTypeObject*>zbytes)   .tp_dealloc(self)
@@ -1617,7 +1664,31 @@ cdef _get_slot(PyTypeObject* typ, str name):
 # if func_or_descr is DEL the slot is removed from typ's __dict__.
 cdef DEL = object()
 cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr, asis=False):
-    typdict = <dict>(typ.tp_dict)
+#     subinterpreters we would need to go through all of them and adjust typ's
+#     dict everywhere. Not having practical use-case for that feature yet this
+#     is left as TODO.
+cdef extern from *:
+    """
+    static int _py_n_interpreters() {
+    #if PY_VERSION_HEX < 0x030C0000     // py3.12
+        return 1;
+    #else
+        int n = 0;
+        PyInterpreterState *interp;
+        for (interp = PyInterpreterState_Head(); interp != NULL; interp = PyInterpreterState_Next(interp))
+            n++;
+        return n;
+    #endif
+    }
+    """
+    int _py_n_interpreters()
+def _():
+    n = _py_n_interpreters()
+    if n != 1:
+        raise ImportError("TODO: support for multiple subinterpreters not yet implemented. N(interpreters): %d" % n)
+_()
+cdef DEL = object()
+    typdict = XPyType_GetDict(typ)
     #print("\npatching %s.%s  with  %r" % (typ.tp_name, name, func_or_descr))
     #print("old:  %r" % typdict.get(name))
 
@@ -1635,7 +1706,7 @@ cdef _patch_slot(PyTypeObject* typ, str name, object func_or_descr, asis=False):
     else:
         typdict[name] = descr
     #print("new:  %r" % typdict.get(name))
-    PyType_Modified(typ)
+    XPyType_Modified(typ)
 
 
 cdef class _UnboundMethod(object): # they removed unbound methods on py3
@@ -2123,7 +2194,6 @@ cdef _patch_capi_object_attr_bstr():
 
 
 # ---- misc ----
-
 cdef object _xpyu_coerce(obj):
     return _pyu_coerce(obj) if obj is not None else None
 
@@ -2215,6 +2285,11 @@ cdef _encoding_with_defaults(encoding, errors): # -> (encoding, errors)
 #   UnicodeEncodeError: 'utf-8' codec can't encode character '\udc00' in position 0: surrogates not allowed
 #
 # (*) aka UTF-8b (see http://hyperreal.org/~est/utf-8b/releases/utf-8b-20060413043934/kuhn-utf-8b.html)
+#
+# Call resulting encoding as UTF-8bk.
+#
+# TODO(kirr) adjust bstr pickling for protocol < 3 after switching bstr/ustr
+# to decode/encode via UTF-8bk instead of UTF-8b.
 
 from six import unichr                      # py2: unichr       py3: chr
 from six import int2byte as bchr            # py2: chr          py3: lambda x: bytes((x,))
@@ -2794,3 +2869,5 @@ cdef _pytype_replace_by_child(PyTypeObject *typ, PyTypeObject *typ_clone,
     """
 
     # XXX also preserve ._ob_next + ._ob_prev  (present in Py_TRACE_REFS builds)
+
+include '_golang_str_pickle.pyx'

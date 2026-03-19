@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+# Copyright (C) 2019-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -43,7 +43,7 @@ def test_now():
     assert t3 < t4
 
 
-# test_{timer,ticker}_time verifie that Timer/Ticker, when they fire, send current time.
+# test_{timer,ticker}_time verifies that Timer/Ticker, when they fire, send current time.
 def test_timer_time():
     Tstart = time.now()
     t = time.Timer(3*dt)

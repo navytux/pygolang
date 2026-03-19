@@ -1,4 +1,4 @@
-// Copyright (C) 2019-2021  Nexedi SA and Contributors.
+// Copyright (C) 2019-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -376,5 +376,8 @@ set<Context> _tctxchildren(Context ctx) {
 
     return children;
 }
+
+_Context::_Context() {}
+_Context::~_Context() {}
 
 }}  // golang::context::

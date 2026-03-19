@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2021-2023  Nexedi SA and Contributors.
+# Copyright (C) 2021-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -372,7 +372,7 @@ def killme(sig):
     # where os.kill unconditionally terminates target process.
     raise_signal(sig.signo)
 
-# wait for waits until cond() becomes true or timeout.
+# waitfor waits until cond() becomes true or timeout.
 def waitfor(cond):
     tstart = time.now()
     while 1:

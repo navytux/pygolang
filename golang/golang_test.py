@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -25,11 +25,15 @@ from golang import go, chan, select, default, nilchan, _PanicError, func, panic,
 from golang import sync
 from pytest import raises, mark, fail, skip
 from _pytest._code import Traceback
+from _pytest.assertion.rewrite import rewrite_asserts
+import py
+import ast
 from os.path import dirname
 import os, sys, inspect, importlib, traceback, doctest
 from subprocess import Popen, PIPE
 import six
 from six.moves import range as xrange
+import types
 import gc, weakref
 import re
 
@@ -970,120 +974,30 @@ def test_chan_dtype_misc(dtype):
 
 
 def test_func():
-    # test how @func(cls) works
-    # this also implicitly tests just @func, since @func(cls) uses that.
+    # test how @func works inside module namespace
+    tpy = dir_testprog + "/golang_test_func.py"
+    def run(src):
+        a = ast.parse(src, tpy)
+        rewrite_asserts(a, py.path.local(tpy))
+        c = compile(a, tpy, 'exec', dont_inherit=True)
+        mod = types.ModuleType('mod')
+        six.exec_(c, mod.__dict__)
+    s = readfile(tpy)
+    run(s)
 
-    class MyClass(object):
-        def __init__(self, v):
-            self.v = v
-
-    zzz = zzz_orig = 'z'    # `@func(MyClass) def zzz` must not override zzz
-    @func(MyClass)
-    def zzz(self, v, x=2, **kkkkwww):
-        assert self.v == v
-        return v + 1
-    assert zzz is zzz_orig
-    assert zzz == 'z'
-
-    mstatic = mstatic_orig = 'mstatic'
-    @func(MyClass)
-    @staticmethod
-    def mstatic(v):
-        assert v == 5
-        return v + 1
-    assert mstatic is mstatic_orig
-    assert mstatic == 'mstatic'
-
-    mcls = mcls_orig = 'mcls'
-    @func(MyClass)
-    @classmethod
-    def mcls(cls, v):
-        assert cls is MyClass
-        assert v == 7
-        return v + 1
-    assert mcls is mcls_orig
-    assert mcls == 'mcls'
-
-    # undefined var after `@func(cls) def var` should be not set
-    assert 'var' not in locals()
-    @func(MyClass)
-    def var(self, v):
-        assert v == 8
-        return v + 1
-    gc.collect()    # pypy needs this to trigger _DelAttrAfterMeth GC
-    assert 'var' not in locals()
-
-
-    vproperty = mproperty_orig = 'vproperty'
-    @func(MyClass)
-    @property
-    def vproperty(self):
-        """documentation for vproperty"""
-        assert isinstance(self, MyClass)
-        return 'v%s' % self.v
-    assert vproperty is mproperty_orig
-    assert vproperty == 'vproperty'
-
-    @func(MyClass)
-    @MyClass.vproperty.setter
-    def _(self, v):
-        assert isinstance(self, MyClass)
-        self.v = v
-    assert vproperty is mproperty_orig
-    assert vproperty == 'vproperty'
-
-    @func(MyClass)
-    @MyClass.vproperty.deleter
-    def _(self):
-        assert isinstance(self, MyClass)
-        self.v = 'deleted'
-    assert vproperty is mproperty_orig
-    assert vproperty == 'vproperty'
-
-
-    obj = MyClass(4)
-    assert obj.zzz(4)       == 4 + 1
-    assert obj.mstatic(5)   == 5 + 1
-    assert obj.mcls(7)      == 7 + 1
-    assert obj.var(8)       == 8 + 1
-    assert obj.v            == 4        # set by .zzz
-    assert obj.vproperty    == 'v4'
-    obj.vproperty = 5
-    assert obj.v            == 5
-    assert obj.vproperty    == 'v5'
-    del obj.vproperty
-    assert obj.v            == 'deleted'
-    assert obj.vproperty    == 'vdeleted'
-    assert MyClass.vproperty.__doc__ == "documentation for vproperty"""
-
-    # this tests that @func (used by @func(cls)) preserves decorated function signature
-    assert fmtargspec(MyClass.zzz) == '(self, v, x=2, **kkkkwww)'
-
-    assert MyClass.zzz.__module__       == __name__
-    assert MyClass.zzz.__name__         == 'zzz'
-
-    assert MyClass.mstatic.__module__   == __name__
-    assert MyClass.mstatic.__name__     == 'mstatic'
-
-    assert MyClass.mcls.__module__      == __name__
-    assert MyClass.mcls.__name__        == 'mcls'
-
-    assert MyClass.var.__module__       == __name__
-    assert MyClass.var.__name__         == 'var'
-
-    assert MyClass.vproperty.fget.__module__    == __name__
-    assert MyClass.vproperty.fset.__module__    == __name__
-    assert MyClass.vproperty.fdel.__module__    == __name__
-    assert MyClass.vproperty.fget.__name__      == 'vproperty'
-    assert MyClass.vproperty.fset.__name__      == '_'
-    assert MyClass.vproperty.fdel.__name__      == '_'
-
-    # test that func·func = func  (double _func calls are done internally for
-    # getter when handling @func(@MyClass.vproperty.setter)
-    def f(): pass
-    g = func(f)
-    h = func(g)
-    assert h is g
+    # also test how @func works inside another function
+    # we need to test this because namespace implementations are different when
+    # running as top-level module and inside a function.
+    def _(l):
+        m = re.match(br'^[^#]*#(.*)\s+\+funcfunc(\s+\+py3)?$', l)
+        if m is not None:
+            l = m.group(1)
+            if m.group(2) and not six.PY3:
+                l = b''
+            l += b'\n'
+        return l
+    s = b''.join([_(l) for l in s.splitlines(True)])
+    run(s)
 
 
 # @func overhead at def time.
@@ -1632,8 +1546,10 @@ def test_defer_excchain_traceback():
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     alpha()
+    ~~~~~^^                                                     +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in alpha
     beta()
+    ~~~~^^                                                      +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in beta
     raise RuntimeError("gamma")
 RuntimeError: gamma
@@ -1661,7 +1577,7 @@ RuntimeError: gamma
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
-           ^^^^^^^^^^^^^^                                       +PY311
+           ^^^^^^^^^^^^^^                                       +PY311 -PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1671,6 +1587,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q2
     raise RuntimeError("bbb")
 RuntimeError: bbb
@@ -1680,15 +1597,19 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1699,15 +1620,19 @@ RuntimeError: aaa
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1718,7 +1643,7 @@ RuntimeError: aaa
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)
-           ^^^^^^^^^^^^^^                                       +PY311
+           ^^^^^^^^^^^^^^                                       +PY311 -PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in caller
     raise RuntimeError("ccc")
 RuntimeError: ccc
@@ -1728,6 +1653,7 @@ During handling of the above exception, another exception occurred:
 Traceback (most recent call last):
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q2
     raise RuntimeError("bbb")
 RuntimeError: bbb
@@ -1737,15 +1663,19 @@ The above exception was the direct cause of the following exception:
 Traceback (most recent call last):
   File "PYGOLANG/golang/golang_test.py", line ..., in test_defer_excchain_traceback
     caller()
+    ~~~~~~^^                                                    +PY313
   ...
   File "PYGOLANG/golang/__init__.py", line ..., in _goframe
     return f(*argv, **kw)                                       -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()                                                         -PY310
     with __goframe__:                                           +PY310
+         ^^^^^^^^^^^                                            +PY312
   File "PYGOLANG/golang/__init__.py", line ..., in __exit__
     d()
+    ~^^                                                         +PY313
   File "PYGOLANG/golang/golang_test.py", line ..., in q1
     raise RuntimeError("aaa")
 RuntimeError: aaa
@@ -1765,7 +1695,7 @@ def test_defer_excchain_dump():
 # ----//---- (ipython)
 def test_defer_excchain_dump_ipython():
     # ipython 8 changed traceback output significantly
-    # we do not need to test it because we acticate ipython-related patch only
+    # we do not need to test it because we activate ipython-related patch only
     # on py2 for which latest ipython version is 5.
     import IPython
     if six.PY3 and IPython.version_info >= (8,0):
@@ -1948,25 +1878,32 @@ def assertDoc(want, got):
     got = re.sub(r"([\w\\\.]+)(?=\.py)",        _, got)
 
     # want: process conditionals
-    # PY39(...) -> ...   if py ≥ 3.9 else ø  (inline)
-    # `... +PY39` -> ... if py ≥ 3.9 else ø  (whole line)
-    # `... -PY39` -> ... if py < 3.9 else ø  (whole line)
+    # PY39(...) -> ...          if py ≥ 3.9 else ø          (inline)
+    # `... +PY39` -> ...        if py ≥ 3.9 else ø          (whole line)
+    # `... -PY39` -> ...        if py < 3.9 else ø          (whole line)
+    # `... +PY39 -PY311` -> ... if 3.9 ≤ py < 3.11  else ø  (whole line)
     have = {}  # 'PYxy' -> y/n
-    for minor in (9,10,11):
+    for minor in (9,10,11,12,13,14):
         have['PY3%d' % minor] = (sys.version_info >= (3, minor))
-    for x, havex in have.items():
-        want = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", want)
-        r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
-        v = []
-        for l in want.splitlines():
-            m = r.match(l)
-            if m is not None:
-                l = m.group('main')
-                y = {'+':True, '-':False}[m.group('y')]
-                if (y and not havex) or (havex and not y):
-                    continue
+    v = []
+    for l in want.splitlines():
+        lomit = False
+        while 1:
+            l_ = l
+            for x, havex in have.items():
+                l = re.sub(r"%s\((.*)\)" % x, r"\1" if havex else "", l)
+                r = re.compile(r'^(?P<main>.*?) +(?P<y>(\+|-))%s$' % x)
+                m = r.match(l)
+                if m is not None:
+                    l = m.group('main')
+                    y = {'+':True, '-':False}[m.group('y')]
+                    if (y and not havex) or (havex and not y):
+                        lomit = True
+            if l == l_:
+                break
+        if not lomit:
             v.append(l)
-        want = '\n'.join(v)+'\n'
+    want = '\n'.join(v)+'\n'
 
     # want: ^$ -> <BLANKLINE>
     while "\n\n" in want:

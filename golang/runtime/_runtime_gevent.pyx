@@ -1,5 +1,6 @@
 # cython: language_level=2
-# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+# cython: legacy_implicit_noexcept=True
+# Copyright (C) 2019-2025  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -40,7 +41,7 @@ ELSE:
 
 from gevent import sleep as pygsleep
 
-from libc.stdint cimport uint8_t, uint64_t, UINT64_MAX
+from libc.stdint cimport uint64_t, UINT64_MAX
 cdef extern from *:
     ctypedef bint cbool "bool"
 

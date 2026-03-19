@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -32,8 +32,36 @@ const string ARCH =
     "386"
 #elif defined(LIBGOLANG_ARCH_amd64)
     "amd64"
+#elif defined(LIBGOLANG_ARCH_arm)
+    "arm"
 #elif defined(LIBGOLANG_ARCH_arm64)
     "arm64"
+#elif defined(LIBGOLANG_ARCH_mips)
+    "mips"
+#elif defined(LIBGOLANG_ARCH_mipsle)
+    "mipsle"
+#elif defined(LIBGOLANG_ARCH_mips64)
+    "mips64"
+#elif defined(LIBGOLANG_ARCH_mips64le)
+    "mips64le"
+#elif defined(LIBGOLANG_ARCH_ppc)
+    "ppc"
+#elif defined(LIBGOLANG_ARCH_ppcle)
+    "ppcle"
+#elif defined(LIBGOLANG_ARCH_ppc64)
+    "ppc64"
+#elif defined(LIBGOLANG_ARCH_ppc64le)
+    "ppc64le"
+#elif defined(LIBGOLANG_ARCH_loong64)
+    "loong64"
+#elif defined(LIBGOLANG_ARCH_riscv)
+    "riscv"
+#elif defined(LIBGOLANG_ARCH_riscv64)
+    "riscv64"
+#elif defined(LIBGOLANG_ARCH_s390)
+    "s390"
+#elif defined(LIBGOLANG_ARCH_s390x)
+    "s390x"
 #else
 # error
 #endif
@@ -41,10 +69,28 @@ const string ARCH =
 
 
 const string OS =
-#ifdef LIBGOLANG_OS_linux
-    "linux"
+#ifdef LIBGOLANG_OS_android
+    "android"
 #elif defined(LIBGOLANG_OS_darwin)
     "darwin"
+#elif defined(LIBGOLANG_OS_dragonfly)
+    "dragonfly"
+#elif defined(LIBGOLANG_OS_freebsd)
+    "freebsd"
+#elif defined(LIBGOLANG_OS_illumos)
+    "illumos"
+#elif defined(LIBGOLANG_OS_ios)
+    "ios"
+#elif defined(LIBGOLANG_OS_linux)
+    "linux"
+#elif defined(LIBGOLANG_OS_netbsd)
+    "netbsd"
+#elif defined(LIBGOLANG_OS_openbsd)
+    "openbsd"
+#elif defined(LIBGOLANG_OS_plan9)
+    "plan9"
+#elif defined(LIBGOLANG_OS_solaris)
+    "solaris"
 #elif defined(LIBGOLANG_OS_windows)
     "windows"
 #else

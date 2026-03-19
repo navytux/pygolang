@@ -1,8 +1,8 @@
 #ifndef _NXD_LIBGOLANG_CONTEXT_H
 #define _NXD_LIBGOLANG_CONTEXT_H
 
-// Copyright (C) 2019  Nexedi SA and Contributors.
-//                     Kirill Smelkov <kirr@nexedi.com>
+// Copyright (C) 2019-2026  Nexedi SA and Contributors.
+//                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
 // it under the terms of the GNU General Public License version 3, or (at your
@@ -59,6 +59,10 @@ struct _Context : _interface {
 
     // value returns value associated with key, or nil, if context has no key.
     virtual interface value(const void *key)   = 0;  // -> value | nil
+
+protected:
+    LIBGOLANG_API _Context();
+    LIBGOLANG_API ~_Context();
 };
 typedef refptr<_Context> Context;
 

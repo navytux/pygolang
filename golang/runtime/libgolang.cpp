@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2024  Nexedi SA and Contributors.
+// Copyright (C) 2018-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -1236,9 +1236,22 @@ void _blockforever() {
     bug("_blockforever: woken up");
 }
 
+_interface::_interface() {}
 _interface::~_interface() {}
 
+_error::_error() {}
+_error::~_error() {}
+
+_errorWrapper::_errorWrapper() {}
+_errorWrapper::~_errorWrapper() {}
+
+
 // ---- for tests ----
+
+template<> const std::type_info* _t_typeid<_interface>      () { return &typeid(_interface); }
+template<> const std::type_info* _t_typeid<_error>          () { return &typeid(_error); }
+template<> const std::type_info* _t_typeid<_errorWrapper>   () { return &typeid(_errorWrapper); }
+
 
 // _tchanlenrecvqlen returns len(_ch._recvq)
 int _tchanrecvqlen(_chan *_ch) {

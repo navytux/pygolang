@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2019-2024  Nexedi SA and Contributors.
+# Copyright (C) 2019-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -98,7 +98,7 @@ def test_golang_builtins():
 
 @gpython_only
 def test_gevent_activated():
-    # gpython, by default, acticates gevent.
+    # gpython, by default, activates gevent.
     # handling of various runtime modes is explicitly tested in test_Xruntime.
     assert_gevent_activated()
 
@@ -227,15 +227,48 @@ def test_pymain():
     # -m<module>
     __ = pyout(['-mhello', 'abc', 'def'], cwd=testdata)
     assert __ == _
+    # -m <package> with __main__.py
+    _ = pyout(['-m', 'pkg', 'abc', 'def'], cwd=testdata)
+    pkgmainpy = realpath(join(testdata, 'pkg', '__main__.py'))
+    assert _ == b"pkg/__main__\npkg/mod\n[%s, 'abc', 'def']\n" % b(repr(pkgmainpy))
+    # -m <package>.<module>
+    _ = pyout(['-m', 'pkg.mod'], cwd=testdata)
+    assert _ == b"pkg/mod\n"
+
+    # -m <module> inside zip
+    zbundle = join(testdata, 'bundle.zip')
+    with_zbundle  = {'envadj': {'PYTHONPATH': zbundle}}
+    _ = pyout(['-m', 'hello', 'abc', 'def'], **with_zbundle)
+    zhellopy = join(zbundle, 'hello.py')
+    assert _ == b"zhello\nzworld\n[%s, 'abc', 'def']\n" % b(repr(zhellopy))
+    # -m <package> with __main__.py inside zip
+    _ = pyout(['-m', 'pkg', 'abc', 'def'], **with_zbundle)
+    zpkgmainpy = join(zbundle, 'pkg', '__main__.py')
+    assert _ == b"zpkg/__main__\nzpkg/mod\n[%s, 'abc', 'def']\n" % b(repr(zpkgmainpy))
+    # -m <package>.<module> inside zip
+    _ = pyout(['-m', 'pkg.mod'], **with_zbundle)
+    assert _ == b"zpkg/mod\n"
+
 
     # file
     _ = pyout(['testdata/hello.py', 'abc', 'def'], cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py', 'abc', 'def']\n"
 
+    # dir with __main__.py
+    _ = pyout(['testdata/dir', 'abc', 'def'], cwd=here)
+    assert _ == b"dir/__main__\ndir/mod\n['testdata/dir', 'abc', 'def']\n"
+
+    # dir.zip with __main__.py
+    _ = pyout(['testdata/dir.zip', 'abc', 'def'], cwd=here)
+    assert _ == b"zdir/__main__\nzdir/mod\n['testdata/dir.zip', 'abc', 'def']\n"
+
     # -i after stdin (also tests interactive mode as -i forces interactive even on non-tty)
     d = {
-        b'repr(hellopy)': b(repr(hellopy)),
-        b'ps1':           b'' # cpython emits prompt to stderr
+        b'repr(hellopy)':       b(repr(hellopy)),
+        b'repr(pkgmainpy)':     b(repr(pkgmainpy)),
+        b'repr(zhellopy)':      b(repr(zhellopy)),
+        b'repr(zpkgmainpy)':    b(repr(zpkgmainpy)),
+        b'ps1':                 b'' # cpython emits prompt to stderr
     }
     if is_pypy and not is_gpython:
         d[b'ps1'] = b'>>>> ' # native pypy emits prompt to stdout and >>>> instead of >>>
@@ -249,12 +282,36 @@ def test_pymain():
     # -i after -c
     _ = pyout(['-i', '-c', 'import hello'], stdin=b'hello.tag', cwd=testdata)
     assert _ == b"hello\nworld\n['-c']\n%(ps1)s'~~HELLO~~'\n%(ps1)s"    % d
-    # -i after -m
+
+    # -i after -m <module>
     _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', cwd=testdata)
     assert _ == b"hello\nworld\n[%(repr(hellopy))s]\n%(ps1)s'~~WORLD~~'\n%(ps1)s"  % d
+    # -i after -m <package> with __main__.py
+    _ = pyout(['-i', '-m', 'pkg'], stdin=b'mod.tag', cwd=testdata)
+    assert _ == b"pkg/__main__\npkg/mod\n[%(repr(pkgmainpy))s]\n%(ps1)s'~~PKG/MOD~~'\n%(ps1)s" % d
+    # -i after -m <package>.<module>
+    _ = pyout(['-i', '-m', 'pkg.mod'], stdin=b'tag', cwd=testdata)
+    assert _ == b"pkg/mod\n%(ps1)s'~~PKG/MOD~~'\n%(ps1)s" % d
+
+    # -i after -m <module> inside zip
+    _ = pyout(['-i', '-m', 'hello'], stdin=b'world.tag', **with_zbundle)
+    assert _ == b"zhello\nzworld\n[%(repr(zhellopy))s]\n%(ps1)s'~~ZWORLD~~'\n%(ps1)s"  % d
+    # -i after -m <package> with __main__.py inside zip
+    _ = pyout(['-i', '-m', 'pkg'], stdin=b'mod.tag', **with_zbundle)
+    assert _ == b"zpkg/__main__\nzpkg/mod\n[%(repr(zpkgmainpy))s]\n%(ps1)s'~~ZPKG/MOD~~'\n%(ps1)s" % d
+    # -i after -m <package>.<module> inside zip
+    _ = pyout(['-i', '-m', 'pkg.mod'], stdin=b'tag', **with_zbundle)
+    assert _ == b"zpkg/mod\n%(ps1)s'~~ZPKG/MOD~~'\n%(ps1)s" % d
+
     # -i after file
     _ = pyout(['-i', 'testdata/hello.py'], stdin=b'tag', cwd=here)
     assert _ == b"hello\nworld\n['testdata/hello.py']\n%(ps1)s'~~HELLO~~'\n%(ps1)s" % d
+    # -i after dir with __main__.py
+    _ = pyout(['-i', 'testdata/dir'], stdin=b'mod.tag', cwd=here)
+    assert _ == b"dir/__main__\ndir/mod\n['testdata/dir']\n%(ps1)s'~~DIR/MOD~~'\n%(ps1)s" % d
+    # -i after dir.zip with __main__.py
+    _ = pyout(['-i', 'testdata/dir.zip'], stdin=b'mod.tag', cwd=here)
+    assert _ == b"zdir/__main__\nzdir/mod\n['testdata/dir.zip']\n%(ps1)s'~~ZDIR/MOD~~'\n%(ps1)s" % d
 
 
     # -W <opt>
@@ -295,7 +352,7 @@ def test_pymain_print_function_future():
     assert _ == b"print is a function with print_function future\n"
 
 
-# verify thay pymain runs programs with __main__ module correctly setup.
+# verify that pymain runs programs with __main__ module correctly setup.
 def test_pymain__main__():
     from golang import b
     check_main_py = readfile('%s/check_main.py' % testprog)
@@ -331,6 +388,16 @@ def test_pymain_syspath():
             if path0realpath2cwd:
                 assert stdpyoutv[0] == realcwd
                 stdpyoutv[0] = ''
+            # gpython imports golang, which imports setuptools_dso, which imports setuptools
+            # which, starting from setuptools 71, appends .../setuptools/_vendor to sys.path
+            #
+            #    https://github.com/pypa/setuptools/commit/d4352b5d
+            #
+            # filter that out.
+            #
+            # TODO consider improving setuptools_dso.runtime not to import setuptools at all instead
+            if gpyoutv[-1].endswith('/setuptools/_vendor'):
+                del gpyoutv[-1]
 
         check_gpy_vs_py(argv, postprocessf=_, **kw)
 
@@ -342,7 +409,7 @@ def test_pymain_syspath():
     check(['testprog/print_syspath.py'], cwd=here)          # file
 
 
-# verify that pymain handles -O in exactly the same was as underlying python does.
+# verify that pymain handles -O in exactly the same way as underlying python does.
 @gpython_only
 def test_pymain_opt():
     def check(argv):
@@ -388,6 +455,13 @@ def test_pymain_E():
 def test_pymain_X():
     check_gpy_vs_py(['testprog/print_faulthandler.py'], cwd=here)
     check_gpy_vs_py(['-X', 'faulthandler', 'testprog/print_faulthandler.py'], cwd=here)
+
+
+# pymain -u
+@gpython_only
+def test_pymain_u():
+    _check_gpy_vs_py([      'testprog/print_stdio_bufmode.py'], cwd=here)
+    _check_gpy_vs_py(['-u', 'testprog/print_stdio_bufmode.py'], cwd=here)
 
 
 # pymain -v
@@ -448,6 +522,23 @@ def test_pymain_ver(runtime, strings):
     ret, out, err = _pyrun(['--version'], stdout=PIPE, stderr=PIPE, env=env)
     assert (ret, out, b(err)) == (0, b'', b(vok))
 
+# pymain --unknown/-Z option
+# gpython_only because output differs from !gpython
+@gpython_only
+def test_pymain_unknown():
+    from golang import b
+    def check(argv, errok):
+        ret, out, err = _pyrun(argv, stdout=PIPE, stderr=PIPE)
+        assert b(errok) in b(err)
+        assert ret != 0
+
+    check(['-Z'],                   "unexpected option -Z")
+    check(['-Z=xyz'],               "unexpected option -Z")
+    check(['-Z=xyz=pqr'],           "unexpected option -Z")
+    check(['--unknown'],            "unexpected option --unknown")
+    check(['--unknown=xyz'],        "unexpected option --unknown")
+    check(['--unknown=xyz=pqr'],    "unexpected option --unknown")
+
 # verify that ./bin/gpython runs ok.
 @gpython_only
 def test_pymain_run_via_relpath():
@@ -492,6 +583,22 @@ def _xopt_assert_in_subprocess(xopt, xval, tfunc):
     assert out == b'ok\n'
 
 
+# verify that pymain banner matches std python.
+@gpython_only
+def test_pymain_banner():
+    def _(gpyoutv, gpyerrv, stdoutv, stderrv):
+        def sub(pattern, repl, textv):
+            for i in range(len(textv)):
+                textv[i] = u(re.sub(pattern, repl, textv[i]))
+        # filter out [GPython ver] [threads|gevent] - this are gpython-only
+        sub(r'\s*\[GPython [^\]]+\]',            '', gpyerrv)
+        sub(r'\s*\[(threads|gevent [^\]]+)\]',   '', gpyerrv)
+        # replace os/arch -> ... as gpython prints it differently
+        sub(r'(\s+on )[^\s]+$', r'\1 ...', gpyerrv)
+        sub(r'(\s+on )[^\s]+$', r'\1 ...', stderrv)
+    _check_gpy_vs_py(['-i'], postprocessf=_, stdin=b'\n')
+
+
 # ---- misc ----
 
 # check_gpy_vs_py verifies that gpython output matches underlying python output.
@@ -505,3 +612,23 @@ def check_gpy_vs_py(argv, postprocessf=None, **kw):
             postprocessf(gpyoutv, stdpyoutv)
 
         assert gpyoutv == stdpyoutv
+
+# _check_gpy_vs_py verifies that gpython stdout/stderr match underlying python stdout/stderr.
+def _check_gpy_vs_py(argv, postprocessf=None, **kw):
+    kw = kw.copy()
+    kw['stdout'] = PIPE
+    kw['stderr'] = PIPE
+    gpyret, gpyout, gpyerr = _pyrun(argv, **kw)
+    stdret, stdout, stderr = _pyrun(argv, pyexe=sys._gpy_underlying_executable, **kw)
+
+    gpyoutv = u(gpyout).splitlines()
+    gpyerrv = u(gpyerr).splitlines()
+    stdoutv = u(stdout).splitlines()
+    stderrv = u(stderr).splitlines()
+
+    if postprocessf is not None:
+        postprocessf(gpyoutv, gpyerrv, stdoutv, stderrv)
+
+    assert gpyoutv == stdoutv
+    assert gpyerrv == stderrv
+    assert (gpyret, stdret) == (0, 0)

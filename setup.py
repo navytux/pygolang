@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # pygolang | pythonic package setup
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -190,7 +190,7 @@ class develop(XInstallGPython, _develop):
 # requirements of packages under "golang." namespace
 R = {
     'cmd.pybench':      {'pytest', 'py ; python_version >= "3"'},
-    'pyx.build':        {'setuptools', 'wheel', 'cython < 3', 'setuptools_dso >= 2.8'},
+    'pyx.build':        {'setuptools', 'wheel', 'cython < 3.1', 'setuptools_dso >= 2.8'},
     'x.perf.benchlib':  {'numpy'},
 }
 # TODO generate `a.b -> a`, e.g. x.perf = join(x.perf.*); x = join(x.*)
@@ -550,6 +550,9 @@ setup(
                     Ext('golang.os._signal',
                         ['golang/os/_signal.pyx']),
 
+                    Ext('golang._runtime',
+                        ['golang/_runtime.pyx']),
+
                     Ext('golang._strconv',
                         ['golang/_strconv.pyx']),
 
@@ -613,11 +616,12 @@ setup(
         Programming Language :: Python :: 2
         Programming Language :: Python :: 2.7
         Programming Language :: Python :: 3
-        Programming Language :: Python :: 3.8
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.10
         Programming Language :: Python :: 3.11
         Programming Language :: Python :: 3.12
+        Programming Language :: Python :: 3.13
+        Programming Language :: Python :: 3.14
         Programming Language :: Python :: Implementation :: CPython
         Programming Language :: Python :: Implementation :: PyPy
         Operating System :: POSIX

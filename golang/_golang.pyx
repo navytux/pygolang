@@ -2,10 +2,11 @@
 # cython: language_level=2
 # cython: binding=False
 # cython: c_string_type=str, c_string_encoding=utf8
+# cython: legacy_implicit_noexcept=True
 # distutils: language = c++
 # distutils: depends = libgolang.h os/signal.h unicode/utf8.h _golang_str.pyx _golang_str_pickle.pyx
 #
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -34,7 +35,7 @@ from __future__ import print_function, absolute_import
 _init_libgolang()
 _init_libpyxruntime()
 
-from cpython cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, PY_MAJOR_VERSION
+from cpython cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, PY_MAJOR_VERSION, PY_VERSION_HEX
 ctypedef PyObject *pPyObject # https://github.com/cython/cython/issues/534
 cdef extern from "Python.h":
     ctypedef struct PyTupleObject:
@@ -47,6 +48,7 @@ from cython cimport final
 from golang cimport os  # TODO remove after dtypes are reworked to register dynamically
 
 import sys
+import types as pytypes
 
 # ---- panic ----
 
@@ -820,7 +822,6 @@ include "_golang_str.pyx"
 
 from golang cimport errors
 from libcpp.typeinfo cimport type_info
-from cython.operator cimport typeid
 from libc.string cimport strcmp
 
 cdef class pyerror(Exception):
@@ -878,7 +879,7 @@ cdef class pyerror(Exception):
 
         # wrapper around C-level error
         # TODO use std::hash directly
-        cdef const type_info* typ = &typeid(pyerr.err._ptr()[0])
+        cdef const type_info* typ = xtypeid(pyerr.err._ptr()[0])
         return hash(typ.name()) ^ hash(pyerr.err.Error())
     def __ne__(pyerror a, object rhs):
         return not (a == rhs)
@@ -892,8 +893,8 @@ cdef class pyerror(Exception):
 
         # wrapper around C-level error
         cdef pyerror b = rhs
-        cdef const type_info* atype = &typeid(a.err._ptr()[0])
-        cdef const type_info* btype = &typeid(b.err._ptr()[0])
+        cdef const type_info* atype = xtypeid(a.err._ptr()[0])
+        cdef const type_info* btype = xtypeid(b.err._ptr()[0])
         if strcmp(atype.name(), btype.name()) != 0:
             return False
 
@@ -911,7 +912,7 @@ cdef class pyerror(Exception):
             return "%s.%s%r" % (typ.__module__, typ.__name__, pyerr.args)
 
         # wrapper around C-level error
-        cdef const type_info* ctype = &typeid(pyerr.err._ptr()[0])
+        cdef const type_info* ctype = xtypeid(pyerr.err._ptr()[0])
         # TODO demangle type name (e.g. abi::__cxa_demangle)
         return "<%s.%s object ctype=%s error=%s>" % (typ.__module__, typ.__name__, ctype.name(), pyqq(pyerr.Error()))
 
@@ -925,3 +926,201 @@ cdef nogil:
 
     error errors_Unwrap_pyexc(error err)                except +topyexc:
         return errors.Unwrap(err)
+
+
+# workaround for https://github.com/cython/cython/issues/7069
+cdef extern from * nogil:
+    """
+    template<typename T>
+    const std::type_info* xtypeid(const T& obj) {
+        return &typeid(obj);
+    }
+    """
+    const type_info* xtypeid[T](const T& obj)
+
+
+# _pyframe_dellocal deletes local variable with given name in specified frame.
+from cpython cimport PyFrameObject
+cdef extern from "frameobject.h":
+    """
+    #if PY_VERSION_HEX < 0x030D0000     // 3.13
+    static int PyFrameLocalsProxy_Check(PyObject* obj) { return 0; }
+    #endif
+
+    #if PY_VERSION_HEX < 0x03090000     // 3.9
+    static inline PyCodeObject* PyFrame_GetCode(PyFrameObject* frame)
+    {
+        PyCodeObject* code = frame->f_code;
+        assert(code != NULL);
+        Py_INCREF(code);
+        return code;
+    }
+    #endif
+
+
+    #if PY_VERSION_HEX >= 0x030B0000    // 3.11
+    # ifndef Py_BUILD_CORE
+    #  define Py_BUILD_CORE 1
+    # endif
+    # include "internal/pycore_frame.h"
+    # include "internal/pycore_code.h"
+    # if PY_VERSION_HEX >= 0x030E0000   // 3.14
+    #  include "internal/pycore_interpframe.h"
+    # endif
+    #endif
+
+    #if PY_VERSION_HEX < 0x030B0000     // 3.11
+    typedef unsigned char _PyLocals_Kind;
+    constexpr _PyLocals_Kind CO_FAST_LOCAL  = 1;
+    constexpr _PyLocals_Kind CO_FAST_CELL   = 2;
+    constexpr _PyLocals_Kind CO_FAST_FREE   = 4;
+    #endif
+
+
+    using golang::panic;
+
+    static _PyLocals_Kind _XPyCode_FastLocalKind(PyCodeObject* c, int i) {
+    #if PY_VERSION_HEX >= 0x030B0000    // 3.11
+        return _PyLocals_GetKind(c->co_localspluskinds, i);
+    #else
+        int ncell = PyTuple_GET_SIZE(c->co_cellvars);
+        int nfree = PyTuple_GET_SIZE(c->co_freevars);
+        if (i >= 0) {
+            if (i < c->co_nlocals)
+                return CO_FAST_LOCAL;
+            if (i < c->co_nlocals + ncell)
+                return CO_FAST_LOCAL | CO_FAST_CELL;
+            if (i < c->co_nlocals + ncell + nfree)
+                return CO_FAST_FREE;
+        }
+        panic("_XPyCode_FastLocalKind: fastlocal index out of range");
+    #endif
+    }
+
+    static /* borrow */ PyObject* _XPyCode_FastLocalName(PyCodeObject* c, int i) {
+    #if PY_VERSION_HEX >= 0x030B0000    // 3.11
+        return PyTuple_GetItem(c->co_localsplusnames, i);
+    #else
+        int ncell = PyTuple_GET_SIZE(c->co_cellvars);
+        int nfree = PyTuple_GET_SIZE(c->co_freevars);
+        if (i >= 0) {
+            if (i < c->co_nlocals)
+                return PyTuple_GetItem(c->co_varnames, i);
+            if (i < c->co_nlocals + ncell)
+                return PyTuple_GetItem(c->co_cellvars, i - c->co_nlocals);
+            if (i < c->co_nlocals + ncell + nfree)
+                return PyTuple_GetItem(c->co_freevars, i - (c->co_nlocals + ncell));
+        }
+        panic("_XPyCode_FastLocalName: fastlocal index out of range");
+    #endif
+    }
+
+    // XPyFrame_WhiteoutFastLocal ensures that no named fastlocal variable is set on the frame.
+    //
+    // It ensures that there is either
+    // - no "fastlocal" entry corresponding to name, or
+    // - if there is fastlocal entry corresponding to name, that entry is in deleted state.
+    static void XPyFrame_WhiteoutFastLocal(PyFrameObject* f, PyObject* name) {
+        if (!PyFrame_Check(f))
+            panic("XPyFrame_WhiteoutFastLocal: invoked on non-frame object");
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+        _PyStackRef* fastlocals =
+                                f->f_frame->localsplus;
+    #else
+        PyObject** fastlocals =
+    # if PY_VERSION_HEX >= 0x030B0000   // 3.11
+                                f->f_frame->localsplus;
+    # else
+                                f->f_localsplus;
+    # endif
+    #endif
+
+        PyCodeObject* f_code = PyFrame_GetCode(f);
+        int i;
+
+    #if PY_VERSION_HEX >= 0x030B0000    // 3.11
+        int nlocals = f_code->co_nlocalsplus;
+    #else
+        if (!PyTuple_Check(f_code->co_cellvars))
+            panic("XPyFrame_WhiteoutFastLocal: co_cellvars is not tuple");
+        if (!PyTuple_Check(f_code->co_freevars))
+            panic("XPyFrame_WhiteoutFastLocal: co_freevars is not tuple");
+        int nlocals = f_code->co_nlocals + PyTuple_GET_SIZE(f_code->co_cellvars) + PyTuple_GET_SIZE(f_code->co_freevars);
+    #endif
+
+        for (i = 0; i < nlocals; i++) {
+            PyObject* varname = _XPyCode_FastLocalName(f_code, i);
+            if (varname == NULL)
+                goto out;
+
+            int eq = PyObject_RichCompareBool(name, varname, Py_EQ);
+            if (eq < 0)
+                goto out;
+
+            if (!eq)
+                continue;
+
+            _PyLocals_Kind kind = _XPyCode_FastLocalKind(f_code, i);
+            PyObject* v = NULL;
+            PyObject* cell = NULL;
+    #if PY_VERSION_HEX < 0x030E0000     // 3.14
+            v = fastlocals[i];
+    #endif
+            if (kind & (CO_FAST_FREE | CO_FAST_CELL)) {
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+                _PyStackRef vstk = fastlocals[i];
+                if (!PyStackRef_IsNull(vstk))
+                    v = PyStackRef_AsPyObjectBorrow(vstk);
+    #endif
+                if (v != NULL && PyCell_Check(v))
+                    cell = v;
+            }
+            if (cell != NULL) {
+                v = PyCell_GET(cell);
+                PyCell_SET(cell, NULL);
+            }
+            else {
+    #if PY_VERSION_HEX >= 0x030E0000    // 3.14
+                PyStackRef_CLEAR(fastlocals[i]);
+                v = NULL;
+    #else
+                fastlocals[i] = NULL;
+    #endif
+            }
+            Py_XDECREF(v);
+
+            break;
+        }
+
+    out:
+        Py_DECREF(f_code);
+    }
+    """
+    void XPyFrame_WhiteoutFastLocal(PyFrameObject* frame, object name) except *
+    bint PyFrameLocalsProxy_Check(PyObject* obj)
+def _pyframe_dellocal(frame, name):
+    assert isinstance(frame, pytypes.FrameType)
+    l = frame.f_locals
+    if isinstance(l, dict): # module / fast-locals snapshot
+        del l[name]
+    if PyFrameLocalsProxy_Check(<PyObject*>l):  # fast locals view proxy
+        if name not in l:
+            raise KeyError(name)
+        # NOTE just `del l[name]` would fail with
+        #     ValueError: cannot remove local variables from FrameLocalsProxy
+        # -> work it around by setting .f_localsplus[] entry to NULL ourelves
+        l[name] = None # to trigger _Py_Executors_InvalidateDependency
+
+    XPyFrame_WhiteoutFastLocal(<PyFrameObject*>frame, name)
+
+    # .f_locals, not l again, to make sure we were not modifying a snapshot
+    assert name not in frame.f_locals
+
+
+# ---- init golang/runtime.py ----
+
+def _():
+    from golang import runtime
+    runtime._init()
+_()
+del _

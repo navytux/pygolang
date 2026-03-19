@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -26,15 +26,17 @@ from golang._golang import _udata, _bdata
 from golang.gcompat import qq
 from golang.strconv_test import byterange
 from golang.golang_test import readfile, assertDoc, _pyrun, dir_testprog, PIPE
-from golang import _golang_test
 from gpython import _tEarlyStrSubclass
 from pytest import raises, mark, skip
+from pytest import raises, mark, skip, xfail
+import _testcapi as testcapi
 import sys
 import six
 from six import text_type as unicode, unichr
 from six.moves import range as xrange
 import gc, re, pickle, copy, types
 import array, collections
+import base64
 
 
 # buftypes lists types with buffer interface that we will test against.
@@ -306,52 +308,95 @@ def test_strings_basic():
 
 # verify that bstr/ustr are created with correct refcount.
 def test_strings_refcount():
-    # buffer with string data - not bytes nor unicode so that when builting
-    # string types are patched no case where bytes is created from the same
-    # bytes, or unicode is created from the same unicode - only increasing
+    # buffer with string data - not bytes nor unicode so that when builtin
+    # string types are patched there is no case where bytes is created from the
+    # same bytes, or unicode is created from the same unicode - only increasing
     # refcount of original object.
     data = bytearray([ord('a'), ord('b'), ord('c'), ord('4')])
 
+    # r1 represents sys.getrefcount() result on object with one reference
+    r1 = 1+1  # +1 due to obj passed to getrefcount call
+    if sys.version_info >= (3, 14):
+        # py3.14 started to use LOAD_FAST_BORROW instead of LOAD_FAST
+        # see https://github.com/python/cpython/pull/130708
+        # and https://github.com/python/cpython/commit/f2379535
+        r1 -= 1
+
     # first verify our logic on std type
     obj = bytes(data);      assert type(obj) is bytes
-    gc.collect();   assert sys.getrefcount(obj) == 1+1   # +1 due to obj passed to getrefcount call
+    gc.collect();   assert sys.getrefcount(obj) == r1
 
     # bstr
     obj = b(data);          assert type(obj) is bstr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
     obj = bstr(data);       assert type(obj) is bstr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
 
     # ustr
     obj = u(data);          assert type(obj) is ustr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
     obj = ustr(data);       assert type(obj) is ustr
-    gc.collect();           assert sys.getrefcount(obj) == 1+1
+    gc.collect();           assert sys.getrefcount(obj) == r1
 
 
 # verify memoryview(bstr|ustr).
-def test_strings_memoryview():
-    bs = b('мир')
-    us = u('май')
+@mark.parametrize('tx', (bytes, bstr, ustr))
+def test_strings_memoryview(tx):
+    # NOTE memoryview works for both bytes and bstr but not for ustr.
+    #
+    # Even though it is technically possible(*) we cannot make memoryview(ustr)
+    # to work as it will result in breakage on gpython/py3 because many places
+    # in stdlib assume that if buffer interface is provided then the object is
+    # not a string. One example of such a place is os.listdir, which after
+    # doing PyObject_CheckBuffer decides to return bytes instead of unicode in
+    # the result:
+    #
+    #     https://github.com/python/cpython/blob/v3.11.9-9-g1b0e63c81b5/Modules/posixmodule.c#L4194-L4195
+    #
+    # which makes e.g. pytest to fail to work with
+    #
+    #     $ gpython -m pytest -vsx
+    #     ...
+    #       File ".../lib/python3.11/pathlib.py", line 370, in _select_from
+    #         if self.match(name):
+    #            ^^^^^^^^^^^^^^^^
+    #     TypeError: cannot use a string pattern on a bytes-like object
+    #
+    # In general adding buffer interface to ustr is believed to break too much
+    # compatibility with standard unicode on py3 that we decided against it.
+    #
+    # (*) memoryview(ustr) could return memoryview for bytes-representation of ustr.
+    x = xstr(xbytes('мир')+b'\xff', tx)     # note: invalid utf-8
 
-    with raises(TypeError):
-        memoryview(us)
+    if (tx is ustr):
+        with raises(TypeError):
+            memoryview(x)
+        return
 
-    m = memoryview(bs)
-    assert len(m) == 6
+    m = memoryview(x)
+    assert m.format         == 'B'
+    assert m.itemsize       == 1
+    assert m.ndim           == 1
+    assert m.strides        == (1,)
+    assert m.readonly
+    assert m.shape == (7,)
+    assert len(m) == 7
     def _(i): # returns m[i] as int
-        x = m[i]
+        mi = m[i]
         if six.PY2: # on py2 memoryview[i] returns bytechar
-            x = ord(x)
-        return x
+            mi = ord(mi)
+        return mi
     assert _(0) == 0xd0
     assert _(1) == 0xbc
     assert _(2) == 0xd0
     assert _(3) == 0xb8
     assert _(4) == 0xd1
     assert _(5) == 0x80
+    assert _(6) == 0xff
 
-
+    # memoryview/buffer must be read-only
+    with raises(TypeError, match="cannot modify read-only memory"):
+        m[0] = m[0]
 # verify that ord on bstr/ustr works as expected.
 def test_strings_ord():
     with raises(TypeError): ord(b(''))
@@ -1472,7 +1517,8 @@ def test_strings_mod_and_format():
     _('α %s π', (cc.Counter({'β':1}),)        , "α Counter({'β': 1}) π")
     # OrderedDict
     _('α %s π', (cc.OrderedDict([(1,'мир'), ('β','труд')]),)
-                                              , "α OrderedDict([(1, 'мир'), ('β', 'труд')]) π")
+                                              , xpy312("α OrderedDict({1: 'мир', 'β': 'труд'}) π",
+                                                       "α OrderedDict([(1, 'мир'), ('β', 'труд')]) π"))
     # defaultdict
     _('α %s π', (cc.defaultdict(int, {'β':1}),)
                                               , x32("α defaultdict(<class 'int'>, {'β': 1}) π",
@@ -2002,11 +2048,12 @@ def test_strings_subclasses(tx):
         _  = xx.__str__();  assert _ == 'мир'
     assert type(_) is txstr
 
-    # for bstr/ustr  __bytes__/__unicode__ return *str, never MyStr
-    # (builtin unicode has no __bytes__/__unicode__)
+    # for bstr/ustr  __unicode__ returns *str, never MyStr
+    #                __bytes__   returns bytes leaving string domain
+    # (builtin unicode has no __unicode__/__bytes__)
     if tx is not unicode:
-        _ = xx.__bytes__();    assert type(_) is bytes; assert _ == xbytes('мир')
         _ = xx.__unicode__();  assert type(_) is ustr;  assert _ == 'мир'
+        _ = xx.__bytes__();    assert type(_) is bytes; assert _ == xbytes('мир')
 
 
     # subclass with __str__
@@ -2067,6 +2114,66 @@ def test_qq():
 
     # what qq returns - bstr - can be mixed with both unicode, bytes and bytearray
     # it is tested e.g. in test_strings_ops2 and test_strings_mod_and_format
+
+
+# ---- bstr/ustr interoperability at CAPI level ----
+
+# verify that PyArg_Parse* handle bstr|ustr correctly.
+_ = (
+    's',        # s     py2(str|unicode)            py3(str)
+    's_star',   # s*    py2(s|buffer)               py3(s|bytes-like)
+    's_hash',   # s#    py2(s|r-buffer)             py3(s|r-bytes-like)
+    'z',        # z     py2(s|None)                 py3(s|None)
+    'z_star',   # z*    py2(z|buffer)               py3(z|bytes-like)
+    'z_hash'    # z#    py2(z|r-buffer)             py3(z|r-bytes-like)
+)
+if six.PY2:
+    _ += (
+    't_hash',   # t#    py2(r-buffer)
+    )
+if six.PY3:
+    _ += (
+    'y',        # y                                 py3(r-bytes-like)
+    'y_star',   # y*                                py3(bytes-like)
+    'y_hash',   # y#                                py3(r-bytes-like)
+    )
+# TODO:
+#   S   bytes(PyBytesObject)
+#   U   unicode(py2:PyUnicodeObject,py3:PyObject)
+#   c   (char)
+#   C   (py3:unichar)
+@mark.parametrize('tx',  (bstr, ustr))
+@mark.parametrize('fmt', _)
+def test_strings_capi_getargs_to_cstr(tx, fmt):
+    if six.PY2:
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 't_hash'):
+            # UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
+            xfail("TODO: py2: PyArg_Parse(%s) vs ustr" % fmt)
+
+
+    if six.PY3:
+        if tx is bstr  and  fmt in ('s', 'z'):
+            # PyArg_Parse(s, bstr) currently rejects it with
+            #
+            #   TypeError: argument 1 must be str, not golang.bstr
+            #
+            # because internally it insists on the type being PyUnicode_Object and only that.
+            # TODO we will try to handle this later
+            xfail("TODO: py3: PyArg_Parse(%s) vs bstr" % fmt)
+
+        if tx is ustr  and  fmt in ('s', 's_star', 's_hash', 'z', 'z_star', 'z_hash', 'y', 'y_star', 'y_hash'):
+            # UnicodeEncodeError: 'utf-8' codec can't encode character '\udcff' in position 3: surrogates not allowed
+            # TypeError: a bytes-like object is required, not 'golang.ustr'
+            xfail("TODO: py3: PyArg_Parse(%s) vs ustr" % fmt)
+
+    bmirf = xbytes('мир') + b'\xff'                         # invalid UTF-8 to make sure conversion
+    assert bmirf == b'\xd0\xbc\xd0\xb8\xd1\x80\xff'         # takes our codepath instead of builtin
+    with raises(UnicodeDecodeError): bmirf.decode('UTF-8')  # UTF-8 decoder/encoder.
+
+    x = xstr(bmirf, tx)
+    _ = getattr(testcapi, 'getargs_'+fmt)
+    assert _(x) == bmirf
+
 
 
 # ---- deep replace ----
@@ -2143,7 +2250,11 @@ class _DeepReplacer:
         if issubclass(cls, type): # a class, e.g. 'tuple'
             return obj
         # fast path for atomic objects (int, float, bool, bytes, unicode, ... but not e.g. tuple)
-        if copy._deepcopy_dispatch.get(cls) is copy._deepcopy_atomic:
+        if sys.version_info >= (3, 14):
+            atomic = (cls in copy._atomic_types)
+        else:
+            atomic = (copy._deepcopy_dispatch.get(cls) is copy._deepcopy_atomic)
+        if atomic:
             return obj
 
         # obj is non-atomic - it contains references to other objects
@@ -2324,7 +2435,10 @@ def deepReplaceBytes(obj):
 def test_deepreplace_bytes():
     def f(): pass
     g = lambda: None # non-picklable func
-    with raises((pickle.PicklingError, AttributeError), match="Can't pickle "):
+    cant_pickle = "Can't pickle "
+    if (3, 12) <= sys.version_info < (3, 14):
+        cant_pickle = "Can't get "  # 3.12 and 3.13 raise "Can't get local object ..." instead
+    with raises((pickle.PicklingError, AttributeError), match=cant_pickle):
         pickle.dumps(g, pickle.HIGHEST_PROTOCOL)
 
     class L(list):      pass
@@ -2822,6 +2936,106 @@ def test_strings_cmp_wrt_distutils_LooseVersion(tx):
     assert not (l < x)
 
 
+# base.b64encode(ustr) used to raise TypeError.
+# https://lab.nexedi.com/nexedi/pygolang/merge_requests/21#note_172595
+@mark.parametrize('tx', (bytes, bstr, ustr))
+def test_strings_base64(tx):
+    if six.PY2 and tx is ustr:
+        # PyArg_Parse('s*', u) -> _PyUnicode_AsDefaultEncodedString(u)
+        #   -> UnicodeEncodeError: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
+        #
+        # even if default encoding is utf-8 (gpython) the result is 0LzQuNGA7bO
+        xfail("TODO: py2: ustr -> default encoded bstr")
+    if six.PY3 and tx is ustr:
+        # PyObject_GetBuffer(u)
+        #   -> TypeError: a bytes-like object is required, not 'golang.ustr'
+        xfail("TODO: py3: accept ustr in binascii.b2a_base64")
+    x = xstr(u'мир', tx) + b'\xff'  ; assert type(x) is tx
+    assert base64.b64encode(x) == b'0LzQuNGA/w=='
+
+
+
+    vhasattr = [hasattr, t.CPyObject_HasAttr]
+
+    value = object()
+
+    # run runs f on each element of v.
+    def run(f, v):
+        for e in v:
+            f(e)
+
+    # attr is initially missing
+    def _(ga):
+        with raises(AttributeError): ga(obj, x)
+    run(_, vgetattr)
+
+    def _(ha):
+        assert ha(obj, x) is False
+    run(_, vhasattr)
+
+    def _(da):
+        with raises(AttributeError): da(obj, x)
+    run(_, vdelattr)
+
+    # set attr -> make sure it is there -> del
+    for sa in vsetattr:
+        for da in vdelattr:
+            def _(ha):
+                assert ha(obj, x) is False
+            run(_, vhasattr)
+            sa(obj, x, value)
+            def _(ha):
+                assert ha(obj, x) is True
+            run(_, vhasattr)
+            def _(ga):
+                assert ga(obj, x) is value
+            da(obj, x)
+            def _(ha):
+                assert ha(obj, x) is False
+            run(_, vhasattr)
+            def _(ga):
+                with raises(AttributeError): ga(obj, x)
+            run(_, vgetattr)
+
+
+# ---- issues hit by users ----
+# fixes for below issues have their corresponding tests in the main part above, but
+# we also add tests with original code where problems were hit.
+
+# three-way comparison wrt class with __cmp__ was working incorrectly because
+# bstr.__op__ were not returning NotImplemented wrt non-string types.
+# https://lab.nexedi.com/nexedi/slapos/-/merge_requests/1575#note_206080
+@mark.parametrize('tx', (str, bstr if str is bytes  else ustr)) # LooseVersion does not handle unicode on py2
+def test_strings_cmp_wrt_distutils_LooseVersion(tx):
+    from distutils.version import LooseVersion
+
+    l = LooseVersion('1.16.2')
+
+    x = xstr('1.12', tx)
+    assert not (x == l)
+    assert not (l == x)
+    assert      x != l
+    assert      l != x
+    assert not (x >= l)
+    assert      l >= x
+    assert      x <= l
+    assert not (l <= x)
+    assert      x < l
+    assert not (l < x)
+
+    x = xstr('1.16.2', tx)
+    assert      x == l
+    assert      l == x
+    assert not (x != l)
+    assert not (l != x)
+    assert      x >= l
+    assert      l >= x
+    assert      x <= l
+    assert      l <= x
+    assert not (x < l)
+    assert not (l < x)
+
+
 # ---- benchmarks ----
 
 # utf-8 decoding
@@ -2887,7 +3101,7 @@ def deepReplaceStr2Bytearray(x):
     try:
         return deepReplaceStr(x, xbytearray)
     except TypeError as e:
-        if e.args != ("unhashable type: 'bytearray'",):
+        if not (len(e.args) == 1  and  "unhashable type: 'bytearray'" in e.args[0]):
             raise
         return deepReplaceStr(x, xhbytearray)
 
@@ -2969,9 +3183,9 @@ class hlist(list):
 def x32(a, b):
     return a if six.PY3 else b
 
-# xb32(x, y, z) returns x if (bstr is not bytes)    or  x32(y,z)
-# xu32(x, y, z) returns x if (ustr is not unicode)  or  x32(y,z)
-def xb32(x, y, z):
+# xpy312(a,b) returns a on py ≥ 3.12 and b on < 3.12
+def xpy312(a, b):
+    return a if sys.version_info >= (3, 12) else b
     return x if (bstr is not bytes)   else x32(y,z)
 def xu32(x, y, z):
     return x if (ustr is not unicode) else x32(y,z)

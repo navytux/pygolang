@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018-2024  Nexedi SA and Contributors.
+# Copyright (C) 2018-2026  Nexedi SA and Contributors.
 #                          Kirill Smelkov <kirr@nexedi.com>
 #
 # This program is free software: you can Use, Study, Modify and Redistribute
@@ -45,7 +45,7 @@ $GPYTHON_STRINGS=pystd.
 from __future__ import print_function, absolute_import
 
 
-_pyopt = "c:Eim:OvVW:X:"
+_pyopt = "c:Eim:OuvVW:X:"
 _pyopt_long = ('version',)
 
 # pymain mimics `python ...`
@@ -106,7 +106,7 @@ def pymain(argv, init=None):
 
 
 
-    run = None          # function to run according to -c/-m/file/stdin/interactive
+    run = None          # function to run according to -c/-m/file/dir/stdin/interactive
     version = False     # set if `-V`
     warnoptions = []    # collected `-W arg`
     reexec_with = []    # reexecute underlying python with those options (e.g. -O, -S, ...)
@@ -121,6 +121,7 @@ def pymain(argv, init=None):
                 '-O',   # optimize
                 '-v',   # trace import statements
                 '-X',   # set implementation-specific option
+                '-u',   # unbuffered mode
             ):
 
             # but keep `-X gpython.*` in user part of argv in case of reexec
@@ -190,19 +191,54 @@ def pymain(argv, init=None):
     argv = igetopt.argv
     reexec_argv += argv
     if run is None:
-        # file
+        # file / dir / dir.zip
         if len(argv) > 0 and argv[0] != '-':
             sys.argv = argv
-            filepath = argv[0]
-            # starting from cpython 3.9 __file__ is always absolute
-            # https://bugs.python.org/issue20443
-            if sys.version_info >= (3, 9):
-                filepath = realpath(filepath)
+            path = argv[0]
 
-            sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
             def run(mmain):
-                mmain.__file__ = filepath
-                _execfile(filepath, mmain.__dict__)
+                # ideally we would use runpy.run_path here, but that installs its own
+                # temporary module instead of running with __main__ already prepared by us.
+                # -> handle it ourselves, similarly to how runpy.run_path does it.
+                import runpy
+                if sys.version_info >= (3,):
+                    import pkgutil
+                    _ = pkgutil.get_importer(path)
+                    isfile = (_ is None)
+                else:
+                    import imp
+                    _ = runpy._get_importer(path)
+                    isfile = isinstance(_, imp.NullImporter)
+                # file
+                if isfile:
+                    filepath = path
+                    # starting from cpython 3.9 __file__ is always absolute
+                    # https://bugs.python.org/issue20443
+                    if sys.version_info >= (3, 9):
+                        filepath = realpath(filepath)
+                    sys.path.insert(0, realpath(dirname(filepath))) # not abspath -> see PySys_SetArgvEx
+                    mmain.__file__ = filepath
+                    _execfile(filepath, mmain.__dict__)
+                # dir / dir.zip
+                else:
+                    sys.path.insert(0, realpath(path))
+                    kw = {}
+                    if sys.version_info >= (3,):
+                        name, spec, code = runpy._get_main_module_details()
+                        kw['mod_name'] = name
+                        kw['mod_spec'] = spec
+                    else:
+                        # NOTE on py3 runpy._get_main_module_details stashes current __main__ while doing
+                        # its work, but it does not do so on py2.
+                        sysmain = sys.modules.pop('__main__')
+                        try:
+                            name, loader, code, filename = runpy._get_main_module_details()
+                        finally:
+                            sys.modules['__main__'] = sysmain
+                        kw['mod_name']   = name
+                        kw['mod_loader'] = loader
+                        kw['mod_fname']  = filename
+                    runpy._run_code(code, run_globals=mmain.__dict__, **kw)
 
         # interactive console / program on non-tty stdin
         else:
@@ -340,7 +376,62 @@ def _interact(mmain, banner=None):
         return raw_input('')
     console.raw_input = _
 
-    console.interact(banner=banner)
+    kw = _interact_defaults()
+    if banner is None:
+        banner = kw['banner']
+    # interact appends banner with trailing \n
+    if banner.endswith('\n'):
+        banner = banner[:-1]
+    kw['banner'] = banner
+    console.interact(**kw)
+
+# _interact_defaults returns default arguments for _interact to be used with InteractiveConsole.
+#
+# it silences InteractiveConsole specific entry and exit so that the output resembles standard python.
+# it also includes OS/architecture in the banner.
+def _interact_defaults(): # -> kw
+    import code, sys
+    from six.moves import StringIO
+
+    # retrieve `Type "help", ...` line from builtin banner
+    s = StringIO()
+    c = code.InteractiveConsole()
+    c.write = s.write
+    def _(*argv): raise EOFError()
+    c.raw_input = _
+    c.interact()
+    banner = s.getvalue()
+    # Python <ver> on ...
+    # ...
+    # Type "help", ...
+    type_help = None
+    for _ in banner.splitlines():
+        if '"help"' in _:
+            type_help = _
+            break
+
+    # construct our banner from scratch but include type_help there
+    # don't import golang if we are not running under gpython
+    if 'golang' in sys.modules:
+        from golang import runtime
+        on = '%s/%s' % (runtime.OS, runtime.ARCH)          # e.g. android/arm64
+    else:
+        import platform
+        on = '%s/%s' % (sys.platform, platform.machine())  # e.g. linux/aarch64
+    banner = "Python %s on %s\n" % (sys.version, on)
+    if type_help is not None:
+        banner += ("%s\n" % type_help)
+    kw = {'banner': banner}
+
+    # also see if exitmsg should be silenced
+    try:
+        c.interact(exitmsg='')
+    except TypeError:
+        pass
+    else:
+        kw['exitmsg'] = ''
+
+    return kw
 
 
 # execfile was removed in py3
@@ -587,7 +678,7 @@ class _IGetOpt:
         # long option
         arg = None
         if '=' in opt:
-            opt, arg = opt.split('=')
+            opt, arg = opt.split('=', 1)
         if opt not in self._opts:
             raise RuntimeError('unexpected option %s' % opt)
         arg_required = self._opts[opt]

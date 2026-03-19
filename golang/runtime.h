@@ -1,7 +1,7 @@
 #ifndef _NXD_LIBGOLANG_RUNTIME_H
 #define _NXD_LIBGOLANG_RUNTIME_H
 
-// Copyright (C) 2023-2024  Nexedi SA and Contributors.
+// Copyright (C) 2023-2026  Nexedi SA and Contributors.
 //                          Kirill Smelkov <kirr@nexedi.com>
 //
 // This program is free software: you can Use, Study, Modify and Redistribute
@@ -31,17 +31,42 @@ namespace runtime {
 
 // ARCH indicates processor architecture, that is running the program.
 //
-// e.g. "386", "amd64", "arm64", ...
+// List of supported architectures:
+//
+//      386, amd64
+//      arm, arm64
+//      mips, mipsle, mips64, mips64le
+//      loong64
+//      ppc, ppcle, ppc64, ppc64le
+//      riscv, riscv64
+//      s390, s390x
 extern LIBGOLANG_API const string ARCH;
 
 // OS indicates operating system, that is running the program.
 //
-// e.g. "linux", "darwin", "windows", ...
+// List of supported operating systems:
+//
+//      android
+//      darwin
+//      dragonfly
+//      freebsd
+//      illumos
+//      ios
+//      linux
+//      netbsd
+//      openbsd
+//      plan9
+//      solaris
+//      windows
 extern LIBGOLANG_API const string OS;
 
 // CC indicates C/C++ compiler, that compiled the program.
 //
-// e.g. "gcc", "clang", "msc", ...
+// List of supported compilers:
+//
+//      gcc
+//      clang
+//      msc
 extern LIBGOLANG_API const string CC;
 
 
